@@ -8,6 +8,7 @@ import '../models/proceso_contratacion.dart';
 import '../models/contrato.dart';
 import '../models/poliza.dart';
 import '../../presupuesto/services/presupuesto_service.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class ContratacionService {

@@ -5,6 +5,7 @@ library;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/regalia.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class RegaliasService {
@@ -149,3 +150,4 @@ class RegaliasService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
+

@@ -10,6 +10,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/proceso_contratacion.dart';
 import '../models/contrato.dart';
 import '../../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
 
 class SECOPService {
   final Database db;
@@ -39,7 +40,7 @@ class SECOPService {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       if (apiKey != null) 'Authorization': 'Bearer $apiKey',
-      'X-Road-Client': ?xroadClientId,
+      if (xroadClientId != null) 'X-Road-Client': xroadClientId,
     },
   )), _soda3Dio = Dio(BaseOptions(
     connectTimeout: _timeout,
@@ -78,12 +79,12 @@ class SECOPService {
     try {
       // Preparar payload para SECOP II
       final payload = {
-        'tipo_proceso': proceso.tipoProceso.toString().split('.').last,
+        'tipo_proceso': proceso.tipoContrato.toString().split('.').last,
         'modalidad_seleccion': proceso.modalidad.toString().split('.').last,
-        'objeto_contrato': proceso.descripcion,
+        'objeto_contrato': proceso.objetoContrato,
         'valor_estimado': proceso.valorEstimado,
         'fecha_inicio': proceso.fechaInicio.toIso8601String(),
-        'fecha_fin': proceso.fechaFin.toIso8601String(),
+        'fecha_fin': proceso.fechaCierre?.toIso8601String(),
         'nit_entidad': nitEntidad,
         'entidad': proceso.entidadId,
       };
@@ -244,8 +245,8 @@ class SECOPService {
         'numero_contrato': contrato.numeroContrato,
         'valor_contrato': contrato.valorContrato,
         'fecha_firma': contrato.fechaFirma.toIso8601String(),
-        'fecha_inicio': contrato.fechaInicio.toIso8601String(),
-        'fecha_fin': contrato.fechaFin.toIso8601String(),
+        'fecha_inicio': contrato.fechaInicioEjecucion.toIso8601String(),
+        'fecha_fin': contrato.fechaFinEjecucion.toIso8601String(),
       };
 
       final response = await _dio.post(
@@ -337,19 +338,19 @@ class SECOPService {
       }
       
       if (limit != null) {
-        queryParams['$limit'] = limit;
+        queryParams['\$limit'] = limit;
       }
       
       if (offset != null) {
-        queryParams['$offset'] = offset;
+        queryParams['\$offset'] = offset;
       }
       
       if (soqlFilter != null) {
-        queryParams['$where'] = soqlFilter;
+        queryParams['\$where'] = soqlFilter;
       }
       
       // Ordenar por fecha de publicación descendente
-      queryParams['$order'] = 'fecha_publicacion DESC';
+      queryParams['\$order'] = 'fecha_publicacion DESC';
 
       final response = await _soda3Dio.get(
         _soda3BaseUrl,

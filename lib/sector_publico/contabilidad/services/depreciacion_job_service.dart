@@ -6,7 +6,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 class DepreciacionJobService {
   final Database db;
@@ -53,7 +54,7 @@ class DepreciacionJobService {
 
     final configMap = <String, Map<String, dynamic>>{};
     for (final config in configuraciones) {
-      configMap[config['tipo_activo']] = {
+      configMap[config['tipo_activo'] as String] = {
         'vida_util_anios': config['vida_util_anios'],
         'metodo_depreciacion': config['metodo_depreciacion'],
         'porcentaje_depreciacion': config['porcentaje_depreciacion'],
@@ -325,3 +326,4 @@ class DepreciacionJobService {
     return resultado.isNotEmpty;
   }
 }
+

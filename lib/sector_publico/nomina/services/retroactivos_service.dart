@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/empleado.dart';
 import '../models/retroactivo.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class RetroactivosService {
@@ -77,7 +78,7 @@ class RetroactivosService {
     await auditoriaService.registrarEvento(
       entidadId: entidadId,
       usuarioId: usuarioId,
-      tipoEvento: TipoEventoAuditoria.calculoRetroactivo,
+      tipoEvento: TipoEventoAuditoria.reliquidacion,
       modulo: 'nomina',
       accion: 'calculo_retroactivo',
       valorAnterior: {'empleado_id': empleadoId},
@@ -238,3 +239,4 @@ class RetroactivosService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
+

@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum TipoImpuestoDepartamental {
   impuestoAlConsumo,
@@ -251,7 +252,7 @@ class RentasDepartamentalesService {
     // Por tipo de impuesto
     final porTipo = <String, double>{};
     for (final d in declaraciones) {
-      final tipo = d['tipo_impuesto'];
+      final tipo = d['tipo_impuesto'] as String;
       porTipo[tipo] = (porTipo[tipo] ?? 0) + (d['impuesto'] as num).toDouble();
     }
 
@@ -264,7 +265,7 @@ class RentasDepartamentalesService {
         whereArgs: [d['contribuyente_id']],
       );
       if (contribuyente.isNotEmpty) {
-        final municipio = contribuyente.first['municipio'];
+        final municipio = contribuyente.first['municipio'] as String;
         porMunicipio[municipio] = (porMunicipio[municipio] ?? 0) + (d['impuesto'] as num).toDouble();
       }
     }

@@ -5,6 +5,7 @@ library;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/consolidacion_nicsp40.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class NICSP40Service {
@@ -178,3 +179,4 @@ class NICSP40Service {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
+

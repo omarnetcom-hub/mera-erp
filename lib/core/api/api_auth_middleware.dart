@@ -4,6 +4,7 @@
 // ============================================================
 
 import 'dart:convert';
+import 'dart:developer';
 import 'package:shelf/shelf.dart';
 import 'jwt_service.dart';
 
@@ -171,12 +172,12 @@ class APIAuthMiddleware {
       return (Request request) async {
         final start = DateTime.now();
         
-        print('[${start.toIso8601String()}] ${request.method} ${request.url.path}');
+        log('[${start.toIso8601String()}] ${request.method} ${request.url.path}');
         
         final response = await innerHandler(request);
         
         final duration = DateTime.now().difference(start);
-        print('[${DateTime.now().toIso8601String()}] ${request.method} ${request.url.path} - ${response.statusCode} (${duration.inMilliseconds}ms)');
+        log('[${DateTime.now().toIso8601String()}] ${request.method} ${request.url.path} - ${response.statusCode} (${duration.inMilliseconds}ms)');
         
         return response;
       };

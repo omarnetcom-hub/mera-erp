@@ -5,6 +5,7 @@ library;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/pdt.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class PDTService {
@@ -205,3 +206,4 @@ class PDTService {
     return resultados.map((r) => PDT.fromJson(r)).toList();
   }
 }
+

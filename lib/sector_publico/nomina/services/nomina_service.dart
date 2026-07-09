@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/empleado.dart';
 import '../models/liquidacion_nomina.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class NominaService {
@@ -42,7 +43,7 @@ class NominaService {
 
     final salarioDevengado = (empleado.salarioBasico / 30) * diasTrabajados;
     final auxilioTransporte = _calcularAuxilioTransporte(empleado.salarioBasico);
-    final auxilioAlimentacion = 0; // Implementar según política
+    final auxilioAlimentacion = 0.0; // Implementar según política
 
     final totalDevengado = salarioDevengado + auxilioTransporte + auxilioAlimentacion + 
                            (horasExtra ?? 0) + (recargoNocturno ?? 0);
@@ -77,8 +78,8 @@ class NominaService {
       salarioDevengado: salarioDevengado,
       auxilioTransporte: auxilioTransporte,
       auxilioAlimentacion: auxilioAlimentacion,
-      horasExtra: horasExtra ?? 0,
-      recargoNocturno: recargoNocturno ?? 0,
+      horasExtra: horasExtra ?? 0.0,
+      recargoNocturno: recargoNocturno ?? 0.0,
       totalDevengado: totalDevengado,
       salud: salud,
       pension: pension,
@@ -167,3 +168,4 @@ class NominaService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
+

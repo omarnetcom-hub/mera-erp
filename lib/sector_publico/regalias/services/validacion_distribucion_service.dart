@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum TipoFondo {
   ahorro,
@@ -340,3 +341,4 @@ class ValidacionDistribucionService {
     return distribucion;
   }
 }
+

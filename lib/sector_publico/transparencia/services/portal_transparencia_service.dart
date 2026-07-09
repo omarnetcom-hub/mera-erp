@@ -5,7 +5,8 @@ library;
 
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum TipoInformacion {
   presupuesto,
@@ -194,7 +195,7 @@ class PortalTransparenciaService {
         await auditoriaService.registrarEvento(
           entidadId: entidadId,
           usuarioId: usuarioId,
-          tipoEvento: TipoEventoAuditoria.eliminacionRegistro,
+          tipoEvento: TipoEventoAuditoria.intentoEliminacion,
           modulo: 'transparencia',
           accion: 'eliminacion_portal_transparencia',
           valorAnterior: {
@@ -363,3 +364,4 @@ class PortalTransparenciaService {
     return [];
   }
 }
+

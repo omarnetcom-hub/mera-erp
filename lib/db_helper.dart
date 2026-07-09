@@ -5303,14 +5303,12 @@ class DatabaseHelper {
     final retefuente = 0; // Pendiente implementación con tabla UVT
 
     final metodoPago = empleado['metodo_pago']?.toString() ?? 'Efectivo';
-    final banco = empleado['banco']?.toString() ?? '';
-    final numeroCuenta = empleado['numero_cuenta']?.toString() ?? '';
 
     final esBanco = metodoPago.toUpperCase() != 'EFECTIVO';
     final origenCaja = esBanco ? 'banco' : 'caja';
     final cuentaDinero = esBanco ? '111005' : '110505';
 
-    final movCajaId = await db.insert('movimientos_caja', {
+    await db.insert('movimientos_caja', {
       'company_id': companyId,
       'tipo': 'egreso',
       'concepto': 'Nómina $mes/$anio - ${empleado['nombre']}',
@@ -5318,8 +5316,8 @@ class DatabaseHelper {
       'fecha': DateTime.now().toIso8601String(),
       'origen': origenCaja,
     });
-
-    final asientoId = await _registrarAsientoConCodigos(
+ 
+    await _registrarAsientoConCodigos(
       concepto: 'Liquidación Nómina $mes/$anio - ${empleado['nombre']}',
       referencia: 'NOM-$empleadoId',
       origen: 'nomina',
@@ -7492,7 +7490,6 @@ class DatabaseHelper {
 
   Future<void> anularMovimientoCaja(int id) async {
     final db = await instance.database;
-    final companyId = await obtenerEmpresaActivaId();
     final movs = await db.query('movimientos_caja', where: 'id = ?', whereArgs: [id]);
     if (movs.isEmpty) return;
     final mov = movs.first;
@@ -7614,8 +7611,7 @@ class DatabaseHelper {
       if (vidaUtilMeses <= 0 || valorLibros <= valorResidual) continue;
 
       final ultDep = act['fecha_depreciacion']?.toString();
-      final ahora = DateTime.now();
-
+ 
       if (ultDep != null && ultDep.substring(0, 7) == ahoraStr.substring(0, 7)) {
         continue;
       }

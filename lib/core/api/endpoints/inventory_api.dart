@@ -101,8 +101,8 @@ class InventoryAPI {
       }
       
       final body = await request.readAsString();
-      final data = jsonDecode(body) as Map<String, dynamic>;
-      
+      jsonDecode(body);
+       
       // TODO: Implementar creación en base de datos
       final productId = 0;
       
@@ -127,8 +127,8 @@ class InventoryAPI {
       }
       
       final body = await request.readAsString();
-      final data = jsonDecode(body) as Map<String, dynamic>;
-      
+      jsonDecode(body);
+       
       // TODO: Implementar actualización en base de datos
       
       return Response.ok(
@@ -172,11 +172,11 @@ class InventoryAPI {
       }
       
       final thresholdValue = double.tryParse(threshold) ?? 10.0;
-      
+       
       // TODO: Implementar consulta de stock bajo
-      
+       
       return Response.ok(
-        jsonEncode({'products': []}),
+        jsonEncode({'products': [], 'threshold': thresholdValue}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e) {
@@ -216,8 +216,8 @@ class InventoryAPI {
       }
       
       final body = await request.readAsString();
-      final data = jsonDecode(body) as Map<String, dynamic>;
-      
+      jsonDecode(body);
+       
       // TODO: Implementar creación de lote
       
       return Response(

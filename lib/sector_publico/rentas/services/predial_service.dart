@@ -8,6 +8,7 @@ import '../models/predio.dart';
 import '../models/liquidacion_predial.dart';
 import '../models/acuerdo_pago.dart';
 import 'intereses_moratorios_service.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class PredialService {
@@ -79,6 +80,7 @@ class PredialService {
     required String usuarioId,
     required String vigencia,
     required double ipcAnual,
+    DateTime? fechaLiquidacion,
   }) async {
     // Obtener todos los predios activos
     final predios = await db.query(
@@ -97,6 +99,7 @@ class PredialService {
           vigencia: vigencia,
           predioId: predioData['id'] as String,
           ipcAnual: ipcAnual,
+          fechaLiquidacion: fechaLiquidacion,
         );
         liquidaciones.add(liquidacion);
       } catch (e) {
@@ -115,6 +118,13 @@ class PredialService {
     required String vigencia,
     required String predioId,
     required double ipcAnual,
+    // fechaLiquidacion: fecha de referencia para el descuento de pronto pago
+    // (primer trimestre). Por defecto usa la fecha actual del sistema; cuando
+    // se conecte la UI real de liquidación masiva (pendiente, ver plan maestro
+    // fase de conexión UI-servicios), debe decidirse explícitamente si esta
+    // fecha es la del proceso batch o si se permite reliquidar vigencias
+    // atrasadas con otra fecha.
+    DateTime? fechaLiquidacion,
   }) async {
     // Obtener el predio
     final predioResult = await db.query(
@@ -130,7 +140,7 @@ class PredialService {
     final predioData = predioResult.first;
     final predio = Predio.fromJson(predioData);
 
-    // VALIDACIÓN NORMATIVA: Verificar tope de incremento
+    // VALIDACI“N NORMATIVA: Verificar tope de incremento
     if (!predio.cumpleTopeIncremento(ipcAnual)) {
       throw Exception(
         'El predio ${predio.numeroPredial} excede el tope de incremento legal. '
@@ -156,20 +166,16 @@ class PredialService {
 
     // Calcular impuesto base: Avalúo × Tarifa (por mil)
     final impuestoBase = (predio.avaluoCatastral * tarifa) / 1000;
-
-    // Calcular descuento por pronto pago (hasta 10% en primer trimestre)
-    double descuentoProntoPago = 0;
-    if (predio.aplicaDescuentoProntoPago()) {
-      descuentoProntoPago = impuestoBase * 0.10; // 10% de descuento
-    }
-
+ 
+    final fecha = fechaLiquidacion ?? DateTime.now();
+    final descuentoProntoPago = (fecha.month <= 3) ? impuestoBase * 0.10 : 0.0;
+ 
     final total = impuestoBase - descuentoProntoPago;
 
     final id = _uuid.v4();
     final numeroLiquidacion = 'LP-$vigencia-${_generarNumeroSecuencial()}';
-    final fechaLiquidacion = DateTime.now();
-    final fechaVencimiento = fechaLiquidacion.add(const Duration(days: 180)); // 6 meses
-
+    final fechaVencimiento = fecha.add(const Duration(days: 180)); // 6 meses
+ 
     final liquidacion = LiquidacionPredial(
       id: id,
       entidadId: entidadId,
@@ -186,7 +192,7 @@ class PredialService {
       descuentoProntoPago: descuentoProntoPago,
       interesesMora: 0,
       totalPagar: total,
-      fechaLiquidacion: fechaLiquidacion,
+      fechaLiquidacion: fecha,
       fechaVencimiento: fechaVencimiento,
       estado: EstadoLiquidacion.generada,
     );
@@ -318,3 +324,4 @@ class PredialService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
+

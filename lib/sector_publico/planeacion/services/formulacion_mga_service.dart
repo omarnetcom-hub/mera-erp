@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum EstadoFormulacion {
   borrador,
@@ -428,14 +429,16 @@ class FormulacionMGAService {
     // Por estado
     final porEstado = <String, int>{};
     for (final p in proyectos) {
-      final estado = p['estado'];
+      final estado = p['estado'] as String?;
+      if (estado == null) continue;
       porEstado[estado] = (porEstado[estado] ?? 0) + 1;
     }
-
+ 
     // Por fuente de financiación
     final porFuente = <String, int>{};
     for (final p in proyectos) {
-      final fuente = p['fuente_financiacion'];
+      final fuente = p['fuente_financiacion'] as String?;
+      if (fuente == null) continue;
       porFuente[fuente] = (porFuente[fuente] ?? 0) + 1;
     }
 

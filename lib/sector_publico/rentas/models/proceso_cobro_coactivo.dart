@@ -124,8 +124,8 @@ class ProcesoCobroCoactivo {
   }
 
   /// Avanza a la siguiente etapa del cobro coactivo
-  void avanzarEtapa(EtapaCobroCoactivo nuevaEtapa) {
-    etapaActual = nuevaEtapa;
+  ProcesoCobroCoactivo avanzarEtapa(EtapaCobroCoactivo nuevaEtapa) {
+    return copyWith(etapaActual: nuevaEtapa);
   }
 
   /// Verifica si el proceso está prescrito (5 años)

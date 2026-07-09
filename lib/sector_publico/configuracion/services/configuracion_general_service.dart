@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 import 'selector_entidad_service.dart';
 import 'matriz_visibilidad_service.dart';
 
@@ -165,7 +166,7 @@ class ConfiguracionGeneralService {
     await auditoriaService.registrarEvento(
       entidadId: entidadId,
       usuarioId: usuarioId,
-      tipoEvento: TipoEventoAuditoria.eliminacionRegistro,
+      tipoEvento: TipoEventoAuditoria.intentoEliminacion,
       modulo: 'configuracion',
       accion: 'eliminacion_configuracion',
       valorAnterior: {
@@ -299,3 +300,4 @@ class ConfiguracionGeneralService {
     };
   }
 }
+

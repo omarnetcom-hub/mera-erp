@@ -254,8 +254,8 @@ class ExportService {
   
   /// Comparte un archivo exportado
   Future<void> shareFile(File file, {String? subject}) async {
-    await Share.shareFiles(
-      [file.path],
+    await Share.shareXFiles(
+      [XFile(file.path)],
       subject: subject ?? 'Archivo exportado desde MerkaERP',
     );
   }

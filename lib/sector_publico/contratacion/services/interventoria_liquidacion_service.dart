@@ -4,20 +4,21 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum TipoInforme {
   inicial,
   mensual,
-  final,
+  finalInforme,
   especial,
 }
 
 enum TipoAlerta {
-  retraso_ejecucion,
-  incumplimiento_especificaciones,
-  problemas_calidad,
-  retraso_pago,
+  retrasoEjecucion,
+  incumplimientoEspecificaciones,
+  problemasCalidad,
+  retrasoPago,
   otro,
 }
 

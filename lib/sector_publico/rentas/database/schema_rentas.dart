@@ -206,7 +206,7 @@ class SchemaRentas {
     final batch = db.batch();
     for (final tarifa in tarifas) {
       batch.insert('tarifas_prediales', {
-        'id': DateTime.now().millisecondsSinceEpoch.toString() + tarifa[0] + tarifa[1],
+        'id': DateTime.now().millisecondsSinceEpoch.toString() + (tarifa[0] as String) + (tarifa[1] as String),
         'entidad_id': entidadId,
         'uso_suelo': tarifa[0],
         'estrato': tarifa[1],

@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum Modulo {
   presupuesto,
@@ -297,8 +298,8 @@ class MatrizVisibilidadService {
       return {}; // Sin configuración, sin módulos
     }
 
-    final tipo = configEntidad.first['tipo'];
-    final subtipo = configEntidad.first['subtipo'];
+    final tipo = configEntidad.first['tipo'] as String;
+    final subtipo = configEntidad.first['subtipo'] as String?;
 
     return obtenerModulosVisibles(tipo: tipo, subtipo: subtipo);
   }

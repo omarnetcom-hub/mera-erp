@@ -4,8 +4,8 @@
 library;
 
 import 'package:sqflite/sqflite.dart';
-import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum MetodoFlujoEfectivo {
   directo,
@@ -15,7 +15,6 @@ enum MetodoFlujoEfectivo {
 class FlujoEfectivoService {
   final Database db;
   final AuditoriaService auditoriaService;
-  final Uuid _uuid = const Uuid();
 
   FlujoEfectivoService({
     required this.db,
@@ -177,33 +176,32 @@ class FlujoEfectivoService {
     ];
 
     for (final cuenta in cuentasEntradasOperacion) {
-      final resultado = await db.query(
-        'detalles_asientos da',
-        join: '''
+      final resultado = await db.rawQuery(
+        '''
+          SELECT da.*
+          FROM detalles_asientos da
           INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          WHERE ac.entidad_id = ?
+            AND da.cuenta_codigo = ?
+            AND ac.fecha_asiento BETWEEN ? AND ?
+            AND da.debito > 0
         ''',
-        where: '''
-          ac.entidad_id = ? AND 
-          da.cuenta_codigo = ? AND 
-          ac.fecha_asiento BETWEEN ? AND ? AND
-          da.debito > 0
-        ''',
-        whereArgs: [
+        [
           entidadId,
-          cuenta['codigo'],
+          cuenta['codigo']!,
           fechaInicio.toIso8601String(),
           fechaFin.toIso8601String(),
         ],
       );
-
+ 
       final suma = resultado.fold<double>(
         0,
         (sum, r) => sum + (r['debito'] as num).toDouble(),
       );
-
+ 
       if (suma > 0) {
         totalEntradas += suma;
-        detalles[cuenta['nombre']] = suma;
+        detalles[cuenta['nombre']!] = suma;
       }
     }
 
@@ -216,33 +214,32 @@ class FlujoEfectivoService {
     ];
 
     for (final cuenta in cuentasSalidasOperacion) {
-      final resultado = await db.query(
-        'detalles_asientos da',
-        join: '''
+      final resultado = await db.rawQuery(
+        '''
+          SELECT da.*
+          FROM detalles_asientos da
           INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          WHERE ac.entidad_id = ?
+            AND da.cuenta_codigo = ?
+            AND ac.fecha_asiento BETWEEN ? AND ?
+            AND da.credito > 0
         ''',
-        where: '''
-          ac.entidad_id = ? AND 
-          da.cuenta_codigo = ? AND 
-          ac.fecha_asiento BETWEEN ? AND ? AND
-          da.credito > 0
-        ''',
-        whereArgs: [
+        [
           entidadId,
-          cuenta['codigo'],
+          cuenta['codigo']!,
           fechaInicio.toIso8601String(),
           fechaFin.toIso8601String(),
         ],
       );
-
+ 
       final suma = resultado.fold<double>(
         0,
         (sum, r) => sum + (r['credito'] as num).toDouble(),
       );
-
+ 
       if (suma > 0) {
         totalSalidas += suma;
-        detalles[cuenta['nombre']] = -suma;
+        detalles[cuenta['nombre']!] = -suma;
       }
     }
 
@@ -269,33 +266,32 @@ class FlujoEfectivoService {
     ];
 
     for (final cuenta in cuentasEntradasInversion) {
-      final resultado = await db.query(
-        'detalles_asientos da',
-        join: '''
+      final resultado = await db.rawQuery(
+        '''
+          SELECT da.*
+          FROM detalles_asientos da
           INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          WHERE ac.entidad_id = ?
+            AND da.cuenta_codigo = ?
+            AND ac.fecha_asiento BETWEEN ? AND ?
+            AND da.debito > 0
         ''',
-        where: '''
-          ac.entidad_id = ? AND 
-          da.cuenta_codigo = ? AND 
-          ac.fecha_asiento BETWEEN ? AND ? AND
-          da.debito > 0
-        ''',
-        whereArgs: [
+        [
           entidadId,
-          cuenta['codigo'],
+          cuenta['codigo']!,
           fechaInicio.toIso8601String(),
           fechaFin.toIso8601String(),
         ],
       );
-
+ 
       final suma = resultado.fold<double>(
         0,
         (sum, r) => sum + (r['debito'] as num).toDouble(),
       );
-
+ 
       if (suma > 0) {
         totalEntradas += suma;
-        detalles[cuenta['nombre']] = suma;
+        detalles[cuenta['nombre']!] = suma;
       }
     }
 
@@ -306,33 +302,32 @@ class FlujoEfectivoService {
     ];
 
     for (final cuenta in cuentasSalidasInversion) {
-      final resultado = await db.query(
-        'detalles_asientos da',
-        join: '''
+      final resultado = await db.rawQuery(
+        '''
+          SELECT da.*
+          FROM detalles_asientos da
           INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          WHERE ac.entidad_id = ?
+            AND da.cuenta_codigo = ?
+            AND ac.fecha_asiento BETWEEN ? AND ?
+            AND da.credito > 0
         ''',
-        where: '''
-          ac.entidad_id = ? AND 
-          da.cuenta_codigo = ? AND 
-          ac.fecha_asiento BETWEEN ? AND ? AND
-          da.credito > 0
-        ''',
-        whereArgs: [
+        [
           entidadId,
-          cuenta['codigo'],
+          cuenta['codigo']!,
           fechaInicio.toIso8601String(),
           fechaFin.toIso8601String(),
         ],
       );
-
+ 
       final suma = resultado.fold<double>(
         0,
         (sum, r) => sum + (r['credito'] as num).toDouble(),
       );
-
+ 
       if (suma > 0) {
         totalSalidas += suma;
-        detalles[cuenta['nombre']] = -suma;
+        detalles[cuenta['nombre']!] = -suma;
       }
     }
 
@@ -359,33 +354,32 @@ class FlujoEfectivoService {
     ];
 
     for (final cuenta in cuentasEntradasFinanciacion) {
-      final resultado = await db.query(
-        'detalles_asientos da',
-        join: '''
+      final resultado = await db.rawQuery(
+        '''
+          SELECT da.*
+          FROM detalles_asientos da
           INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          WHERE ac.entidad_id = ?
+            AND da.cuenta_codigo = ?
+            AND ac.fecha_asiento BETWEEN ? AND ?
+            AND da.debito > 0
         ''',
-        where: '''
-          ac.entidad_id = ? AND 
-          da.cuenta_codigo = ? AND 
-          ac.fecha_asiento BETWEEN ? AND ? AND
-          da.debito > 0
-        ''',
-        whereArgs: [
+        [
           entidadId,
-          cuenta['codigo'],
+          cuenta['codigo']!,
           fechaInicio.toIso8601String(),
           fechaFin.toIso8601String(),
         ],
       );
-
+ 
       final suma = resultado.fold<double>(
         0,
         (sum, r) => sum + (r['debito'] as num).toDouble(),
       );
-
+ 
       if (suma > 0) {
         totalEntradas += suma;
-        detalles[cuenta['nombre']] = suma;
+        detalles[cuenta['nombre']!] = suma;
       }
     }
 
@@ -396,33 +390,32 @@ class FlujoEfectivoService {
     ];
 
     for (final cuenta in cuentasSalidasFinanciacion) {
-      final resultado = await db.query(
-        'detalles_asientos da',
-        join: '''
+      final resultado = await db.rawQuery(
+        '''
+          SELECT da.*
+          FROM detalles_asientos da
           INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          WHERE ac.entidad_id = ?
+            AND da.cuenta_codigo = ?
+            AND ac.fecha_asiento BETWEEN ? AND ?
+            AND da.credito > 0
         ''',
-        where: '''
-          ac.entidad_id = ? AND 
-          da.cuenta_codigo = ? AND 
-          ac.fecha_asiento BETWEEN ? AND ? AND
-          da.credito > 0
-        ''',
-        whereArgs: [
+        [
           entidadId,
-          cuenta['codigo'],
+          cuenta['codigo']!,
           fechaInicio.toIso8601String(),
           fechaFin.toIso8601String(),
         ],
       );
-
+ 
       final suma = resultado.fold<double>(
         0,
         (sum, r) => sum + (r['credito'] as num).toDouble(),
       );
-
+ 
       if (suma > 0) {
         totalSalidas += suma;
-        detalles[cuenta['nombre']] = -suma;
+        detalles[cuenta['nombre']!] = -suma;
       }
     }
 

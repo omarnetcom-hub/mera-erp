@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import '../models/liquidacion_nomina.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class PILAService {
@@ -247,3 +248,4 @@ class PILAService {
     return buffer.toString();
   }
 }
+

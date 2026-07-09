@@ -18,13 +18,12 @@
 library;
 
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
-import 'package:pointycastle/export.dart';
-import 'package:pointycastle/block/aes.dart';
-import 'package:pointycastle/block/modes/cbc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../security/auditoria_service.dart';
+import 'package:pointycastle/pointycastle.dart';
+import 'auditoria_service.dart';
+import '../models/registro_auditoria.dart';
 
 enum TipoDatoSensible {
   terceroIdentificacion,
@@ -51,14 +50,7 @@ class EncryptionService {
   EncryptionService({
     FlutterSecureStorage? secureStorage,
     this.auditoriaService,
-  }) : _secureStorage = secureStorage ?? const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.when_unlocked,
-    ),
-  );
+  }) : _secureStorage = secureStorage ?? FlutterSecureStorage();
 
   /// Inicializa el servicio de encriptación
   Future<void> inicializar() async {
@@ -307,33 +299,23 @@ class EncryptionService {
 
   /// Encripta usando AES-256-CBC
   Uint8List _encriptarAES256(Uint8List datos, Uint8List clave, Uint8List iv) {
-    final cipher = BlockCipher('AES');
-    final params = KeyParameter(clave);
-    final ivParams = IVParameter(iv);
-    final cbc = CBCBlockCipher(cipher);
-    
-    cbc.init(true, PaddedBlockCipherParameter(
-      params,
-      ivParams,
-      PKCS7Padding(),
-    ));
-    
-    final paddedCipher = PaddedBlockCipher('AES/CBC/PKCS7')
-      ..init(true, PaddedBlockCipherParameter(params, ivParams, PKCS7Padding()));
-    
-    final encriptado = paddedCipher.process(datos);
-    return encriptado;
+    final cipher = PaddedBlockCipher('AES/CBC/PKCS7')
+      ..init(
+        true,
+        ParametersWithIV<KeyParameter>(KeyParameter(clave), iv),
+      );
+
+    return cipher.process(datos);
   }
 
   /// Desencripta usando AES-256-CBC
   Uint8List _desencriptarAES256(Uint8List datos, Uint8List clave, Uint8List iv) {
-    final params = KeyParameter(clave);
-    final ivParams = IVParameter(iv);
-    
-    final paddedCipher = PaddedBlockCipher('AES/CBC/PKCS7')
-      ..init(false, PaddedBlockCipherParameter(params, ivParams, PKCS7Padding()));
-    
-    final desencriptado = paddedCipher.process(datos);
-    return desencriptado;
+    final cipher = PaddedBlockCipher('AES/CBC/PKCS7')
+      ..init(
+        false,
+        ParametersWithIV<KeyParameter>(KeyParameter(clave), iv),
+      );
+
+    return cipher.process(datos);
   }
 }

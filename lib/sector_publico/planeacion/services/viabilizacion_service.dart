@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum EtapaViabilizacion {
   registro,
@@ -358,14 +359,16 @@ class ViabilizacionService {
     // Por etapa
     final porEtapa = <String, int>{};
     for (final f in flujos) {
-      final etapa = f['etapa'];
+      final etapa = f['etapa'] as String?;
+      if (etapa == null) continue;
       porEtapa[etapa] = (porEtapa[etapa] ?? 0) + 1;
     }
-
+ 
     // Por estado
     final porEstado = <String, int>{};
     for (final f in flujos) {
-      final estado = f['estado'];
+      final estado = f['estado'] as String?;
+      if (estado == null) continue;
       porEstado[estado] = (porEstado[estado] ?? 0) + 1;
     }
 
@@ -373,10 +376,11 @@ class ViabilizacionService {
     final tiemposPorEtapa = <String, double>{};
     for (final f in flujos) {
       if (f['fecha_inicio'] != null && f['fecha_ultima_actualizacion'] != null) {
-        final inicio = DateTime.parse(f['fecha_inicio']);
-        final fin = DateTime.parse(f['fecha_ultima_actualizacion']);
+        final inicio = DateTime.parse(f['fecha_inicio'] as String);
+        final fin = DateTime.parse(f['fecha_ultima_actualizacion'] as String);
         final duracion = fin.difference(inicio).inDays;
-        final etapa = f['etapa'];
+        final etapa = f['etapa'] as String?;
+        if (etapa == null) continue;
         if (!tiemposPorEtapa.containsKey(etapa)) {
           tiemposPorEtapa[etapa] = 0;
         }

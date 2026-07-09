@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum TipoEntidad {
   departamento,
@@ -258,14 +259,14 @@ class SelectorEntidadService {
     // Por tipo
     final porTipo = <String, int>{};
     for (final c in configuraciones) {
-      final tipo = c['tipo'];
+      final tipo = c['tipo'] as String;
       porTipo[tipo] = (porTipo[tipo] ?? 0) + 1;
     }
 
     // Por subtipo
     final porSubtipo = <String, int>{};
     for (final c in configuraciones) {
-      final subtipo = c['subtipo'];
+      final subtipo = c['subtipo'] as String?;
       if (subtipo != null) {
         porSubtipo[subtipo] = (porSubtipo[subtipo] ?? 0) + 1;
       }

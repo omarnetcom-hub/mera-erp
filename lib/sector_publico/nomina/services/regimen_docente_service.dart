@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum GradoDocente {
   grado1,
@@ -274,7 +275,7 @@ class RegimenDocenteService {
       throw Exception('Docente no encontrado');
     }
 
-    final fechaIngreso = DateTime.parse(docente.first['fecha_registro']);
+    final fechaIngreso = DateTime.parse(docente.first['fecha_registro'] as String);
     final aniosServicio = fechaCalculo.year - fechaIngreso.year;
 
     if (aniosServicio < 3) return 0;

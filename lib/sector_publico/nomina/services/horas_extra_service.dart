@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum TipoHoraExtra {
   diurna, // 25% recargo
@@ -180,9 +181,9 @@ class HorasExtraService {
     final detalles = <Map<String, dynamic>>[];
 
     for (final registro in registrosAsistencia) {
-      final fecha = DateTime.parse(registro['fecha']);
-      final horaEntrada = DateTime.parse('${fecha.toIso8601String().split('T')[0]}T${registro['hora_entrada']}');
-      final horaSalida = DateTime.parse('${fecha.toIso8601String().split('T')[0]}T${registro['hora_salida']}');
+      final fecha = DateTime.parse(registro['fecha'] as String);
+      final horaEntrada = DateTime.parse('${fecha.toIso8601String().split('T')[0]}T${registro['hora_entrada'] as String}');
+      final horaSalida = DateTime.parse('${fecha.toIso8601String().split('T')[0]}T${registro['hora_salida'] as String}');
       final horaFinJornada = DateTime.parse('${fecha.toIso8601String().split('T')[0]}T18:00:00'); // 6 PM
 
       // Verificar si trabajó después de las 6 PM (recargo nocturno)
@@ -384,14 +385,14 @@ class HorasExtraService {
     // Por tipo de hora extra
     final porTipo = <String, double>{};
     for (final he in horasExtra) {
-      final tipo = he['tipo_hora'];
+      final tipo = he['tipo_hora'] as String;
       porTipo[tipo] = (porTipo[tipo] ?? 0) + (he['valor_total'] as num).toDouble();
     }
 
     // Por tipo de recargo
     final porTipoRecargo = <String, double>{};
     for (final r in recargos) {
-      final tipo = r['tipo_recargo'];
+      final tipo = r['tipo_recargo'] as String;
       porTipoRecargo[tipo] = (porTipoRecargo[tipo] ?? 0) + (r['valor_recargo'] as num).toDouble();
     }
 

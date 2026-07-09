@@ -4,9 +4,9 @@
 // ============================================================
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:pointycastle/pointycastle.dart';
-import 'package:pointycastle/src/utils.dart' as cryptoutils;
 
 class TimestampService {
   static final TimestampService instance = TimestampService._internal();
@@ -38,15 +38,28 @@ class TimestampService {
   /// Codifica clave privada
   String _encodePrivateKey(RSAPrivateKey privateKey) {
     // Simplificado - en producción usar formato PEM real
-    return base64.encode(cryptoutils.encodeBigIntAsUnsigned(privateKey.modulus!));
+   return base64.encode(_encodeBigIntAsUnsigned(privateKey.modulus!));
   }
-  
+   
   /// Codifica clave pública
   String _encodePublicKey(RSAPublicKey publicKey) {
     // Simplificado - en producción usar formato PEM real
-    return base64.encode(cryptoutils.encodeBigIntAsUnsigned(publicKey.modulus!));
+    return base64.encode(_encodeBigIntAsUnsigned(publicKey.modulus!));
   }
   
+  Uint8List _encodeBigIntAsUnsigned(BigInt number) {
+   if (number == BigInt.zero) {
+     return Uint8List.fromList([0]);
+   }
+   final bytes = <int>[];
+   BigInt temp = number;
+   while (temp > BigInt.zero) {
+     bytes.insert(0, (temp & BigInt.from(0xff)).toInt());
+     temp = temp >> 8;
+   }
+   return Uint8List.fromList(bytes);
+  }
+   
   /// Genera un sello de tiempo criptográfico
   Future<String> generateTimestamp(String data) async {
     final timestamp = DateTime.now().toIso8601String();
@@ -87,8 +100,9 @@ class TimestampService {
       
       final timestamp = timestampData['timestamp'] as String;
       final hash = timestampData['hash'] as String;
-      final signature = timestampData['signature'] as String;
-      
+      final signature = timestampData['signature'];
+      if (signature is! String) return false;
+       
       // Verificar que el hash coincide
       final expectedHash = _hashData('$data:$timestamp');
       if (hash != expectedHash) return false;

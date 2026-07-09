@@ -5,6 +5,7 @@ library;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/activo_estado.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class ActivosService {
@@ -204,3 +205,4 @@ class ActivosService {
     return resultados.map((r) => ActivoEstado.fromJson(r)).toList();
   }
 }
+

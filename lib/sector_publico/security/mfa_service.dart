@@ -3,7 +3,6 @@
 library;
 
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:otp/otp.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -56,15 +55,14 @@ class MFAService {
     final secreto = await obtenerSecretoTOTP(usuarioId);
     if (secreto == null) return null;
 
-    final totp = OTP(
-      secret: secreto,
-      algorithm: Algorithm.SHA1,
-      digits: 6,
+    return OTP.generateTOTPCodeString(
+      secreto,
+      DateTime.now().millisecondsSinceEpoch,
+      length: 6,
       interval: 30,
-      issuer: 'MerkaERP Sector Público',
+      algorithm: Algorithm.SHA1,
+      isGoogle: true,
     );
-
-    return totp.now();
   }
 
   /// Verifica un código TOTP
@@ -76,17 +74,17 @@ class MFAService {
     final secreto = await obtenerSecretoTOTP(usuarioId);
     if (secreto == null) return false;
 
-    final totp = OTP(
-      secret: secreto,
-      algorithm: Algorithm.SHA1,
-      digits: 6,
-      interval: 30,
-      issuer: 'MerkaERP Sector Público',
-    );
-
     // Verificar código actual y ventanas adyacentes (para tolerancia de reloj)
     for (int i = -ventana; i <= ventana; i++) {
-      final codigoValido = totp.now(offset: i);
+      final fechaOffset = DateTime.now().add(Duration(seconds: i * 30));
+      final codigoValido = OTP.generateTOTPCodeString(
+        secreto,
+        fechaOffset.millisecondsSinceEpoch,
+        length: 6,
+        interval: 30,
+        algorithm: Algorithm.SHA1,
+        isGoogle: true,
+      );
       if (codigoValido == codigo) {
         return true;
       }
@@ -146,12 +144,12 @@ class MFAService {
     final random = _uuid.v4();
     final bytes = utf8.encode(random);
     final hash = sha256.convert(bytes);
-    return base32.encode(hash.bytes);
+    return Base32.encode(hash.bytes);
   }
 
   /// Convierte bytes a Base32
   String base32Encode(List<int> bytes) {
-    return base32.encode(bytes);
+    return Base32.encode(bytes);
   }
 }
 

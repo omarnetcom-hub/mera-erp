@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 class AuxilioAlimentacionService {
   final Database db;
@@ -146,7 +147,7 @@ class AuxilioAlimentacionService {
     final detalles = <Map<String, dynamic>>[];
 
     for (final empleado in empleados) {
-      final empleadoId = empleado['id'];
+      final empleadoId = empleado['id'] as String;
       final calculo = await calcularAuxilioPeriodo(
         entidadId: entidadId,
         usuarioId: usuarioId,
@@ -286,7 +287,7 @@ class AuxilioAlimentacionService {
     // Por empleado
     final porEmpleado = <String, Map<String, dynamic>>{};
     for (final pago in pagos) {
-      final empleadoId = pago['empleado_id'];
+      final empleadoId = pago['empleado_id'] as String;
       if (!porEmpleado.containsKey(empleadoId)) {
         porEmpleado[empleadoId] = {
           'empleado_id': empleadoId,
@@ -294,8 +295,8 @@ class AuxilioAlimentacionService {
           'total_valor': 0,
         };
       }
-      porEmpleado[empleadoId]!['total_dias'] += pago['dias_trabajados'];
-      porEmpleado[empleadoId]!['total_valor'] += pago['valor_total'];
+      porEmpleado[empleadoId]!['total_dias'] += pago['dias_trabajados'] as int;
+      porEmpleado[empleadoId]!['total_valor'] += (pago['valor_total'] as num).toDouble();
     }
 
     return {

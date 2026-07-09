@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../models/proceso_cobro_coactivo.dart';
 import '../models/liquidacion_predial.dart';
 import 'intereses_moratorios_service.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class CobroCoactivoService {
@@ -303,3 +304,4 @@ class CobroCoactivoService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
+

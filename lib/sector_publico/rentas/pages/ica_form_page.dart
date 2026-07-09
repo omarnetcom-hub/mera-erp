@@ -34,7 +34,8 @@ class _ICAFormPageState extends State<ICAFormPage> with SingleTickerProviderStat
   TipoActividadICA? _tipoActividad;
   double _ingresosAnuales = 0;
   bool _isLoadingCenso = false;
-
+  String? _contribuyenteId; // Guardado del registro de censo
+ 
   // Declaración
   final TextEditingController _periodoController = TextEditingController();
   double _baseGravable = 0;
@@ -67,18 +68,19 @@ class _ICAFormPageState extends State<ICAFormPage> with SingleTickerProviderStat
     });
 
     try {
-      await widget.icaService.registrarCensoICA(
+      final resultado = await widget.icaService.registrarContribuyenteCenso(
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
         nit: _nitController.text,
         razonSocial: _razonSocialController.text,
         direccion: _direccionController.text,
+        telefono: '', // FIXME: teléfono hardcodeado, campo pendiente de agregar en UI/backend
         tipoActividad: _tipoActividad!,
         actividadEconomica: _actividadController.text,
-        ingresosAnuales: _ingresosAnuales,
+        ingresosAnualesEstimados: _ingresosAnuales,
       );
-
       if (mounted) {
+        _contribuyenteId = resultado['contribuyente_id'];
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Censo registrado exitosamente')),
         );
@@ -105,12 +107,17 @@ class _ICAFormPageState extends State<ICAFormPage> with SingleTickerProviderStat
     });
 
     try {
+      if (_contribuyenteId == null) {
+        throw Exception('Debe registrar el censo antes de generar declaración');
+      }
+
       await widget.icaService.generarDeclaracionICA(
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
-        nit: _nitController.text,
+        contribuyenteId: _contribuyenteId!,
         periodo: _periodoController.text,
-        baseGravable: _baseGravable,
+        periodoDeclaracion: PeriodoDeclaracionICA.bimestral, // FIXME: periodo hardcodeado, no confiable para producción
+        ingresosGravables: _baseGravable,
         ingresosNoGravables: _ingresosNoGravables,
         ingresosExentos: _ingresosExentos,
       );

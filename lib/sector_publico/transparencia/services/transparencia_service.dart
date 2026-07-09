@@ -5,6 +5,7 @@ library;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/reporte_transparencia.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class TransparenciaService {
@@ -140,3 +141,4 @@ class TransparenciaService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
+

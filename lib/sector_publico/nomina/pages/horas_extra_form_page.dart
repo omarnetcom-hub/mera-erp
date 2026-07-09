@@ -50,9 +50,9 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
         usuarioId: widget.usuarioId,
         empleadoId: _empleadoIdController.text,
         fecha: DateTime.parse(_fechaController.text),
-        tipoHoraExtra: _tipoHoraExtra!,
+        tipo: _tipoHoraExtra!,
         cantidadHoras: _cantidadHoras,
-        valorHora: _valorHora,
+        salarioHora: _valorHora,
       );
 
       if (mounted) {
@@ -231,39 +231,35 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
 
   String _obtenerNombreTipo(TipoHoraExtra tipo) {
     switch (tipo) {
-      case TipoHoraExtra.recargoNocturno:
-        return 'Recargo Nocturno (9:00 PM - 6:00 AM)';
-      case TipoHoraExtra.recargoDominical:
-        return 'Recargo Dominical';
-      case TipoHoraExtra.recargoFestivo:
-        return 'Recargo Festivo';
-      case TipoHoraExtra.extraDiurna:
+      case TipoHoraExtra.diurna:
         return 'Hora Extra Diurna';
-      case TipoHoraExtra.extraNocturna:
+      case TipoHoraExtra.nocturna:
         return 'Hora Extra Nocturna';
-      case TipoHoraExtra.extraDominical:
-        return 'Hora Extra Dominical';
-      case TipoHoraExtra.extraFestivo:
-        return 'Hora Extra Festiva';
+      case TipoHoraExtra.dominicalDiurna:
+        return 'Hora Extra Dominical Diurna';
+      case TipoHoraExtra.dominicalNocturna:
+        return 'Hora Extra Dominical Nocturna';
+      case TipoHoraExtra.festivoDiurna:
+        return 'Hora Extra Festiva Diurna';
+      case TipoHoraExtra.festivoNocturna:
+        return 'Hora Extra Festiva Nocturna';
     }
   }
 
   double _obtenerRecargo(TipoHoraExtra tipo) {
     switch (tipo) {
-      case TipoHoraExtra.recargoNocturno:
-        return 0.35;
-      case TipoHoraExtra.recargoDominical:
-        return 0.75;
-      case TipoHoraExtra.recargoFestivo:
-        return 0.75;
-      case TipoHoraExtra.extraDiurna:
+      case TipoHoraExtra.diurna:
         return 0.25;
-      case TipoHoraExtra.extraNocturna:
+      case TipoHoraExtra.nocturna:
         return 0.75;
-      case TipoHoraExtra.extraDominical:
-        return 1.75;
-      case TipoHoraExtra.extraFestivo:
-        return 1.75;
+      case TipoHoraExtra.dominicalDiurna:
+        return 0.75;
+      case TipoHoraExtra.dominicalNocturna:
+        return 1.50;
+      case TipoHoraExtra.festivoDiurna:
+        return 0.75;
+      case TipoHoraExtra.festivoNocturna:
+        return 1.50;
     }
   }
 }

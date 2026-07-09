@@ -5,6 +5,7 @@ library;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/glosa.dart';
+import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
 class GlosasService {
@@ -152,3 +153,4 @@ class GlosasService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
+

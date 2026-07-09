@@ -4,8 +4,30 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../models/entidad.dart';
+import '../models/registro_auditoria.dart';
 import '../security/auditoria_service.dart';
+
+class DiagnosticoSistemaOrigen {
+  final bool tienePlanCuentas;
+  final int cantidadCuentas;
+  final bool tieneSaldosIniciales;
+  final int cantidadTerceros;
+  final int cantidadContratos;
+  final List<String> advertencias;
+  final List<String> erroresCriticos;
+
+  DiagnosticoSistemaOrigen({
+    required this.tienePlanCuentas,
+    required this.cantidadCuentas,
+    required this.tieneSaldosIniciales,
+    required this.cantidadTerceros,
+    required this.cantidadContratos,
+    required this.advertencias,
+    required this.erroresCriticos,
+  });
+
+  bool get puedeMigrar => erroresCriticos.isEmpty;
+}
 
 class MigracionDatosService {
   final Database db;
@@ -18,27 +40,6 @@ class MigracionDatosService {
   });
 
   /// Resultado del diagnóstico del sistema origen
-  class DiagnosticoSistemaOrigen {
-    final bool tienePlanCuentas;
-    final int cantidadCuentas;
-    final bool tieneSaldosIniciales;
-    final int cantidadTerceros;
-    final int cantidadContratos;
-    final List<String> advertencias;
-    final List<String> erroresCriticos;
-
-    DiagnosticoSistemaOrigen({
-      required this.tienePlanCuentas,
-      required this.cantidadCuentas,
-      required this.tieneSaldosIniciales,
-      required this.cantidadTerceros,
-      required this.cantidadContratos,
-      required this.advertencias,
-      required this.erroresCriticos,
-    });
-
-    bool get puedeMigrar => erroresCriticos.isEmpty;
-  }
 
   /// Diagnostica el sistema origen antes de la migración
   Future<DiagnosticoSistemaOrigen> diagnosticarSistemaOrigen(

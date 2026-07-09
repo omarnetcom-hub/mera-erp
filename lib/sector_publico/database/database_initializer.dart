@@ -4,7 +4,7 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../multi_tenant/database/schema_multi_tenant.dart';
+import 'schema_multi_tenant.dart';
 import '../presupuesto/database/schema_presupuesto.dart';
 import '../contabilidad/database/schema_contabilidad.dart';
 import '../auditoria/database/schema_auditoria.dart';

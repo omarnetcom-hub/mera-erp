@@ -5,7 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 class DepreciacionUnidadesService {
   final Database db;
@@ -124,9 +125,9 @@ class DepreciacionUnidadesService {
     }
 
     final configuracion = config.first;
-    final costoPorUnidad = configuracion['costo_por_unidad'] as double;
-    final unidadesAcumuladas = configuracion['unidades_producidas_acumuladas'] as double;
-    final unidadesTotales = configuracion['unidades_totales_estimadas'] as double;
+    final costoPorUnidad = (configuracion['costo_por_unidad'] as num).toDouble();
+    final unidadesAcumuladas = (configuracion['unidades_producidas_acumuladas'] as num).toDouble();
+    final unidadesTotales = (configuracion['unidades_totales_estimadas'] as num).toDouble();
 
     // Validar que no exceda las unidades totales
     if (unidadesAcumuladas + unidadesProducidas > unidadesTotales) {
@@ -137,7 +138,7 @@ class DepreciacionUnidadesService {
     final depreciacionPeriodo = unidadesProducidas * costoPorUnidad;
 
     // Calcular nueva depreciación acumulada
-    final nuevaDepreciacionAcumulada = configuracion['depreciacion_acumulada'] as double + depreciacionPeriodo;
+    final nuevaDepreciacionAcumulada = (configuracion['depreciacion_acumulada'] as num).toDouble() + depreciacionPeriodo;
 
     await db.insert('registros_produccion', {
       'id': id,
@@ -178,7 +179,7 @@ class DepreciacionUnidadesService {
       entidadId: entidadId,
       usuarioId: usuarioId,
       registroId: id,
-      activoId: configuracion['activo_id'],
+      activoId: configuracion['activo_id'] as String,
       depreciacionPeriodo: depreciacionPeriodo,
     );
 
@@ -325,7 +326,7 @@ class DepreciacionUnidadesService {
     final detalles = <Map<String, dynamic>>[];
 
     for (final config in configuraciones) {
-      final configId = config['id'];
+      final configId = config['id'] as String;
       final registros = await consultarRegistrosProduccion(configuracionId: configId);
 
       final unidadesConfig = registros.fold<double>(

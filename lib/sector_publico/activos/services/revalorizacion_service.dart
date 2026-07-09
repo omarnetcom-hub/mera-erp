@@ -5,11 +5,12 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../security/auditoria_service.dart';
+import '../../models/registro_auditoria.dart';
+import '../../security/auditoria_service.dart';
 
 enum MetodoRevalorizacion {
-  valor_razonable,
-  revaluacion_especializada,
+  valorRazonable,
+  revaluacionEspecializada,
 }
 
 class RevalorizacionService {
@@ -269,7 +270,7 @@ class RevalorizacionService {
     // Por método
     final porMetodo = <String, int>{};
     for (final r in revalorizaciones) {
-      final metodo = r['metodo'];
+      final metodo = r['metodo'] as String;
       porMetodo[metodo] = (porMetodo[metodo] ?? 0) + 1;
     }
 
@@ -282,7 +283,7 @@ class RevalorizacionService {
         whereArgs: [r['activo_id']],
       );
       if (activo.isNotEmpty) {
-        final tipo = activo.first['tipo_activo'];
+        final tipo = activo.first['tipo_activo'] as String;
         porTipoActivo[tipo] = (porTipoActivo[tipo] ?? 0) + 1;
       }
     }

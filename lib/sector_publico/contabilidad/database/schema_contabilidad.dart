@@ -162,7 +162,7 @@ class SchemaContabilidad {
     final batch = db.batch();
     for (final config in configuraciones) {
       batch.insert('configuracion_depreciacion', {
-        'id': DateTime.now().millisecondsSinceEpoch.toString() + config[0],
+        'id': DateTime.now().millisecondsSinceEpoch.toString() + (config[0] as String),
         'entidad_id': entidadId,
         'tipo_activo': config[0],
         'vida_util_anios': config[1],
