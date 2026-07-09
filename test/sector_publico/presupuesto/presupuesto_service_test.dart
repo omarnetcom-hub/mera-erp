@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:merka_erp/sector_publico/presupuesto/models/pago.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
 
 void main() {
@@ -28,7 +29,24 @@ void main() {
             codigo_rubro TEXT NOT NULL,
             nombre_rubro TEXT NOT NULL,
             valor_inicial REAL NOT NULL,
+            valor_apropiado REAL NOT NULL,
+            valor_cdp REAL NOT NULL,
+            valor_rp REAL NOT NULL,
+            valor_obligado REAL NOT NULL,
+            valor_pagado REAL NOT NULL,
             saldo_disponible REAL NOT NULL,
+            fuente_financiacion TEXT NOT NULL,
+            sector TEXT NOT NULL,
+            programa TEXT NOT NULL,
+            subprograma TEXT NOT NULL,
+            proyecto TEXT NOT NULL,
+            actividad TEXT NOT NULL,
+            objeto_gasto TEXT NOT NULL,
+            fecha_creacion TEXT NOT NULL,
+            fecha_aprobacion_concejo TEXT NOT NULL,
+            acto_administrativo TEXT NOT NULL,
+            activo INTEGER NOT NULL,
+            observaciones TEXT,
             vigencia TEXT NOT NULL
           )
         ''');
@@ -37,11 +55,22 @@ void main() {
             id TEXT PRIMARY KEY,
             entidad_id TEXT NOT NULL,
             numero_cdp TEXT NOT NULL UNIQUE,
-            rubro_id TEXT NOT NULL,
+            vigencia TEXT NOT NULL,
+            apropiacion_id TEXT NOT NULL,
+            codigo_rubro TEXT NOT NULL,
             valor_cdp REAL NOT NULL,
+            valor_comprometido_rp REAL NOT NULL,
+            saldo_disponible REAL NOT NULL,
             fecha_expedicion TEXT NOT NULL,
             fecha_vigencia TEXT NOT NULL,
-            estado TEXT NOT NULL
+            funcionario_expedidor TEXT NOT NULL,
+            funcionario_solicitante TEXT NOT NULL,
+            objeto_gasto TEXT NOT NULL,
+            contrato_numero TEXT,
+            estado TEXT NOT NULL,
+            acto_administrativo_modificacion TEXT,
+            fecha_modificacion TEXT,
+            observaciones TEXT
           )
         ''');
         await db.execute('''
@@ -94,26 +123,36 @@ void main() {
       final usuarioId = 'test-usuario';
       final rubroId = 'rubro-001';
       
-      // Crear rubro con saldo 0
-      await db.insert('apropiaciones', {
-        'id': rubroId,
-        'entidad_id': entidadId,
-        'codigo_rubro': '110101',
-        'nombre_rubro': 'Gastos de Personal',
-        'valor_inicial': 0,
-        'saldo_disponible': 0,
-        'vigencia': '2024',
-      });
+      // Crear rubro con saldo 0 usando la API real para garantizar el tipo booleano correcto
+      await presupuestoService.crearApropiacion(
+        entidadId: entidadId,
+        usuarioId: usuarioId,
+        vigencia: '2024',
+        codigoRubro: '110101',
+        nombreRubro: 'Gastos de Personal',
+        valorApropiado: 0,
+        fuenteFinanciacion: 'general',
+        sector: 'sector-prueba',
+        programa: 'programa-prueba',
+        subprograma: 'subprograma-prueba',
+        proyecto: 'proyecto-prueba',
+        actividad: 'actividad-prueba',
+        objetoGasto: 'Gastos de Personal',
+        fechaAprobacionConcejo: DateTime(2024, 1, 1),
+        actoAdministrativo: 'ACT-001',
+      );
 
       // Act & Assert
       expect(
         () => presupuestoService.expedirCDP(
           entidadId: entidadId,
           usuarioId: usuarioId,
-          rubroId: rubroId,
+          apropiacionId: rubroId,
           valorCDP: 1000000,
-          fechaExpedicion: DateTime(2024, 1, 1),
-          fechaVigencia: DateTime(2024, 12, 31),
+          funcionarioExpedidor: 'funcionario-expedidor',
+          funcionarioSolicitante: 'funcionario-solicitante',
+          objetoGasto: 'Gastos de Personal',
+          contratoNumero: null,
         ),
         throwsException,
       );
@@ -124,15 +163,19 @@ void main() {
       final entidadId = 'test-entidad';
       final usuarioId = 'test-usuario';
       final cdpId = 'cdp-inexistente';
-
+ 
       // Act & Assert
       expect(
         () => presupuestoService.expedirRP(
           entidadId: entidadId,
           usuarioId: usuarioId,
           cdpId: cdpId,
+          contratoId: 'contrato-001',
+          contratoNumero: 'CT-2024-001',
           valorRP: 1000000,
-          fechaExpedicion: DateTime(2024, 1, 1),
+          funcionarioExpedidor: 'funcionario-expedidor',
+          funcionarioSolicitante: 'funcionario-solicitante',
+          objetoGasto: 'Gastos de Personal',
         ),
         throwsException,
       );
@@ -144,28 +187,47 @@ void main() {
       final usuarioId = 'test-usuario';
       final rubroId = 'rubro-001';
       
-      // Crear rubro con saldo
-      await db.insert('apropiaciones', {
-        'id': rubroId,
-        'entidad_id': entidadId,
-        'codigo_rubro': '110101',
-        'nombre_rubro': 'Gastos de Personal',
-        'valor_inicial': 10000000,
-        'saldo_disponible': 10000000,
-        'vigencia': '2024',
-      });
-
+      // Crear rubro con saldo usando la API real
+      await presupuestoService.crearApropiacion(
+        entidadId: entidadId,
+        usuarioId: usuarioId,
+        vigencia: '2024',
+        codigoRubro: '110101',
+        nombreRubro: 'Gastos de Personal',
+        valorApropiado: 10000000,
+        fuenteFinanciacion: 'general',
+        sector: 'sector-prueba',
+        programa: 'programa-prueba',
+        subprograma: 'subprograma-prueba',
+        proyecto: 'proyecto-prueba',
+        actividad: 'actividad-prueba',
+        objetoGasto: 'Gastos de Personal',
+        fechaAprobacionConcejo: DateTime(2024, 1, 1),
+        actoAdministrativo: 'ACT-001',
+      );
+ 
       // Crear CDP vencido
       final cdpId = 'cdp-001';
       await db.insert('cdps', {
         'id': cdpId,
         'entidad_id': entidadId,
         'numero_cdp': 'CDP-2024-001',
-        'rubro_id': rubroId,
+        'vigencia': '2024',
+        'apropiacion_id': rubroId,
+        'codigo_rubro': '110101',
         'valor_cdp': 1000000,
+        'valor_comprometido_rp': 0,
+        'saldo_disponible': 1000000,
         'fecha_expedicion': DateTime(2023, 1, 1).toIso8601String(),
         'fecha_vigencia': DateTime(2023, 12, 31).toIso8601String(),
-        'estado': 'expedido',
+        'funcionario_expedidor': 'funcionario-expedidor',
+        'funcionario_solicitante': 'funcionario-solicitante',
+        'objeto_gasto': 'Gastos de Personal',
+        'contrato_numero': null,
+        'estado': 'vigente',
+        'acto_administrativo_modificacion': null,
+        'fecha_modificacion': null,
+        'observaciones': null,
       });
 
       // Act & Assert
@@ -174,8 +236,12 @@ void main() {
           entidadId: entidadId,
           usuarioId: usuarioId,
           cdpId: cdpId,
+          contratoId: 'contrato-001',
+          contratoNumero: 'CT-2024-001',
           valorRP: 1000000,
-          fechaExpedicion: DateTime(2024, 1, 1),
+          funcionarioExpedidor: 'funcionario-expedidor',
+          funcionarioSolicitante: 'funcionario-solicitante',
+          objetoGasto: 'Gastos de Personal',
         ),
         throwsException,
       );
@@ -187,28 +253,47 @@ void main() {
       final usuarioId = 'test-usuario';
       final rubroId = 'rubro-001';
       
-      // Crear rubro con saldo
-      await db.insert('apropiaciones', {
-        'id': rubroId,
-        'entidad_id': entidadId,
-        'codigo_rubro': '110101',
-        'nombre_rubro': 'Gastos de Personal',
-        'valor_inicial': 10000000,
-        'saldo_disponible': 10000000,
-        'vigencia': '2024',
-      });
-
+      // Crear rubro con saldo usando la API real
+      await presupuestoService.crearApropiacion(
+        entidadId: entidadId,
+        usuarioId: usuarioId,
+        vigencia: '2024',
+        codigoRubro: '110101',
+        nombreRubro: 'Gastos de Personal',
+        valorApropiado: 10000000,
+        fuenteFinanciacion: 'general',
+        sector: 'sector-prueba',
+        programa: 'programa-prueba',
+        subprograma: 'subprograma-prueba',
+        proyecto: 'proyecto-prueba',
+        actividad: 'actividad-prueba',
+        objetoGasto: 'Gastos de Personal',
+        fechaAprobacionConcejo: DateTime(2024, 1, 1),
+        actoAdministrativo: 'ACT-001',
+      );
+ 
       // Crear CDP con valor menor
       final cdpId = 'cdp-001';
       await db.insert('cdps', {
         'id': cdpId,
         'entidad_id': entidadId,
         'numero_cdp': 'CDP-2024-001',
-        'rubro_id': rubroId,
+        'vigencia': '2024',
+        'apropiacion_id': rubroId,
+        'codigo_rubro': '110101',
         'valor_cdp': 1000000,
+        'valor_comprometido_rp': 0,
+        'saldo_disponible': 1000000,
         'fecha_expedicion': DateTime(2024, 1, 1).toIso8601String(),
         'fecha_vigencia': DateTime(2024, 12, 31).toIso8601String(),
-        'estado': 'expedido',
+        'funcionario_expedidor': 'funcionario-expedidor',
+        'funcionario_solicitante': 'funcionario-solicitante',
+        'objeto_gasto': 'Gastos de Personal',
+        'contrato_numero': null,
+        'estado': 'vigente',
+        'acto_administrativo_modificacion': null,
+        'fecha_modificacion': null,
+        'observaciones': null,
       });
 
       // Act & Assert
@@ -217,14 +302,18 @@ void main() {
           entidadId: entidadId,
           usuarioId: usuarioId,
           cdpId: cdpId,
+          contratoId: 'contrato-001',
+          contratoNumero: 'CT-2024-001',
           valorRP: 2000000, // Excede el valor del CDP
-          fechaExpedicion: DateTime(2024, 1, 1),
+          funcionarioExpedidor: 'funcionario-expedidor',
+          funcionarioSolicitante: 'funcionario-solicitante',
+          objetoGasto: 'Gastos de Personal',
         ),
         throwsException,
       );
     });
 
-    test('NO debe poder crear obligación sin RP previo", () async {
+    test('NO debe poder crear obligación sin RP previo', () async {
       // Arrange
       final entidadId = 'test-entidad';
       final usuarioId = 'test-usuario';
@@ -232,12 +321,17 @@ void main() {
 
       // Act & Assert
       expect(
-        () => presupuestoService.crearObligacion(
+        () => presupuestoService.registrarObligacion(
           entidadId: entidadId,
           usuarioId: usuarioId,
           rpId: rpId,
+          contratoId: 'contrato-001',
+          contratoNumero: 'CT-2024-001',
+          terceroId: 'tercero-001',
+          terceroNombre: 'Proveedor de Prueba',
           valorObligacion: 1000000,
-          fechaObligacion: DateTime(2024, 1, 1),
+          funcionarioReconocio: 'funcionario-reconocio',
+          objetoGasto: 'Suministros',
         ),
         throwsException,
       );
@@ -251,12 +345,19 @@ void main() {
 
       // Act & Assert
       expect(
-        () => presupuestoService.registrarPago(
+        () => presupuestoService.programarPago(
           entidadId: entidadId,
           usuarioId: usuarioId,
           obligacionId: obligacionId,
+          terceroId: 'tercero-001',
+          terceroNombre: 'Proveedor de Prueba',
+          bancoDestino: 'Banco de Prueba',
+          cuentaDestino: '1234567890',
+          tipoCuenta: 'Corriente',
           valorPago: 1000000,
-          fechaPago: DateTime(2024, 1, 1),
+          funcionarioProgramo: 'funcionario-programo',
+          tipoPago: TipoPago.transferenciaBancaria,
+          mesPAC: 1,
         ),
         throwsException,
       );
