@@ -80,7 +80,7 @@ class Apropiacion {
       fechaCreacion: DateTime.parse(json['fecha_creacion'] as String),
       fechaAprobacionConcejo: DateTime.parse(json['fecha_aprobacion_concejo'] as String),
       actoAdministrativo: json['acto_administrativo'] as String,
-      activo: json['activo'] as bool,
+      activo: json['activo'] == true || json['activo'] == 1,
       observaciones: json['observaciones'] as String?,
     );
   }
@@ -109,7 +109,7 @@ class Apropiacion {
       'fecha_creacion': fechaCreacion.toIso8601String(),
       'fecha_aprobacion_concejo': fechaAprobacionConcejo.toIso8601String(),
       'acto_administrativo': actoAdministrativo,
-      'activo': activo,
+      'activo': activo ? 1 : 0,
       'observaciones': observaciones,
     };
   }
