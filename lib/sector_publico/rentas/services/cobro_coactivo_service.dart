@@ -12,7 +12,7 @@ import '../../security/auditoria_service.dart';
 
 class CobroCoactivoService {
   final Database db;
-  final InteresionMoratoriosService interesesService;
+  final InteresesMoratoriosService interesesService;
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 

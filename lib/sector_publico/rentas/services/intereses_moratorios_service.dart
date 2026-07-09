@@ -8,7 +8,7 @@ library;
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-class InteresionMoratoriosService {
+class InteresesMoratoriosService {
   final Dio _dio;
   final Dio _soda3Dio;
   
@@ -20,7 +20,7 @@ class InteresionMoratoriosService {
   static const String _soda3BaseUrl = 'https://datos.gov.co/resource/p63f-gtb6.json';
   static const Duration _timeout = Duration(seconds: 30);
 
-  InteresionMoratoriosService({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
+  InteresesMoratoriosService({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
     connectTimeout: _timeout,
     receiveTimeout: _timeout,
   )), _soda3Dio = Dio(BaseOptions(

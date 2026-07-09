@@ -81,7 +81,7 @@ class Empleado {
       fechaRetiro: json['fecha_retiro'] != null
           ? DateTime.parse(json['fecha_retiro'] as String)
           : null,
-      activo: json['activo'] as bool,
+      activo: json['activo'] == true || json['activo'] == 1,
       cuentaBancaria: json['cuenta_bancaria'] as String?,
       tipoCuenta: json['tipo_cuenta'] as String?,
       banco: json['banco'] as String?,
