@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'app_session.dart';
 import 'db_helper.dart';
 import 'sales/application/commission_service.dart';
 import 'sales/domain/commission.dart';

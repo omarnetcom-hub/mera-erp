@@ -3,8 +3,6 @@
 // Servicio de escaneo de códigos de barras y QR
 // ============================================================
 
-import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 
 class BarcodeScannerService {
   static final BarcodeScannerService instance = BarcodeScannerService._internal();
@@ -36,7 +34,7 @@ class BarcodeScannerService {
     }
     
     // Aceptar códigos QR (cualquier longitud)
-    if (barcode.length > 0) {
+    if (barcode.isNotEmpty) {
       return true;
     }
     
@@ -87,7 +85,7 @@ class BarcodeScannerService {
   
   /// Valida Code 128 (alfanumérico)
   bool _isValidCode128(String barcode) {
-    return RegExp(r'^[A-Za-z0-9\s\-\.]+$').hasMatch(barcode) && barcode.length >= 1;
+    return RegExp(r'^[A-Za-z0-9\s\-\.]+$').hasMatch(barcode) && barcode.isNotEmpty;
   }
   
   /// Determina el tipo de código de barras

@@ -158,17 +158,13 @@ class _DesktopWorkspace extends StatelessWidget {
                     onToggleFavorite: onToggleFavorite,
                     onCommandPalette: onCommandPalette,
                   )
-                : ListView(
-                    children: [
-                      _ModeWorkspace(
-                        mode: mode,
-                        modules: modules,
-                        onOpen: onOpen,
-                        onCommandPalette: onCommandPalette,
-                        onCopilot: onCopilot,
-                        onNotifications: onNotifications,
-                      ),
-                    ],
+                : _ModeWorkspace(
+                    mode: mode,
+                    modules: modules,
+                    onOpen: onOpen,
+                    onCommandPalette: onCommandPalette,
+                    onCopilot: onCopilot,
+                    onNotifications: onNotifications,
                   ),
           ),
           const SizedBox(height: EnterpriseSpacing.xs),
@@ -1085,41 +1081,47 @@ class _ModeWorkspace extends StatelessWidget {
 
     switch (mode) {
       case _WorkspaceMode.dashboard:
-        return _DashboardModePanel(
-          onNotifications: onNotifications,
-          onCopilot: onCopilot,
+        return SingleChildScrollView(
+          child: _DashboardModePanel(
+            onNotifications: onNotifications,
+            onCopilot: onCopilot,
+          ),
         );
       case _WorkspaceMode.sales:
         return SalesModePanel(
           onCopilot: onCopilot,
         );
       case _WorkspaceMode.operations:
-        return OperationsModePanel(
-          onOpenInventory: () {
-            final module = find('inventory');
-            if (module != null) onOpen(module);
-          },
-          onOpenPurchases: () {
-            final module = find('purchases');
-            if (module != null) onOpen(module);
-          },
-          onNotifications: onNotifications,
+        return SingleChildScrollView(
+          child: OperationsModePanel(
+            onOpenInventory: () {
+              final module = find('inventory');
+              if (module != null) onOpen(module);
+            },
+            onOpenPurchases: () {
+              final module = find('purchases');
+              if (module != null) onOpen(module);
+            },
+            onNotifications: onNotifications,
+          ),
         );
       case _WorkspaceMode.finance:
-        return FinanceModePanel(
-          onOpenReceivables: () {
-            final module = find('receivables');
-            if (module != null) onOpen(module);
-          },
-          onOpenPayables: () {
-            final module = find('payables');
-            if (module != null) onOpen(module);
-          },
-          onOpenCash: () {
-            final module = find('cash');
-            if (module != null) onOpen(module);
-          },
-          onCommandPalette: onCommandPalette,
+        return SingleChildScrollView(
+          child: FinanceModePanel(
+            onOpenReceivables: () {
+              final module = find('receivables');
+              if (module != null) onOpen(module);
+            },
+            onOpenPayables: () {
+              final module = find('payables');
+              if (module != null) onOpen(module);
+            },
+            onOpenCash: () {
+              final module = find('cash');
+              if (module != null) onOpen(module);
+            },
+            onCommandPalette: onCommandPalette,
+          ),
         );
     }
   }
@@ -1147,6 +1149,7 @@ class _DashboardModePanelState extends State<_DashboardModePanel> {
   };
 
   Set<String> _visibleKpis = _allKpis.keys.toSet();
+  String? _tipoEntidad;
 
   @override
   void initState() {
@@ -1154,6 +1157,34 @@ class _DashboardModePanelState extends State<_DashboardModePanel> {
     final isTest = Platform.environment.containsKey('FLUTTER_TEST');
     if (!isTest) {
       _loadVisibleKpis();
+      _loadTipoEntidad();
+    }
+  }
+
+  Future<void> _loadTipoEntidad() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final companyRows = await db.query(
+        'app_config',
+        where: 'clave = ?',
+        whereArgs: ['company_active_id'],
+        limit: 1,
+      );
+      if (companyRows.isEmpty) return;
+      final companyId = companyRows.first['valor']?.toString();
+      if (companyId == null) return;
+      
+      final rows = await db.query(
+        'company_settings',
+        where: 'company_id = ? AND setting_key = ?',
+        whereArgs: [int.parse(companyId), 'tipo_entidad'],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        setState(() => _tipoEntidad = rows.first['setting_value']?.toString());
+      }
+    } catch (e) {
+      debugPrint('Error al obtener tipo de entidad: $e');
     }
   }
 
@@ -1195,6 +1226,13 @@ class _DashboardModePanelState extends State<_DashboardModePanel> {
 
   @override
   Widget build(BuildContext context) {
+    if (_tipoEntidad == 'publica') {
+      return _PublicDashboardModePanel(
+        onNotifications: widget.onNotifications,
+        onCopilot: widget.onCopilot,
+      );
+    }
+    
     return FutureBuilder<DashboardSnapshot>(
       future: MerkaIntelligenceService().dashboardSnapshot(),
       builder: (context, snapshot) {
@@ -2327,6 +2365,773 @@ class _NotificationTile extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: onTap,
         ),
+      ),
+    );
+  }
+}
+
+class _PublicDashboardModePanel extends StatefulWidget {
+  const _PublicDashboardModePanel({
+    required this.onNotifications,
+    required this.onCopilot,
+  });
+
+  final VoidCallback onNotifications;
+  final VoidCallback onCopilot;
+
+  @override
+  State<_PublicDashboardModePanel> createState() => _PublicDashboardModePanelState();
+}
+
+class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
+  Map<String, dynamic> _dashboardData = {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      
+      // 1. Ejecución presupuestal
+      final apropiaciones = await db.query('apropiaciones');
+      final totalApropiacion = apropiaciones.fold<double>(
+        0.0, (sum, row) => sum + (row['valor_apropiacion'] as double? ?? 0.0),
+      );
+      
+      final cdps = await db.query('cdps');
+      final totalCDP = cdps.fold<double>(
+        0.0, (sum, row) => sum + (row['valor_cdp'] as double? ?? 0.0),
+      );
+      
+      final rps = await db.query('rps');
+      final totalRP = rps.fold<double>(
+        0.0, (sum, row) => sum + (row['valor_rp'] as double? ?? 0.0),
+      );
+      
+      final obligaciones = await db.query('obligaciones');
+      final totalObligado = obligaciones.fold<double>(
+        0.0, (sum, row) => sum + (row['valor_obligacion'] as double? ?? 0.0),
+      );
+      
+      final pagos = await db.query('pagos');
+      final totalPagado = pagos.fold<double>(
+        0.0, (sum, row) => sum + (row['valor_pago'] as double? ?? 0.0),
+      );
+      
+      final ejecucionPorcentaje = totalApropiacion > 0 
+          ? (totalPagado / totalApropiacion) * 100 
+          : 0.0;
+      
+      // 2. Alertas PAC (meses con ejecución por debajo del cupo)
+      final pacs = await db.query('pac');
+      final mesesCriticos = pacs.where((row) {
+        final ejecutado = row['valor_ejecutado'] as double? ?? 0.0;
+        final cupo = row['cupo_asignado'] as double? ?? 0.0;
+        return cupo > 0 && (ejecutado / cupo) < 0.8;
+      }).length;
+      
+      // 3. Vencimientos CDP/RP próximos 30 días
+      final hoy = DateTime.now();
+      final en30Dias = hoy.add(const Duration(days: 30));
+      
+      final cdpsVencen = cdps.where((row) {
+        final fechaVence = DateTime.tryParse(row['fecha_vigencia'] as String? ?? '');
+        return fechaVence != null && 
+               fechaVence.isAfter(hoy) && 
+               fechaVence.isBefore(en30Dias);
+      }).length;
+      
+      final rpsVencen = rps.where((row) {
+        final fechaVence = DateTime.tryParse(row['fecha_vigencia'] as String? ?? '');
+        return fechaVence != null && 
+               fechaVence.isAfter(hoy) && 
+               fechaVence.isBefore(en30Dias);
+      }).length;
+      
+      // 4. Obligaciones pendientes de pago
+      final obligacionesPendientes = obligaciones.where((row) {
+        final estado = row['estado'] as String? ?? '';
+        return estado == 'pendiente' || estado == 'reconocida';
+      }).length;
+      
+      final totalPendiente = obligaciones.where((row) {
+        final estado = row['estado'] as String? ?? '';
+        return estado == 'pendiente' || estado == 'reconocida';
+      }).fold<double>(
+        0.0, (sum, row) => sum + (row['valor_obligacion'] as double? ?? 0.0),
+      );
+      
+      if (mounted) {
+        setState(() {
+          _dashboardData = {
+            'ejecucion_porcentaje': ejecucionPorcentaje,
+            'total_apropiacion': totalApropiacion,
+            'total_cdp': totalCDP,
+            'total_rp': totalRP,
+            'total_obligado': totalObligado,
+            'total_pagado': totalPagado,
+            'meses_criticos': mesesCriticos,
+            'cdps_vencen': cdpsVencen,
+            'rps_vencen': rpsVencen,
+            'obligaciones_pendientes': obligacionesPendientes,
+            'total_pendiente': totalPendiente,
+            'tiene_datos': apropiaciones.isNotEmpty || cdps.isNotEmpty,
+          };
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error al cargar datos del dashboard: $e');
+      if (mounted) {
+        setState(() {
+          _dashboardData = {'tiene_datos': false};
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  String _formatCurrency(double value) {
+    if (value >= 1000000000) {
+      return '\$${(value / 1000000000).toStringAsFixed(1)}B';
+    } else if (value >= 1000000) {
+      return '\$${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      return '\$${(value / 1000).toStringAsFixed(1)}K';
+    }
+    return '\$${value.toStringAsFixed(0)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return EnterprisePanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ModeHeader(
+              icon: PhosphorIcons.buildings(),
+              title: 'Dashboard Sector Público',
+              detail: 'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
+            ),
+            const SizedBox(height: 16),
+            const LinearProgressIndicator(),
+          ],
+        ),
+      );
+    }
+
+    final tieneDatos = _dashboardData['tiene_datos'] == true;
+    
+    if (!tieneDatos) {
+      return EnterprisePanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ModeHeader(
+              icon: PhosphorIcons.buildings(),
+              title: 'Dashboard Sector Público',
+              detail: 'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: Column(
+                children: [
+                  Icon(
+                    PhosphorIcons.folderOpen(),
+                    size: 64,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Aún no hay datos presupuestales registrados',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Comienza registrando apropiaciones presupuestales',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PresupuestoPublicoPage(
+                            entidadId: 'default',
+                            usuarioId: 'default',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Ir a Presupuesto'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final ejecucionPorcentaje = _dashboardData['ejecucion_porcentaje'] as double? ?? 0.0;
+    final mesesCriticos = _dashboardData['meses_criticos'] as int? ?? 0;
+    final cdpsVencen = _dashboardData['cdps_vencen'] as int? ?? 0;
+    final rpsVencen = _dashboardData['rps_vencen'] as int? ?? 0;
+    final totalVencen = cdpsVencen + rpsVencen;
+    final obligacionesPendientes = _dashboardData['obligaciones_pendientes'] as int? ?? 0;
+    final totalPendiente = _dashboardData['total_pendiente'] as double? ?? 0.0;
+    final totalApropiacion = _dashboardData['total_apropiacion'] as double? ?? 0.0;
+    final totalCDP = _dashboardData['total_cdp'] as double? ?? 0.0;
+    final totalRP = _dashboardData['total_rp'] as double? ?? 0.0;
+    final totalObligado = _dashboardData['total_obligado'] as double? ?? 0.0;
+    final totalPagado = _dashboardData['total_pagado'] as double? ?? 0.0;
+
+    return EnterprisePanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ModeHeader(
+            icon: PhosphorIcons.buildings(),
+            title: 'Dashboard Sector Público',
+            detail: 'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _PublicDashboardKpi(
+                label: 'Ejecución Presupuestal',
+                value: '${ejecucionPorcentaje.toStringAsFixed(1)}%',
+                icon: PhosphorIcons.chartPie(),
+                color: const Color(0xFF2563EB),
+                detail: 'Apropiación vs Pagado',
+              ),
+              _PublicDashboardKpi(
+                label: 'Alertas PAC',
+                value: '$mesesCriticos meses',
+                icon: PhosphorIcons.warning(),
+                color: mesesCriticos > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                detail: mesesCriticos > 0 ? 'Por debajo del cupo' : 'Ejecución normal',
+              ),
+              _PublicDashboardKpi(
+                label: 'CDP/RP Vencen',
+                value: '$totalVencen documentos',
+                icon: PhosphorIcons.clock(),
+                color: totalVencen > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                detail: 'Próximos 30 días',
+              ),
+              _PublicDashboardKpi(
+                label: 'Obligaciones Pendientes',
+                value: _formatCurrency(totalPendiente),
+                icon: PhosphorIcons.currencyDollar(),
+                color: obligacionesPendientes > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                detail: '$obligacionesPendientes obligaciones',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _PublicDashboardCard(
+            title: 'Ejecución Presupuestal',
+            icon: PhosphorIcons.chartBar(),
+            color: const Color(0xFF2563EB),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PublicProgressBar(
+                  label: 'Apropiación Total',
+                  value: 1.0,
+                  color: const Color(0xFF2563EB),
+                  valor: _formatCurrency(totalApropiacion),
+                ),
+                const SizedBox(height: 12),
+                _PublicProgressBar(
+                  label: 'Comprometido (CDP)',
+                  value: totalApropiacion > 0 ? totalCDP / totalApropiacion : 0.0,
+                  color: const Color(0xFF10B981),
+                  valor: _formatCurrency(totalCDP),
+                ),
+                const SizedBox(height: 12),
+                _PublicProgressBar(
+                  label: 'Registrado (RP)',
+                  value: totalApropiacion > 0 ? totalRP / totalApropiacion : 0.0,
+                  color: const Color(0xFFF59E0B),
+                  valor: _formatCurrency(totalRP),
+                ),
+                const SizedBox(height: 12),
+                _PublicProgressBar(
+                  label: 'Obligado',
+                  value: totalApropiacion > 0 ? totalObligado / totalApropiacion : 0.0,
+                  color: const Color(0xFFEF4444),
+                  valor: _formatCurrency(totalObligado),
+                ),
+                const SizedBox(height: 12),
+                _PublicProgressBar(
+                  label: 'Pagado',
+                  value: totalApropiacion > 0 ? totalPagado / totalApropiacion : 0.0,
+                  color: const Color(0xFF10B981),
+                  valor: _formatCurrency(totalPagado),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _PublicDashboardCard(
+            title: 'Alertas de Cupo PAC',
+            icon: PhosphorIcons.warning(),
+            color: mesesCriticos > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+            child: mesesCriticos > 0
+                ? Text(
+                    '$mesesCriticos mes(es) con ejecución por debajo del cupo asignado',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                : Text(
+                    'Todos los meses están dentro del cupo asignado',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF10B981),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 16),
+          _PublicDashboardCard(
+            title: 'Vencimientos Próximos CDP/RP',
+            icon: PhosphorIcons.clock(),
+            color: totalVencen > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+            child: totalVencen > 0
+                ? Text(
+                    '$cdpsVencen CDP(s) y $rpsVencen RP(s) vencen en los próximos 30 días',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                : Text(
+                    'No hay CDPs ni RPs próximos a vencer',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF10B981),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 16),
+          _PublicDashboardCard(
+            title: 'Obligaciones Pendientes de Pago',
+            icon: PhosphorIcons.currencyDollar(),
+            color: obligacionesPendientes > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total Pendiente',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    Text(
+                      _formatCurrency(totalPendiente),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: obligacionesPendientes > 0 
+                            ? const Color(0xFFF59E0B) 
+                            : const Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$obligacionesPendientes obligaciones por pagar',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Acciones principales',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+                _ModeAction(
+                  icon: PhosphorIcons.bell(),
+                  label: 'Ver alertas',
+                  color: const Color(0xFFF59E0B),
+                  onTap: widget.onNotifications,
+                ),
+                _ModeAction(
+                  icon: PhosphorIcons.brain(),
+                  label: 'Preguntar al Copilot',
+                  color: const Color(0xFF2563EB),
+                  onTap: widget.onCopilot,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublicDashboardKpi extends StatelessWidget {
+  const _PublicDashboardKpi({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.detail,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            detail,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublicDashboardCard extends StatelessWidget {
+  const _PublicDashboardCard({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _PublicProgressBar extends StatelessWidget {
+  const _PublicProgressBar({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.valor,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+  final String? valor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (valor != null)
+              Text(
+                valor!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              )
+            else
+              Text(
+                '${(value * 100).toStringAsFixed(1)}%',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: value,
+            backgroundColor: color.withValues(alpha: 0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 8,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PublicMonthChip extends StatelessWidget {
+  const _PublicMonthChip({
+    required this.label,
+    required this.status,
+  });
+
+  final String label;
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    switch (status) {
+      case 'critical':
+        color = const Color(0xFFEF4444);
+        break;
+      case 'warning':
+        color = const Color(0xFFF59E0B);
+        break;
+      default:
+        color = const Color(0xFF10B981);
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            status == 'critical' ? 'Crítico' : status == 'warning' ? 'Alerta' : 'OK',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublicVencimientoItem extends StatelessWidget {
+  const _PublicVencimientoItem({
+    required this.tipo,
+    required this.numero,
+    required this.venceEn,
+    required this.monto,
+  });
+
+  final String tipo;
+  final String numero;
+  final String venceEn;
+  final String monto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            tipo,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFFEF4444),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                numero,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                'Vence en $venceEn',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          monto,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF10B981),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PublicObligacionItem extends StatelessWidget {
+  const _PublicObligacionItem({
+    required this.numero,
+    required this.proveedor,
+    required this.monto,
+    required this.diasVencido,
+  });
+
+  final String numero;
+  final String proveedor;
+  final String monto;
+  final int diasVencido;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: diasVencido > 10
+            ? const Color(0xFFEF4444).withValues(alpha: 0.1)
+            : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: diasVencido > 10
+              ? const Color(0xFFEF4444).withValues(alpha: 0.3)
+              : const Color(0xFFF59E0B).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  numero,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  proveedor,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                Text(
+                  'Vencido hace $diasVencido días',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: diasVencido > 10
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFFF59E0B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            monto,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF10B981),
+            ),
+          ),
+        ],
       ),
     );
   }

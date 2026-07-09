@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../commerce/application/payment_policy.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
@@ -105,15 +107,69 @@ class CreateSaleUseCase {
 
     final database = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
+    
+    // Obtener parámetros de impuestos del año actual
+    final currentYear = saleDate.year;
+    final taxParams = await database.query(
+      'tax_parameters',
+      where: 'year = ? AND (company_id = ? OR company_id IS NULL)',
+      whereArgs: [currentYear, companyId],
+      limit: 1,
+    );
+    
+    final ivaGeneralRate = taxParams.isEmpty ? 0.19 : (taxParams.first['iva_general_rate'] as num).toDouble();
+    final ivaReducedRate = taxParams.isEmpty ? 0.05 : (taxParams.first['iva_reduced_rate'] as num).toDouble();
+    final retefuenteUvt = taxParams.isEmpty ? 1090 : (taxParams.first['retefuente_general_uvt'] as num).toDouble();
+    final retefuentePurchasesDeclaring = taxParams.isEmpty ? 0.025 : (taxParams.first['retefuente_purchases_declaring'] as num).toDouble();
+    final retefuentePurchasesNonDeclaring = taxParams.isEmpty ? 0.035 : (taxParams.first['retefuente_purchases_non_declaring'] as num).toDouble();
+    final retefuenteServices1 = taxParams.isEmpty ? 0.04 : (taxParams.first['retefuente_services_1'] as num).toDouble();
+    final retefuenteServices2 = taxParams.isEmpty ? 0.06 : (taxParams.first['retefuente_services_2'] as num).toDouble();
+    final retefuenteHonoraries1 = taxParams.isEmpty ? 0.10 : (taxParams.first['retefuente_honoraries_1'] as num).toDouble();
+    final retefuenteHonoraries2 = taxParams.isEmpty ? 0.11 : (taxParams.first['retefuente_honoraries_2'] as num).toDouble();
+    final reteicaBaseRate = taxParams.isEmpty ? 0.00414 : (taxParams.first['reteica_base_rate'] as num).toDouble();
+    
+    // Obtener banderas fiscales del cliente si existe
+    bool isAutoretainer = false;
+    bool isDeclarante = true;
+    if (request.clientId != null) {
+      final clientRows = await database.query(
+        'clientes',
+        where: 'id = ? AND company_id = ?',
+        whereArgs: [request.clientId, companyId],
+        limit: 1,
+      );
+      if (clientRows.isNotEmpty) {
+        isAutoretainer = (clientRows.first['autorretenedor'] as int?) == 1;
+        isDeclarante = (clientRows.first['declarante'] as int?) != 0;
+      }
+    }
+    
+    // Calcular retenciones automáticamente si el cliente no es autorretenedor
+    double calculatedRetefuente = request.retefuente;
+    double calculatedReteiva = request.reteiva;
+    double calculatedReteica = request.reteica;
+    
     final subtotal = request.items.fold<double>(
       0,
       (sum, item) => sum + item.subtotal,
     );
+    
+    if (!isAutoretainer) {
+      // Calcular retefuente basado en el subtotal y tipo de cliente
+      // (Simplificado - debería usar tabla UVT completa)
+      if (subtotal > retefuenteUvt * 47062) { // 47062 es valor UVT 2024
+        calculatedRetefuente = subtotal * (isDeclarante ? retefuentePurchasesDeclaring : retefuentePurchasesNonDeclaring);
+      }
+      
+      // ReteICA (simplificado - debería usar tarifa del municipio)
+      calculatedReteica = subtotal * reteicaBaseRate;
+    }
+    
     final tax = request.items.fold<double>(
       0,
       (sum, item) => sum + item.taxTotal,
     );
-    final total = subtotal + tax;
+    final total = subtotal + tax - calculatedRetefuente - calculatedReteiva - calculatedReteica;
     final taxRate = subtotal <= 0 ? 0.0 : (tax / subtotal) * 100;
     final paymentMethod = request.paymentMethodName.toUpperCase().trim();
 
@@ -166,9 +222,9 @@ class CreateSaleUseCase {
         'efectivo': request.efectivo,
         'transferencia': request.transferencia,
         'credito': request.credito,
-        'retefuente': request.retefuente,
-        'reteiva': request.reteiva,
-        'reteica': request.reteica,
+        'retefuente': calculatedRetefuente,
+        'reteiva': calculatedReteiva,
+        'reteica': calculatedReteica,
       });
 
       await txn.update(
@@ -249,7 +305,47 @@ class CreateSaleUseCase {
           limit: 1,
         );
         final currentStock = (productRows.first['stock'] as num).toDouble();
+        final currentCost = (productRows.first['costo'] as num?)?.toDouble() ?? 0;
         final newStock = currentStock - item.quantity;
+
+        // Verificar si el producto tiene lotes
+        final lotes = await txn.query(
+          'lotes',
+          where: 'producto_id = ? AND company_id = ? AND status = ? AND cantidad > 0',
+          whereArgs: [item.productId, companyId, 'active'],
+          orderBy: 'fecha_vencimiento ASC', // FEFO: First Expired, First Out
+        );
+
+        if (lotes.isNotEmpty) {
+          // Descontar de lotes usando FEFO
+          double cantidadRestante = item.quantity;
+          for (final lote in lotes) {
+            if (cantidadRestante <= 0) break;
+            
+            final loteCantidad = (lote['cantidad'] as num).toDouble();
+            final loteId = lote['id'] as int;
+            
+            if (loteCantidad >= cantidadRestante) {
+              // El lote tiene suficiente para cubrir todo lo restante
+              await txn.update(
+                'lotes',
+                {'cantidad': loteCantidad - cantidadRestante},
+                where: 'id = ?',
+                whereArgs: [loteId],
+              );
+              cantidadRestante = 0;
+            } else {
+              // Descontar todo del lote y continuar con el siguiente
+              await txn.update(
+                'lotes',
+                {'cantidad': 0},
+                where: 'id = ?',
+                whereArgs: [loteId],
+              );
+              cantidadRestante -= loteCantidad;
+            }
+          }
+        }
 
         await txn.update(
           'productos',
@@ -264,6 +360,8 @@ class CreateSaleUseCase {
           'cantidad': item.quantity,
           'stock_anterior': currentStock,
           'stock_nuevo': newStock,
+          'costo_anterior': currentCost,
+          'costo_nuevo': currentCost,
           'motivo': 'FACTURA POS #$saleId',
           'fecha': saleDate.toIso8601String(),
         });
@@ -285,6 +383,103 @@ class CreateSaleUseCase {
         impuesto: tax,
         txn: txn,
       );
+    });
+
+    // Trigger asíncrono: Disparar webhooks (Fire-and-Forget)
+    // No bloquea la operación principal, si falla solo se loguea el error
+    Future.microtask(() async {
+      try {
+        final payload = {
+          'invoice_id': saleId,
+          'total': total,
+          'subtotal': subtotal,
+          'tax': tax,
+          'client_name': request.clientName,
+          'client_id': request.clientId,
+          'date': saleDate.toIso8601String(),
+          'payment_method': paymentMethod,
+          'status': 'emitida',
+        };
+        await _db.dispararWebhooks('invoice.created', payload);
+      } catch (e) {
+        // Loguear error en auditoría pero no afectar la operación principal
+        await _db.registrarEventoAuditoria(
+          accion: 'ERROR_WEBHOOK',
+          entidad: 'webhooks',
+          entidadId: saleId,
+          detalle: 'Error al disparar webhook invoice.created: $e',
+        );
+      }
+    });
+
+    // Trigger asíncrono: Crear garantías automáticas para productos con has_warranty = true
+    Future.microtask(() async {
+      try {
+        for (final item in request.items) {
+          final productRows = await database.query(
+            'productos',
+            where: 'id = ? AND company_id = ?',
+            whereArgs: [item.productId, companyId],
+            limit: 1,
+          );
+          
+          if (productRows.isNotEmpty) {
+            final product = productRows.first;
+            final hasWarranty = (product['has_warranty'] as int?) == 1;
+            final warrantyDays = (product['warranty_days'] as int?) ?? 365;
+            
+            if (hasWarranty) {
+              await _db.registrarGarantia(
+                ventaId: saleId,
+                productoId: item.productId,
+                descripcionProblema: 'Garantía automática generada al momento de venta',
+                diasGarantia: warrantyDays,
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // Loguear error en auditoría pero no afectar la operación principal
+        await _db.registrarEventoAuditoria(
+          accion: 'ERROR_GARANTIA_AUTOMATICA',
+          entidad: 'warranties',
+          entidadId: saleId,
+          detalle: 'Error al crear garantía automática: $e',
+        );
+      }
+    });
+
+    // Trigger asíncrono: Encolar sincronización con Control Center
+    Future.microtask(() async {
+      try {
+        final payload = {
+          'invoice_id': saleId,
+          'total': total,
+          'subtotal': subtotal,
+          'tax': tax,
+          'client_name': request.clientName,
+          'client_id': request.clientId,
+          'date': saleDate.toIso8601String(),
+          'payment_method': paymentMethod,
+          'status': 'emitida',
+          'items': request.items.map((item) => {
+            'product_id': item.productId,
+            'product_name': item.productName,
+            'quantity': item.quantity,
+            'unit_price': item.unitPrice,
+            'subtotal': item.subtotal,
+          }).toList(),
+        };
+        await _db.enqueueSync(
+          table: 'invoices',
+          recordId: saleId.toString(),
+          action: 'INSERT',
+          payload: jsonEncode(payload),
+        );
+      } catch (e) {
+        // Loguear error pero no afectar la operación principal
+        debugPrint('Error en enqueueSync para venta: $e');
+      }
     });
 
     return CreateSaleResult(

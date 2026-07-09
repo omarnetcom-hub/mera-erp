@@ -5,9 +5,13 @@ import 'package:dio/dio.dart';
 import '../services/hardware_fingerprint_service.dart';
 import '../services/license_validation_service.dart';
 import '../services/licencia_service.dart';
+import '../services/control_center_endpoint.dart';
+import '../login_page.dart';
 
 class LicenseActivationPage extends StatefulWidget {
-  const LicenseActivationPage({super.key});
+  const LicenseActivationPage({super.key, this.onActivated});
+
+  final VoidCallback? onActivated;
 
   @override
   State<LicenseActivationPage> createState() => _LicenseActivationPageState();
@@ -33,7 +37,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
   bool _activationSuccess = false;
   
   // Control Center endpoint
-  static const String _controlCenterEndpoint = 'https://merkaerp-control-center-backend.onrender.com';
+  static const String _defaultControlCenterEndpoint = 'https://merkaerp-control-center-backend.onrender.com';
   
   @override
   void initState() {
@@ -78,13 +82,14 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
     });
     
     try {
+      final endpoint = ControlCenterEndpoint.normalize(_defaultControlCenterEndpoint);
       final response = await _dio.post(
-        '$_controlCenterEndpoint/api/v1/licenses/activate-online',
+        ControlCenterEndpoint.activationUrl(endpoint),
         data: {
-          'hardwareFingerprint': _hardwareFingerprint,
           'email': _emailController.text.trim(),
-          'licenseType': 'SUSCRIPCION',
-          'plan': 'Profesional',
+          'password': _passwordController.text.trim(),
+          'hardware_fingerprint': _hardwareFingerprint,
+          'license_type': 'SUSCRIPCION',
         },
         options: Options(
           headers: {'Content-Type': 'application/json'},
@@ -92,17 +97,19 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
         ),
       );
       
-      if (response.data['ok'] == true) {
-        final license = response.data['license'];
+      if (response.data['success'] == true) {
+        final token = response.data['token'];
         
         // Guardar licencia en base de datos local
         await _saveLicenseToLocal({
           'uuid': _uuid,
-          'license_type': license['license_type'],
-          'estado': license['status'],
-          'fecha_expiracion': license['expires_at'],
-          'plan': license['plan'] ?? 'Profesional',
+          'license_type': 'SUSCRIPCION',
+          'estado': 'ACTIVO',
+          'fecha_expiracion': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+          'plan': 'Profesional',
           'hardware_fingerprint': _hardwareFingerprint,
+          'offline_token': token,
+          'modules': ['ventas', 'inventario', 'caja', 'bancos', 'cartera', 'contabilidad', 'reportes_basicos', 'reportes_avanzados'],
         });
         
         setState(() {
@@ -220,15 +227,15 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
         ? TipoLicencia.perpetua
         : TipoLicencia.suscripcion;
     
-    final estado = licenseData['status'] == 'ACTIVO'
+    final estado = licenseData['estado'] == 'ACTIVO'
         ? EstadoLicencia.activa
         : EstadoLicencia.trial;
     
     final licencia = LicenciaInfo(
       uuid: _uuid ?? 'unknown',
-      plan: TipoPlan.profesional, // Determinar desde modules si es necesario
+      plan: TipoPlan.profesional,
       estado: estado,
-      fechaExpiracion: DateTime.parse(licenseData['expiry_date'] as String),
+      fechaExpiracion: DateTime.parse(licenseData['fecha_expiracion'] as String),
       modulosHabilitados: (licenseData['modules'] as List).map((e) => e.toString()).toList(),
       tipoLicencia: tipoLicencia,
       hardwareFingerprint: _hardwareFingerprint,
@@ -560,7 +567,15 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
                   const SizedBox(height: 32),
                   FilledButton(
                     onPressed: () {
-                      Navigator.of(context).pop(true);
+                      if (widget.onActivated != null) {
+                        widget.onActivated!();
+                      } else if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop(true);
+                      } else {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
+                        );
+                      }
                     },
                     child: const Text('Continuar'),
                   ),

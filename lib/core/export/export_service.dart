@@ -3,11 +3,10 @@
 // Servicio de exportación a formatos contables
 // ============================================================
 
-import 'dart:convert';
 import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus';
+import 'package:share_plus/share_plus.dart';
 
 class ExportService {
   static final ExportService instance = ExportService._internal();
@@ -53,15 +52,15 @@ class ExportService {
     final sheet = excel[sheetName];
     
     if (data.isEmpty) {
-      sheet.appendRow(['No hay datos']);
+      sheet.appendRow([TextCellValue('No hay datos')]);
     } else {
       // Header
       final headers = data.first.keys.toList();
-      sheet.appendRow(headers);
+      sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
       
       // Data rows
       for (final row in data) {
-        final values = headers.map((key) => row[key]?.toString() ?? '').toList();
+        final values = headers.map((key) => TextCellValue(row[key]?.toString() ?? '')).toList();
         sheet.appendRow(values);
       }
     }
@@ -160,77 +159,87 @@ class ExportService {
     // Configurar estilos
     final headerStyle = CellStyle(
       bold: true,
-      fontColor: ExcelColor.white,
-      backgroundColor: ExcelColor.fromHex('#006D77'),
+      fontColorHex: ExcelColor.white,
+      backgroundColorHex: ExcelColor.fromHexString('FF006D77'),
       horizontalAlign: HorizontalAlign.Center,
     );
     
     final totalStyle = CellStyle(
       bold: true,
-      backgroundColor: ExcelColor.fromHex('#E0F7FA'),
+      backgroundColorHex: ExcelColor.fromHexString('FFE0F7FA'),
       horizontalAlign: HorizontalAlign.Right,
     );
     
     // Hoja de resumen
     final summarySheet = excel['Resumen'];
-    summarySheet.cell(CellIndex.indexByString('A1')).value = 'Reporte Financiero';
+    summarySheet.cell(CellIndex.indexByString('A1')).value = TextCellValue('Reporte Financiero');
     summarySheet.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
     
-    summarySheet.cell(CellIndex.indexByString('A3')).value = 'Fecha';
-    summarySheet.cell(CellIndex.indexByString('B3')).value = reportData['date'] ?? '';
+    summarySheet.cell(CellIndex.indexByString('A3')).value = TextCellValue('Fecha');
+    summarySheet.cell(CellIndex.indexByString('B3')).value = TextCellValue(reportData['date']?.toString() ?? '');
     
-    summarySheet.cell(CellIndex.indexByString('A4')).value = 'Empresa';
-    summarySheet.cell(CellIndex.indexByString('B4')).value = reportData['company'] ?? '';
+    summarySheet.cell(CellIndex.indexByString('A4')).value = TextCellValue('Empresa');
+    summarySheet.cell(CellIndex.indexByString('B4')).value = TextCellValue(reportData['company']?.toString() ?? '');
     
     // Ventas
     if (reportData['sales'] != null) {
       final salesSheet = excel['Ventas'];
-      salesSheet.cell(CellIndex.indexByString('A1')).value = 'Ventas';
+      salesSheet.cell(CellIndex.indexByString('A1')).value = TextCellValue('Ventas');
       salesSheet.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
       
-      salesSheet.appendRow(['Producto', 'Cantidad', 'Precio Unitario', 'Total']);
+      salesSheet.appendRow([
+        TextCellValue('Producto'),
+        TextCellValue('Cantidad'),
+        TextCellValue('Precio Unitario'),
+        TextCellValue('Total')
+      ]);
       
       final sales = reportData['sales'] as List<Map<String, dynamic>>;
       for (final sale in sales) {
         salesSheet.appendRow([
-          sale['product'] ?? '',
-          sale['quantity'] ?? 0,
-          sale['unit_price'] ?? 0,
-          sale['total'] ?? 0,
+          TextCellValue(sale['product']?.toString() ?? ''),
+          IntCellValue(int.tryParse(sale['quantity']?.toString() ?? '0') ?? 0),
+          DoubleCellValue((sale['unit_price'] as num?)?.toDouble() ?? 0.0),
+          DoubleCellValue((sale['total'] as num?)?.toDouble() ?? 0.0),
         ]);
       }
       
       // Total
       final totalRow = salesSheet.maxRows + 1;
-      salesSheet.cell(CellIndex.indexByString('A$totalRow')).value = 'Total';
+      salesSheet.cell(CellIndex.indexByString('A$totalRow')).value = TextCellValue('Total');
       salesSheet.cell(CellIndex.indexByString('A$totalRow')).cellStyle = totalStyle;
-      salesSheet.cell(CellIndex.indexByString('D$totalRow')).value = reportData['total_sales'] ?? 0;
+      salesSheet.cell(CellIndex.indexByString('D$totalRow')).value = DoubleCellValue((reportData['total_sales'] as num?)?.toDouble() ?? 0.0);
       salesSheet.cell(CellIndex.indexByString('D$totalRow')).cellStyle = totalStyle;
     }
     
     // Gastos
     if (reportData['expenses'] != null) {
       final expensesSheet = excel['Gastos'];
-      expensesSheet.cell(CellIndex.indexByString('A1')).value = 'Gastos';
+      expensesSheet.cell(CellIndex.indexByString('A1')).value = TextCellValue('Gastos');
       expensesSheet.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
       
-      expensesSheet.appendRow(['Concepto', 'Categoría', 'Monto', 'Fecha']);
+      expensesSheet.appendRow([
+        TextCellValue('Concepto'),
+        TextCellValue('Categoría'),
+        TextCellValue('Monto'),
+        TextCellValue('Fecha')
+      ]);
       
       final expenses = reportData['expenses'] as List<Map<String, dynamic>>;
       for (final expense in expenses) {
         expensesSheet.appendRow([
-          expense['concept'] ?? '',
-          expense['category'] ?? '',
-          expense['amount'] ?? 0,
-          expense['date'] ?? '',
+          TextCellValue(expense['concept']?.toString() ?? ''),
+          TextCellValue(expense['category']?.toString() ?? ''),
+          DoubleCellValue((expense['amount'] as num?)?.toDouble() ?? 0.0),
+          TextCellValue(expense['date']?.toString() ?? ''),
         ]);
       }
       
       // Total
       final totalRow = expensesSheet.maxRows + 1;
-      expensesSheet.cell(CellIndex.indexByString('A$totalRow')).value = 'Total';
+      expensesSheet.cell(CellIndex.indexByString('A$totalRow')).value = TextCellValue('Total');
       expensesSheet.cell(CellIndex.indexByString('A$totalRow')).cellStyle = totalStyle;
-      expensesSheet.cell(CellIndex.indexByString('C$totalRow')).value = reportData['total_expenses'] ?? 0;
+      expensesSheet.cell(CellIndex.indexByString('C$totalRow')).value = DoubleCellValue((reportData['total_expenses'] as num?)?.toDouble() ?? 0.0);
       expensesSheet.cell(CellIndex.indexByString('C$totalRow')).cellStyle = totalStyle;
     }
     

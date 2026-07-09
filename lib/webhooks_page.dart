@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'app_session.dart';
 import 'db_helper.dart';
 import 'core/webhooks/webhook.dart';
 import 'core/webhooks/webhook_service.dart';
@@ -304,8 +302,8 @@ class _WebhooksPageState extends State<WebhooksPage> {
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: _isUpdating ? null : _showAddWebhookDialog,
-        child: const Icon(Icons.add),
         tooltip: 'Agregar Webhook',
+        child: const Icon(Icons.add),
       ),
     );
   }

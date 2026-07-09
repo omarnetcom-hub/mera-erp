@@ -47,14 +47,24 @@ class _NominaPageState extends State<NominaPage> with SingleTickerProviderStateM
   Future<void> _nuevoEmpleado({Map<String, dynamic>? empleado}) async {
     final nombreCtrl = TextEditingController(text: empleado?['nombre']?.toString() ?? '');
     final documentoCtrl = TextEditingController(text: empleado?['documento']?.toString() ?? '');
+    final tipoDocCtrl = TextEditingController(text: empleado?['tipo_documento']?.toString() ?? 'CC');
     final cargoCtrl = TextEditingController(text: empleado?['cargo']?.toString() ?? '');
     final salarioCtrl = TextEditingController(text: empleado?['salario_base']?.toString() ?? '');
-    final auxilioCtrl = TextEditingController(text: empleado?['auxilio_transporte']?.toString() ?? '');
-    final bancoCtrl = TextEditingController(text: empleado?['banco']?.toString() ?? '');
-    final cuentaCtrl = TextEditingController(text: empleado?['numero_cuenta']?.toString() ?? '');
+    final auxilioFlag = empleado?['auxilio_transporte'] == 1;
+    final bancoCtrl = TextEditingController(text: empleado?['nombre_banco']?.toString() ?? '');
+    final codigoBancoCtrl = TextEditingController(text: empleado?['codigo_banco']?.toString() ?? '');
+    final cuentaCtrl = TextEditingController(text: empleado?['cuenta_bancaria']?.toString() ?? '');
+    final epsCtrl = TextEditingController(text: empleado?['eps']?.toString() ?? '');
+    final fondoPensionCtrl = TextEditingController(text: empleado?['fondo_pension']?.toString() ?? '');
     
-    String metodoPago = empleado?['metodo_pago']?.toString() ?? 'Efectivo';
-    final metodos = ['Efectivo', 'Transferencia', 'Nequi', 'Daviplata'];
+    String tipoDoc = empleado?['tipo_documento']?.toString() ?? 'CC';
+    final tiposDoc = ['CC', 'CE', 'TI', 'PP', 'RC'];
+    String nivelArl = empleado?['nivel_arl']?.toString() ?? 'I';
+    final nivelesArl = ['I', 'II', 'III', 'IV', 'V'];
+    String tipoContrato = empleado?['tipo_contrato']?.toString() ?? 'indefinido';
+    final tiposContrato = ['indefinido', 'fijo', 'prestacion_servicios'];
+    String frecuenciaPago = empleado?['frecuencia_pago']?.toString() ?? 'mensual';
+    final frecuenciasPago = ['mensual', 'quincenal', 'semanal'];
 
     final ok = await showDialog<bool>(
       context: context,
@@ -70,9 +80,26 @@ class _NominaPageState extends State<NominaPage> with SingleTickerProviderStateM
                   decoration: const InputDecoration(labelText: 'Nombre Completo *', prefixIcon: Icon(Icons.person)),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: documentoCtrl,
-                  decoration: const InputDecoration(labelText: 'Documento / NIT', prefixIcon: Icon(Icons.badge)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: documentoCtrl,
+                        decoration: const InputDecoration(labelText: 'Documento *', prefixIcon: Icon(Icons.badge)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: tipoDoc,
+                        decoration: const InputDecoration(labelText: 'Tipo'),
+                        items: tiposDoc.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                        onChanged: (val) {
+                          if (val != null) setDialogState(() => tipoDoc = val);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -87,35 +114,73 @@ class _NominaPageState extends State<NominaPage> with SingleTickerProviderStateM
                   decoration: const InputDecoration(labelText: 'Salario Base (COP) *', prefixIcon: Icon(Icons.attach_money)),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: auxilioCtrl,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [NumericInput.decimal],
-                  decoration: const InputDecoration(labelText: 'Auxilio de Transporte (COP)', prefixIcon: Icon(Icons.directions_bus)),
+                CheckboxListTile(
+                  title: const Text('Auxilio de Transporte'),
+                  subtitle: const Text('Aplica si gana < 2 SMMLV'),
+                  value: auxilioFlag,
+                  onChanged: (val) => setDialogState(() {}),
+                  controlAffinity: ListTileControlAffinity.leading,
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: metodoPago,
-                  decoration: const InputDecoration(labelText: 'Método de Pago', prefixIcon: Icon(Icons.payment)),
-                  items: metodos.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  initialValue: nivelArl,
+                  decoration: const InputDecoration(labelText: 'Nivel ARL *', prefixIcon: Icon(Icons.security)),
+                  items: nivelesArl.map((n) => DropdownMenuItem(value: n, child: Text('Nivel $n'))).toList(),
                   onChanged: (val) {
-                    if (val != null) {
-                      setDialogState(() => metodoPago = val);
-                    }
+                    if (val != null) setDialogState(() => nivelArl = val);
                   },
                 ),
-                if (metodoPago != 'Efectivo') ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: bancoCtrl,
-                    decoration: const InputDecoration(labelText: 'Banco', prefixIcon: Icon(Icons.account_balance)),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: cuentaCtrl,
-                    decoration: const InputDecoration(labelText: 'Número de Cuenta', prefixIcon: Icon(Icons.credit_card)),
-                  ),
-                ],
+                const SizedBox(height: 8),
+                TextField(
+                  controller: epsCtrl,
+                  decoration: const InputDecoration(labelText: 'EPS', prefixIcon: Icon(Icons.local_hospital)),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: fondoPensionCtrl,
+                  decoration: const InputDecoration(labelText: 'Fondo de Pensión', prefixIcon: Icon(Icons.account_balance_wallet)),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: tipoContrato,
+                  decoration: const InputDecoration(labelText: 'Tipo de Contrato'),
+                  items: tiposContrato.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => tipoContrato = val);
+                  },
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: frecuenciaPago,
+                  decoration: const InputDecoration(labelText: 'Frecuencia de Pago'),
+                  items: frecuenciasPago.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => frecuenciaPago = val);
+                  },
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: bancoCtrl,
+                  decoration: const InputDecoration(labelText: 'Nombre Banco', prefixIcon: Icon(Icons.account_balance)),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: codigoBancoCtrl,
+                        decoration: const InputDecoration(labelText: 'Código Banco'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: cuentaCtrl,
+                        decoration: const InputDecoration(labelText: 'Número Cuenta'),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -127,8 +192,7 @@ class _NominaPageState extends State<NominaPage> with SingleTickerProviderStateM
             ElevatedButton(
               onPressed: () async {
                 final salario = double.tryParse(salarioCtrl.text.replaceAll(',', '.')) ?? 0;
-                final auxilio = double.tryParse(auxilioCtrl.text.replaceAll(',', '.')) ?? 0;
-                if (nombreCtrl.text.trim().isEmpty || salario <= 0) {
+                if (nombreCtrl.text.trim().isEmpty || documentoCtrl.text.trim().isEmpty || salario <= 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Por favor completa los campos obligatorios.')),
                   );
@@ -139,24 +203,36 @@ class _NominaPageState extends State<NominaPage> with SingleTickerProviderStateM
                   await DatabaseHelper.instance.guardarEmpleado(
                     nombre: nombreCtrl.text.trim(),
                     documento: documentoCtrl.text.trim(),
+                    tipoDocumento: tipoDoc,
                     cargo: cargoCtrl.text.trim(),
                     salarioBase: salario,
-                    auxilioTransporte: auxilio,
-                    metodoPago: metodoPago,
-                    banco: bancoCtrl.text.trim(),
-                    numeroCuenta: cuentaCtrl.text.trim(),
+                    auxilioTransporte: auxilioFlag ? 1 : 0,
+                    cuentaBancaria: cuentaCtrl.text.trim(),
+                    codigoBanco: codigoBancoCtrl.text.trim(),
+                    nombreBanco: bancoCtrl.text.trim(),
+                    nivelArl: nivelArl,
+                    fondoPension: fondoPensionCtrl.text.trim(),
+                    eps: epsCtrl.text.trim(),
+                    tipoContrato: tipoContrato,
+                    frecuenciaPago: frecuenciaPago,
                   );
                 } else {
                   await DatabaseHelper.instance.actualizarEmpleado(
                     id: empleado['id'] as int,
                     nombre: nombreCtrl.text.trim(),
                     documento: documentoCtrl.text.trim(),
+                    tipoDocumento: tipoDoc,
                     cargo: cargoCtrl.text.trim(),
                     salarioBase: salario,
-                    auxilioTransporte: auxilio,
-                    metodoPago: metodoPago,
-                    banco: bancoCtrl.text.trim(),
-                    numeroCuenta: cuentaCtrl.text.trim(),
+                    auxilioTransporte: auxilioFlag ? 1 : 0,
+                    cuentaBancaria: cuentaCtrl.text.trim(),
+                    codigoBanco: codigoBancoCtrl.text.trim(),
+                    nombreBanco: bancoCtrl.text.trim(),
+                    nivelArl: nivelArl,
+                    fondoPension: fondoPensionCtrl.text.trim(),
+                    eps: epsCtrl.text.trim(),
+                    tipoContrato: tipoContrato,
+                    frecuenciaPago: frecuenciaPago,
                   );
                 }
                 if (!dialogContext.mounted) return;

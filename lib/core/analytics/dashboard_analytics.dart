@@ -62,7 +62,7 @@ class DashboardAnalytics {
     
     return {
       'total_sales': {
-        'count': Sqflite.firstIntValue(totalSalesResult.first['count']) ?? 0,
+        'count': Sqflite.firstIntValue(totalSalesResult) ?? 0,
         'amount': (totalSalesResult.first['total_amount'] as num?)?.toDouble() ?? 0,
         'average_ticket': (totalSalesResult.first['average_ticket'] as num?)?.toDouble() ?? 0,
       },
@@ -112,12 +112,12 @@ class DashboardAnalytics {
     
     return {
       'total_inventory': {
-        'products': Sqflite.firstIntValue(totalStockResult.first['total_products']) ?? 0,
+        'products': Sqflite.firstIntValue(totalStockResult) ?? 0,
         'stock': (totalStockResult.first['total_stock'] as num?)?.toDouble() ?? 0,
         'value': (totalStockResult.first['total_value'] as num?)?.toDouble() ?? 0,
       },
-      'low_stock_count': Sqflite.firstIntValue(lowStockResult.first['count']) ?? 0,
-      'out_of_stock_count': Sqflite.firstIntValue(outOfStockResult.first['count']) ?? 0,
+      'low_stock_count': Sqflite.firstIntValue(lowStockResult) ?? 0,
+      'out_of_stock_count': Sqflite.firstIntValue(outOfStockResult) ?? 0,
       'value_by_category': valueByCategoryResult,
     };
   }
@@ -189,11 +189,11 @@ class DashboardAnalytics {
       'profit_margin': totalRevenue > 0 ? ((totalRevenue - totalExpenses) / totalRevenue) * 100 : 0,
       'cash_flow': cashFlowResult,
       'accounts_receivable': {
-        'count': Sqflite.firstIntValue(accountsReceivableResult.first['count']) ?? 0,
+        'count': Sqflite.firstIntValue(accountsReceivableResult) ?? 0,
         'total': (accountsReceivableResult.first['total'] as num?)?.toDouble() ?? 0,
       },
       'accounts_payable': {
-        'count': Sqflite.firstIntValue(accountsPayableResult.first['count']) ?? 0,
+        'count': Sqflite.firstIntValue(accountsPayableResult) ?? 0,
         'total': (accountsPayableResult.first['total'] as num?)?.toDouble() ?? 0,
       },
     };
@@ -246,8 +246,8 @@ class DashboardAnalytics {
     ''', [companyId, startDate.toIso8601String()]);
     
     return {
-      'new_customers': Sqflite.firstIntValue(newCustomersResult.first['count']) ?? 0,
-      'active_customers': Sqflite.firstIntValue(activeCustomersResult.first['count']) ?? 0,
+      'new_customers': Sqflite.firstIntValue(newCustomersResult) ?? 0,
+      'active_customers': Sqflite.firstIntValue(activeCustomersResult) ?? 0,
       'top_customers': topCustomersResult,
       'average_customer_value': (avgCustomerValueResult.first['avg_value'] as num?)?.toDouble() ?? 0,
     };

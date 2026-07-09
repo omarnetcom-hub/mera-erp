@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../commerce/application/payment_policy.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
@@ -168,7 +170,14 @@ class CreatePurchaseUseCase {
           throw Exception('Producto no encontrado: ${item.productName}');
         }
         final currentStock = (products.first['stock'] as num).toDouble();
+        final currentCost = (products.first['costo'] as num?)?.toDouble() ?? 0;
         final newStock = currentStock + item.quantity;
+
+        // Costeo Promedio Ponderado
+        // average_cost = ((Stock actual * Costo actual) + (Nueva cantidad * Nuevo costo)) / (Stock actual + Nueva cantidad)
+        final averageCost = newStock > 0 
+            ? ((currentStock * currentCost) + (item.quantity * item.unitCost)) / newStock
+            : item.unitCost;
 
         await txn.insert('compras_detalle', {
           'company_id': companyId,
@@ -181,7 +190,7 @@ class CreatePurchaseUseCase {
         });
         await txn.update(
           'productos',
-          {'stock': newStock, 'costo': item.unitCost},
+          {'stock': newStock, 'costo': averageCost},
           where: 'id = ? AND company_id = ?',
           whereArgs: [item.productId, companyId],
         );
@@ -192,6 +201,8 @@ class CreatePurchaseUseCase {
           'cantidad': item.quantity,
           'stock_anterior': currentStock,
           'stock_nuevo': newStock,
+          'costo_anterior': currentCost,
+          'costo_nuevo': averageCost,
           'motivo': 'COMPRA #$purchaseId',
           'fecha': now,
         });
@@ -242,6 +253,40 @@ class CreatePurchaseUseCase {
         impuesto: tax,
         txn: txn,
       );
+    });
+
+    // Trigger asíncrono: Encolar sincronización con Control Center
+    Future.microtask(() async {
+      try {
+        final payload = {
+          'purchase_id': purchaseId,
+          'total': total,
+          'subtotal': subtotal,
+          'tax': tax,
+          'supplier_name': request.supplierName,
+          'supplier_id': request.supplierId,
+          'invoice_number': request.invoiceNumber,
+          'date': purchaseDate.toIso8601String(),
+          'payment_method': request.paymentMethodName,
+          'status': status,
+          'items': request.items.map((item) => {
+            'product_id': item.productId,
+            'product_name': item.productName,
+            'quantity': item.quantity,
+            'unit_cost': item.unitCost,
+            'subtotal': item.subtotal,
+          }).toList(),
+        };
+        await _db.enqueueSync(
+          table: 'purchases',
+          recordId: purchaseId.toString(),
+          action: 'INSERT',
+          payload: jsonEncode(payload),
+        );
+      } catch (e) {
+        // Loguear error pero no afectar la operación principal
+        debugPrint('Error en enqueueSync para compra: $e');
+      }
     });
 
     return CreatePurchaseResult(

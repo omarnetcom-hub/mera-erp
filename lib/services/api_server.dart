@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
-import 'package:shelf_router/shelf_router.dart';
 import 'package:flutter/foundation.dart';
 import '../db_helper.dart';
 import 'api_auth_service.dart';
@@ -31,7 +29,7 @@ class ApiServer {
           .addMiddleware(ApiAuthService.instance.rateLimitMiddleware())
           .addMiddleware(ApiAuthService.instance.corsMiddleware())
           .addMiddleware(logRequests())
-          .addHandler(router);
+          .addHandler(router.call);
 
       _server = await shelf_io.serve(handler, 'localhost', port);
 

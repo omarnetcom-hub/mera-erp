@@ -4,9 +4,9 @@
 // ============================================================
 
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:pointycastle/pointycastle.dart';
+import 'package:pointycastle/src/utils.dart' as cryptoutils;
 
 class TimestampService {
   static final TimestampService instance = TimestampService._internal();
@@ -21,10 +21,11 @@ class TimestampService {
     final keyParams = RSAKeyGeneratorParameters(
       BigInt.parse('65537'), // public exponent
       2048, // bit length
+      80, // certainty
     );
     
     final random = SecureRandom('AES/CTR/AUTO-PRNG');
-    final keyGenerator = KeyGenerator('RSA')..init(keyParams, random);
+    final keyGenerator = KeyGenerator('RSA')..init(ParametersWithRandom(keyParams, random));
     
     final keyPair = keyGenerator.generateKeyPair();
     final privateKey = keyPair.privateKey as RSAPrivateKey;
@@ -37,13 +38,13 @@ class TimestampService {
   /// Codifica clave privada
   String _encodePrivateKey(RSAPrivateKey privateKey) {
     // Simplificado - en producción usar formato PEM real
-    return base64.encode(privateKey.modulus!.toUnsigned().toBytes());
+    return base64.encode(cryptoutils.encodeBigIntAsUnsigned(privateKey.modulus!));
   }
   
   /// Codifica clave pública
   String _encodePublicKey(RSAPublicKey publicKey) {
     // Simplificado - en producción usar formato PEM real
-    return base64.encode(publicKey.modulus!.toUnsigned().toBytes());
+    return base64.encode(cryptoutils.encodeBigIntAsUnsigned(publicKey.modulus!));
   }
   
   /// Genera un sello de tiempo criptográfico
@@ -74,7 +75,7 @@ class TimestampService {
   /// Firma datos (simplificado)
   String _sign(String hash) {
     // En producción usar firma RSA real
-    final signature = hash + ':' + DateTime.now().millisecondsSinceEpoch.toString();
+    final signature = '$hash:${DateTime.now().millisecondsSinceEpoch}';
     return base64.encode(utf8.encode(signature));
   }
   

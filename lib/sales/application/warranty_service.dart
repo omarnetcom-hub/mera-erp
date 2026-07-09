@@ -48,12 +48,12 @@ class WarrantyService {
       )
     ''');
     
-    // Índices
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_warranties_company ON warranties(company_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_warranties_product ON warranties(product_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_warranties_customer ON warranties(customer_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_warranties_status ON warranties(status)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_warranty_claims_warranty ON warranty_claims(warranty_id)');
+    // Índices - Comentados temporalmente por errores de esquema
+    // await db.execute('CREATE INDEX IF NOT EXISTS idx_warranties_company ON warranties(company_id)');
+    // await db.execute('CREATE INDEX IF NOT EXISTS idx_warranties_product ON warranties(product_id)');
+    // await db.execute('CREATE INDEX IF NOT EXISTS idx_warranties_customer ON warranties(customer_id)');
+    // await db.execute('CREATE INDEX IF NOT EXISTS idx_warranties_status ON warranties(status)');
+    // await db.execute('CREATE INDEX IF NOT EXISTS idx_warranty_claims_warranty ON warranty_claims(warranty_id)');
   }
   
   /// Crea una garantía

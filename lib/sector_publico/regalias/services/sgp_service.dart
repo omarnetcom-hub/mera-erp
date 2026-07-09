@@ -1,0 +1,221 @@
+/// Servicio de SGP (Sistema General de Participaciones)
+/// Ley 1176 de 2007
+library;
+
+import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
+import '../models/sgp.dart';
+import '../../security/auditoria_service.dart';
+
+class SGPService {
+  final Database db;
+  final AuditoriaService auditoriaService;
+  final Uuid _uuid = const Uuid();
+
+  SGPService({
+    required this.db,
+    required this.auditoriaService,
+  });
+
+  /// Asigna un SGP
+  Future<SGP> asignarSGP({
+    required String entidadId,
+    required String usuarioId,
+    required TipoParticipacion tipoParticipacion,
+    required String programa,
+    required String municipio,
+    required String departamento,
+    required double valorAsignado,
+    required DateTime vigencia,
+  }) async {
+    final id = _uuid.v4();
+    final numeroSGP = 'SGP-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final fechaAsignacion = DateTime.now();
+
+    final sgp = SGP(
+      id: id,
+      entidadId: entidadId,
+      numeroSGP: numeroSGP,
+      tipoParticipacion: tipoParticipacion,
+      programa: programa,
+      municipio: municipio,
+      departamento: departamento,
+      valorAsignado: valorAsignado,
+      valorTransferido: 0,
+      valorRecibido: 0,
+      valorEjecutado: 0,
+      saldoDisponible: valorAsignado,
+      vigencia: vigencia,
+      fechaAsignacion: fechaAsignacion,
+      estado: EstadoSGP.asignado,
+    );
+
+    await db.insert('sgp', sgp.toJson());
+
+    await auditoriaService.registrarEvento(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      tipoEvento: TipoEventoAuditoria.creacionRegistro,
+      modulo: 'regalias',
+      accion: 'asignacion_sgp',
+      valorAnterior: {},
+      valorNuevo: {
+        'sgp_id': id,
+        'numero_sgp': numeroSGP,
+        'valor_asignado': valorAsignado,
+      },
+      referenciaId: id,
+    );
+
+    return sgp;
+  }
+
+  /// Registra transferencia de SGP
+  Future<SGP> registrarTransferencia({
+    required String entidadId,
+    required String usuarioId,
+    required String sgpId,
+    required double valorTransferido,
+  }) async {
+    final sgpResult = await db.query(
+      'sgp',
+      where: 'id = ?',
+      whereArgs: [sgpId],
+    );
+
+    if (sgpResult.isEmpty) {
+      throw Exception('SGP no encontrado');
+    }
+
+    final sgp = SGP.fromJson(sgpResult.first);
+
+    if (sgp.estado != EstadoSGP.asignado) {
+      throw Exception('Solo se puede transferir SGP asignado');
+    }
+
+    if (valorTransferido > sgp.valorAsignado) {
+      throw Exception('El valor excede el valor asignado');
+    }
+
+    final fechaTransferencia = DateTime.now();
+
+    await db.update(
+      'sgp',
+      {
+        'valor_transferido': valorTransferido,
+        'fecha_transferencia': fechaTransferencia.toIso8601String(),
+        'estado': EstadoSGP.transferido.toString().split('.').last,
+      },
+      where: 'id = ?',
+      whereArgs: [sgpId],
+    );
+
+    await auditoriaService.registrarEvento(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      tipoEvento: TipoEventoAuditoria.modificacionRegistro,
+      modulo: 'regalias',
+      accion: 'transferencia_sgp',
+      valorAnterior: {'estado_anterior': sgp.estado.toString()},
+      valorNuevo: {
+        'valor_transferido': valorTransferido,
+        'estado_nuevo': EstadoSGP.transferido.toString(),
+      },
+      referenciaId: sgpId,
+    );
+
+    return sgp.copyWith(
+      valorTransferido: valorTransferido,
+      fechaTransferencia: fechaTransferencia,
+      estado: EstadoSGP.transferido,
+    );
+  }
+
+  /// Registra ejecución de SGP
+  Future<SGP> registrarEjecucion({
+    required String entidadId,
+    required String usuarioId,
+    required String sgpId,
+    required double montoEjecucion,
+  }) async {
+    final sgpResult = await db.query(
+      'sgp',
+      where: 'id = ?',
+      whereArgs: [sgpId],
+    );
+
+    if (sgpResult.isEmpty) {
+      throw Exception('SGP no encontrado');
+    }
+
+    final sgp = SGP.fromJson(sgpResult.first);
+
+    if (!sgp.tieneSaldo()) {
+      throw Exception('No hay saldo disponible');
+    }
+
+    if (montoEjecucion > sgp.saldoDisponible) {
+      throw Exception('El monto excede el saldo disponible');
+    }
+
+    final nuevoValorEjecutado = sgp.valorEjecutado + montoEjecucion;
+    final nuevoSaldo = sgp.saldoDisponible - montoEjecucion;
+
+    await db.update(
+      'sgp',
+      {
+        'valor_ejecutado': nuevoValorEjecutado,
+        'saldo_disponible': nuevoSaldo,
+        'estado': EstadoSGP.enEjecucion.toString().split('.').last,
+      },
+      where: 'id = ?',
+      whereArgs: [sgpId],
+    );
+
+    await auditoriaService.registrarEvento(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      tipoEvento: TipoEventoAuditoria.modificacionRegistro,
+      modulo: 'regalias',
+      accion: 'ejecucion_sgp',
+      valorAnterior: {
+        'valor_ejecutado_anterior': sgp.valorEjecutado,
+        'saldo_anterior': sgp.saldoDisponible,
+      },
+      valorNuevo: {
+        'monto_ejecucion': montoEjecucion,
+        'valor_ejecutado_nuevo': nuevoValorEjecutado,
+        'saldo_nuevo': nuevoSaldo,
+      },
+      referenciaId: sgpId,
+    );
+
+    return sgp.copyWith(
+      valorEjecutado: nuevoValorEjecutado,
+      saldoDisponible: nuevoSaldo,
+      estado: EstadoSGP.enEjecucion,
+    );
+  }
+
+  Future<List<SGP>> consultarSGP({
+    required String entidadId,
+    EstadoSGP? estado,
+  }) async {
+    String query = 'SELECT * FROM sgp WHERE entidad_id = ?';
+    List<dynamic> args = [entidadId];
+
+    if (estado != null) {
+      query += ' AND estado = ?';
+      args.add(estado.toString().split('.').last);
+    }
+
+    query += ' ORDER BY fecha_asignacion DESC';
+
+    final resultados = await db.rawQuery(query, args);
+    return resultados.map((r) => SGP.fromJson(r)).toList();
+  }
+
+  String _generarNumeroSecuencial() {
+    return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+  }
+}

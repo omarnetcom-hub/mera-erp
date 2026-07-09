@@ -3,7 +3,6 @@
 // Servicio de gestión de monedas y tasas de cambio
 // ============================================================
 
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
 import 'currency.dart';
@@ -19,7 +18,7 @@ class CurrencyService {
   /// Crea las tablas necesarias para monedas
   Future<void> createTables(Database db) async {
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS currencies (
+      CREATE TABLE IF NOT EXISTS app_currencies (
         code TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         symbol TEXT NOT NULL,
@@ -29,7 +28,7 @@ class CurrencyService {
     ''');
     
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS exchange_rates (
+      CREATE TABLE IF NOT EXISTS currency_exchange_rates (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id INTEGER NOT NULL,
         from_currency TEXT NOT NULL,
@@ -45,10 +44,10 @@ class CurrencyService {
     ''');
     
     // Índices
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_rates_company ON exchange_rates(company_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_rates_from ON exchange_rates(from_currency)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_rates_to ON exchange_rates(to_currency)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_rates_date ON exchange_rates(effective_date)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_rates_company ON currency_exchange_rates(company_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_rates_from ON currency_exchange_rates(from_currency)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_rates_to ON currency_exchange_rates(to_currency)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_rates_date ON currency_exchange_rates(effective_date)');
     
     // Insertar monedas comunes
     await _insertCommonCurrencies(db);
@@ -58,7 +57,7 @@ class CurrencyService {
   Future<void> _insertCommonCurrencies(Database db) async {
     for (final currency in Currency.commonCurrencies) {
       await db.insert(
-        'currencies',
+        'app_currencies',
         currency.toMap(),
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
@@ -67,14 +66,14 @@ class CurrencyService {
   
   /// Obtiene todas las monedas disponibles
   Future<List<Currency>> getAllCurrencies(Database db) async {
-    final maps = await db.query('currencies');
+    final maps = await db.query('app_currencies');
     return maps.map((map) => Currency.fromMap(map)).toList();
   }
   
   /// Obtiene la moneda por defecto
   Future<Currency?> getDefaultCurrency(Database db) async {
     final maps = await db.query(
-      'currencies',
+      'app_currencies',
       where: 'is_default = ?',
       whereArgs: [1],
       limit: 1,
@@ -87,12 +86,12 @@ class CurrencyService {
   /// Establece la moneda por defecto
   Future<void> setDefaultCurrency(Database db, String currencyCode) async {
     await db.update(
-      'currencies',
+      'app_currencies',
       {'is_default': 0},
     );
     
     await db.update(
-      'currencies',
+      'app_currencies',
       {'is_default': 1},
       where: 'code = ?',
       whereArgs: [currencyCode],
@@ -101,7 +100,7 @@ class CurrencyService {
   
   /// Registra una tasa de cambio
   Future<int> registerExchangeRate(Database db, ExchangeRate rate) async {
-    final id = await db.insert('exchange_rates', rate.toMap());
+    final id = await db.insert('currency_exchange_rates', rate.toMap());
     return id;
   }
   
@@ -115,7 +114,7 @@ class CurrencyService {
     final now = DateTime.now().toIso8601String();
     
     final maps = await db.query(
-      'exchange_rates',
+      'currency_exchange_rates',
       where: 'company_id = ? AND from_currency = ? AND to_currency = ? AND effective_date <= ? AND (expiry_date IS NULL OR expiry_date > ?)',
       whereArgs: [companyId, fromCurrency, toCurrency, now, now],
       orderBy: 'effective_date DESC',
@@ -129,7 +128,7 @@ class CurrencyService {
   /// Obtiene todas las tasas de cambio de una empresa
   Future<List<ExchangeRate>> getExchangeRatesByCompany(Database db, int companyId) async {
     final maps = await db.query(
-      'exchange_rates',
+      'currency_exchange_rates',
       where: 'company_id = ?',
       whereArgs: [companyId],
       orderBy: 'effective_date DESC',
@@ -222,7 +221,7 @@ class CurrencyService {
     }
     
     final maps = await db.query(
-      'exchange_rates',
+      'currency_exchange_rates',
       where: where,
       whereArgs: whereArgs,
       orderBy: 'effective_date DESC',
@@ -236,7 +235,7 @@ class CurrencyService {
     final now = DateTime.now().toIso8601String();
     
     final result = await db.delete(
-      'exchange_rates',
+      'currency_exchange_rates',
       where: 'company_id = ? AND expiry_date < ?',
       whereArgs: [companyId, now],
     );
@@ -247,7 +246,7 @@ class CurrencyService {
   /// Actualiza una tasa de cambio manualmente
   Future<void> updateExchangeRate(Database db, ExchangeRate rate) async {
     await db.update(
-      'exchange_rates',
+      'currency_exchange_rates',
       rate.toMap(),
       where: 'id = ?',
       whereArgs: [rate.id],

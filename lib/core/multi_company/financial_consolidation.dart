@@ -66,9 +66,9 @@ class FinancialConsolidationService {
       'accounts_payable': consolidatedPayables,
       'profit': totalProfit,
       'profit_margin': totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
-      'net_cash_position': consolidatedInventory['total_value'] as double + 
-                           consolidatedReceivables['total'] as double - 
-                           consolidatedPayables['total'] as double,
+      'net_cash_position': (consolidatedInventory['total_value'] as double) + 
+                           (consolidatedReceivables['total'] as double) - 
+                           (consolidatedPayables['total'] as double),
     };
   }
   
@@ -96,7 +96,7 @@ class FinancialConsolidationService {
     ''', [...companyIds, startDate.toIso8601String(), endDate.toIso8601String()]);
     
     return {
-      'count': Sqflite.firstIntValue(result.first['count']) ?? 0,
+      'count': Sqflite.firstIntValue(result) ?? 0,
       'total': (result.first['total'] as num?)?.toDouble() ?? 0,
       'subtotal': (result.first['subtotal'] as num?)?.toDouble() ?? 0,
       'tax': (result.first['tax'] as num?)?.toDouble() ?? 0,
@@ -124,7 +124,7 @@ class FinancialConsolidationService {
     ''', [...companyIds, startDate.toIso8601String(), endDate.toIso8601String()]);
     
     return {
-      'count': Sqflite.firstIntValue(result.first['count']) ?? 0,
+      'count': Sqflite.firstIntValue(result) ?? 0,
       'total': (result.first['total'] as num?)?.toDouble() ?? 0,
     };
   }
@@ -143,7 +143,7 @@ class FinancialConsolidationService {
     ''', companyIds);
     
     return {
-      'total_products': Sqflite.firstIntValue(result.first['total_products']) ?? 0,
+      'total_products': Sqflite.firstIntValue(result) ?? 0,
       'total_stock': (result.first['total_stock'] as num?)?.toDouble() ?? 0,
       'total_value': (result.first['total_value'] as num?)?.toDouble() ?? 0,
     };
@@ -162,7 +162,7 @@ class FinancialConsolidationService {
     ''', companyIds);
     
     return {
-      'count': Sqflite.firstIntValue(result.first['count']) ?? 0,
+      'count': Sqflite.firstIntValue(result) ?? 0,
       'total': (result.first['total'] as num?)?.toDouble() ?? 0,
     };
   }
@@ -180,7 +180,7 @@ class FinancialConsolidationService {
     ''', companyIds);
     
     return {
-      'count': Sqflite.firstIntValue(result.first['count']) ?? 0,
+      'count': Sqflite.firstIntValue(result) ?? 0,
       'total': (result.first['total'] as num?)?.toDouble() ?? 0,
     };
   }
@@ -249,11 +249,11 @@ class FinancialConsolidationService {
     
     return {
       'sales': {
-        'count': Sqflite.firstIntValue(salesResult.first['count']) ?? 0,
+        'count': Sqflite.firstIntValue(salesResult) ?? 0,
         'total': sales,
       },
       'expenses': {
-        'count': Sqflite.firstIntValue(expensesResult.first['count']) ?? 0,
+        'count': Sqflite.firstIntValue(expensesResult) ?? 0,
         'total': expenses,
       },
       'inventory_value': (inventoryResult.first['total_value'] as num?)?.toDouble() ?? 0,

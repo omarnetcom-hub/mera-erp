@@ -103,6 +103,9 @@ class AccountingEngine {
     String? client,
   }) {
     final subtotal = total - tax;
+    final totalRetenciones = retefuente + reteiva + reteica;
+    final totalACobrar = total - totalRetenciones;
+    
     final lines = <AccountingLineDraft>[
       AccountingLineDraft(
         accountCode: rules.salesRevenueAccount,
@@ -159,38 +162,50 @@ class AccountingEngine {
       );
     }
 
-    if (cashPayment > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: rules.cashAccount,
-          debit: cashPayment,
-          credit: 0,
-          description: 'Cobro por caja venta #$saleId',
-          thirdParty: client,
-        ),
-      );
-    }
-    if (bankPayment > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: rules.bankAccount,
-          debit: bankPayment,
-          credit: 0,
-          description: 'Cobro por banco venta #$saleId',
-          thirdParty: client,
-        ),
-      );
-    }
-    if (credit > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: rules.accountsReceivableAccount,
-          debit: credit,
-          credit: 0,
-          description: 'Cuenta por cobrar venta #$saleId',
-          thirdParty: client,
-        ),
-      );
+    // Distribuir el total a cobrar entre los métodos de pago
+    final totalPagos = cashPayment + bankPayment + credit;
+    if (totalPagos > 0) {
+      final proporcionCaja = totalPagos > 0 ? cashPayment / totalPagos : 0;
+      final proporcionBanco = totalPagos > 0 ? bankPayment / totalPagos : 0;
+      final proporcionCredito = totalPagos > 0 ? credit / totalPagos : 0;
+      
+      final montoCaja = totalACobrar * proporcionCaja;
+      final montoBanco = totalACobrar * proporcionBanco;
+      final montoCredito = totalACobrar * proporcionCredito;
+      
+      if (montoCaja > 0) {
+        lines.add(
+          AccountingLineDraft(
+            accountCode: rules.cashAccount,
+            debit: montoCaja,
+            credit: 0,
+            description: 'Cobro por caja venta #$saleId',
+            thirdParty: client,
+          ),
+        );
+      }
+      if (montoBanco > 0) {
+        lines.add(
+          AccountingLineDraft(
+            accountCode: rules.bankAccount,
+            debit: montoBanco,
+            credit: 0,
+            description: 'Cobro por banco venta #$saleId',
+            thirdParty: client,
+          ),
+        );
+      }
+      if (montoCredito > 0) {
+        lines.add(
+          AccountingLineDraft(
+            accountCode: rules.accountsReceivableAccount,
+            debit: montoCredito,
+            credit: 0,
+            description: 'Cuenta por cobrar venta #$saleId',
+            thirdParty: client,
+          ),
+        );
+      }
     }
 
     if (costOfSale > 0) {

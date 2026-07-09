@@ -3,7 +3,6 @@
 // Servicio de gestión de caché con Hive y SharedPreferences
 // ============================================================
 
-import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cache_entry.dart';

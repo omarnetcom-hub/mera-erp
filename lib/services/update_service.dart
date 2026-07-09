@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -7,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 import '../db_helper.dart';
+import 'control_center_endpoint.dart';
 
 enum CanalActualizacion { stable, beta, hotfix }
 
@@ -170,27 +170,30 @@ class UpdateService {
 
   Future<InfoVersion?> buscarActualizacion() async {
     try {
-      final endpoint = await _obtenerEndpointControlCenter();
-      final canal = await obtenerCanalConfigurado();
+      // Comentado temporalmente para evitar error 404
+      // final endpoint = await _obtenerEndpointControlCenter();
+      // final canal = await obtenerCanalConfigurado();
       
-      final response = await _dio.get(
-        '$endpoint/api/v1/updates/check',
-        queryParameters: {
-          'version': _currentVersion,
-          'canal': canal.name,
-          'os': Platform.operatingSystem,
-        },
-      );
+      // final response = await _dio.get(
+      //   '$endpoint/api/v1/updates/check',
+      //   queryParameters: {
+      //     'version': _currentVersion,
+      //     'canal': canal.name,
+      //     'os': Platform.operatingSystem,
+      //   },
+      // );
 
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        if (data['disponible'] == true) {
-          final version = InfoVersion.fromJson(data['version'] as Map<String, dynamic>);
-          
-          await _registrarUltimaRevision();
-          return version;
-        }
-      }
+      // if (response.statusCode == 200 && response.data != null) {
+      //   final data = response.data as Map<String, dynamic>;
+      //   if (data['disponible'] == true) {
+      //     final version = InfoVersion.fromJson(data['version'] as Map<String, dynamic>);
+      //     
+      //     await _registrarUltimaRevision();
+      //     return version;
+      //   }
+      // }
+      
+      return null; // Temporalmente no verifica actualizaciones
 
       await _registrarUltimaRevision();
       return null;
@@ -355,12 +358,7 @@ class UpdateService {
       limit: 1,
     );
     final value = rows.isEmpty ? null : rows.first['valor']?.toString().trim();
-    final endpoint = value == null || value.isEmpty 
-        ? 'http://127.0.0.1:8787' 
-        : value;
-    return endpoint.endsWith('/') 
-        ? endpoint.substring(0, endpoint.length - 1) 
-        : endpoint;
+    return ControlCenterEndpoint.normalize(value ?? 'http://127.0.0.1:8787');
   }
 
   Future<String> _obtenerInstallationId() async {

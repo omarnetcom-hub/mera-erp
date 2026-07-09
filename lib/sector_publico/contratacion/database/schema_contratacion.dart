@@ -1,0 +1,134 @@
+/// Esquema de base de datos para el módulo de Contratación Pública
+/// Ley 80 de 1993 + SECOP II
+library;
+
+import 'package:sqflite/sqflite.dart';
+
+class SchemaContratacion {
+  /// Crea todas las tablas necesarias para el módulo de contratación
+  static Future<void> crearTablas(Database db) async {
+    // Tabla de procesos de contratación
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS procesos_contratacion (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        numero_proceso TEXT NOT NULL UNIQUE,
+        objeto_contrato TEXT NOT NULL,
+        modalidad TEXT NOT NULL,
+        valor_estimado REAL NOT NULL,
+        tipo_contrato TEXT NOT NULL,
+        dependencia_solicitante TEXT NOT NULL,
+        responsable_proceso TEXT NOT NULL,
+        fecha_inicio TEXT NOT NULL,
+        fecha_publicacion TEXT,
+        fecha_cierre TEXT,
+        estado TEXT NOT NULL,
+        cdp_id TEXT,
+        numero_cdp TEXT,
+        secop_id TEXT,
+        observaciones TEXT,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (cdp_id) REFERENCES cdps(id)
+      )
+    ''');
+
+    // Tabla de contratos
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS contratos (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        numero_contrato TEXT NOT NULL UNIQUE,
+        proceso_id TEXT NOT NULL,
+        numero_proceso TEXT NOT NULL,
+        objeto_contrato TEXT NOT NULL,
+        tipo_contrato TEXT NOT NULL,
+        valor_contrato REAL NOT NULL,
+        contratista_id TEXT NOT NULL,
+        contratista_nombre TEXT NOT NULL,
+        contratista_identificacion TEXT NOT NULL,
+        cdp_id TEXT NOT NULL,
+        numero_cdp TEXT NOT NULL,
+        rp_id TEXT NOT NULL,
+        numero_rp TEXT NOT NULL,
+        fecha_firma TEXT NOT NULL,
+        fecha_inicio_ejecucion TEXT NOT NULL,
+        fecha_fin_ejecucion TEXT NOT NULL,
+        duracion_dias INTEGER NOT NULL,
+        estado TEXT NOT NULL,
+        fecha_legalizacion TEXT,
+        fecha_terminacion TEXT,
+        fecha_liquidacion TEXT,
+        supervisor_id TEXT,
+        supervisor_nombre TEXT,
+        interventor_id TEXT,
+        interventor_nombre TEXT,
+        observaciones TEXT,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (proceso_id) REFERENCES procesos_contratacion(id),
+        FOREIGN KEY (cdp_id) REFERENCES cdps(id),
+        FOREIGN KEY (rp_id) REFERENCES rps(id)
+      )
+    ''');
+
+    // Tabla de pólizas
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS polizas (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        contrato_id TEXT NOT NULL,
+        numero_contrato TEXT NOT NULL,
+        numero_poliza TEXT NOT NULL UNIQUE,
+        tipo_poliza TEXT NOT NULL,
+        aseguradora TEXT NOT NULL,
+        valor_asegurado REAL NOT NULL,
+        fecha_emision TEXT NOT NULL,
+        fecha_inicio_vigencia TEXT NOT NULL,
+        fecha_fin_vigencia TEXT NOT NULL,
+        estado TEXT NOT NULL,
+        fecha_reclamacion TEXT,
+        fecha_pago TEXT,
+        observaciones TEXT,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (contrato_id) REFERENCES contratos(id)
+      )
+    ''');
+
+    // Índices para optimización
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_procesos_entidad 
+      ON procesos_contratacion(entidad_id)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_procesos_estado 
+      ON procesos_contratacion(estado)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_procesos_cdp 
+      ON procesos_contratacion(cdp_id)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_contratos_entidad 
+      ON contratos(entidad_id)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_contratos_proceso 
+      ON contratos(proceso_id)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_contratos_estado 
+      ON contratos(estado)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_contratos_contratista 
+      ON contratos(contratista_identificacion)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_polizas_contrato 
+      ON polizas(contrato_id)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_polizas_estado 
+      ON polizas(estado)
+    ''');
+  }
+}

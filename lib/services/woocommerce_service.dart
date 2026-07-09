@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 import '../db_helper.dart';
 

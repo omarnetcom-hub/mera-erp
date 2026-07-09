@@ -1221,133 +1221,131 @@ class _VentasCommandPanel extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 980;
-          final metrics = [
-            _VentasMetric(
-              'Facturado',
-              facturado,
-              Icons.payments,
-              AppBrand.success,
-            ),
-            _VentasMetric('Impuesto', impuesto, Icons.percent, AppBrand.info),
-            _VentasMetric(
-              'Facturas',
-              facturas,
-              Icons.receipt_long,
-              AppBrand.warning,
-            ),
-            _VentasMetric(
-              'Ticket promedio',
-              ticketPromedio,
-              Icons.trending_up,
-              AppBrand.secondary,
-            ),
-          ];
+          final isMobile = constraints.maxWidth < 600;
+          
+          // En móvil, mostrar menos métricas
+          final metrics = isMobile
+              ? [
+                  _VentasMetric('Facturado', facturado, Icons.payments, AppBrand.success),
+                  _VentasMetric('Facturas', facturas, Icons.receipt_long, AppBrand.warning),
+                ]
+              : [
+                  _VentasMetric('Facturado', facturado, Icons.payments, AppBrand.success),
+                  _VentasMetric('Impuesto', impuesto, Icons.percent, AppBrand.info),
+                  _VentasMetric('Facturas', facturas, Icons.receipt_long, AppBrand.warning),
+                  _VentasMetric('Ticket promedio', ticketPromedio, Icons.trending_up, AppBrand.secondary),
+                ];
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppBrand.warning.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(EnterpriseRadii.md),
+              if (!isMobile) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: AppBrand.warning.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(EnterpriseRadii.md),
+                      ),
+                      child: const Icon(
+                        Icons.point_of_sale,
+                        color: AppBrand.warning,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.point_of_sale,
-                      color: AppBrand.warning,
+                    const SizedBox(width: EnterpriseSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Punto de venta',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text(
+                            'Emision POS, anulaciones, impuestos y detalle por producto en una sola bandeja.',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: EnterpriseSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Punto de venta',
-                          style: Theme.of(context).textTheme.titleLarge,
+                    if (!compact) ...[
+                      IconButton(
+                        tooltip: 'Actualizar ventas',
+                        onPressed: onRefresh,
+                        icon: const Icon(Icons.refresh),
+                      ),
+                      const SizedBox(width: EnterpriseSpacing.sm),
+                      FilledButton.icon(
+                        onPressed: onNewInvoice,
+                        icon: const Icon(Icons.add_card),
+                        label: const Text('Nueva factura'),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+              if (compact) ...[
+                const SizedBox(height: EnterpriseSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onNewInvoice,
+                        icon: const Icon(Icons.add_card, size: 18),
+                        label: const Text('Nueva', style: TextStyle(fontSize: 12)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
-                        Text(
-                          'Emision POS, anulaciones, impuestos y detalle por producto en una sola bandeja.',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!compact) ...[
-                    IconButton(
-                      tooltip: 'Actualizar ventas',
-                      onPressed: onRefresh,
-                      icon: const Icon(Icons.refresh),
+                      ),
                     ),
                     const SizedBox(width: EnterpriseSpacing.sm),
-                    FilledButton.icon(
-                      onPressed: onNewInvoice,
-                      icon: const Icon(Icons.add_card),
-                      label: const Text('Nueva factura'),
-                    ),
-                  ],
-                ],
-              ),
-              if (compact) ...[
-                const SizedBox(height: EnterpriseSpacing.md),
-                Wrap(
-                  spacing: EnterpriseSpacing.sm,
-                  runSpacing: EnterpriseSpacing.sm,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: onNewInvoice,
-                      icon: const Icon(Icons.add_card),
-                      label: const Text('Nueva factura'),
-                    ),
-                    OutlinedButton.icon(
+                    IconButton(
+                      tooltip: 'Actualizar',
                       onPressed: onRefresh,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Actualizar'),
+                      icon: const Icon(Icons.refresh, size: 20),
+                      padding: const EdgeInsets.all(8),
                     ),
                   ],
                 ),
               ],
-              const SizedBox(height: EnterpriseSpacing.md),
+              const SizedBox(height: EnterpriseSpacing.sm),
               Wrap(
                 spacing: EnterpriseSpacing.sm,
                 runSpacing: EnterpriseSpacing.sm,
                 children: [
                   EnterpriseStatusPill(
-                    icon: cargado ? Icons.verified : Icons.sync,
-                    label: cargado ? 'Datos cargados' : 'Preparando datos',
-                    color: cargado ? AppBrand.success : AppBrand.warning,
+                    icon: Icons.receipt_long,
+                    label: isMobile ? '$emitidas emitidas' : '$emitidas emitidas, $anuladas anuladas',
+                    color: AppBrand.info,
                   ),
                   EnterpriseStatusPill(
-                    icon: Icons.check_circle,
-                    label: '$emitidas emitidas',
+                    icon: Icons.inventory,
+                    label: isMobile ? '$productosConStock productos' : '$productosConStock productos con stock',
                     color: AppBrand.success,
                   ),
-                  EnterpriseStatusPill(
-                    icon: Icons.undo,
-                    label: '$anuladas anuladas',
-                    color: anuladas == 0 ? AppBrand.info : AppBrand.error,
-                  ),
-                  EnterpriseStatusPill(
-                    icon: Icons.inventory_2,
-                    label: '$productosConStock productos con stock',
-                    color: AppBrand.secondary,
-                  ),
+                  if (!isMobile)
+                    EnterpriseStatusPill(
+                      icon: Icons.trending_up,
+                      label: 'Ticket promedio $ticketPromedio',
+                      color: AppBrand.secondary,
+                    ),
                 ],
               ),
-              const SizedBox(height: EnterpriseSpacing.md),
+              const SizedBox(height: EnterpriseSpacing.sm),
               LayoutBuilder(
                 builder: (context, grid) {
                   final columns = grid.maxWidth >= 1100
                       ? 4
-                      : grid.maxWidth >= 720
-                      ? 2
-                      : 1;
+                      : grid.maxWidth >= 800
+                          ? 2
+                          : isMobile
+                              ? 2
+                              : 3;
                   final width =
                       (grid.maxWidth - ((columns - 1) * EnterpriseSpacing.sm)) /
                       columns;

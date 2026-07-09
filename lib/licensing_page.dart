@@ -8,8 +8,8 @@ import 'control_center_agent.dart';
 import 'db_helper.dart';
 import 'licensing/domain/license_models.dart';
 import 'services/hardware_fingerprint_service.dart';
-import 'services/license_validation_service.dart';
 import 'services/licencia_service.dart';
+import 'services/control_center_endpoint.dart';
 
 class LicensingPage extends StatefulWidget {
   const LicensingPage({super.key});
@@ -141,13 +141,14 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
         whereArgs: ['control_center_endpoint'],
         limit: 1,
       );
-      final endpoint = endpointConfig.isNotEmpty 
-          ? endpointConfig.first['valor']?.toString().trim() 
-          : 'https://merkaerp-control-center-backend.onrender.com';
+      final configuredEndpoint = endpointConfig.isNotEmpty 
+          ? endpointConfig.first['valor']?.toString().trim()
+          : null;
+      final endpoint = ControlCenterEndpoint.normalize(configuredEndpoint);
       
       // Hacer petición HTTP al servidor online para activación
       final response = await http.post(
-        Uri.parse('$endpoint/api/v1/licenses/activate'),
+        Uri.parse(ControlCenterEndpoint.activationUrl(endpoint)),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
@@ -164,6 +165,7 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
           final licenseData = data['license'];
           final token = data['token'];
           final userData = data['user'];
+          final postgresCredentials = data['postgres_credentials'];
           
           // Guardar datos de licencia en base de datos
           await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_email', '$email')");
@@ -180,6 +182,24 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
 
           // Guardar hardware fingerprint
           await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('hardware_fingerprint', '$fingerprint')");
+
+          // Guardar credenciales PostgreSQL si están disponibles
+          if (postgresCredentials != null) {
+            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_host', '${postgresCredentials['host']}')");
+            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_port', '${postgresCredentials['port']}')");
+            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_database', '${postgresCredentials['database']}')");
+            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_schema', '${postgresCredentials['schema']}')");
+            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_username', '${postgresCredentials['username']}')");
+            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_password', '${postgresCredentials['password']}')");
+            
+            if (postgresCredentials['connection_string'] != null) {
+              await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_connection_string', '${postgresCredentials['connection_string']}')");
+            }
+          }
+
+          // Guardar datos del usuario
+          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('client_id', '${userData['client_id']}')");
+          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('client_name', '${userData['client_name']}')");
 
           await ControlCenterAgent.reportEvent(
             event: 'license.activated',

@@ -129,7 +129,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField(
-              value: origen,
+              initialValue: origen,
               items: const [
                 DropdownMenuItem(value: 'caja', child: Text('Caja (Efectivo)')),
                 DropdownMenuItem(value: 'banco', child: Text('Banco (Transferencias)')),
@@ -151,7 +151,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             const SizedBox(height: 16),
 
             DropdownButtonFormField(
-              value: destino,
+              initialValue: destino,
               items: const [
                 DropdownMenuItem(value: 'caja', child: Text('Caja (Efectivo)')),
                 DropdownMenuItem(value: 'banco', child: Text('Banco (Transferencias)')),

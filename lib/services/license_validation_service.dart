@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:convert/convert.dart';
 
 class LicenseValidationService {
   static final LicenseValidationService _instance = LicenseValidationService._internal();

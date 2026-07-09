@@ -12,7 +12,7 @@ class EInvoiceConfig {
   final List<String> requiredFields;
   final Map<String, dynamic> defaultSettings;
 
-  EInvoiceConfig({
+  const EInvoiceConfig({
     required this.countryCode,
     required this.countryName,
     required this.invoiceFormat,

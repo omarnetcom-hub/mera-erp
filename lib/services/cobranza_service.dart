@@ -213,7 +213,7 @@ class CobranzaService {
     );
 
     await DatabaseHelper.instance.registrarEventoAuditoria(
-      accion: 'COBRANZA_CAMPAÑA_' + (activa ? 'ACTIVADA' : 'DESACTIVADA'),
+      accion: 'COBRANZA_CAMPAÑA_${activa ? 'ACTIVADA' : 'DESACTIVADA'}',
       entidad: 'cobranza',
       detalle: 'ID: $id',
     );

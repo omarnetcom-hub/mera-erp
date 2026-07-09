@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
@@ -122,7 +121,9 @@ class LicenciaService {
     if (rows.isEmpty) return null;
 
     try {
-      _licenciaCache = LicenciaInfo.fromMap(rows.first);
+      final valString = rows.first['valor'] as String;
+      final map = jsonDecode(valString) as Map<String, dynamic>;
+      _licenciaCache = LicenciaInfo.fromMap(map);
       return _licenciaCache;
     } catch (e) {
       debugPrint('Error al parsear licencia: $e');
@@ -138,7 +139,7 @@ class LicenciaService {
         'clave': _claveConfig,
         'valor': jsonEncode(licencia.toMap()),
       },
-      conflictAlgorithm: ConflictAlgorithm.replace
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
     _licenciaCache = licencia;
 
@@ -147,6 +148,25 @@ class LicenciaService {
       entidad: 'licencia',
       detalle: 'Plan: ${licencia.plan.name}, Estado: ${licencia.estado.name}',
     );
+  }
+
+  Future<void> limpiarLicenciaDuplicada() async {
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.query(
+      'app_config',
+      where: 'clave = ?',
+      whereArgs: ['licencia_info'],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+
+    final licencia = LicenciaInfo.fromMap(rows.first);
+    if (licencia.estado == EstadoLicencia.activa || licencia.estado == EstadoLicencia.trial) {
+      return;
+    }
+
+    await db.delete('app_config', where: 'clave = ?', whereArgs: ['licencia_info']);
+    _licenciaCache = null;
   }
 
   Future<void> generarLicenciaInicial() async {

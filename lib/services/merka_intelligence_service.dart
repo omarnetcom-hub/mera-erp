@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../db_helper.dart';
+import 'control_center_endpoint.dart';
 
 class ProductLookupResult {
   const ProductLookupResult({
@@ -580,9 +581,7 @@ class MerkaIntelligenceService {
     final value = rows.isEmpty
         ? ''
         : rows.first['valor']?.toString().trim() ?? '';
-    return value.isEmpty
-        ? 'http://127.0.0.1:8787'
-        : value.replaceFirst(RegExp(r'/$'), '');
+    return ControlCenterEndpoint.normalize(value.isEmpty ? null : value);
   }
 
   bool _matches(String text, List<String> patterns) {

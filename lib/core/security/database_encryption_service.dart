@@ -22,7 +22,7 @@ class DatabaseEncryptionService {
   DatabaseEncryptionService._internal();
   
   /// Deriva una clave de cifrado desde una contraseña usando PBKDF2
-  String deriveKeyFromPassword(String password, {String? salt}) async {
+  Future<String> deriveKeyFromPassword(String password, {String? salt}) async {
     final effectiveSalt = salt ?? _generateSalt();
     
     final key = _pbkdf2(

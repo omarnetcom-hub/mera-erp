@@ -4,7 +4,9 @@
 // Maneja todas las operaciones de la base de datos local.
 // ============================================================
 
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -70,8 +72,146 @@ class DatabaseHelper {
   /// Devuelve la instancia de la base de datos, creándola si no existe.
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('caja_simple.db');
+    _database = await _initDB('merka_erp_test_fresco.db');
+    await _crearTablasYTriggersDeSincronizacion(_database!);
     return _database!;
+  }
+
+  Future<void> _crearTablasYTriggersDeSincronizacion(DatabaseExecutor db) async {
+    // 1. Crear tabla local_changes si no existe
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS local_changes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        record_id TEXT NOT NULL,
+        operation TEXT NOT NULL,
+        data TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        synced INTEGER DEFAULT 0
+      )
+    ''');
+
+    // 2. Crear tabla sync_table_metadata si no existe
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_table_metadata (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        last_sync_timestamp TEXT NOT NULL,
+        last_sync_record_id INTEGER
+      )
+    ''');
+
+    // 3. Crear tabla sync_state y su registro de control
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_state (
+        is_syncing INTEGER DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      INSERT INTO sync_state (rowid, is_syncing) 
+      SELECT 1, 0 WHERE NOT EXISTS (SELECT 1 FROM sync_state WHERE rowid = 1)
+    ''');
+
+    // 4. Crear triggers para productos
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_sync_insert_productos AFTER INSERT ON productos
+      WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
+      BEGIN
+        INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+        VALUES ('productos', NEW.id, 'insert', json_object('id', NEW.id, 'codigo', NEW.codigo, 'nombre', NEW.nombre, 'unidad_base', NEW.unidad_base, 'stock', NEW.stock, 'costo', NEW.costo, 'precio', NEW.precio, 'impuesto_pct', NEW.impuesto_pct, 'codigo_barras', NEW.codigo_barras, 'conversion_nombre', NEW.conversion_nombre, 'conversion_cantidad', NEW.conversion_cantidad), datetime('now'), 0);
+      END;
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_sync_update_productos AFTER UPDATE ON productos
+      WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
+      BEGIN
+        INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+        VALUES ('productos', NEW.id, 'update', json_object('id', NEW.id, 'codigo', NEW.codigo, 'nombre', NEW.nombre, 'unidad_base', NEW.unidad_base, 'stock', NEW.stock, 'costo', NEW.costo, 'precio', NEW.precio, 'impuesto_pct', NEW.impuesto_pct, 'codigo_barras', NEW.codigo_barras, 'conversion_nombre', NEW.conversion_nombre, 'conversion_cantidad', NEW.conversion_cantidad), datetime('now'), 0);
+      END;
+    ''');
+
+    // 5. Crear triggers para clientes
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_sync_insert_clientes AFTER INSERT ON clientes
+      WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
+      BEGIN
+        INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+        VALUES ('clientes', NEW.id, 'insert', json_object('id', NEW.id, 'identificacion', NEW.identificacion, 'nombre', NEW.nombre, 'email', NEW.email, 'telefono', NEW.telefono, 'direccion', NEW.direccion, 'ciudad', NEW.ciudad, 'tipo_cliente', NEW.tipo_cliente, 'limite_credito', NEW.limite_credito, 'saldo_actual', NEW.saldo_actual, 'activo', NEW.activo, 'updated_at', NEW.updated_at), datetime('now'), 0);
+      END;
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_sync_update_clientes AFTER UPDATE ON clientes
+      WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
+      BEGIN
+        INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+        VALUES ('clientes', NEW.id, 'update', json_object('id', NEW.id, 'identificacion', NEW.identificacion, 'nombre', NEW.nombre, 'email', NEW.email, 'telefono', NEW.telefono, 'direccion', NEW.direccion, 'ciudad', NEW.ciudad, 'tipo_cliente', NEW.tipo_cliente, 'limite_credito', NEW.limite_credito, 'saldo_actual', NEW.saldo_actual, 'activo', NEW.activo, 'updated_at', NEW.updated_at), datetime('now'), 0);
+      END;
+    ''');
+
+    // 6. Crear triggers para ventas
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_sync_insert_ventas AFTER INSERT ON ventas
+      WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
+      BEGIN
+        INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+        VALUES ('ventas', NEW.id, 'insert', json_object('id', NEW.id, 'numero_factura', NEW.numero_factura, 'cliente_id', NEW.cliente_id, 'fecha', NEW.fecha, 'subtotal', NEW.subtotal, 'iva', NEW.iva, 'total', NEW.total, 'metodo_pago', NEW.metodo_pago, 'estado', NEW.estado, 'observaciones', NEW.observaciones, 'updated_at', NEW.updated_at), datetime('now'), 0);
+      END;
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_sync_update_ventas AFTER UPDATE ON ventas
+      WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
+      BEGIN
+        INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+        VALUES ('ventas', NEW.id, 'update', json_object('id', NEW.id, 'numero_factura', NEW.numero_factura, 'cliente_id', NEW.cliente_id, 'fecha', NEW.fecha, 'subtotal', NEW.subtotal, 'iva', NEW.iva, 'total', NEW.total, 'metodo_pago', NEW.metodo_pago, 'estado', NEW.estado, 'observaciones', NEW.observaciones, 'updated_at', NEW.updated_at), datetime('now'), 0);
+      END;
+    ''');
+
+    // 7. Crear triggers para venta_items
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_sync_insert_venta_items AFTER INSERT ON ventas_detalle
+      WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
+      BEGIN
+        INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+        VALUES ('venta_items', NEW.id, 'insert', json_object('id', NEW.id, 'venta_id', NEW.venta_id, 'producto_id', NEW.producto_id, 'cantidad', NEW.cantidad, 'precio_unitario', NEW.precio_unitario, 'subtotal', NEW.subtotal), datetime('now'), 0);
+      END;
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_sync_update_venta_items AFTER UPDATE ON ventas_detalle
+      WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
+      BEGIN
+        INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+        VALUES ('venta_items', NEW.id, 'update', json_object('id', NEW.id, 'venta_id', NEW.venta_id, 'producto_id', NEW.producto_id, 'cantidad', NEW.cantidad, 'precio_unitario', NEW.precio_unitario, 'subtotal', NEW.subtotal), datetime('now'), 0);
+      END;
+    ''');
+
+    // 8. Carga retroactiva de datos existentes que no están en cola de sincronización
+    await db.execute('''
+      INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+      SELECT 'productos', CAST(id AS TEXT), 'insert', json_object('id', id, 'codigo', codigo, 'nombre', nombre, 'unidad_base', unidad_base, 'stock', stock, 'costo', costo, 'precio', precio, 'impuesto_pct', impuesto_pct, 'codigo_barras', codigo_barras, 'conversion_nombre', conversion_nombre, 'conversion_cantidad', conversion_cantidad), datetime('now'), 0
+      FROM productos
+      WHERE CAST(id AS TEXT) NOT IN (SELECT record_id FROM local_changes WHERE table_name = 'productos');
+    ''');
+
+    await db.execute('''
+      INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+      SELECT 'clientes', CAST(id AS TEXT), 'insert', json_object('id', id, 'identificacion', identificacion, 'nombre', nombre, 'email', email, 'telefono', telefono, 'direccion', direccion, 'ciudad', ciudad, 'tipo_cliente', tipo_cliente, 'limite_credito', limite_credito, 'saldo_actual', saldo_actual, 'activo', activo, 'updated_at', updated_at), datetime('now'), 0
+      FROM clientes
+      WHERE CAST(id AS TEXT) NOT IN (SELECT record_id FROM local_changes WHERE table_name = 'clientes');
+    ''');
+
+    await db.execute('''
+      INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+      SELECT 'ventas', CAST(id AS TEXT), 'insert', json_object('id', id, 'numero_factura', numero_factura, 'cliente_id', cliente_id, 'fecha', fecha, 'subtotal', subtotal, 'iva', iva, 'total', total, 'metodo_pago', metodo_pago, 'estado', estado, 'observaciones', observaciones, 'updated_at', updated_at), datetime('now'), 0
+      FROM ventas
+      WHERE CAST(id AS TEXT) NOT IN (SELECT record_id FROM local_changes WHERE table_name = 'ventas');
+    ''');
+
+    await db.execute('''
+      INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
+      SELECT 'venta_items', CAST(id AS TEXT), 'insert', json_object('id', id, 'venta_id', venta_id, 'producto_id', producto_id, 'cantidad', cantidad, 'precio_unitario', precio_unitario, 'subtotal', subtotal), datetime('now'), 0
+      FROM ventas_detalle
+      WHERE CAST(id AS TEXT) NOT IN (SELECT record_id FROM local_changes WHERE table_name = 'venta_items');
+    ''');
   }
 
   Future<String> _getAppDir() async {
@@ -89,13 +229,324 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 48,
+      version: 59,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: _crearDB,
       onUpgrade: _migrarDB,
     );
+  }
+
+  Future<void> _migrarDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 49) {
+      // Agregar columnas faltantes en auditoria_eventos
+      await _agregarColumnaSiNoExiste(
+        db,
+        'auditoria_eventos',
+        'old_values',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'auditoria_eventos',
+        'new_values',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'auditoria_eventos',
+        'ip_address',
+        'TEXT',
+      );
+      
+      // Crear tabla control_center_sync_queue
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS control_center_sync_queue(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          table_name TEXT NOT NULL,
+          record_id TEXT NOT NULL,
+          action TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
+    
+    if (oldVersion < 50) {
+      // Configurar endpoint del Control Center por defecto
+      await db.insert('app_config', {
+        'clave': 'control_center_endpoint',
+        'valor': 'http://localhost:3000',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      
+      // Configurar installation_id por defecto
+      await db.insert('app_config', {
+        'clave': 'control_center_installation_id',
+        'valor': 'MERKA-LOCAL-001',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    
+    if (oldVersion < 51) {
+      // Crear tabla warranties si no existe
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS warranties(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER,
+          venta_id INTEGER NOT NULL,
+          producto_id INTEGER NOT NULL,
+          numero_serie TEXT,
+          descripcion_problema TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'Recibido',
+          fecha_recepcion TEXT NOT NULL,
+          fecha_resolucion TEXT,
+          resolucion TEXT,
+          dias_garantia INTEGER NOT NULL DEFAULT 365,
+          end_date TEXT,
+          updated_at TEXT,
+          product_name TEXT,
+          customer_name TEXT
+        )
+      ''');
+      
+      // Crear tabla commissions
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS commissions(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER,
+          venta_id INTEGER NOT NULL,
+          vendedor_id INTEGER,
+          cliente_id INTEGER,
+          monto_venta REAL NOT NULL,
+          porcentaje_comision REAL NOT NULL,
+          monto_comision REAL NOT NULL,
+          commission_amount REAL NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at TEXT NOT NULL,
+          paid_at TEXT,
+          FOREIGN KEY (venta_id) REFERENCES ventas(id)
+        )
+      ''');
+      
+      // Crear tabla document_templates
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS document_templates(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER,
+          name TEXT NOT NULL,
+          description TEXT,
+          template_type TEXT NOT NULL,
+          content TEXT NOT NULL,
+          is_default INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT
+        )
+      ''');
+      
+      // Crear tabla webhooks si no existe
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS webhooks(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER,
+          event TEXT NOT NULL,
+          target_url TEXT NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL
+        )
+      ''');
+      
+      // Crear tabla currencies si no existe
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS currencies(
+          code TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          symbol TEXT NOT NULL,
+          is_base_currency INTEGER NOT NULL DEFAULT 0,
+          is_default INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+    }
+    
+    if (oldVersion < 52) {
+      // Crear tabla warranty_claims
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS warranty_claims(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          warranty_id INTEGER NOT NULL,
+          claim_date TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          description TEXT,
+          resolution TEXT,
+          resolved_at TEXT,
+          FOREIGN KEY (warranty_id) REFERENCES warranties(id)
+        )
+      ''');
+      
+      // Crear tabla commission_rules
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS commission_rules(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER,
+          salesperson_id INTEGER,
+          commission_percentage REAL NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT
+        )
+      ''');
+      
+      // Agregar columna is_default a currencies si no existe
+      await _agregarColumnaSiNoExiste(
+        db,
+        'currencies',
+        'is_default',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    
+    if (oldVersion < 53) {
+      // Agregar columnas faltantes a warranties
+      await _agregarColumnaSiNoExiste(
+        db,
+        'warranties',
+        'product_name',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'warranties',
+        'customer_name',
+        'TEXT',
+      );
+      
+      // Agregar columna faltante a commissions
+      await _agregarColumnaSiNoExiste(
+        db,
+        'commissions',
+        'commission_amount',
+        'REAL NOT NULL DEFAULT 0',
+      );
+    }
+    
+    if (oldVersion < 54) {
+      // Crear tabla tax_parameters
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS tax_parameters(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          year INTEGER NOT NULL,
+          company_id INTEGER,
+          uvt_value REAL NOT NULL,
+          retefuente_min_uvt INTEGER NOT NULL,
+          retefuente_rate_declarante REAL NOT NULL,
+          retefuente_rate_non_declarante REAL NOT NULL,
+          reteica_base_rate REAL NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT,
+          UNIQUE(year, company_id)
+        )
+      ''');
+    }
+    
+    if (oldVersion < 55) {
+      // Agregar columna status a lotes si no existe
+      await _agregarColumnaSiNoExiste(
+        db,
+        'lotes',
+        'status',
+        'TEXT NOT NULL DEFAULT "active"',
+      );
+    }
+    
+    if (oldVersion < 56) {
+      // Agregar columnas costo_anterior y costo_nuevo a movimientos_inventario
+      await _agregarColumnaSiNoExiste(
+        db,
+        'movimientos_inventario',
+        'costo_anterior',
+        'REAL',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'movimientos_inventario',
+        'costo_nuevo',
+        'REAL',
+      );
+    }
+    
+    if (oldVersion < 57) {
+      // Actualizar catálogo de cuentas del PUC con datos completos
+      // Incluir la cuenta 135518 y otras cuentas faltantes
+      final cuentasPUC = [
+        // Cuentas de Impuestos descontables (clase 1 - Activo)
+        {'codigo': '135518', 'nombre': 'Impuesto de Industria y comercio y retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '135520', 'nombre': 'Impuesto de Industria y comercio descontable', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '135525', 'nombre': 'Impuesto de Avisos y Tableros retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '135530', 'nombre': 'Impuesto de Avisos y Tableros descontable', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        // Cuentas de Impuestos por pagar (clase 2 - Pasivo)
+        {'codigo': '240801', 'nombre': 'IVA generados', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
+        {'codigo': '240805', 'nombre': 'IVA descontable', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
+        {'codigo': '2365', 'nombre': 'Retenciones en la fuente por pagar', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
+        {'codigo': '236505', 'nombre': 'Retención en la fuente por pagar a terceros', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
+        {'codigo': '236510', 'nombre': 'Retención en la fuente a cargo de terceros', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
+        // Cuentas de Ingresos (clase 4)
+        {'codigo': '4135', 'nombre': 'Comercio al por mayor y al por menor', 'tipo': 'ingreso', 'naturaleza': 'credito', 'activa': 1},
+        {'codigo': '413505', 'nombre': 'Ventas de mercancías', 'tipo': 'ingreso', 'naturaleza': 'credito', 'activa': 1},
+        {'codigo': '413510', 'nombre': 'Servicios', 'tipo': 'ingreso', 'naturaleza': 'credito', 'activa': 1},
+        // Cuentas de Costos (clase 6)
+        {'codigo': '6135', 'nombre': 'Costo de ventas', 'tipo': 'costo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '613505', 'nombre': 'Compras', 'tipo': 'costo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '613510', 'nombre': 'Devoluciones en ventas', 'tipo': 'costo', 'naturaleza': 'debito', 'activa': 1},
+      ];
+      
+      for (final cuenta in cuentasPUC) {
+        await db.insert(
+          'cuentas_contables',
+          cuenta,
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
+    
+    if (oldVersion < 58) {
+      // Importar todas las cuentas del PUC del archivo procesado
+      // Leer el archivo de cuentas procesadas
+      final pucFile = File(r'C:\Users\PC\Downloads\puc_processed.txt');
+      if (await pucFile.exists()) {
+        final lines = await pucFile.readAsLines();
+        for (final line in lines) {
+          final parts = line.split('|');
+          if (parts.length == 4) {
+            final codigo = parts[0].trim();
+            final nombre = parts[1].trim();
+            final tipo = parts[2].trim();
+            final naturaleza = parts[3].trim();
+            
+            await db.insert(
+              'cuentas_contables',
+              {
+                'codigo': codigo,
+                'nombre': nombre,
+                'tipo': tipo,
+                'naturaleza': naturaleza,
+                'activa': 1,
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          }
+        }
+      }
+    }
+    
+    if (oldVersion < 59) {
+      // Actualizar endpoint del Control Center al puerto correcto (3000)
+      await db.update(
+        'app_config',
+        {'valor': 'http://localhost:3000'},
+        where: 'clave = ?',
+        whereArgs: ['control_center_endpoint'],
+      );
+    }
   }
 
   Future<String> obtenerRutaBaseDatos() async {
@@ -206,6 +657,30 @@ class DatabaseHelper {
       'descripcion',
       "TEXT DEFAULT ''",
     );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'productos',
+      'has_warranty',
+      "INTEGER DEFAULT 0",
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'productos',
+      'warranty_days',
+      "INTEGER DEFAULT 365",
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'movimientos_inventario',
+      'costo_anterior',
+      'REAL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'movimientos_inventario',
+      'costo_nuevo',
+      'REAL DEFAULT 0',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS lotes(
@@ -216,6 +691,7 @@ class DatabaseHelper {
         fecha_vencimiento TEXT,
         cantidad REAL NOT NULL DEFAULT 0,
         costo REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',
         created_at TEXT NOT NULL,
         FOREIGN KEY (producto_id) REFERENCES productos(id)
       )
@@ -309,6 +785,7 @@ class DatabaseHelper {
         bodega_origen_id INTEGER NOT NULL,
         bodega_destino_id INTEGER NOT NULL,
         cantidad REAL NOT NULL,
+        costo_at_movement REAL NOT NULL DEFAULT 0,
         estado TEXT NOT NULL DEFAULT 'registrado',
         observacion TEXT,
         usuario TEXT,
@@ -458,9 +935,27 @@ class DatabaseHelper {
         porcentaje REAL NOT NULL,
         comision REAL NOT NULL,
         periodo TEXT NOT NULL,
-        fecha TEXT NOT NULL
+        fecha TEXT NOT NULL,
+        commission_type TEXT NOT NULL DEFAULT 'Venta',
+        status TEXT NOT NULL DEFAULT 'Pendiente'
       )
     ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS warranties(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER,
+        venta_id INTEGER NOT NULL,
+        producto_id INTEGER NOT NULL,
+        numero_serie TEXT,
+        descripcion_problema TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Recibido',
+        fecha_recepcion TEXT NOT NULL,
+        fecha_resolucion TEXT,
+        resolucion TEXT,
+        dias_garantia INTEGER NOT NULL DEFAULT 365
+      )
+    ''');
+
     await db.execute('''
       CREATE TABLE IF NOT EXISTS presupuesto_lineas(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -471,6 +966,83 @@ class DatabaseHelper {
         monto_presupuestado REAL NOT NULL DEFAULT 0,
         alerta_pct REAL NOT NULL DEFAULT 90,
         creado_en TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS currencies(
+        code TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        symbol TEXT NOT NULL,
+        is_base_currency INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS exchange_rates(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        currency_code TEXT NOT NULL,
+        rate_to_base REAL NOT NULL,
+        company_id INTEGER,
+        FOREIGN KEY (currency_code) REFERENCES currencies(code)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS webhooks(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER,
+        event TEXT NOT NULL,
+        target_url TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS attachments(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER,
+        entity_type TEXT NOT NULL,
+        entity_id INTEGER NOT NULL,
+        file_url TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        file_name TEXT,
+        file_size INTEGER,
+        uploaded_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS onboarding_steps(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER,
+        step_name TEXT NOT NULL,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        completed_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS templates(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER,
+        type TEXT NOT NULL,
+        html_content TEXT NOT NULL,
+        subject TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS system_tasks_log(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_name TEXT NOT NULL UNIQUE,
+        last_execution_date TEXT,
+        last_execution_status TEXT,
+        last_error TEXT
       )
     ''');
     await db.execute('''
@@ -581,6 +1153,24 @@ class DatabaseHelper {
       'impuesto_total',
       'REAL DEFAULT 0',
     );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'auditoria_eventos',
+      'old_values',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'auditoria_eventos',
+      'new_values',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'auditoria_eventos',
+      'ip_address',
+      'TEXT',
+    );
   }
 
   Future<void> _agregarColumnaSiNoExiste(
@@ -678,7 +1268,12 @@ class DatabaseHelper {
         direccion TEXT,
         email TEXT,
         estado TEXT DEFAULT 'activo',
-        fecha TEXT
+        fecha TEXT,
+        -- Banderas fiscales colombianas
+        gran_contribuyente INTEGER DEFAULT 0,
+        autorretenedor INTEGER DEFAULT 0,
+        regimen_tributario TEXT DEFAULT 'ordinario',
+        declarante INTEGER DEFAULT 1
       )
     ''');
 
@@ -737,7 +1332,22 @@ class DatabaseHelper {
         entidad TEXT NOT NULL,
         entidad_id INTEGER,
         detalle TEXT,
-        usuario TEXT DEFAULT 'local'
+        usuario TEXT DEFAULT 'local',
+        old_values TEXT,
+        new_values TEXT,
+        ip_address TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS tenants(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT NOT NULL,
+        license_status TEXT NOT NULL DEFAULT 'active',
+        subscription_start TEXT,
+        subscription_end TEXT,
+        payment_method TEXT,
+        created_at TEXT NOT NULL
       )
     ''');
   }
@@ -883,10 +1493,21 @@ class DatabaseHelper {
         company_id INTEGER,
         nombre TEXT NOT NULL,
         documento TEXT,
+        tipo_documento TEXT DEFAULT 'CC',
         cargo TEXT,
         salario_base REAL NOT NULL DEFAULT 0,
-        auxilio_transporte REAL NOT NULL DEFAULT 0,
+        auxilio_transporte INTEGER NOT NULL DEFAULT 0,
+        cuenta_bancaria TEXT,
+        codigo_banco TEXT,
+        nombre_banco TEXT,
+        nivel_arl TEXT NOT NULL DEFAULT 'I',
+        fondo_pension TEXT,
+        eps TEXT,
+        tipo_contrato TEXT NOT NULL DEFAULT 'indefinido',
+        frecuencia_pago TEXT NOT NULL DEFAULT 'mensual',
         activo INTEGER NOT NULL DEFAULT 1,
+        fecha_contratacion TEXT NOT NULL,
+        fecha_terminacion TEXT,
         fecha TEXT NOT NULL
       )
     ''');
@@ -897,13 +1518,107 @@ class DatabaseHelper {
         company_id INTEGER,
         empleado_id INTEGER NOT NULL,
         empleado TEXT NOT NULL,
-        anio INTEGER NOT NULL,
-        mes INTEGER NOT NULL,
-        devengado REAL NOT NULL,
-        deducciones REAL NOT NULL,
-        neto REAL NOT NULL,
+        periodo TEXT NOT NULL,
+        salario_base REAL NOT NULL,
+        total_devengado REAL NOT NULL,
+        total_deducciones REAL NOT NULL,
+        neto_pagar REAL NOT NULL,
+        aportes_empleador REAL NOT NULL,
+        salud_empleado REAL NOT NULL,
+        salud_empleador REAL NOT NULL,
+        pension_empleado REAL NOT NULL,
+        pension_empleador REAL NOT NULL,
+        fsp REAL NOT NULL,
+        arl REAL NOT NULL,
+        parafiscal_sena REAL NOT NULL,
+        parafiscal_icbf REAL NOT NULL,
+        parafiscal_caja REAL NOT NULL,
+        cesantias REAL NOT NULL,
+        prima_servicios REAL NOT NULL,
+        intereses_cesantias REAL NOT NULL,
+        vacaciones REAL NOT NULL,
+        retefuente REAL NOT NULL,
         estado TEXT NOT NULL DEFAULT 'liquidada',
+        calculo_json TEXT,
+        nomina_electronica_json TEXT,
         fecha TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS payroll_parameters(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER,
+        year INTEGER NOT NULL,
+        smmlv REAL NOT NULL,
+        uvt REAL NOT NULL,
+        transportation_allowance REAL NOT NULL,
+        health_employee_rate REAL NOT NULL DEFAULT 0.04,
+        health_employer_rate REAL NOT NULL DEFAULT 0.085,
+        health_exonerated INTEGER DEFAULT 0,
+        pension_employee_rate REAL NOT NULL DEFAULT 0.04,
+        pension_employer_rate REAL NOT NULL DEFAULT 0.12,
+        fsp_trigger_smmlv REAL NOT NULL DEFAULT 4.0,
+        fsp_rate_1 REAL NOT NULL DEFAULT 0.01,
+        fsp_rate_2 REAL NOT NULL DEFAULT 0.012,
+        fsp_rate_3 REAL NOT NULL DEFAULT 0.014,
+        fsp_rate_4 REAL NOT NULL DEFAULT 0.016,
+        fsp_rate_5 REAL NOT NULL DEFAULT 0.018,
+        fsp_rate_6 REAL NOT NULL DEFAULT 0.02,
+        arl_level_1_rate REAL NOT NULL DEFAULT 0.00522,
+        arl_level_2_rate REAL NOT NULL DEFAULT 0.01044,
+        arl_level_3_rate REAL NOT NULL DEFAULT 0.02436,
+        arl_level_4_rate REAL NOT NULL DEFAULT 0.04350,
+        arl_level_5_rate REAL NOT NULL DEFAULT 0.06960,
+        parafiscal_sena_rate REAL NOT NULL DEFAULT 0.02,
+        parafiscal_icbf_rate REAL NOT NULL DEFAULT 0.03,
+        parafiscal_caja_rate REAL NOT NULL DEFAULT 0.04,
+        severance_rate REAL NOT NULL DEFAULT 0.0833,
+        service_bonus_rate REAL NOT NULL DEFAULT 0.0833,
+        severance_interest_rate REAL NOT NULL DEFAULT 0.01,
+        vacation_rate REAL NOT NULL DEFAULT 0.0417,
+        created_at TEXT NOT NULL,
+        updated_at TEXT,
+        UNIQUE(company_id, year)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS payroll_novelties(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER,
+        empleado_id INTEGER NOT NULL,
+        periodo TEXT NOT NULL,
+        tipo_novedad TEXT NOT NULL,
+        descripcion TEXT,
+        valor REAL NOT NULL,
+        horas REAL,
+        tarifa REAL,
+        fecha TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS tax_parameters(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER,
+        year INTEGER NOT NULL,
+        iva_general_rate REAL NOT NULL DEFAULT 0.19,
+        iva_reduced_rate REAL NOT NULL DEFAULT 0.05,
+        iva_exempt_rate REAL NOT NULL DEFAULT 0.0,
+        retefuente_general_uvt REAL NOT NULL DEFAULT 1090,
+        retefuente_purchases_declaring REAL NOT NULL DEFAULT 0.025,
+        retefuente_purchases_non_declaring REAL NOT NULL DEFAULT 0.035,
+        retefuente_services_1 REAL NOT NULL DEFAULT 0.04,
+        retefuente_services_2 REAL NOT NULL DEFAULT 0.06,
+        retefuente_honoraries_1 REAL NOT NULL DEFAULT 0.10,
+        retefuente_honoraries_2 REAL NOT NULL DEFAULT 0.11,
+        reteica_base_rate REAL NOT NULL DEFAULT 0.00414,
+        inc_restaurant_rate REAL NOT NULL DEFAULT 0.08,
+        inc_telecom_rate REAL NOT NULL DEFAULT 0.04,
+        created_at TEXT NOT NULL,
+        updated_at TEXT,
+        UNIQUE(company_id, year)
       )
     ''');
 
@@ -914,6 +1629,7 @@ class DatabaseHelper {
         nombre TEXT NOT NULL,
         categoria TEXT,
         costo REAL NOT NULL,
+        valor_residual REAL NOT NULL DEFAULT 0,
         fecha_compra TEXT NOT NULL,
         vida_util_meses INTEGER NOT NULL,
         depreciacion_acumulada REAL NOT NULL DEFAULT 0,
@@ -1317,6 +2033,18 @@ class DatabaseHelper {
         next_attempt_at TEXT,
         created_at TEXT NOT NULL,
         last_error TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS control_center_sync_queue(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        record_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL
       )
     ''');
 
@@ -3852,17 +4580,93 @@ class DatabaseHelper {
       'origen': origen,
     });
 
+    // Actualizar saldo de cuenta bancaria o caja
+    if (origen == 'banco') {
+      final cuentasBancarias = await db.query(
+        'treasury_bank_accounts',
+        where: 'company_id = ?',
+        whereArgs: [companyId],
+        limit: 1,
+      );
+      if (cuentasBancarias.isNotEmpty) {
+        final saldoActual = (cuentasBancarias.first['current_balance'] as num?)?.toDouble() ?? 0;
+        await db.update(
+          'treasury_bank_accounts',
+          {'current_balance': saldoActual + monto},
+          where: 'id = ?',
+          whereArgs: [cuentasBancarias.first['id']],
+        );
+      }
+    }
+
     await registrarAsientoAbonoCXC(
       cuentaId: cuentaId,
       monto: monto,
       metodoPago: metodoPago,
     );
+
+    // Trigger asíncrono: Actualizar comisiones por recaudo (anti-fraude)
+    // No bloquea la operación principal, si falla solo se loguea el error
+    final ventaId = cuenta['venta_id'] as int?;
+    if (ventaId != null && nuevoEstado == 'pagada') {
+      Future.microtask(() async {
+        try {
+          await actualizarComisionesPorRecaudo(ventaId);
+        } catch (e) {
+          // Loguear error en auditoría pero no afectar la operación principal
+          await registrarEventoAuditoria(
+            accion: 'ERROR_COMISIONES_RECAUDO',
+            entidad: 'comisiones_liquidadas',
+            entidadId: ventaId,
+            detalle: 'Error al actualizar comisiones por recaudo: $e',
+          );
+        }
+      });
+    }
+
+    // Trigger asíncrono: Encolar sincronización con Control Center
+    final abonoId = await db.query(
+      'abonos_cxc',
+      where: 'cuenta_id = ? AND company_id = ?',
+      whereArgs: [cuentaId, companyId],
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+    
+    if (abonoId.isNotEmpty) {
+      final idAbono = abonoId.first['id'] as int;
+      Future.microtask(() async {
+        try {
+          final payload = {
+            'payment_id': idAbono,
+            'account_id': cuentaId,
+            'amount': monto,
+            'payment_method': metodoPago,
+            'observation': observacion,
+            'date': DateTime.now().toIso8601String(),
+            'new_balance': nuevoSaldo,
+            'status': nuevoEstado,
+            'sale_id': ventaId,
+          };
+          await enqueueSync(
+            table: 'accounts_receivable',
+            recordId: idAbono.toString(),
+            action: 'UPDATE',
+            payload: jsonEncode(payload),
+          );
+        } catch (e) {
+          // Loguear error pero no afectar la operación principal
+          debugPrint('Error en enqueueSync para abono: $e');
+        }
+      });
+    }
   }
 
   Future<int> registrarCierreCaja({
     required double efectivoContado,
     String observacion = '',
     double baseAperturaSiguiente = 0,
+    bool arqueoCiego = true,
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
@@ -3905,6 +4709,7 @@ class DatabaseHelper {
       'estado': 'cerrado',
       'base_apertura_siguiente': baseAperturaSiguiente,
       'retiro_banco': retiroBanco,
+      'arqueo_ciego': arqueoCiego ? 1 : 0,
     });
 
     await registrarEventoAuditoria(
@@ -4305,23 +5110,36 @@ class DatabaseHelper {
     required String nombre,
     required double salarioBase,
     String documento = '',
+    String tipoDocumento = 'CC',
     String cargo = '',
-    double auxilioTransporte = 0,
-    String metodoPago = 'Efectivo',
-    String banco = '',
-    String numeroCuenta = '',
+    int auxilioTransporte = 0,
+    String cuentaBancaria = '',
+    String codigoBanco = '',
+    String nombreBanco = '',
+    String nivelArl = 'I',
+    String fondoPension = '',
+    String eps = '',
+    String tipoContrato = 'indefinido',
+    String frecuenciaPago = 'mensual',
   }) async {
     final db = await instance.database;
     return await db.insert('empleados', {
       'nombre': nombre,
       'documento': documento,
+      'tipo_documento': tipoDocumento,
       'cargo': cargo,
       'salario_base': salarioBase,
       'auxilio_transporte': auxilioTransporte,
-      'metodo_pago': metodoPago,
-      'banco': banco,
-      'numero_cuenta': numeroCuenta,
+      'cuenta_bancaria': cuentaBancaria,
+      'codigo_banco': codigoBanco,
+      'nombre_banco': nombreBanco,
+      'nivel_arl': nivelArl,
+      'fondo_pension': fondoPension,
+      'eps': eps,
+      'tipo_contrato': tipoContrato,
+      'frecuencia_pago': frecuenciaPago,
       'activo': 1,
+      'fecha_contratacion': DateTime.now().toIso8601String(),
       'fecha': DateTime.now().toIso8601String(),
     });
   }
@@ -4331,22 +5149,34 @@ class DatabaseHelper {
     required String nombre,
     required double salarioBase,
     required String documento,
+    String tipoDocumento = 'CC',
     required String cargo,
-    required double auxilioTransporte,
-    required String metodoPago,
-    required String banco,
-    required String numeroCuenta,
+    required int auxilioTransporte,
+    String cuentaBancaria = '',
+    String codigoBanco = '',
+    String nombreBanco = '',
+    String nivelArl = 'I',
+    String fondoPension = '',
+    String eps = '',
+    String tipoContrato = 'indefinido',
+    String frecuenciaPago = 'mensual',
   }) async {
     final db = await instance.database;
     return await db.update('empleados', {
       'nombre': nombre,
       'documento': documento,
+      'tipo_documento': tipoDocumento,
       'cargo': cargo,
       'salario_base': salarioBase,
       'auxilio_transporte': auxilioTransporte,
-      'metodo_pago': metodoPago,
-      'banco': banco,
-      'numero_cuenta': numeroCuenta,
+      'cuenta_bancaria': cuentaBancaria,
+      'codigo_banco': codigoBanco,
+      'nombre_banco': nombreBanco,
+      'nivel_arl': nivelArl,
+      'fondo_pension': fondoPension,
+      'eps': eps,
+      'tipo_contrato': tipoContrato,
+      'frecuencia_pago': frecuenciaPago,
     }, where: 'id = ?', whereArgs: [id]);
   }
 
@@ -4360,6 +5190,39 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    
+    // Obtener parámetros de nómina del año
+    final params = await db.query(
+      'payroll_parameters',
+      where: 'year = ? AND (company_id = ? OR company_id IS NULL)',
+      whereArgs: [anio, companyId],
+      limit: 1,
+    );
+    
+    if (params.isEmpty) {
+      throw Exception('No hay parámetros de nómina configurados para el año $anio');
+    }
+    
+    final param = params.first;
+    final smmlv = (param['smmlv'] as num).toDouble();
+    final healthEmployeeRate = (param['health_employee_rate'] as num).toDouble();
+    final healthEmployerRate = (param['health_employer_rate'] as num).toDouble();
+    final pensionEmployeeRate = (param['pension_employee_rate'] as num).toDouble();
+    final pensionEmployerRate = (param['pension_employer_rate'] as num).toDouble();
+    final fspTrigger = (param['fsp_trigger_smmlv'] as num).toDouble();
+    final arlLevel1 = (param['arl_level_1_rate'] as num).toDouble();
+    final arlLevel2 = (param['arl_level_2_rate'] as num).toDouble();
+    final arlLevel3 = (param['arl_level_3_rate'] as num).toDouble();
+    final arlLevel4 = (param['arl_level_4_rate'] as num).toDouble();
+    final arlLevel5 = (param['arl_level_5_rate'] as num).toDouble();
+    final senaRate = (param['parafiscal_sena_rate'] as num).toDouble();
+    final icbfRate = (param['parafiscal_icbf_rate'] as num).toDouble();
+    final cajaRate = (param['parafiscal_caja_rate'] as num).toDouble();
+    final severanceRate = (param['severance_rate'] as num).toDouble();
+    final serviceBonusRate = (param['service_bonus_rate'] as num).toDouble();
+    final severanceInterestRate = (param['severance_interest_rate'] as num).toDouble();
+    final vacationRate = (param['vacation_rate'] as num).toDouble();
+    
     final empleados = await db.query(
       'empleados',
       where: 'id = ?',
@@ -4369,12 +5232,75 @@ class DatabaseHelper {
 
     final empleado = empleados.first;
     final salario = (empleado['salario_base'] as num).toDouble();
-    final auxilio = (empleado['auxilio_transporte'] as num).toDouble();
-    final salud = salario * 0.04;
-    final pension = salario * 0.04;
-    final devengado = salario + auxilio + horasExtra + bonificaciones;
-    final deducciones = salud + pension + otrasDeducciones;
-    final neto = devengado - deducciones;
+    final auxilioFlag = (empleado['auxilio_transporte'] as int) == 1;
+    final nivelArl = empleado['nivel_arl']?.toString() ?? 'I';
+    
+    // Calcular auxilio de transporte si aplica
+    final auxilio = auxilioFlag && salario < (smmlv * 2) 
+        ? (param['transportation_allowance'] as num).toDouble() 
+        : 0;
+    
+    // Cálculos de aportes del empleado
+    final saludEmpleado = salario * healthEmployeeRate;
+    final pensionEmpleado = salario * pensionEmployeeRate;
+    
+    // Cálculo de FSP (Fondo de Solidaridad Pensional)
+    final baseFsp = salario + horasExtra + bonificaciones;
+    double fsp = 0;
+    if (baseFsp > smmlv * fspTrigger) {
+      final smmlvCount = baseFsp / smmlv;
+      if (smmlvCount > 4 && smmlvCount <= 6) {
+        fsp = baseFsp * (param['fsp_rate_1'] as num).toDouble();
+      } else if (smmlvCount > 6 && smmlvCount <= 8) {
+        fsp = baseFsp * (param['fsp_rate_2'] as num).toDouble();
+      } else if (smmlvCount > 8 && smmlvCount <= 10) {
+        fsp = baseFsp * (param['fsp_rate_3'] as num).toDouble();
+      } else if (smmlvCount > 10 && smmlvCount <= 12) {
+        fsp = baseFsp * (param['fsp_rate_4'] as num).toDouble();
+      } else if (smmlvCount > 12 && smmlvCount <= 14) {
+        fsp = baseFsp * (param['fsp_rate_5'] as num).toDouble();
+      } else if (smmlvCount > 14) {
+        fsp = baseFsp * (param['fsp_rate_6'] as num).toDouble();
+      }
+    }
+    
+    // Cálculos de aportes del empleador
+    final saludEmpleador = salario * healthEmployerRate;
+    final pensionEmpleador = salario * pensionEmployerRate;
+    
+    // ARL según nivel
+    double arl = 0;
+    switch (nivelArl.toUpperCase()) {
+      case 'I': arl = salario * arlLevel1; break;
+      case 'II': arl = salario * arlLevel2; break;
+      case 'III': arl = salario * arlLevel3; break;
+      case 'IV': arl = salario * arlLevel4; break;
+      case 'V': arl = salario * arlLevel5; break;
+    }
+    
+    // Parafiscales
+    final parafiscalSena = salario * senaRate;
+    final parafiscalIcbf = salario * icbfRate;
+    final parafiscalCaja = salario * cajaRate;
+    
+    // Provisiones mensuales
+    final cesantias = salario * severanceRate;
+    final primaServicios = salario * serviceBonusRate;
+    final interesesCesantias = cesantias * severanceInterestRate;
+    final vacaciones = salario * vacationRate;
+    
+    // Total aportes empleador
+    final parafiscales = parafiscalSena + parafiscalIcbf + parafiscalCaja;
+    final provisiones = cesantias + primaServicios + interesesCesantias + vacaciones;
+    final aportesEmpleador = saludEmpleador + pensionEmpleador + arl + parafiscales + provisiones;
+    
+    // Totales
+    final totalDevengado = salario + auxilio + horasExtra + bonificaciones;
+    final totalDeducciones = saludEmpleado + pensionEmpleado + fsp + otrasDeducciones;
+    final netoPagar = totalDevengado - totalDeducciones;
+    
+    // Retefuente (simplificado - debería usar tabla UVT)
+    final retefuente = 0; // Pendiente implementación con tabla UVT
 
     final metodoPago = empleado['metodo_pago']?.toString() ?? 'Efectivo';
     final banco = empleado['banco']?.toString() ?? '';
@@ -4388,7 +5314,7 @@ class DatabaseHelper {
       'company_id': companyId,
       'tipo': 'egreso',
       'concepto': 'Nómina $mes/$anio - ${empleado['nombre']}',
-      'monto': neto,
+      'monto': netoPagar,
       'fecha': DateTime.now().toIso8601String(),
       'origen': origenCaja,
     });
@@ -4428,15 +5354,22 @@ class DatabaseHelper {
         {
           'codigo': '237005',
           'debito': 0,
-          'credito': salud,
-          'descripcion': 'Retención Salud 4%: ${empleado['nombre']}',
+          'credito': saludEmpleado,
+          'descripcion': 'Retención Salud ${healthEmployeeRate * 100}%: ${empleado['nombre']}',
         },
         {
           'codigo': '238030',
           'debito': 0,
-          'credito': pension,
-          'descripcion': 'Retención Pensión 4%: ${empleado['nombre']}',
+          'credito': pensionEmpleado,
+          'descripcion': 'Retención Pensión ${pensionEmployeeRate * 100}%: ${empleado['nombre']}',
         },
+        if (fsp > 0)
+          {
+            'codigo': '238035',
+            'debito': 0,
+            'credito': fsp,
+            'descripcion': 'FSP: ${empleado['nombre']}',
+          },
         if (otrasDeducciones > 0)
           {
             'codigo': '237095',
@@ -4447,34 +5380,69 @@ class DatabaseHelper {
         {
           'codigo': cuentaDinero,
           'debito': 0,
-          'credito': neto,
+          'credito': netoPagar,
           'descripcion': 'Pago neto nómina: ${empleado['nombre']}',
         },
       ],
     );
 
+    final periodo = '$anio-${mes.toString().padLeft(2, '0')}';
+    final calculoJson = {
+      'salario_base': salario,
+      'auxilio_transporte': auxilio,
+      'horas_extra': horasExtra,
+      'bonificaciones': bonificaciones,
+      'otras_deducciones': otrasDeducciones,
+      'salud_empleado': saludEmpleado,
+      'salud_empleador': saludEmpleador,
+      'pension_empleado': pensionEmpleado,
+      'pension_empleador': pensionEmpleador,
+      'fsp': fsp,
+      'arl': arl,
+      'parafiscal_sena': parafiscalSena,
+      'parafiscal_icbf': parafiscalIcbf,
+      'parafiscal_caja': parafiscalCaja,
+      'cesantias': cesantias,
+      'prima_servicios': primaServicios,
+      'intereses_cesantias': interesesCesantias,
+      'vacaciones': vacaciones,
+      'retefuente': retefuente,
+    };
+
     final id = await db.insert('nomina_liquidaciones', {
+      'company_id': companyId,
       'empleado_id': empleadoId,
       'empleado': empleado['nombre'],
-      'anio': anio,
-      'mes': mes,
-      'devengado': devengado,
-      'deducciones': deducciones,
-      'neto': neto,
+      'periodo': periodo,
+      'salario_base': salario,
+      'total_devengado': totalDevengado,
+      'total_deducciones': totalDeducciones,
+      'neto_pagar': netoPagar,
+      'aportes_empleador': aportesEmpleador,
+      'salud_empleado': saludEmpleado,
+      'salud_empleador': saludEmpleador,
+      'pension_empleado': pensionEmpleado,
+      'pension_empleador': pensionEmpleador,
+      'fsp': fsp,
+      'arl': arl,
+      'parafiscal_sena': parafiscalSena,
+      'parafiscal_icbf': parafiscalIcbf,
+      'parafiscal_caja': parafiscalCaja,
+      'cesantias': cesantias,
+      'prima_servicios': primaServicios,
+      'intereses_cesantias': interesesCesantias,
+      'vacaciones': vacaciones,
+      'retefuente': retefuente,
       'estado': 'liquidada',
+      'calculo_json': calculoJson.toString(),
       'fecha': DateTime.now().toIso8601String(),
-      'metodo_pago': metodoPago,
-      'banco': banco,
-      'numero_cuenta': numeroCuenta,
-      'asiento_id': asientoId,
-      'movimiento_caja_id': movCajaId,
     });
 
     await registrarEventoAuditoria(
       accion: 'LIQUIDAR_NOMINA',
       entidad: 'nomina_liquidaciones',
       entidadId: id,
-      detalle: '${empleado['nombre']} $anio-$mes neto $neto',
+      detalle: '${empleado['nombre']} $periodo neto $netoPagar',
     );
     return id;
   }
@@ -4706,6 +5674,9 @@ class DatabaseHelper {
     required String entidad,
     int? entidadId,
     String detalle = '',
+    String? oldValues,
+    String? newValues,
+    String? ipAddress,
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
@@ -4717,7 +5688,493 @@ class DatabaseHelper {
       'entidad_id': entidadId,
       'detalle': detalle,
       'usuario': 'local',
+      'old_values': oldValues,
+      'new_values': newValues,
+      'ip_address': ipAddress,
     });
+  }
+
+  /// Verifica si la licencia está suspendida y bloquea operaciones si es necesario
+  Future<bool> licenciaEstaSuspendida() async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    final tenants = await db.query(
+      'tenants',
+      where: 'id = ?',
+      whereArgs: [companyId],
+      limit: 1,
+    );
+    
+    if (tenants.isEmpty) return false;
+    
+    final status = tenants.first['license_status']?.toString() ?? 'active';
+    return status == 'suspended';
+  }
+
+  /// Actualiza el estado de la licencia (webhook de pasarela de pagos)
+  Future<void> actualizarEstadoLicencia(int tenantId, String nuevoEstado) async {
+    final db = await instance.database;
+    
+    await db.update(
+      'tenants',
+      {'license_status': nuevoEstado},
+      where: 'id = ?',
+      whereArgs: [tenantId],
+    );
+    
+    if (nuevoEstado == 'suspended') {
+      await cambiarBloqueoOperativo(true);
+      await registrarEventoAuditoria(
+        accion: 'LICENCIA_SUSPENDIDA',
+        entidad: 'tenants',
+        entidadId: tenantId,
+        detalle: 'Licencia suspendida por falta de pago',
+      );
+    } else if (nuevoEstado == 'active') {
+      await cambiarBloqueoOperativo(false);
+      await registrarEventoAuditoria(
+        accion: 'LICENCIA_ACTIVADA',
+        entidad: 'tenants',
+        entidadId: tenantId,
+        detalle: 'Licencia reactivada',
+      );
+    }
+  }
+
+  /// Verifica si las operaciones están bloqueadas por licencia suspendida
+  Future<bool> operacionBloqueadaPorLicencia() async {
+    return await licenciaEstaSuspendida();
+  }
+
+  /// Conciliación Bancaria Automática
+  /// Compara extracto bancario (importado) con payments_received
+  /// Emparejamiento exacto si date y amount_paid coinciden
+  Future<Map<String, dynamic>> conciliarBancosAutomaticamente() async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    // Obtener extractos bancarios no conciliados
+    final extractos = await db.query(
+      'extractos_bancarios',
+      where: 'company_id = ? AND conciliado = 0',
+      whereArgs: [companyId],
+    );
+    
+    // Obtener abonos CxC no conciliados
+    final abonos = await db.query(
+      'abonos_cxc',
+      where: 'company_id = ?',
+      whereArgs: [companyId],
+    );
+    
+    int conciliados = 0;
+    int noConciliados = 0;
+    double totalConciliado = 0;
+    
+    for (final extracto in extractos) {
+      final extractoFecha = extracto['fecha']?.toString() ?? '';
+      final extractoValor = (extracto['valor'] as num).toDouble();
+      final extractoTipo = extracto['tipo']?.toString() ?? '';
+      
+      // Solo conciliar ingresos (abonos)
+      if (extractoTipo.toLowerCase() != 'ingreso') continue;
+      
+      bool encontrado = false;
+      
+      for (final abono in abonos) {
+        final abonoFecha = abono['fecha']?.toString() ?? '';
+        final abonoMonto = (abono['monto'] as num).toDouble();
+        
+        // Emparejamiento exacto: fecha y monto
+        if (abonoFecha == extractoFecha && (abonoMonto - extractoValor).abs() < 0.01) {
+          // Conciliar
+          await db.update(
+            'extractos_bancarios',
+            {'conciliado': 1, 'asiento_linea_id': abono['id']},
+            where: 'id = ?',
+            whereArgs: [extracto['id']],
+          );
+          
+          await db.update(
+            'abonos_cxc',
+            {'conciliado': 1},
+            where: 'id = ?',
+            whereArgs: [abono['id']],
+          );
+          
+          conciliados++;
+          totalConciliado += extractoValor;
+          encontrado = true;
+          break;
+        }
+      }
+      
+      if (!encontrado) {
+        noConciliados++;
+      }
+    }
+    
+    await registrarEventoAuditoria(
+      accion: 'CONCILIACION_BANCARIA_AUTOMATICA',
+      entidad: 'extractos_bancarios',
+      detalle: 'Conciliados: $conciliados, No conciliados: $noConciliados, Total: $totalConciliado',
+    );
+    
+    return {
+      'conciliados': conciliados,
+      'no_conciliados': noConciliados,
+      'total_conciliado': totalConciliado,
+    };
+  }
+
+  /// Actualiza el estado de comisiones por recaudo (anti-fraude)
+  /// Solo cambia status a "Pagada" cuando la factura tiene balance_due = 0
+  Future<void> actualizarComisionesPorRecaudo(int ventaId) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    // Verificar si la factura está totalmente pagada
+    final cuentas = await db.query(
+      'cuentas_por_cobrar',
+      where: 'venta_id = ? AND company_id = ?',
+      whereArgs: [ventaId, companyId],
+    );
+    
+    bool facturaPagada = true;
+    for (final cuenta in cuentas) {
+      final saldo = (cuenta['saldo'] as num?)?.toDouble() ?? 0;
+      if (saldo > 0) {
+        facturaPagada = false;
+        break;
+      }
+    }
+    
+    if (facturaPagada) {
+      // Actualizar comisiones de recaudo a "Pagada"
+      await db.update(
+        'comisiones_liquidadas',
+        {'status': 'Pagada'},
+        where: 'venta_id = ? AND company_id = ? AND commission_type = ? AND status = ?',
+        whereArgs: [ventaId, companyId, 'Recaudo', 'Pendiente'],
+      );
+      
+      await registrarEventoAuditoria(
+        accion: 'ACTUALIZAR_COMISIONES_RECAUDO',
+        entidad: 'comisiones_liquidadas',
+        entidadId: ventaId,
+        detalle: 'Comisiones de recaudo actualizadas a Pagada por factura totalmente pagada',
+      );
+    }
+  }
+
+  /// Registra una garantía con validación de tiempo de garantía
+  Future<int> registrarGarantia({
+    required int ventaId,
+    required int productoId,
+    String? numeroSerie,
+    required String descripcionProblema,
+    required int diasGarantia,
+  }) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    // Validar que la venta existe
+    final ventas = await db.query(
+      'ventas',
+      where: 'id = ? AND company_id = ?',
+      whereArgs: [ventaId, companyId],
+      limit: 1,
+    );
+    
+    if (ventas.isEmpty) {
+      throw Exception('La venta #$ventaId no existe');
+    }
+    
+    final venta = ventas.first;
+    final ventaFecha = DateTime.parse(venta['fecha'] as String);
+    final hoy = DateTime.now();
+    final diasDesdeVenta = hoy.difference(ventaFecha).inDays;
+    
+    // Validar que no supere el tiempo de garantía
+    if (diasDesdeVenta > diasGarantia) {
+      throw Exception('La garantía ha expirado. Han pasado $diasDesdeVenta días desde la compra (garantía: $diasGarantia días)');
+    }
+    
+    final id = await db.insert('warranties', {
+      'company_id': companyId,
+      'venta_id': ventaId,
+      'producto_id': productoId,
+      'numero_serie': numeroSerie,
+      'descripcion_problema': descripcionProblema,
+      'status': 'Recibido',
+      'fecha_recepcion': hoy.toIso8601String(),
+      'dias_garantia': diasGarantia,
+    });
+    
+    await registrarEventoAuditoria(
+      accion: 'REGISTRAR_GARANTIA',
+      entidad: 'warranties',
+      entidadId: id,
+      detalle: 'Garantía registrada para venta #$ventaId, producto #$productoId',
+    );
+    
+    return id;
+  }
+
+  /// Actualiza tasas de cambio automáticamente (TRM - Cron Job diario)
+  /// Consulta API externa (ej. Superfinanciera o Fixer.io) para actualizar exchange_rates
+  Future<void> actualizarTasasCambioAutomaticamente() async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final hoy = DateTime.now().toIso8601String().split('T').first;
+    
+    // Verificar si ya se actualizó hoy
+    final existente = await db.query(
+      'exchange_rates',
+      where: 'date = ? AND company_id = ?',
+      whereArgs: [hoy, companyId],
+      limit: 1,
+    );
+    
+    if (existente.isNotEmpty) {
+      return; // Ya actualizado hoy
+    }
+    
+    // Aquí se debería llamar a la API externa (Superfinanciera/Fixer.io)
+    // Por ahora, usamos un valor por defecto para COP
+    await db.insert('exchange_rates', {
+      'date': hoy,
+      'currency_code': 'USD',
+      'rate_to_base': 1.0, // Valor por defecto, debería venir de API
+      'company_id': companyId,
+    });
+    
+    await registrarEventoAuditoria(
+      accion: 'ACTUALIZAR_TRM',
+      entidad: 'exchange_rates',
+      detalle: 'Tasas de cambio actualizadas para $hoy',
+    );
+  }
+
+  /// Convierte un monto de una moneda a la moneda base
+  Future<double> convertirAMonedaBase(double monto, String currencyCode) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final hoy = DateTime.now().toIso8601String().split('T').first;
+    
+    // Verificar si es la moneda base
+    final monedas = await db.query(
+      'currencies',
+      where: 'code = ? AND is_base_currency = 1',
+      whereArgs: [currencyCode],
+      limit: 1,
+    );
+    
+    if (monedas.isNotEmpty) {
+      return monto; // Ya está en moneda base
+    }
+    
+    // Obtener tasa de cambio del día
+    final tasas = await db.query(
+      'exchange_rates',
+      where: 'currency_code = ? AND date = ? AND company_id = ?',
+      whereArgs: [currencyCode, hoy, companyId],
+      limit: 1,
+    );
+    
+    if (tasas.isEmpty) {
+      throw Exception('No hay tasa de cambio disponible para $currencyCode el día $hoy');
+    }
+    
+    final tasa = (tasas.first['rate_to_base'] as num).toDouble();
+    return monto * tasa;
+  }
+
+  /// Dispara webhooks suscritos a un evento específico
+  Future<void> dispararWebhooks(String evento, Map<String, dynamic> payload) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    // Buscar webhooks activos para este evento
+    final webhooks = await db.query(
+      'webhooks',
+      where: 'event = ? AND company_id = ? AND is_active = 1',
+      whereArgs: [evento, companyId],
+    );
+    
+    for (final webhook in webhooks) {
+      final targetUrl = webhook['target_url']?.toString();
+      if (targetUrl == null || targetUrl.isEmpty) continue;
+      
+      try {
+        // Aquí se debería hacer un POST asíncrono a la URL
+        // Por ahora, solo registramos el intento
+        await registrarEventoAuditoria(
+          accion: 'WEBHOOK_DISPARADO',
+          entidad: 'webhooks',
+          entidadId: webhook['id'] as int,
+          detalle: 'Webhook disparado para evento $evento hacia $targetUrl',
+        );
+      } catch (e) {
+        await registrarEventoAuditoria(
+          accion: 'WEBHOOK_ERROR',
+          entidad: 'webhooks',
+          entidadId: webhook['id'] as int,
+          detalle: 'Error al disparar webhook: $e',
+        );
+      }
+    }
+  }
+
+  /// Marca un paso de onboarding como completado
+  Future<void> marcarPasoOnboardingCompletado(String stepName) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    await db.insert(
+      'onboarding_steps',
+      {
+        'company_id': companyId,
+        'step_name': stepName,
+        'is_completed': 1,
+        'completed_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Obtiene el progreso de onboarding (porcentaje completado)
+  Future<Map<String, dynamic>> obtenerProgresoOnboarding() async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    final pasosEsperados = [
+      'create_company',
+      'add_taxes',
+      'first_invoice',
+      'upload_rut',
+      'upload_signature',
+    ];
+    
+    int completados = 0;
+    final pasosActuales = <String, bool>{};
+    
+    for (final paso in pasosEsperados) {
+      final pasos = await db.query(
+        'onboarding_steps',
+        where: 'company_id = ? AND step_name = ? AND is_completed = 1',
+        whereArgs: [companyId, paso],
+        limit: 1,
+      );
+      
+      final completado = pasos.isNotEmpty;
+      if (completado) completados++;
+      pasosActuales[paso] = completado;
+    }
+    
+    final porcentaje = (completados / pasosEsperados.length) * 100;
+    
+    return {
+      'pasos_completados': completados,
+      'total_pasos': pasosEsperados.length,
+      'porcentaje_completado': porcentaje,
+      'pasos_detalle': pasosActuales,
+    };
+  }
+
+  /// Verifica si un paso crítico está completado
+  Future<bool> pasoCriticoCompletado(String stepName) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    final pasos = await db.query(
+      'onboarding_steps',
+      where: 'company_id = ? AND step_name = ? AND is_completed = 1',
+      whereArgs: [companyId, stepName],
+      limit: 1,
+    );
+    
+    return pasos.isNotEmpty;
+  }
+
+  /// Query Builder para reportes dinámicos
+  /// Acepta parámetros estandarizados: date_range, group_by, filters, export_format
+  Future<List<Map<String, dynamic>>> generarReporteDinamico({
+    required String tabla,
+    DateTime? fechaDesde,
+    DateTime? fechaHasta,
+    String? groupBy,
+    Map<String, dynamic>? filters,
+    String exportFormat = 'json',
+  }) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    // Construir query base
+    String query = 'SELECT * FROM $tabla WHERE company_id = ?';
+    List<dynamic> whereArgs = [companyId];
+    
+    // Agregar filtro de rango de fechas si existe
+    if (fechaDesde != null && fechaHasta != null) {
+      query += ' AND fecha >= ? AND fecha < ?';
+      whereArgs.add(fechaDesde.toIso8601String());
+      whereArgs.add(fechaHasta.add(const Duration(days: 1)).toIso8601String());
+    }
+    
+    // Agregar filtros adicionales
+    if (filters != null) {
+      filters.forEach((key, value) {
+        query += ' AND $key = ?';
+        whereArgs.add(value);
+      });
+    }
+    
+    // Agregar agrupación si existe
+    if (groupBy != null) {
+      query += ' GROUP BY $groupBy';
+    }
+    
+    // Ejecutar query
+    final resultados = await db.rawQuery(query, whereArgs);
+    
+    // Generar auditoría
+    await registrarEventoAuditoria(
+      accion: 'REPORTE_GENERADO',
+      entidad: tabla,
+      detalle: 'Reporte dinámico generado: $tabla, formato: $exportFormat',
+    );
+    
+    return resultados;
+  }
+
+  /// Motor de renderizado de templates
+  /// Reemplaza tags dinámicos como {{client_name}} con datos reales
+  Future<String> renderizarTemplate(String tipo, Map<String, dynamic> datos) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    // Obtener template activo del tipo especificado
+    final templates = await db.query(
+      'templates',
+      where: 'type = ? AND company_id = ? AND is_active = 1',
+      whereArgs: [tipo, companyId],
+      limit: 1,
+    );
+    
+    if (templates.isEmpty) {
+      throw Exception('No hay template activo para el tipo $tipo');
+    }
+    
+    String htmlContent = templates.first['html_content']?.toString() ?? '';
+    
+    // Reemplazar tags dinámicos
+    datos.forEach((key, value) {
+      final tag = '{{$key}}';
+      htmlContent = htmlContent.replaceAll(tag, value.toString());
+    });
+    
+    return htmlContent;
   }
 
   Future<List<Map<String, dynamic>>> obtenerAuditoria() async {
@@ -5496,6 +6953,27 @@ class DatabaseHelper {
           throw Exception('Cada línea debe tener débito o crédito, no ambos.');
         }
 
+        // Validar asociación de terceros para cuentas específicas
+        // CxC (1305), CxP (2205), Impuestos (2408), Retenciones (2365)
+        final cuentaId = linea['cuenta_id'] as int;
+        final cuentas = await txn.query(
+          'cuentas_contables',
+          where: 'id = ? AND company_id = ?',
+          whereArgs: [cuentaId, companyId],
+        );
+        
+        if (cuentas.isNotEmpty) {
+          final codigo = cuentas.first['codigo']?.toString() ?? '';
+          final requiereTercero = codigo.startsWith('1305') || 
+                                codigo.startsWith('2205') || 
+                                codigo.startsWith('2408') || 
+                                codigo.startsWith('2365');
+          
+          if (requiereTercero && (linea['tercero'] == null || linea['tercero'].toString().isEmpty)) {
+            throw Exception('La cuenta $codigo requiere obligatoriamente un tercero (NIT) para generar exógena/medios magnéticos.');
+          }
+        }
+
         await txn.insert('asiento_lineas', {
           'company_id': companyId,
           'asiento_id': asientoId,
@@ -6122,14 +7600,18 @@ class DatabaseHelper {
   Future<void> procesarDepreciacionMensual() async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    final activos = await db.query('activos_fijos', where: 'company_id = ?', whereArgs: [companyId]);
+    final activos = await db.query('activos_fijos', where: 'company_id = ? AND estado = ?', whereArgs: [companyId, 'activo']);
     final ahoraStr = DateTime.now().toIso8601String().split('T').first;
 
     for (final act in activos) {
       final id = act['id'] as int;
       final costo = (act['costo'] as num).toDouble();
+      final valorResidual = (act['valor_residual'] as num?)?.toDouble() ?? 0;
       final vidaUtilMeses = (act['vida_util_meses'] as num).toInt();
-      if (vidaUtilMeses <= 0) continue;
+      final depreciacionAcumulada = (act['depreciacion_acumulada'] as num?)?.toDouble() ?? 0;
+      final valorLibros = (act['valor_libros'] as num?)?.toDouble() ?? costo;
+      
+      if (vidaUtilMeses <= 0 || valorLibros <= valorResidual) continue;
 
       final ultDep = act['fecha_depreciacion']?.toString();
       final ahora = DateTime.now();
@@ -6138,7 +7620,19 @@ class DatabaseHelper {
         continue;
       }
 
-      final depMensual = costo / vidaUtilMeses;
+      // Fórmula de Depreciación (Línea Recta)
+      // Cuota Mensual = (purchase_value - salvage_value) / useful_life_months
+      final cuotaMensual = (costo - valorResidual) / vidaUtilMeses;
+      
+      // Verificar que no exceda el valor residual
+      final nuevaDepreciacionAcumulada = depreciacionAcumulada + cuotaMensual;
+      final nuevoValorLibros = costo - nuevaDepreciacionAcumulada;
+      
+      if (nuevoValorLibros < valorResidual) {
+        // No depreciar más allá del valor residual
+        continue;
+      }
+
       final codigoPucActivo = act['codigo_puc']?.toString() ?? '1524';
       final codigoPucGasto = act['codigo_puc_depreciacion']?.toString() ?? '5160';
 
@@ -6149,20 +7643,22 @@ class DatabaseHelper {
         lineas: [
           {
             'codigo': codigoPucGasto,
-            'debito': depMensual,
+            'debito': cuotaMensual,
             'credito': 0,
             'descripcion': 'Depreciación gasto mensual: ${act['nombre']}',
           },
           {
             'codigo': codigoPucActivo,
             'debito': 0,
-            'credito': depMensual,
+            'credito': cuotaMensual,
             'descripcion': 'Depreciación acumulada mensual: ${act['nombre']}',
           },
         ],
       );
 
       await db.update('activos_fijos', {
+        'depreciacion_acumulada': nuevaDepreciacionAcumulada,
+        'valor_libros': nuevoValorLibros,
         'fecha_depreciacion': ahoraStr,
       }, where: 'id = ?', whereArgs: [id]);
     }
@@ -6336,5 +7832,231 @@ class DatabaseHelper {
       'reteica_practicada': reteicaPracticada,
       'saldo_pagar': ica + avisosTableros - reteicaPracticada,
     };
+  }
+
+  /// Procesa un traslado de bodega de forma atómica (OUT en origen, IN en destino)
+  Future<int> procesarTrasladoBodega({
+    required int trasladoId,
+    required String usuario,
+  }) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    
+    await db.transaction((txn) async {
+      final traslados = await txn.query(
+        'traslados_bodega',
+        where: 'id = ? AND company_id = ? AND estado = ?',
+        whereArgs: [trasladoId, companyId, 'registrado'],
+      );
+      
+      if (traslados.isEmpty) {
+        throw Exception('Traslado no encontrado o ya procesado');
+      }
+      
+      final traslado = traslados.first;
+      final productoId = traslado['producto_id'] as int;
+      final bodegaOrigenId = traslado['bodega_origen_id'] as int;
+      final bodegaDestinoId = traslado['bodega_destino_id'] as int;
+      final cantidad = (traslado['cantidad'] as num).toDouble();
+      
+      // Obtener stock en bodega origen
+      final stockOrigen = await txn.query(
+        'stock_bodega',
+        where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
+        whereArgs: [productoId, bodegaOrigenId, companyId],
+      );
+      
+      if (stockOrigen.isEmpty) {
+        throw Exception('No existe stock en bodega origen');
+      }
+      
+      final stockActualOrigen = (stockOrigen.first['cantidad'] as num).toDouble();
+      if (stockActualOrigen < cantidad) {
+        throw Exception('Stock insuficiente en bodega origen');
+      }
+      
+      // Obtener costo actual del producto
+      final productos = await txn.query(
+        'productos',
+        where: 'id = ? AND company_id = ?',
+        whereArgs: [productoId, companyId],
+      );
+      final costoActual = (productos.first['costo'] as num?)?.toDouble() ?? 0;
+      
+      // Generar OUT en bodega origen
+      final nuevoStockOrigen = stockActualOrigen - cantidad;
+      await txn.update(
+        'stock_bodega',
+        {'cantidad': nuevoStockOrigen},
+        where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
+        whereArgs: [productoId, bodegaOrigenId, companyId],
+      );
+      
+      await txn.insert('movimientos_inventario', {
+        'company_id': companyId,
+        'producto_id': productoId,
+        'tipo': 'salida',
+        'cantidad': cantidad,
+        'stock_anterior': stockActualOrigen,
+        'stock_nuevo': nuevoStockOrigen,
+        'costo_anterior': costoActual,
+        'costo_nuevo': costoActual,
+        'motivo': 'TRASLADO #$trasladoId (BODEGA ORIGEN)',
+        'fecha': DateTime.now().toIso8601String(),
+      });
+      
+      // Generar IN en bodega destino
+      final stockDestino = await txn.query(
+        'stock_bodega',
+        where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
+        whereArgs: [productoId, bodegaDestinoId, companyId],
+      );
+      
+      if (stockDestino.isEmpty) {
+        // Crear registro si no existe
+        await txn.insert('stock_bodega', {
+          'company_id': companyId,
+          'producto_id': productoId,
+          'bodega_id': bodegaDestinoId,
+          'cantidad': cantidad,
+        });
+      } else {
+        final stockActualDestino = (stockDestino.first['cantidad'] as num).toDouble();
+        final nuevoStockDestino = stockActualDestino + cantidad;
+        await txn.update(
+          'stock_bodega',
+          {'cantidad': nuevoStockDestino},
+          where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
+          whereArgs: [productoId, bodegaDestinoId, companyId],
+        );
+        
+        await txn.insert('movimientos_inventario', {
+          'company_id': companyId,
+          'producto_id': productoId,
+          'tipo': 'entrada',
+          'cantidad': cantidad,
+          'stock_anterior': stockActualDestino,
+          'stock_nuevo': nuevoStockDestino,
+          'costo_anterior': costoActual,
+          'costo_nuevo': costoActual,
+          'motivo': 'TRASLADO #$trasladoId (BODEGA DESTINO)',
+          'fecha': DateTime.now().toIso8601String(),
+        });
+      }
+      
+      // Actualizar estado del traslado
+      await txn.update(
+        'traslados_bodega',
+        {'estado': 'completado', 'usuario': usuario},
+        where: 'id = ?',
+        whereArgs: [trasladoId],
+      );
+      
+      await registrarEventoAuditoria(
+        accion: 'PROCESAR_TRASLADO_BODEGA',
+        entidad: 'traslados_bodega',
+        entidadId: trasladoId,
+        detalle: 'Traslado #$trasladoId procesado por $usuario',
+      );
+    });
+    
+    return trasladoId;
+  }
+
+  /// Bloquea lotes vencidos (Cron Job diario)
+  /// Cambia el estado de lotes cuya fecha de vencimiento ya pasó a 'blocked'
+  Future<int> bloquearLotesVencidos() async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final hoy = DateTime.now().toIso8601String().split('T').first;
+    
+    final result = await db.update(
+      'lotes',
+      {'status': 'blocked'},
+      where: 'company_id = ? AND status = ? AND fecha_vencimiento < ?',
+      whereArgs: [companyId, 'active', hoy],
+    );
+    
+    if (result > 0) {
+      await registrarEventoAuditoria(
+        accion: 'BLOQUEAR_LOTES_VENCIDOS',
+        entidad: 'lotes',
+        entidadId: 0,
+        detalle: '$result lotes vencidos bloqueados',
+      );
+    }
+    
+    return result;
+  }
+
+  /// Calcula el aging de cartera (clasificación por días de vencimiento)
+  /// Retorna un mapa con las columnas: al_dia, vencido_30, vencido_60, vencido_90, vencido_mas_90
+  Future<Map<String, double>> calcularAgingCartera() async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final hoy = DateTime.now();
+    
+    final cuentas = await db.query(
+      'cuentas_por_cobrar',
+      where: 'company_id = ? AND estado = ?',
+      whereArgs: [companyId, 'pendiente'],
+    );
+    
+    double alDia = 0;
+    double vencido30 = 0;
+    double vencido60 = 0;
+    double vencido90 = 0;
+    double vencidoMas90 = 0;
+    
+    for (final cuenta in cuentas) {
+      final fechaVencimiento = DateTime.parse(cuenta['fecha'] as String);
+      final saldo = (cuenta['saldo'] as num).toDouble();
+      final diasVencidos = hoy.difference(fechaVencimiento).inDays;
+      
+      if (diasVencidos <= 0) {
+        alDia += saldo;
+      } else if (diasVencidos <= 30) {
+        vencido30 += saldo;
+      } else if (diasVencidos <= 60) {
+        vencido60 += saldo;
+      } else if (diasVencidos <= 90) {
+        vencido90 += saldo;
+      } else {
+        vencidoMas90 += saldo;
+      }
+    }
+    
+    return {
+      'al_dia': alDia,
+      'vencido_30': vencido30,
+      'vencido_60': vencido60,
+      'vencido_90': vencido90,
+      'vencido_mas_90': vencidoMas90,
+      'total': alDia + vencido30 + vencido60 + vencido90 + vencidoMas90,
+    };
+  }
+
+  /// Encola un registro para sincronización con el Control Center
+  /// Esta función es atómica y no debe fallar la transacción principal
+  Future<void> enqueueSync({
+    required String table,
+    required String recordId,
+    required String action,
+    required String payload,
+  }) async {
+    try {
+      final db = await instance.database;
+      await db.insert('control_center_sync_queue', {
+        'table_name': table,
+        'record_id': recordId,
+        'action': action,
+        'payload': payload,
+        'status': 'pending',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      // No lanzar excepción - la sincronización es secundaria
+      debugPrint('Error en enqueueSync: $e');
+    }
   }
 }

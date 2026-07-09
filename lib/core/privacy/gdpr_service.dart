@@ -3,7 +3,6 @@
 // Servicio de cumplimiento GDPR y protección de datos
 // ============================================================
 
-import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

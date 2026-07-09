@@ -18,6 +18,21 @@ class FeatureKey {
   static const documents = 'documents_enabled';
   static const settings = 'settings_enabled';
 
+  // FeatureKeys para módulos del sector público
+  static const presupuesto_publico = 'presupuesto_publico_enabled';
+  static const contabilidad_nicsp = 'contabilidad_nicsp_enabled';
+  static const contratacion_publica = 'contratacion_publica_enabled';
+  static const nomina_publica = 'nomina_publica_enabled';
+  static const auditoria_forense = 'auditoria_forense_enabled';
+  static const predial = 'predial_enabled';
+  static const rentas_departamentales = 'rentas_departamentales_enabled';
+  static const planeacion = 'planeacion_enabled';
+  static const activos_estado = 'activos_estado_enabled';
+  static const salud_publica = 'salud_publica_enabled';
+  static const sgp = 'sgp_enabled';
+  static const transparencia = 'transparencia_enabled';
+  static const consolidacion_nicsp_40 = 'consolidacion_nicsp_40_enabled';
+
   static const all = [
     inventory,
     pos,
@@ -37,5 +52,19 @@ class FeatureKey {
     fixedAssets,
     documents,
     settings,
+    // Módulos del sector público
+    presupuesto_publico,
+    contabilidad_nicsp,
+    contratacion_publica,
+    nomina_publica,
+    auditoria_forense,
+    predial,
+    rentas_departamentales,
+    planeacion,
+    activos_estado,
+    salud_publica,
+    sgp,
+    transparencia,
+    consolidacion_nicsp_40,
   ];
 }

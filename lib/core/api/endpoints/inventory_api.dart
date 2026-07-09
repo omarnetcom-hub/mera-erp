@@ -117,6 +117,7 @@ class InventoryAPI {
         headers: {'Content-Type': 'application/json'},
       );
     }
+  }
   
   Future<Response> _updateProduct(Request request, String id) async {
     try {

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:sqflite/sqflite.dart';
 
 import 'db_helper.dart';
 import 'services/licencia_service.dart';
@@ -10,6 +11,7 @@ import 'services/update_service.dart';
 import 'services/health_reporter.dart';
 import 'services/cc_commands_processor.dart';
 import 'services/hardware_fingerprint_service.dart';
+import 'services/control_center_endpoint.dart';
 
 class ControlCenterAgent {
   const ControlCenterAgent._();
@@ -62,6 +64,16 @@ class ControlCenterAgent {
           'clave': 'control_center_endpoint',
           'valor': defaultEndpoint,
         });
+      } else {
+        final val = rows.first['valor']?.toString();
+        if (val == 'http://localhost:3000' || val == 'http://localhost:8787' || val == 'http://127.0.0.1:8787') {
+          await db.update(
+            'app_config',
+            {'valor': defaultEndpoint},
+            where: 'clave = ?',
+            whereArgs: ['control_center_endpoint'],
+          );
+        }
       }
     } catch (error) {
       debugPrint('Error al configurar endpoint por defecto: $error');
@@ -147,10 +159,7 @@ class ControlCenterAgent {
       limit: 1,
     );
     final value = rows.isEmpty ? null : rows.first['valor']?.toString().trim();
-    final endpoint = value == null || value.isEmpty ? defaultEndpoint : value;
-    return endpoint.endsWith('/')
-        ? endpoint.substring(0, endpoint.length - 1)
-        : endpoint;
+    return ControlCenterEndpoint.normalize(value ?? defaultEndpoint);
   }
 
   static Future<String?> _authToken() async {
@@ -206,7 +215,7 @@ class ControlCenterAgent {
       'licenseStatus': licencia?.estado.name ?? 'local',
       'licensePlan': licencia?.plan.name ?? 'unknown',
       'licenseExpiry': licencia?.fechaExpiracion.toIso8601String(),
-      'licenseType': licencia?.tipoLicencia ?? 'SUSCRIPCION',
+      'licenseType': licencia?.tipoLicencia.name ?? 'SUSCRIPCION',
       'syncStatus': syncStatus,
       'databaseStatus': 'ok',
       'criticalErrors': healthMetrics.erroresCriticos,
@@ -231,14 +240,19 @@ class ControlCenterAgent {
       whereArgs: ['control_center_installation_id'],
       limit: 1,
     );
-    if (rows.isNotEmpty) return rows.first['valor']?.toString() ?? '';
-    final id =
-        'MERKA-${Platform.localHostname}-${DateTime.now().millisecondsSinceEpoch}';
+
+    if (rows.isNotEmpty && rows.first['valor']?.toString().isNotEmpty == true) {
+      return rows.first['valor']!.toString();
+    }
+
+    final hardwareFingerprint = await HardwareFingerprintService().generateFingerprint();
+    final fallbackId = 'MERKA-${hardwareFingerprint.substring(0, 12).toUpperCase()}';
+
     await db.insert('app_config', {
       'clave': 'control_center_installation_id',
-      'valor': id,
-    });
-    return id;
+      'valor': fallbackId,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    return fallbackId;
   }
 
   static Future<void> _postJson(Uri uri, Map<String, Object?> payload) async {
@@ -390,6 +404,12 @@ class ControlCenterAgent {
         return TipoComando.forzar_actualizacion;
       case 'rollback_actualizacion':
         return TipoComando.rollback_actualizacion;
+      case 'reiniciar':
+        return TipoComando.reiniciar;
+      case 'forzar_sincronizacion':
+        return TipoComando.forzar_sincronizacion;
+      case 'actualizar_licencia':
+        return TipoComando.actualizar_licencia;
       default:
         return TipoComando.mensaje_admin;
     }

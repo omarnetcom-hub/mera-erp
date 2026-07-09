@@ -4,7 +4,6 @@
 // ============================================================
 
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 class JWTService {
@@ -105,7 +104,7 @@ class JWTService {
     final hmac = Hmac(sha256, key);
     final digest = hmac.convert(bytes);
     
-    return _base64UrlEncode(digest.bytes);
+    return _base64UrlEncodeBytes(digest.bytes);
   }
   
   /// Codifica en Base64 URL-safe
@@ -130,7 +129,7 @@ class JWTService {
     
     // Añadir padding si es necesario
     while (base64.length % 4 != 0) {
-      return base64 + '=';
+      return '$base64=';
     }
     
     final bytes = base64Decode(base64);

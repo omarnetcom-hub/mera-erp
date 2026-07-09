@@ -26,6 +26,7 @@ class _ContabilidadPageState extends State<ContabilidadPage>
   bool _cargando = true;
   DateTime? _fechaInicio;
   DateTime? _fechaFin;
+  String _filtroTipoCuenta = 'todos';
 
   @override
   void initState() {
@@ -446,19 +447,65 @@ class _ContabilidadPageState extends State<ContabilidadPage>
   }
 
   Widget _vistaCuentas() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: _cuentas.length,
-      itemBuilder: (_, i) {
-        final c = _cuentas[i];
-        return Card(
-          child: ListTile(
-            leading: CircleAvatar(child: Text(c['codigo']?.toString() ?? '')),
-            title: Text(c['nombre']?.toString() ?? ''),
-            subtitle: Text('${c['tipo']} · ${c['naturaleza']}'),
+    // Filtrar cuentas por tipo
+    List<Map<String, dynamic>> cuentasFiltradas = _cuentas;
+    if (_filtroTipoCuenta != 'todos') {
+      cuentasFiltradas = _cuentas.where((c) => c['tipo']?.toString() == _filtroTipoCuenta).toList();
+    }
+    
+    return Column(
+      children: [
+        // Filtro por tipo de cuenta
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const Text('Filtrar por tipo: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButton<String>(
+                    value: _filtroTipoCuenta,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'todos', child: Text('Todos')),
+                      DropdownMenuItem(value: 'activo', child: Text('Activos')),
+                      DropdownMenuItem(value: 'pasivo', child: Text('Pasivos')),
+                      DropdownMenuItem(value: 'patrimonio', child: Text('Patrimonio')),
+                      DropdownMenuItem(value: 'ingreso', child: Text('Ingresos')),
+                      DropdownMenuItem(value: 'gasto', child: Text('Gastos')),
+                      DropdownMenuItem(value: 'costo', child: Text('Costos')),
+                      DropdownMenuItem(value: 'costo_venta', child: Text('Costos de Venta')),
+                      DropdownMenuItem(value: 'cuenta_orden_debito', child: Text('Cuentas de Orden Débito')),
+                      DropdownMenuItem(value: 'cuenta_orden_credito', child: Text('Cuentas de Orden Crédito')),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _filtroTipoCuenta = value ?? 'todos');
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+        // Lista de cuentas filtradas
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: cuentasFiltradas.length,
+            itemBuilder: (_, i) {
+              final c = cuentasFiltradas[i];
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(child: Text(c['codigo']?.toString() ?? '')),
+                  title: Text(c['nombre']?.toString() ?? ''),
+                  subtitle: Text('${c['tipo']} · ${c['naturaleza']}'),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

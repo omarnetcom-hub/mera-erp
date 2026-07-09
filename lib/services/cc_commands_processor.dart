@@ -1,12 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 import '../db_helper.dart';
 import 'licencia_service.dart';
 import 'update_service.dart';
-import 'health_reporter.dart';
 
 enum TipoComando {
   forzar_respaldo,
@@ -18,6 +16,9 @@ enum TipoComando {
   activar_instalacion,
   forzar_actualizacion,
   rollback_actualizacion,
+  reiniciar,
+  forzar_sincronizacion,
+  actualizar_licencia,
 }
 
 enum EstadoComando { pendiente, procesando, completado, fallido }
@@ -190,6 +191,12 @@ class CCCommandsProcessor {
           return await _ejecutarForzarActualizacion(comando);
         case TipoComando.rollback_actualizacion:
           return await _ejecutarRollbackActualizacion(comando);
+        case TipoComando.reiniciar:
+          return await _ejecutarReiniciar(comando);
+        case TipoComando.forzar_sincronizacion:
+          return await _ejecutarForzarSincronizacion(comando);
+        case TipoComando.actualizar_licencia:
+          return await _ejecutarActualizarLicencia(comando);
       }
     } catch (e) {
       await DatabaseHelper.instance.registrarEventoAuditoria(
@@ -475,6 +482,54 @@ class CCCommandsProcessor {
         exito: false,
         mensaje: 'Error al solicitar rollback: $e',
       );
+    }
+  }
+
+  Future<ResultadoComando> _ejecutarReiniciar(ComandoRemoto comando) async {
+    try {
+      await DatabaseHelper.instance.registrarEventoAuditoria(
+        accion: 'CC_COMANDO_REINICIAR',
+        entidad: 'control_center',
+        detalle: jsonEncode(comando.parametros),
+      );
+      return ResultadoComando(exito: true, mensaje: 'Reinicio solicitado');
+    } catch (e) {
+      return ResultadoComando(exito: false, mensaje: 'Error al procesar reinicio: $e');
+    }
+  }
+
+  Future<ResultadoComando> _ejecutarForzarSincronizacion(ComandoRemoto comando) async {
+    try {
+      await DatabaseHelper.instance.registrarEventoAuditoria(
+        accion: 'CC_COMANDO_FORZAR_SINCRONIZACION',
+        entidad: 'control_center',
+        detalle: jsonEncode(comando.parametros),
+      );
+      return ResultadoComando(exito: true, mensaje: 'Sincronización forzada registrada');
+    } catch (e) {
+      return ResultadoComando(exito: false, mensaje: 'Error al forzar sincronización: $e');
+    }
+  }
+
+  Future<ResultadoComando> _ejecutarActualizarLicencia(ComandoRemoto comando) async {
+    try {
+      final licencia = await LicenciaService.instance.obtenerLicencia();
+      if (licencia == null) {
+        return ResultadoComando(exito: false, mensaje: 'No existe licencia local');
+      }
+
+      final nueva = LicenciaInfo(
+        uuid: licencia.uuid,
+        plan: licencia.plan,
+        estado: licencia.estado,
+        fechaExpiracion: licencia.fechaExpiracion,
+        modulosHabilitados: licencia.modulosHabilitados,
+        limiteDbMb: licencia.limiteDbMb,
+      );
+      await LicenciaService.instance.guardarLicencia(nueva);
+      return ResultadoComando(exito: true, mensaje: 'Licencia actualizada');
+    } catch (e) {
+      return ResultadoComando(exito: false, mensaje: 'Error al actualizar licencia: $e');
     }
   }
 

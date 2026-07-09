@@ -472,134 +472,148 @@ class _CajaCommandPanel extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 1040;
-          final metrics = [
-            _CajaMetric(
-              'Caja',
-              saldoCaja,
-              Icons.point_of_sale,
-              AppBrand.success,
-            ),
-            _CajaMetric(
-              'Banco',
-              saldoBanco,
-              Icons.account_balance,
-              AppBrand.secondary,
-            ),
-            _CajaMetric(
-              'Disponible',
-              disponible,
-              Icons.account_balance_wallet,
-              AppBrand.info,
-            ),
-            _CajaMetric('Cartera', cartera, Icons.person_pin, AppBrand.warning),
-          ];
+          final isMobile = constraints.maxWidth < 600;
+          
+          // En móvil, mostrar menos métricas
+          final metrics = isMobile
+              ? [
+                  _CajaMetric('Caja', saldoCaja, Icons.point_of_sale, AppBrand.success),
+                  _CajaMetric('Banco', saldoBanco, Icons.account_balance, AppBrand.secondary),
+                ]
+              : [
+                  _CajaMetric('Caja', saldoCaja, Icons.point_of_sale, AppBrand.success),
+                  _CajaMetric('Banco', saldoBanco, Icons.account_balance, AppBrand.secondary),
+                  _CajaMetric('Disponible', disponible, Icons.account_balance_wallet, AppBrand.info),
+                  _CajaMetric('Cartera', cartera, Icons.person_pin, AppBrand.warning),
+                ];
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppBrand.secondary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(EnterpriseRadii.md),
-                    ),
-                    child: const Icon(
-                      Icons.account_balance_wallet,
-                      color: AppBrand.secondary,
-                    ),
-                  ),
-                  const SizedBox(width: EnterpriseSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Caja y tesoreria',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        Text(
-                          'Saldos, movimientos, transferencias y control de caja para operacion diaria.',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!compact) ...[
-                    IconButton(
-                      tooltip: 'Actualizar saldos',
-                      onPressed: onRefresh,
-                      icon: const Icon(Icons.refresh),
-                    ),
-                    const SizedBox(width: EnterpriseSpacing.sm),
-                    OutlinedButton.icon(
-                      onPressed: onTransfer,
-                      icon: const Icon(Icons.swap_horiz),
-                      label: const Text('Transferir'),
-                    ),
-                    const SizedBox(width: EnterpriseSpacing.sm),
-                    FilledButton.icon(
-                      onPressed: onNewMovement,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Nuevo movimiento'),
-                    ),
-                  ],
-                ],
-              ),
-              if (compact) ...[
-                const SizedBox(height: EnterpriseSpacing.md),
-                Wrap(
-                  spacing: EnterpriseSpacing.sm,
-                  runSpacing: EnterpriseSpacing.sm,
+              if (!isMobile) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    FilledButton.icon(
-                      onPressed: onNewMovement,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Nuevo movimiento'),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: AppBrand.secondary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(EnterpriseRadii.md),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet,
+                        color: AppBrand.secondary,
+                      ),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: onTransfer,
-                      icon: const Icon(Icons.swap_horiz),
-                      label: const Text('Transferir'),
+                    const SizedBox(width: EnterpriseSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Caja y tesoreria',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text(
+                            'Saldos, movimientos, transferencias y control de caja para operacion diaria.',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!compact) ...[
+                      IconButton(
+                        tooltip: 'Actualizar saldos',
+                        onPressed: onRefresh,
+                        icon: const Icon(Icons.refresh),
+                      ),
+                      const SizedBox(width: EnterpriseSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: onTransfer,
+                        icon: const Icon(Icons.swap_horiz),
+                        label: const Text('Transferir'),
+                      ),
+                      const SizedBox(width: EnterpriseSpacing.sm),
+                      FilledButton.icon(
+                        onPressed: onNewMovement,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Nuevo movimiento'),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+              if (compact) ...[
+                const SizedBox(height: EnterpriseSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onNewMovement,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Nuevo', style: TextStyle(fontSize: 12)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: EnterpriseSpacing.sm),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onTransfer,
+                        icon: const Icon(Icons.swap_horiz, size: 18),
+                        label: const Text('Transferir', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: EnterpriseSpacing.sm),
+                    IconButton(
+                      tooltip: 'Actualizar',
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh, size: 20),
+                      padding: const EdgeInsets.all(8),
                     ),
                   ],
                 ),
               ],
-              const SizedBox(height: EnterpriseSpacing.md),
+              const SizedBox(height: EnterpriseSpacing.sm),
               Wrap(
                 spacing: EnterpriseSpacing.sm,
                 runSpacing: EnterpriseSpacing.sm,
                 children: [
                   EnterpriseStatusPill(
                     icon: Icons.receipt_long,
-                    label: '$movimientos movimientos visibles',
+                    label: isMobile ? '$movimientos' : '$movimientos movimientos',
                     color: AppBrand.info,
                   ),
                   EnterpriseStatusPill(
                     icon: Icons.south_west,
-                    label: 'Ingresos $ingresos',
+                    label: isMobile ? ingresos : 'Ingresos $ingresos',
                     color: AppBrand.success,
                   ),
-                  EnterpriseStatusPill(
-                    icon: Icons.north_east,
-                    label: 'Salidas $egresos',
-                    color: AppBrand.error,
-                  ),
+                  if (!isMobile)
+                    EnterpriseStatusPill(
+                      icon: Icons.north_east,
+                      label: 'Salidas $egresos',
+                      color: AppBrand.error,
+                    ),
                 ],
               ),
-              const SizedBox(height: EnterpriseSpacing.md),
+              const SizedBox(height: EnterpriseSpacing.sm),
               LayoutBuilder(
                 builder: (context, grid) {
                   final columns = grid.maxWidth >= 1100
                       ? 4
-                      : grid.maxWidth >= 720
-                      ? 2
-                      : 1;
+                      : grid.maxWidth >= 800
+                          ? 2
+                          : isMobile
+                              ? 2
+                              : 3;
                   final width =
                       (grid.maxWidth - ((columns - 1) * EnterpriseSpacing.sm)) /
                       columns;

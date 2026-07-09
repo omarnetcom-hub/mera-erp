@@ -48,6 +48,8 @@ import 'recibos_page.dart';
 import 'reportes_page.dart';
 import 'respaldos_page.dart';
 import 'services/merka_intelligence_service.dart';
+import 'services/task_scheduler_service.dart';
+import 'services/licencia_service.dart';
 import 'templates_page.dart';
 import 'usuarios_page.dart';
 import 'ui/enterprise_design_system.dart';
@@ -61,16 +63,24 @@ import 'webhooks_page.dart';
 import 'sync/data/sqlite_sync_repository.dart';
 import 'sync/domain/sync_models.dart';
 import 'services/sync_service.dart';
+import 'services/hybrid_sync_service.dart';
 import 'core/logging/logging_service.dart';
 import 'core/features/feature_flag.dart';
-import 'core/privacy/gdpr_service.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/theme/theme_service.dart';
-import 'core/security/biometric_service.dart';
-import 'core/security/mfa_service.dart';
 import 'core/dashboard/dashboard_service.dart';
 import 'core/accessibility/accessibility_service.dart';
 import 'pages/license_activation_page.dart';
+import 'sector_publico/presupuesto/pages/presupuesto_publico_page.dart';
+import 'sector_publico/presupuesto/pages/pac_tesoreria_page.dart';
+import 'sector_publico/contabilidad/pages/contabilidad_nicsp_page.dart';
+import 'sector_publico/contratacion/pages/contratacion_publica_page.dart';
+import 'sector_publico/nomina/pages/nomina_publica_page.dart';
+import 'sector_publico/rentas/pages/predial_ica_page.dart';
+import 'sector_publico/planeacion/pages/planeacion_page.dart';
+import 'sector_publico/activos/pages/activos_estado_page.dart';
+import 'sector_publico/auditoria/pages/auditoria_forense_page.dart';
+import 'sector_publico/transparencia/pages/transparencia_page.dart';
 
 part 'ui/widgets/workspace_widgets.dart';
 
@@ -112,6 +122,19 @@ Future<void> main() async {
       } catch (_) {}
       try {
         await SyncService.instance.initialize();
+      } catch (_) {}
+      try {
+        await HybridSyncService.instance.initialize();
+      } catch (_) {}
+      
+      // Ejecutar tareas programadas al iniciar la aplicación
+      try {
+        final taskScheduler = TaskSchedulerService();
+        final results = await taskScheduler.runPendingTasks();
+        final pendingTasks = results.where((r) => r.status == 'completed').toList();
+        if (pendingTasks.isNotEmpty) {
+          debugPrint('Tareas ejecutadas: ${pendingTasks.map((r) => r.taskName).join(', ')}');
+        }
       } catch (_) {}
     },
   );
@@ -163,10 +186,54 @@ class MiApp extends StatelessWidget {
             highContrast: true,
           ),
           themeMode: mode,
-          home: const LoginPage(),
+          home: const LicenseCheckWrapper(),
         );
       },
     );
+  }
+}
+
+class LicenseCheckWrapper extends StatefulWidget {
+  const LicenseCheckWrapper({super.key});
+
+  @override
+  State<LicenseCheckWrapper> createState() => _LicenseCheckWrapperState();
+}
+
+class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
+  void _reload() {
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _checkLicense(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        
+        if (snapshot.data == true) {
+          return const LoginPage();
+        } else {
+          return LicenseActivationPage(onActivated: _reload);
+        }
+      },
+    );
+  }
+
+  Future<bool> _checkLicense() async {
+    try {
+      final license = await LicenciaService.instance.obtenerLicencia();
+      return license != null && license.estado == EstadoLicencia.activa;
+    } catch (e) {
+      return false;
+    }
   }
 }
 
@@ -574,6 +641,373 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         if (byId[id] != null) byId[id]!,
     ];
   }
+
+  Future<String> _obtenerTipoEntidad() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      // Obtener company_id activo
+      final companyRows = await db.query(
+        'app_config',
+        where: 'clave = ?',
+        whereArgs: ['company_active_id'],
+        limit: 1,
+      );
+      if (companyRows.isEmpty) {
+        return 'privada';
+      }
+      final companyId = companyRows.first['valor']?.toString();
+      if (companyId == null) {
+        return 'privada';
+      }
+      
+      // Buscar tipo_entidad en company_settings
+      final rows = await db.query(
+        'company_settings',
+        where: 'company_id = ? AND setting_key = ?',
+        whereArgs: [int.parse(companyId), 'tipo_entidad'],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        return rows.first['setting_value']?.toString() ?? 'privada';
+      }
+    } catch (e) {
+      debugPrint('Error al obtener tipo de entidad: $e');
+    }
+    return 'privada'; // Default
+  }
+
+  List<_WorkspaceSection> _seccionesSectorPublico() {
+    return [
+      _WorkspaceSection(
+        label: 'Presupuesto Público',
+        icon: Icons.account_balance,
+        modules: _visible(_modulosPresupuestoPublico()),
+      ),
+      _WorkspaceSection(
+        label: 'Contabilidad NICSP',
+        icon: Icons.receipt_long,
+        modules: _visible(_modulosContabilidadNICSP()),
+      ),
+      _WorkspaceSection(
+        label: 'Contratación Pública',
+        icon: Icons.gavel,
+        modules: _visible(_modulosContratacionPublica()),
+      ),
+      _WorkspaceSection(
+        label: 'Nómina Pública',
+        icon: Icons.badge,
+        modules: _visible(_modulosNominaPublica()),
+      ),
+      _WorkspaceSection(
+        label: 'Rentas',
+        icon: Icons.attach_money,
+        modules: _visible(_modulosRentas()),
+      ),
+      _WorkspaceSection(
+        label: 'Planeación',
+        icon: Icons.map,
+        modules: _visible(_modulosPlaneacion()),
+      ),
+      _WorkspaceSection(
+        label: 'Activos del Estado',
+        icon: Icons.factory,
+        modules: _visible(_modulosActivosEstado()),
+      ),
+      _WorkspaceSection(
+        label: 'Auditoría y Transparencia',
+        icon: Icons.security,
+        modules: _visible(_modulosAuditoriaTransparencia()),
+      ),
+    ];
+  }
+
+  List<ModuleDefinition> _modulosPresupuestoPublico() => [
+    ModuleDefinition(
+      id: 'presupuesto_publico',
+      title: 'Presupuesto Público',
+      icon: Icons.account_balance,
+      color: Colors.blue,
+      category: ModuleCategory.operation,
+      builder: (context) => PresupuestoPublicoPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.presupuesto_publico,
+    ),
+    ModuleDefinition(
+      id: 'pac',
+      title: 'Plan Anual de Caja',
+      icon: Icons.calendar_month,
+      color: Colors.blue,
+      category: ModuleCategory.operation,
+      builder: (context) => PACTesoreriaPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.presupuesto_publico,
+    ),
+  ];
+
+  List<ModuleDefinition> _modulosContabilidadNICSP() => [
+    ModuleDefinition(
+      id: 'contabilidad_nicsp',
+      title: 'Contabilidad NICSP',
+      icon: Icons.receipt_long,
+      color: Colors.green,
+      category: ModuleCategory.accounting,
+      builder: (context) => ContabilidadNICSPPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.contabilidad_nicsp,
+    ),
+    ModuleDefinition(
+      id: 'estado_flujos_efectivo',
+      title: 'Estado de Flujos de Efectivo',
+      icon: Icons.trending_up,
+      color: Colors.green,
+      category: ModuleCategory.accounting,
+      builder: (context) => ContabilidadNICSPPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.contabilidad_nicsp,
+    ),
+    ModuleDefinition(
+      id: 'provisiones_nicsp',
+      title: 'Provisiones NICSP 19',
+      icon: Icons.warning,
+      color: Colors.green,
+      category: ModuleCategory.accounting,
+      builder: (context) => ContabilidadNICSPPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.contabilidad_nicsp,
+    ),
+  ];
+
+  List<ModuleDefinition> _modulosContratacionPublica() => [
+    ModuleDefinition(
+      id: 'contratacion_publica',
+      title: 'Contratación Pública',
+      icon: Icons.gavel,
+      color: Colors.orange,
+      category: ModuleCategory.operation,
+      builder: (context) => ContratacionPublicaPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.contratacion_publica,
+    ),
+    ModuleDefinition(
+      id: 'secop_ii',
+      title: 'SECOP II',
+      icon: Icons.public,
+      color: Colors.orange,
+      category: ModuleCategory.operation,
+      builder: (context) => ContratacionPublicaPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.contratacion_publica,
+    ),
+    ModuleDefinition(
+      id: 'interventoria',
+      title: 'Interventoría',
+      icon: Icons.assignment,
+      color: Colors.orange,
+      category: ModuleCategory.operation,
+      builder: (context) => ContratacionPublicaPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.contratacion_publica,
+    ),
+  ];
+
+  List<ModuleDefinition> _modulosNominaPublica() => [
+    ModuleDefinition(
+      id: 'nomina_publica',
+      title: 'Nómina Pública',
+      icon: Icons.badge,
+      color: Colors.purple,
+      category: ModuleCategory.management,
+      builder: (context) => NominaPublicaPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.nomina_publica,
+    ),
+    ModuleDefinition(
+      id: 'pila',
+      title: 'PILA',
+      icon: Icons.description,
+      color: Colors.purple,
+      category: ModuleCategory.management,
+      builder: (context) => NominaPublicaPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.nomina_publica,
+    ),
+    ModuleDefinition(
+      id: 'horas_extra',
+      title: 'Horas Extra',
+      icon: Icons.schedule,
+      color: Colors.purple,
+      category: ModuleCategory.management,
+      builder: (context) => NominaPublicaPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.nomina_publica,
+    ),
+  ];
+
+  List<ModuleDefinition> _modulosRentas() => [
+    ModuleDefinition(
+      id: 'predial',
+      title: 'Predial',
+      icon: Icons.home,
+      color: Colors.red,
+      category: ModuleCategory.operation,
+      builder: (context) => PredialICAPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.predial,
+    ),
+    ModuleDefinition(
+      id: 'ica',
+      title: 'ICA',
+      icon: Icons.business,
+      color: Colors.red,
+      category: ModuleCategory.operation,
+      builder: (context) => PredialICAPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.predial,
+    ),
+    ModuleDefinition(
+      id: 'rentas_departamentales',
+      title: 'Rentas Departamentales',
+      icon: Icons.directions_car,
+      color: Colors.red,
+      category: ModuleCategory.operation,
+      builder: (context) => PredialICAPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.rentas_departamentales,
+    ),
+  ];
+
+  List<ModuleDefinition> _modulosPlaneacion() => [
+    ModuleDefinition(
+      id: 'planeacion',
+      title: 'Planeación',
+      icon: Icons.map,
+      color: Colors.teal,
+      category: ModuleCategory.operation,
+      builder: (context) => PlaneacionPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.planeacion,
+    ),
+    ModuleDefinition(
+      id: 'mga',
+      title: 'MGA',
+      icon: Icons.analytics,
+      color: Colors.teal,
+      category: ModuleCategory.operation,
+      builder: (context) => PlaneacionPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.planeacion,
+    ),
+    ModuleDefinition(
+      id: 'pdt',
+      title: 'PDT',
+      icon: Icons.description,
+      color: Colors.teal,
+      category: ModuleCategory.operation,
+      builder: (context) => PlaneacionPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.planeacion,
+    ),
+  ];
+
+  List<ModuleDefinition> _modulosActivosEstado() => [
+    ModuleDefinition(
+      id: 'activos_estado',
+      title: 'Activos del Estado',
+      icon: Icons.factory,
+      color: Colors.brown,
+      category: ModuleCategory.accounting,
+      builder: (context) => ActivosEstadoPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.activos_estado,
+    ),
+    ModuleDefinition(
+      id: 'fut',
+      title: 'FUT',
+      icon: Icons.inventory,
+      color: Colors.brown,
+      category: ModuleCategory.accounting,
+      builder: (context) => ActivosEstadoPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.activos_estado,
+    ),
+  ];
+
+  List<ModuleDefinition> _modulosAuditoriaTransparencia() => [
+    ModuleDefinition(
+      id: 'auditoria_forense',
+      title: 'Auditoría Forense',
+      icon: Icons.security,
+      color: Colors.indigo,
+      category: ModuleCategory.control,
+      builder: (context) => AuditoriaForensePage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.auditoria_forense,
+    ),
+    ModuleDefinition(
+      id: 'chip',
+      title: 'CHIP',
+      icon: Icons.verified_user,
+      color: Colors.indigo,
+      category: ModuleCategory.control,
+      builder: (context) => AuditoriaForensePage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.auditoria_forense,
+    ),
+    ModuleDefinition(
+      id: 'transparencia',
+      title: 'Transparencia',
+      icon: Icons.public,
+      color: Colors.indigo,
+      category: ModuleCategory.control,
+      builder: (context) => TransparenciaPage(
+        entidadId: 'default',
+        usuarioId: 'default',
+      ),
+      featureKey: FeatureKey.transparencia,
+    ),
+  ];
 
   void _toggleFavorite(String moduleId) {
     setState(() {
@@ -997,177 +1431,192 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   }
 
   Widget _buildCentroTrabajo(BuildContext context) {
-    final baseSections = [
-      _WorkspaceSection(
-        label: 'Operacion',
-        icon: Icons.storefront,
-        modules: _visible(_operacion()),
-      ),
-      _WorkspaceSection(
-        label: 'Finanzas',
-        icon: Icons.account_balance,
-        modules: _visible(_finanzas()),
-      ),
-      _WorkspaceSection(
-        label: 'Control',
-        icon: Icons.query_stats,
-        modules: _visible(_control()),
-      ),
-      _WorkspaceSection(
-        label: 'Gestion',
-        icon: Icons.tune,
-        modules: _visible(_gestion()),
-      ),
-    ];
+    return FutureBuilder<String>(
+      future: _obtenerTipoEntidad(),
+      builder: (context, snapshot) {
+        final tipoEntidad = snapshot.data ?? 'privada';
+        
+        List<_WorkspaceSection> baseSections;
+        
+        if (tipoEntidad == 'publica') {
+          // Mostrar módulos del sector público
+          baseSections = _seccionesSectorPublico();
+        } else {
+          // Mostrar módulos privados (default)
+          baseSections = [
+            _WorkspaceSection(
+              label: 'Operacion',
+              icon: Icons.storefront,
+              modules: _visible(_operacion()),
+            ),
+            _WorkspaceSection(
+              label: 'Finanzas',
+              icon: Icons.account_balance,
+              modules: _visible(_finanzas()),
+            ),
+            _WorkspaceSection(
+              label: 'Control',
+              icon: Icons.query_stats,
+              modules: _visible(_control()),
+            ),
+            _WorkspaceSection(
+              label: 'Gestion',
+              icon: Icons.tune,
+              modules: _visible(_gestion()),
+            ),
+          ];
+        }
 
-    final sections = _filterSections(baseSections);
-    final allModules = _allModules(baseSections);
-    final favoriteModules = _modulesByIds(allModules, _favoriteModuleIds);
-    final recentModules = _modulesByIds(allModules, _recentModuleIds);
-    void commandPalette() => _showCommandPalette(context, allModules);
-    void copilot() => _showCopilot(context, allModules);
-    void notifications() => _showNotificationCenter(context, allModules);
+        final sections = _filterSections(baseSections);
+        final allModules = _allModules(baseSections);
+        final favoriteModules = _modulesByIds(allModules, _favoriteModuleIds);
+        final recentModules = _modulesByIds(allModules, _recentModuleIds);
+        void commandPalette() => _showCommandPalette(context, allModules);
+        void copilot() => _showCopilot(context, allModules);
+        void notifications() => _showNotificationCenter(context, allModules);
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-            commandPalette,
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-            commandPalette,
-      },
-      child: Focus(
-        autofocus: true,
-        child: DefaultTabController(
-          length: sections.length,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final viewport = EnterpriseBreakpoints.fromWidth(
-                constraints.maxWidth,
-              );
-              final mobile = viewport.isMobile;
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+                commandPalette,
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+                commandPalette,
+          },
+          child: Focus(
+            autofocus: true,
+            child: DefaultTabController(
+              length: sections.length,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final viewport = EnterpriseBreakpoints.fromWidth(
+                    constraints.maxWidth,
+                  );
+                  final mobile = viewport.isMobile;
 
-              return Scaffold(
-                drawer: mobile
-                    ? _MobileModuleDrawer(
-                        sections: baseSections,
-                        favoriteIds: _favoriteModuleIds,
-                        onToggleFavorite: _toggleFavorite,
-                        onOpen: (module) => _openModule(context, module),
-                        onLogout: () {
-                          AppSession.cerrar();
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginPage(),
-                            ),
-                          );
-                        },
-                      )
-                    : null,
-                appBar: AppBar(
-                  title: mobile
-                      ? const Text(AppBrand.name)
-                      : const MerkaBrandHeader(compact: true),
-                  actions: [
-                    IconButton(
-                      tooltip: 'Busqueda global',
-                      onPressed: commandPalette,
-                      icon: const Icon(Icons.search),
-                    ),
-                    IconButton(
-                      tooltip: 'ERP Copilot',
-                      onPressed: copilot,
-                      icon: const Icon(Icons.auto_awesome),
-                    ),
-                    IconButton(
-                      tooltip: 'Notificaciones',
-                      onPressed: notifications,
-                      icon: const Icon(Icons.notifications_none),
-                    ),
-                    IconButton(
-                      tooltip: 'Modo oscuro',
-                      onPressed: _toggleTheme,
-                      icon: Icon(
-                        merkaThemeMode.value == ThemeMode.dark
-                            ? PhosphorIcons.sun()
-                            : PhosphorIcons.moon(),
-                      ),
-                    ),
-                    if (!mobile)
-                      IconButton.filledTonal(
-                        tooltip: 'Exportar XLS',
-                        onPressed: () => ExportarExcel.exportar(context),
-                        icon: const Icon(Icons.table_chart),
-                      ),
-                    const SizedBox(width: 6),
-                    if (!mobile)
-                      IconButton(
-                        tooltip: 'Cerrar sesion',
-                        onPressed: () {
-                          AppSession.cerrar();
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginPage(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.logout),
-                      ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-                floatingActionButton: mobile
-                    ? FloatingActionButton.extended(
-                        tooltip: 'Accion rapida',
-                        onPressed: () =>
-                            _showMobileQuickActions(context, allModules),
-                        icon: const Icon(Icons.bolt),
-                        label: const Text('Acciones'),
-                      )
-                    : null,
-                body: SafeArea(
-                  child: Row(
-                    children: [
-                      if (viewport.isDesktop)
-                        _EnterpriseSidebar(
-                          sections: baseSections,
-                          collapsed: _sidebarCollapsed,
-                          onToggleCollapsed: () {
-                            setState(() {
-                              _sidebarCollapsed = !_sidebarCollapsed;
-                            });
-                          },
-                          onOpen: (module) => _openModule(context, module),
+                  return Scaffold(
+                    drawer: mobile
+                        ? _MobileModuleDrawer(
+                            sections: baseSections,
+                            favoriteIds: _favoriteModuleIds,
+                            onToggleFavorite: _toggleFavorite,
+                            onOpen: (module) => _openModule(context, module),
+                            onLogout: () {
+                              AppSession.cerrar();
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginPage(),
+                                ),
+                              );
+                            },
+                          )
+                        : null,
+                    appBar: AppBar(
+                      title: mobile
+                          ? const Text(AppBrand.name)
+                          : const MerkaBrandHeader(compact: true),
+                      actions: [
+                        IconButton(
+                          tooltip: 'Busqueda global',
+                          onPressed: commandPalette,
+                          icon: const Icon(Icons.search),
                         ),
-                      Expanded(
-                        child: _WorkspaceBody(
-                          sections: sections,
-                          favoriteModules: favoriteModules,
-                          recentModules: recentModules,
-                          viewport: viewport,
-                          mode: _workspaceMode,
-                          onModeChanged: (mode) {
-                            setState(() => _workspaceMode = mode);
-                          },
-                          searchController: _globalSearchController,
-                          onSearchChanged: (_) => setState(() {}),
-                          onOpen: (module) => _openModule(context, module),
-                          onToggleFavorite: _toggleFavorite,
-                          favoriteIds: _favoriteModuleIds,
-                          onCommandPalette: commandPalette,
-                          onCopilot: copilot,
-                          onNotifications: notifications,
+                        IconButton(
+                          tooltip: 'ERP Copilot',
+                          onPressed: copilot,
+                          icon: const Icon(Icons.auto_awesome),
                         ),
+                        IconButton(
+                          tooltip: 'Notificaciones',
+                          onPressed: notifications,
+                          icon: const Icon(Icons.notifications_none),
+                        ),
+                        IconButton(
+                          tooltip: 'Modo oscuro',
+                          onPressed: _toggleTheme,
+                          icon: Icon(
+                            merkaThemeMode.value == ThemeMode.dark
+                                ? PhosphorIcons.sun()
+                                : PhosphorIcons.moon(),
+                          ),
+                        ),
+                        if (!mobile)
+                          IconButton.filledTonal(
+                            tooltip: 'Exportar XLS',
+                            onPressed: () => ExportarExcel.exportar(context),
+                            icon: const Icon(Icons.table_chart),
+                          ),
+                        const SizedBox(width: 6),
+                        if (!mobile)
+                          IconButton(
+                            tooltip: 'Cerrar sesion',
+                            onPressed: () {
+                              AppSession.cerrar();
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginPage(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.logout),
+                          ),
+                        const SizedBox(width: 8),
+                      ],
+                    ),
+                    floatingActionButton: mobile
+                        ? FloatingActionButton.extended(
+                            tooltip: 'Accion rapida',
+                            onPressed: () =>
+                                _showMobileQuickActions(context, allModules),
+                            icon: const Icon(Icons.bolt),
+                            label: const Text('Acciones'),
+                          )
+                        : null,
+                    body: SafeArea(
+                      child: Row(
+                        children: [
+                          if (viewport.isDesktop)
+                            _EnterpriseSidebar(
+                              sections: baseSections,
+                              collapsed: _sidebarCollapsed,
+                              onToggleCollapsed: () {
+                                setState(() {
+                                  _sidebarCollapsed = !_sidebarCollapsed;
+                                });
+                              },
+                              onOpen: (module) => _openModule(context, module),
+                            ),
+                          Expanded(
+                            child: _WorkspaceBody(
+                              sections: sections,
+                              favoriteModules: favoriteModules,
+                              recentModules: recentModules,
+                              viewport: viewport,
+                              mode: _workspaceMode,
+                              onModeChanged: (mode) {
+                                setState(() => _workspaceMode = mode);
+                              },
+                              searchController: _globalSearchController,
+                              onSearchChanged: (_) => setState(() {}),
+                              onOpen: (module) => _openModule(context, module),
+                              onToggleFavorite: _toggleFavorite,
+                              favoriteIds: _favoriteModuleIds,
+                              onCommandPalette: commandPalette,
+                              onCopilot: copilot,
+                              onNotifications: notifications,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

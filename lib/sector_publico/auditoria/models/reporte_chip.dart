@@ -1,0 +1,303 @@
+/// Modelos de Reportes CHIP (Contaduría General de la Nación)
+/// Formularios CGN 2015_001 a 005 y CGN 2016C01
+library;
+
+enum TipoFormularioCHIP {
+  cgn2015_001, // Información de la entidad
+  cgn2015_002, // Ingresos y gastos
+  cgn2015_003, // Situación financiera
+  cgn2015_004, // Ejecución presupuestal
+  cgn2015_005, // Deuda pública
+  cgn2016C01, // Consolidado
+}
+
+class ReporteCHIP {
+  final String id;
+  final String entidadId;
+  final TipoFormularioCHIP tipoFormulario;
+  final String vigencia;
+  final DateTime fechaGeneracion;
+  final String usuarioGenero;
+  final Map<String, dynamic> datos;
+  final String estado; // generado, enviado, aceptado, rechazado
+  final String? observaciones;
+
+  ReporteCHIP({
+    required this.id,
+    required this.entidadId,
+    required this.tipoFormulario,
+    required this.vigencia,
+    required this.fechaGeneracion,
+    required this.usuarioGenero,
+    required this.datos,
+    required this.estado,
+    this.observaciones,
+  });
+
+  factory ReporteCHIP.fromJson(Map<String, dynamic> json) {
+    return ReporteCHIP(
+      id: json['id'] as String,
+      entidadId: json['entidad_id'] as String,
+      tipoFormulario: TipoFormularioCHIP.values.firstWhere(
+        (e) => e.toString() == 'TipoFormularioCHIP.${json['tipo_formulario']}',
+      ),
+      vigencia: json['vigencia'] as String,
+      fechaGeneracion: DateTime.parse(json['fecha_generacion'] as String),
+      usuarioGenero: json['usuario_genero'] as String,
+      datos: json['datos'] as Map<String, dynamic>,
+      estado: json['estado'] as String,
+      observaciones: json['observaciones'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'entidad_id': entidadId,
+      'tipo_formulario': tipoFormulario.toString().split('.').last,
+      'vigencia': vigencia,
+      'fecha_generacion': fechaGeneracion.toIso8601String(),
+      'usuario_genero': usuarioGenero,
+      'datos': datos,
+      'estado': estado,
+      'observaciones': observaciones,
+    };
+  }
+
+  /// Obtiene el nombre del formulario
+  String get nombreFormulario {
+    switch (tipoFormulario) {
+      case TipoFormularioCHIP.cgn2015_001:
+        return 'CGN 2015_001 - Información de la Entidad';
+      case TipoFormularioCHIP.cgn2015_002:
+        return 'CGN 2015_002 - Ingresos y Gastos';
+      case TipoFormularioCHIP.cgn2015_003:
+        return 'CGN 2015_003 - Situación Financiera';
+      case TipoFormularioCHIP.cgn2015_004:
+        return 'CGN 2015_004 - Ejecución Presupuestal';
+      case TipoFormularioCHIP.cgn2015_005:
+        return 'CGN 2015_005 - Deuda Pública';
+      case TipoFormularioCHIP.cgn2016C01:
+        return 'CGN 2016C01 - Consolidado';
+    }
+  }
+}
+
+/// Datos específicos para formulario CGN 2015_001
+class DatosCGN2015_001 {
+  final String nit;
+  final String razonSocial;
+  final String tipoEntidad;
+  final String departamento;
+  final String municipio;
+  final String direccion;
+  final String telefono;
+  final String email;
+  final String representanteLegal;
+  final String identificacionRepresentante;
+  final String ordenadorGasto;
+  final String identificacionOrdenador;
+  final String contador;
+  final String identificacionContador;
+  final String tarjetaProfesionalContador;
+
+  DatosCGN2015_001({
+    required this.nit,
+    required this.razonSocial,
+    required this.tipoEntidad,
+    required this.departamento,
+    required this.municipio,
+    required this.direccion,
+    required this.telefono,
+    required this.email,
+    required this.representanteLegal,
+    required this.identificacionRepresentante,
+    required this.ordenadorGasto,
+    required this.identificacionOrdenador,
+    required this.contador,
+    required this.identificacionContador,
+    required this.tarjetaProfesionalContador,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'nit': nit,
+      'razon_social': razonSocial,
+      'tipo_entidad': tipoEntidad,
+      'departamento': departamento,
+      'municipio': municipio,
+      'direccion': direccion,
+      'telefono': telefono,
+      'email': email,
+      'representante_legal': representanteLegal,
+      'identificacion_representante': identificacionRepresentante,
+      'ordenador_gasto': ordenadorGasto,
+      'identificacion_ordenador': identificacionOrdenador,
+      'contador': contador,
+      'identificacion_contador': identificacionContador,
+      'tarjeta_profesional_contador': tarjetaProfesionalContador,
+    };
+  }
+}
+
+/// Datos específicos para formulario CGN 2015_002 (Ingresos y Gastos)
+class DatosCGN2015_002 {
+  final double ingresosTributarios;
+  final double ingresosNoTributarios;
+  final double transferenciasSGP;
+  final double regalias;
+  final double otrosIngresos;
+  final double totalIngresos;
+  final double gastosPersonal;
+  final double gastosGenerales;
+  final double transferencias;
+  final double gastosInversion;
+  final double otrosGastos;
+  final double totalGastos;
+  final double resultadoOperacional;
+
+  DatosCGN2015_002({
+    required this.ingresosTributarios,
+    required this.ingresosNoTributarios,
+    required this.transferenciasSGP,
+    required this.regalias,
+    required this.otrosIngresos,
+    required this.totalIngresos,
+    required this.gastosPersonal,
+    required this.gastosGenerales,
+    required this.transferencias,
+    required this.gastosInversion,
+    required this.otrosGastos,
+    required this.totalGastos,
+    required this.resultadoOperacional,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ingresos_tributarios': ingresosTributarios,
+      'ingresos_no_tributarios': ingresosNoTributarios,
+      'transferencias_sgp': transferenciasSGP,
+      'regalias': regalias,
+      'otros_ingresos': otrosIngresos,
+      'total_ingresos': totalIngresos,
+      'gastos_personal': gastosPersonal,
+      'gastos_generales': gastosGenerales,
+      'transferencias': transferencias,
+      'gastos_inversion': gastosInversion,
+      'otros_gastos': otrosGastos,
+      'total_gastos': totalGastos,
+      'resultado_operacional': resultadoOperacional,
+    };
+  }
+}
+
+/// Datos específicos para formulario CGN 2015_003 (Situación Financiera)
+class DatosCGN2015_003 {
+  final double activoCorriente;
+  final double activoNoCorriente;
+  final double totalActivo;
+  final double pasivoCorriente;
+  final double pasivoNoCorriente;
+  final double totalPasivo;
+  final double patrimonio;
+  final double totalPasivoPatrimonio;
+
+  DatosCGN2015_003({
+    required this.activoCorriente,
+    required this.activoNoCorriente,
+    required this.totalActivo,
+    required this.pasivoCorriente,
+    required this.pasivoNoCorriente,
+    required this.totalPasivo,
+    required this.patrimonio,
+    required this.totalPasivoPatrimonio,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'activo_corriente': activoCorriente,
+      'activo_no_corriente': activoNoCorriente,
+      'total_activo': totalActivo,
+      'pasivo_corriente': pasivoCorriente,
+      'pasivo_no_corriente': pasivoNoCorriente,
+      'total_pasivo': totalPasivo,
+      'patrimonio': patrimonio,
+      'total_pasivo_patrimonio': totalPasivoPatrimonio,
+    };
+  }
+}
+
+/// Datos específicos para formulario CGN 2015_004 (Ejecución Presupuestal)
+class DatosCGN2015_004 {
+  final double apropiacionInicial;
+  final double adiciones;
+  final double reducciones;
+  final double credito;
+  final double contraCredito;
+  final double apropiacionDefinitiva;
+  final double compromisos;
+  final double obligaciones;
+  final double pagos;
+  final double saldoPorComprometer;
+
+  DatosCGN2015_004({
+    required this.apropiacionInicial,
+    required this.adiciones,
+    required this.reducciones,
+    required this.credito,
+    required this.contraCredito,
+    required this.apropiacionDefinitiva,
+    required this.compromisos,
+    required this.obligaciones,
+    required this.pagos,
+    required this.saldoPorComprometer,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'apropiacion_inicial': apropiacionInicial,
+      'adiciones': adiciones,
+      'reducciones': reducciones,
+      'credito': credito,
+      'contra_credito': contraCredito,
+      'apropiacion_definitiva': apropiacionDefinitiva,
+      'compromisos': compromisos,
+      'obligaciones': obligaciones,
+      'pagos': pagos,
+      'saldo_por_comprometer': saldoPorComprometer,
+    };
+  }
+}
+
+/// Datos específicos para formulario CGN 2015_005 (Deuda Pública)
+class DatosCGN2015_005 {
+  final double deudaInterna;
+  final double deudaExterna;
+  final double deudaTotal;
+  final double servicioDeuda;
+  final double cuotaAmortizacion;
+  final double intereses;
+  final double deudaVencida;
+
+  DatosCGN2015_005({
+    required this.deudaInterna,
+    required this.deudaExterna,
+    required this.deudaTotal,
+    required this.servicioDeuda,
+    required this.cuotaAmortizacion,
+    required this.intereses,
+    required this.deudaVencida,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'deuda_interna': deudaInterna,
+      'deuda_externa': deudaExterna,
+      'deuda_total': deudaTotal,
+      'servicio_deuda': servicioDeuda,
+      'cuota_amortizacion': cuotaAmortizacion,
+      'intereses': intereses,
+      'deuda_vencida': deudaVencida,
+    };
+  }
+}

@@ -206,7 +206,7 @@ class PredictiveAnalytics {
       
       // Calcular días hasta stock bajo
       final daysUntilLow = dailyConsumption > 0 
-          ? ((currentStock - minStock) / dailyConsumed).floor() 
+          ? ((currentStock - minStock) / dailyConsumption).floor() 
           : -1;
       
       forecast.add({

@@ -1,0 +1,107 @@
+﻿  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\analytics\dashboard_analytics.dart:65:40 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\analytics\dashboard_analytics.dart:115:43 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\analytics\dashboard_analytics.dart:119:48 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\analytics\dashboard_analytics.dart:120:51 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\analytics\dashboard_analytics.dart:192:40 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\analytics\dashboard_analytics.dart:196:40 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\analytics\dashboard_analytics.dart:249:46 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\analytics\dashboard_analytics.dart:250:49 - argument_type_not_assignable
+  error - A value of type 'FutureOr<Response> Function(Handler)' can't be returned from the method 'requireAuth' because it has a return type of 'Handler' - lib\core\api\api_auth_middleware.dart:14:12 - return_of_invalid_type
+  error - The returned type 'Future<Response> Function(Request)' isn't returnable from a 'FutureOr<Response>' function, as required by the closure's context - lib\core\api\api_auth_middleware.dart:15:14 - return_of_invalid_type_from_closure
+  error - 1 positional argument expected by 'unauthorized', but 0 found - lib\core\api\api_auth_middleware.dart:20:13 - not_enough_positional_arguments
+  error - The named parameter 'jsonBody' isn't defined - lib\core\api\api_auth_middleware.dart:20:13 - undefined_named_parameter
+  error - 1 positional argument expected by 'unauthorized', but 0 found - lib\core\api\api_auth_middleware.dart:29:13 - not_enough_positional_arguments
+  error - The named parameter 'jsonBody' isn't defined - lib\core\api\api_auth_middleware.dart:29:13 - undefined_named_parameter
+  error - A value of type 'FutureOr<Response> Function(Handler)' can't be returned from the method 'requireRole' because it has a return type of 'Handler' - lib\core\api\api_auth_middleware.dart:50:12 - return_of_invalid_type
+  error - The returned type 'Future<Response> Function(Request)' isn't returnable from a 'FutureOr<Response>' function, as required by the closure's context - lib\core\api\api_auth_middleware.dart:51:14 - return_of_invalid_type_from_closure
+  error - 1 positional argument expected by 'forbidden', but 0 found - lib\core\api\api_auth_middleware.dart:56:13 - not_enough_positional_arguments
+  error - The named parameter 'jsonBody' isn't defined - lib\core\api\api_auth_middleware.dart:56:13 - undefined_named_parameter
+  error - 1 positional argument expected by 'forbidden', but 0 found - lib\core\api\api_auth_middleware.dart:62:13 - not_enough_positional_arguments
+  error - The named parameter 'jsonBody' isn't defined - lib\core\api\api_auth_middleware.dart:62:13 - undefined_named_parameter
+  error - A value of type 'FutureOr<Response> Function(Handler)' can't be returned from the method 'requireAnyRole' because it has a return type of 'Handler' - lib\core\api\api_auth_middleware.dart:73:12 - return_of_invalid_type
+  error - The returned type 'Future<Response> Function(Request)' isn't returnable from a 'FutureOr<Response>' function, as required by the closure's context - lib\core\api\api_auth_middleware.dart:74:14 - return_of_invalid_type_from_closure
+  error - 1 positional argument expected by 'forbidden', but 0 found - lib\core\api\api_auth_middleware.dart:79:13 - not_enough_positional_arguments
+  error - The named parameter 'jsonBody' isn't defined - lib\core\api\api_auth_middleware.dart:79:13 - undefined_named_parameter
+  error - 1 positional argument expected by 'forbidden', but 0 found - lib\core\api\api_auth_middleware.dart:85:13 - not_enough_positional_arguments
+  error - The named parameter 'jsonBody' isn't defined - lib\core\api\api_auth_middleware.dart:85:13 - undefined_named_parameter
+  error - A value of type 'FutureOr<Response> Function(Handler)' can't be returned from the method 'rateLimit' because it has a return type of 'Handler' - lib\core\api\api_auth_middleware.dart:98:12 - return_of_invalid_type
+  error - The returned type 'Future<Response> Function(Request)' isn't returnable from a 'FutureOr<Response>' function, as required by the closure's context - lib\core\api\api_auth_middleware.dart:99:14 - return_of_invalid_type_from_closure
+  error - A value of type 'FutureOr<Response> Function(Handler)' can't be returned from the method 'cors' because it has a return type of 'Handler' - lib\core\api\api_auth_middleware.dart:130:12 - return_of_invalid_type
+  error - The returned type 'Future<Response> Function(Request)' isn't returnable from a 'FutureOr<Response>' function, as required by the closure's context - lib\core\api\api_auth_middleware.dart:131:14 - return_of_invalid_type_from_closure
+  error - A value of type 'FutureOr<Response> Function(Handler)' can't be returned from the method 'logging' because it has a return type of 'Handler' - lib\core\api\api_auth_middleware.dart:163:12 - return_of_invalid_type
+  error - The returned type 'Future<Response> Function(Request)' isn't returnable from a 'FutureOr<Response>' function, as required by the closure's context - lib\core\api\api_auth_middleware.dart:164:14 - return_of_invalid_type_from_closure
+  error - Undefined name '_updateProduct' - lib\core\api\endpoints\inventory_api.dart:25:34 - undefined_identifier
+  error - Undefined name '_deleteProduct' - lib\core\api\endpoints\inventory_api.dart:28:37 - undefined_identifier
+  error - Undefined name '_getLowStockProducts' - lib\core\api\endpoints\inventory_api.dart:31:51 - undefined_identifier
+  error - Undefined name '_getProductLots' - lib\core\api\endpoints\inventory_api.dart:34:39 - undefined_identifier
+  error - Undefined name '_createLot' - lib\core\api\endpoints\inventory_api.dart:37:26 - undefined_identifier
+  error - Undefined name '_getReservations' - lib\core\api\endpoints\inventory_api.dart:40:33 - undefined_identifier
+  error - Expected to find '}' - lib\core\api\endpoints\inventory_api.dart:256:1 - expected_token
+  error - The argument type 'List<int>' can't be assigned to the parameter type 'String'.  - lib\core\api\jwt_service.dart:108:29 - argument_type_not_assignable
+  error - Target of URI doesn't exist: 'package:share_plus/share_plus' - lib\core\export\export_service.dart:10:8 - uri_does_not_exist
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:56:24 - list_element_type_not_assignable
+  error - The argument type 'List<String>' can't be assigned to the parameter type 'List<CellValue?>'.  - lib\core\export\export_service.dart:60:23 - argument_type_not_assignable
+  error - The argument type 'List<String>' can't be assigned to the parameter type 'List<CellValue?>'.  - lib\core\export\export_service.dart:65:25 - argument_type_not_assignable
+  error - The named parameter 'fontColor' isn't defined - lib\core\export\export_service.dart:163:7 - undefined_named_parameter
+  error - The named parameter 'backgroundColor' isn't defined - lib\core\export\export_service.dart:164:7 - undefined_named_parameter
+  error - The method 'fromHex' isn't defined for the type 'ExcelColor' - lib\core\export\export_service.dart:164:35 - undefined_method
+  error - The named parameter 'backgroundColor' isn't defined - lib\core\export\export_service.dart:170:7 - undefined_named_parameter
+  error - The method 'fromHex' isn't defined for the type 'ExcelColor' - lib\core\export\export_service.dart:170:35 - undefined_method
+  error - A value of type 'String' can't be assigned to a variable of type 'CellValue?' - lib\core\export\export_service.dart:176:62 - invalid_assignment
+  error - A value of type 'String' can't be assigned to a variable of type 'CellValue?' - lib\core\export\export_service.dart:179:62 - invalid_assignment
+  error - A value of type 'String' can't be assigned to a variable of type 'CellValue?' - lib\core\export\export_service.dart:182:62 - invalid_assignment
+  error - A value of type 'String' can't be assigned to a variable of type 'CellValue?' - lib\core\export\export_service.dart:188:62 - invalid_assignment
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:191:29 - list_element_type_not_assignable
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:191:41 - list_element_type_not_assignable
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:191:53 - list_element_type_not_assignable
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:191:72 - list_element_type_not_assignable
+  error - A value of type 'String' can't be assigned to a variable of type 'CellValue?' - lib\core\export\export_service.dart:205:70 - invalid_assignment
+  error - A value of type 'String' can't be assigned to a variable of type 'CellValue?' - lib\core\export\export_service.dart:214:65 - invalid_assignment
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:217:32 - list_element_type_not_assignable
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:217:44 - list_element_type_not_assignable
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:217:57 - list_element_type_not_assignable
+  error - The element type 'String' can't be assigned to the list type 'CellValue?' - lib\core\export\export_service.dart:217:66 - list_element_type_not_assignable
+  error - A value of type 'String' can't be assigned to a variable of type 'CellValue?' - lib\core\export\export_service.dart:231:73 - invalid_assignment
+  error - Undefined name 'Share' - lib\core\export\export_service.dart:248:11 - undefined_identifier
+  error - Const variables must be initialized with a constant value - lib\core\invoicing\e_invoice_config.dart:27:11 - const_initialized_with_non_constant_value
+  error - The constructor being called isn't a const constructor - lib\core\invoicing\e_invoice_config.dart:27:11 - const_with_non_const
+  error - The values in a const map literal must be constant - lib\core\invoicing\e_invoice_config.dart:27:11 - non_constant_map_value
+  error - The constructor being called isn't a const constructor - lib\core\invoicing\e_invoice_config.dart:49:11 - const_with_non_const
+  error - The values in a const map literal must be constant - lib\core\invoicing\e_invoice_config.dart:49:11 - non_constant_map_value
+  error - The constructor being called isn't a const constructor - lib\core\invoicing\e_invoice_config.dart:71:11 - const_with_non_const
+  error - The values in a const map literal must be constant - lib\core\invoicing\e_invoice_config.dart:71:11 - non_constant_map_value
+  error - The constructor being called isn't a const constructor - lib\core\invoicing\e_invoice_config.dart:93:11 - const_with_non_const
+  error - The values in a const map literal must be constant - lib\core\invoicing\e_invoice_config.dart:93:11 - non_constant_map_value
+  error - The constructor being called isn't a const constructor - lib\core\invoicing\e_invoice_config.dart:114:11 - const_with_non_const
+  error - The values in a const map literal must be constant - lib\core\invoicing\e_invoice_config.dart:114:11 - non_constant_map_value
+  error - The constructor being called isn't a const constructor - lib\core\invoicing\e_invoice_config.dart:137:11 - const_with_non_const
+  error - The values in a const map literal must be constant - lib\core\invoicing\e_invoice_config.dart:137:11 - non_constant_map_value
+  error - The constructor being called isn't a const constructor - lib\core\invoicing\e_invoice_config.dart:159:11 - const_with_non_const
+  error - The values in a const map literal must be constant - lib\core\invoicing\e_invoice_config.dart:159:11 - non_constant_map_value
+  error - The constructor being called isn't a const constructor - lib\core\invoicing\e_invoice_config.dart:180:11 - const_with_non_const
+  error - The values in a const map literal must be constant - lib\core\invoicing\e_invoice_config.dart:180:11 - non_constant_map_value
+  error - Expected to find '}' - lib\core\multi_company\financial_consolidation.dart:69:75 - expected_token
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\financial_consolidation.dart:99:38 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\financial_consolidation.dart:127:38 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\financial_consolidation.dart:146:47 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\financial_consolidation.dart:165:38 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\financial_consolidation.dart:183:38 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\financial_consolidation.dart:252:40 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\financial_consolidation.dart:256:40 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\transfer_service.dart:300:48 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\transfer_service.dart:302:50 - argument_type_not_assignable
+  error - The argument type 'Object?' can't be assigned to the parameter type 'List<Map<String, Object?>>'.  - lib\core\multi_company\transfer_service.dart:304:52 - argument_type_not_assignable
+  error - Undefined name 'dailyConsumed' - lib\core\predictive\predictive_analytics.dart:209:42 - undefined_identifier
+  error - Functions marked 'async' must have a return type which is a supertype of 'Future' - lib\core\security\database_encryption_service.dart:25:3 - illegal_async_return_type
+  error - 3 positional arguments expected by 'RSAKeyGeneratorParameters.new', but 2 found - lib\core\security\timestamp_service.dart:23:11 - not_enough_positional_arguments
+  error - Too many positional arguments: 1 expected, but 2 found - lib\core\security\timestamp_service.dart:27:63 - extra_positional_arguments
+  error - 1 positional argument expected by 'toUnsigned', but 0 found - lib\core\security\timestamp_service.dart:40:57 - not_enough_positional_arguments
+  error - The method 'toBytes' isn't defined for the type 'BigInt' - lib\core\security\timestamp_service.dart:40:59 - undefined_method
+  error - 1 positional argument expected by 'toUnsigned', but 0 found - lib\core\security\timestamp_service.dart:46:56 - not_enough_positional_arguments
+  error - The method 'toBytes' isn't defined for the type 'BigInt' - lib\core\security\timestamp_service.dart:46:58 - undefined_method
+  error - Target of URI doesn't exist: 'db_helper.dart' - lib\services\barcode_scanner_service.dart:4:8 - uri_does_not_exist
+  error - Undefined class 'LogicalKey' - lib\services\barcode_scanner_service.dart:86:23 - undefined_class
+  error - Undefined name 'DatabaseHelper' - lib\services\barcode_scanner_service.dart:99:18 - undefined_identifier
+  error - The method 'insert' isn't defined for the type 'DatabaseHelper' - lib\ui\template_editor_screen.dart:78:16 - undefined_method
+  error - Undefined name 'ConflictAlgorithm' - lib\ui\template_editor_screen.dart:88:28 - undefined_identifier
+  error - The named parameter 'alignLabelWithLabel' isn't defined - lib\ui\template_editor_screen.dart:257:27 - undefined_named_parameter

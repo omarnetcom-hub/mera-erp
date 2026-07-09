@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'app_session.dart';
 import 'db_helper.dart';
 import 'core/templates/document_template.dart';
 import 'core/templates/template_service.dart';
@@ -463,8 +461,8 @@ class _TemplatesPageState extends State<TemplatesPage> {
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: _isUpdating ? null : () => _showTemplateDialog(null),
-        child: const Icon(Icons.add),
         tooltip: 'Nueva Plantilla',
+        child: const Icon(Icons.add),
       ),
     );
   }

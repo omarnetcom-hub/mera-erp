@@ -135,7 +135,7 @@ class CompanyTransferService {
   
   /// Ejecuta transferencia de inventario
   Future<void> _executeInventoryTransfer(Database db, CompanyTransfer transfer) async {
-    final items = transfer.items as Map<String, dynamic>;
+    final items = transfer.items;
     
     for (final entry in items.entries) {
       final productId = int.tryParse(entry.key);
@@ -184,7 +184,7 @@ class CompanyTransferService {
   
   /// Ejecuta transferencia de productos completos
   Future<void> _executeProductsTransfer(Database db, CompanyTransfer transfer) async {
-    final items = transfer.items as Map<String, dynamic>;
+    final items = transfer.items;
     
     for (final entry in items.entries) {
       final productId = int.tryParse(entry.key);
@@ -297,11 +297,11 @@ class CompanyTransferService {
     ''', [companyId, companyId]);
     
     return {
-      'total_transfers': Sqflite.firstIntValue(totalResult.first['count']) ?? 0,
+      'total_transfers': Sqflite.firstIntValue(totalResult) ?? 0,
       'total_value': (totalResult.first['total'] as num?)?.toDouble() ?? 0,
-      'pending_transfers': Sqflite.firstIntValue(pendingResult.first['count']) ?? 0,
+      'pending_transfers': Sqflite.firstIntValue(pendingResult) ?? 0,
       'pending_value': (pendingResult.first['total'] as num?)?.toDouble() ?? 0,
-      'completed_transfers': Sqflite.firstIntValue(completedResult.first['count']) ?? 0,
+      'completed_transfers': Sqflite.firstIntValue(completedResult) ?? 0,
       'completed_value': (completedResult.first['total'] as num?)?.toDouble() ?? 0,
     };
   }

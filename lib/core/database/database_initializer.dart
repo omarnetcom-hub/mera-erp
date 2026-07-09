@@ -7,6 +7,7 @@ extension DatabaseInitializer on DatabaseHelper {
       CREATE TABLE productos(
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id          INTEGER,
+        codigo              TEXT    DEFAULT '',
         nombre              TEXT    NOT NULL,
         unidad_base         TEXT    NOT NULL,
         stock               REAL    DEFAULT 0,

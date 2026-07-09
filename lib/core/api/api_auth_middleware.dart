@@ -3,6 +3,7 @@
 // Middleware de autenticación para API REST
 // ============================================================
 
+import 'dart:convert';
 import 'package:shelf/shelf.dart';
 import 'jwt_service.dart';
 
@@ -10,14 +11,15 @@ class APIAuthMiddleware {
   static final JWTService _jwtService = JWTService.instance;
   
   /// Middleware que requiere autenticación JWT
-  static Handler requireAuth() {
+  static Middleware requireAuth() {
     return (Handler innerHandler) {
       return (Request request) async {
         final authHeader = request.headers['Authorization'];
         
         if (authHeader == null || !authHeader.startsWith('Bearer ')) {
           return Response.unauthorized(
-            jsonBody: {'error': 'Token de autenticación requerido'},
+            jsonEncode({'error': 'Token de autenticación requerido'}),
+            headers: {'content-type': 'application/json'},
           );
         }
         
@@ -26,7 +28,8 @@ class APIAuthMiddleware {
         final payload = _jwtService.decodeAndValidateToken(token);
         if (payload == null) {
           return Response.unauthorized(
-            jsonBody: {'error': 'Token inválido o expirado'},
+            jsonEncode({'error': 'Token inválido o expirado'}),
+            headers: {'content-type': 'application/json'},
           );
         }
         
@@ -46,20 +49,22 @@ class APIAuthMiddleware {
   }
   
   /// Middleware que requiere un rol específico
-  static Handler requireRole(String requiredRole) {
+  static Middleware requireRole(String requiredRole) {
     return (Handler innerHandler) {
       return (Request request) async {
         final role = request.context['role'] as String?;
         
         if (role == null) {
           return Response.forbidden(
-            jsonBody: {'error': 'Rol no encontrado en el contexto'},
+            jsonEncode({'error': 'Rol no encontrado en el contexto'}),
+            headers: {'content-type': 'application/json'},
           );
         }
         
         if (role != requiredRole && role != 'administrador') {
           return Response.forbidden(
-            jsonBody: {'error': 'Rol insuficiente: se requiere $requiredRole'},
+            jsonEncode({'error': 'Rol insuficiente: se requiere $requiredRole'}),
+            headers: {'content-type': 'application/json'},
           );
         }
         
@@ -69,20 +74,22 @@ class APIAuthMiddleware {
   }
   
   /// Middleware que requiere uno de varios roles
-  static Handler requireAnyRole(List<String> allowedRoles) {
+  static Middleware requireAnyRole(List<String> allowedRoles) {
     return (Handler innerHandler) {
       return (Request request) async {
         final role = request.context['role'] as String?;
         
         if (role == null) {
           return Response.forbidden(
-            jsonBody: {'error': 'Rol no encontrado en el contexto'},
+            jsonEncode({'error': 'Rol no encontrado en el contexto'}),
+            headers: {'content-type': 'application/json'},
           );
         }
         
         if (!allowedRoles.contains(role) && role != 'administrador') {
           return Response.forbidden(
-            jsonBody: {'error': 'Rol insuficiente: se requiere uno de ${allowedRoles.join(", ")}'},
+            jsonEncode({'error': 'Rol insuficiente: se requiere uno de ${allowedRoles.join(", ")}'}),
+            headers: {'content-type': 'application/json'},
           );
         }
         
@@ -92,7 +99,7 @@ class APIAuthMiddleware {
   }
   
   /// Middleware de rate limiting
-  static Handler rateLimit({int maxRequests = 100, Duration window = const Duration(minutes: 1)}) {
+  static Middleware rateLimit({int maxRequests = 100, Duration window = const Duration(minutes: 1)}) {
     final requestCounts = <String, List<DateTime>>{};
     
     return (Handler innerHandler) {
@@ -121,7 +128,7 @@ class APIAuthMiddleware {
   }
   
   /// Middleware de CORS
-  static Handler cors({
+  static Middleware cors({
     String allowedOrigin = '*',
     List<String> allowedMethods = const ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     List<String> allowedHeaders = const ['Content-Type', 'Authorization'],
@@ -159,7 +166,7 @@ class APIAuthMiddleware {
   }
   
   /// Middleware de logging
-  static Handler logging() {
+  static Middleware logging() {
     return (Handler innerHandler) {
       return (Request request) async {
         final start = DateTime.now();

@@ -36,12 +36,27 @@ class _OnboardingPageState extends State<OnboardingPage> {
   List<CompanyTemplate> templates = [];
   late Map<String, bool> features;
 
-  static const _steps = [
-    _OnboardingStep('Empresa', Icons.domain),
-    _OnboardingStep('Operacion', Icons.storefront),
-    _OnboardingStep('Fiscal', Icons.receipt_long),
-    _OnboardingStep('Escala', Icons.tune),
-  ];
+  // Selector de tipo de entidad
+  String _tipoEntidad = 'privada'; // 'privada' o 'publica'
+  String? _subtipoEntidadPublica; // 'municipio', 'gobernacion', 'hospital', 'otro'
+
+  List<_OnboardingStep> get _steps {
+    if (_tipoEntidad == 'publica') {
+      return [
+        const _OnboardingStep('Tipo de Entidad', Icons.business),
+        const _OnboardingStep('Datos de la Entidad', Icons.account_balance),
+        const _OnboardingStep('Configuración Sector Público', Icons.gavel),
+        const _OnboardingStep('Finalizar', Icons.check),
+      ];
+    }
+    return [
+      const _OnboardingStep('Tipo de Entidad', Icons.business),
+      const _OnboardingStep('Empresa', Icons.domain),
+      const _OnboardingStep('Operacion', Icons.storefront),
+      const _OnboardingStep('Fiscal', Icons.receipt_long),
+      const _OnboardingStep('Escala', Icons.tune),
+    ];
+  }
 
   @override
   void initState() {
@@ -106,6 +121,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
 
     setState(() => saving = true);
+
+    // Si es entidad pública, desactivar módulos privados y activar solo módulos públicos
+    if (_tipoEntidad == 'publica') {
+      _configurarModulosPublicos();
+    }
+
     final company = Company(
       name: companyNameCtrl.text.trim(),
       country: countryCtrl.text.trim().isEmpty
@@ -145,6 +166,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
           'employees': profile.employeeCount,
           'branches': profile.branchCount,
           'operation_volume': profile.operationVolume,
+          // Configuración de tipo de entidad
+          'tipo_entidad': _tipoEntidad,
+          'subtipo_entidad_publica': _subtipoEntidadPublica ?? '',
         },
         template: selectedTemplate,
       );
@@ -160,6 +184,56 @@ class _OnboardingPageState extends State<OnboardingPage> {
     if (!mounted) return;
     setState(() => saving = false);
     widget.onFinished();
+  }
+
+  void _configurarModulosPublicos() {
+    // Desactivar módulos privados
+    features['pos'] = false;
+    features['inventory'] = false;
+    features['purchases'] = false;
+    features['cash'] = false;
+    features['crm'] = false;
+    features['services'] = false;
+    features['production'] = false;
+    features['multiBranch'] = false;
+    features['accounting'] = false;
+    features['treasury'] = false;
+    features['reports'] = false;
+    features['documents'] = false;
+    features['electronicInvoice'] = false;
+
+    // Activar módulos públicos según subtipo
+    features['presupuesto_publico_enabled'] = true;
+    features['contabilidad_nicsp_enabled'] = true;
+    features['contratacion_publica_enabled'] = true;
+    features['nomina_publica_enabled'] = true;
+    features['auditoria_forense_enabled'] = true;
+
+    // Módulos específicos según subtipo
+    switch (_subtipoEntidadPublica) {
+      case 'municipio':
+        features['predial_enabled'] = true;
+        features['planeacion_enabled'] = true;
+        features['activos_estado_enabled'] = true;
+        features['transparencia_enabled'] = true;
+        break;
+      case 'gobernacion':
+        features['rentas_departamentales_enabled'] = true;
+        features['planeacion_enabled'] = true;
+        features['activos_estado_enabled'] = true;
+        features['transparencia_enabled'] = true;
+        features['consolidacion_nicsp_40_enabled'] = true;
+        break;
+      case 'hospital':
+        features['salud_publica_enabled'] = true;
+        features['activos_estado_enabled'] = true;
+        features['transparencia_enabled'] = true;
+        features['sgp_enabled'] = true;
+        break;
+      case 'otro':
+        // Módulos opcionales según configuración del usuario
+        break;
+    }
   }
 
   Widget _field(
@@ -202,11 +276,120 @@ class _OnboardingPageState extends State<OnboardingPage> {
       child: KeyedSubtree(
         key: ValueKey(currentStep),
         child: switch (currentStep) {
-          0 => _empresaStep(),
-          1 => _operacionStep(),
-          2 => _fiscalStep(),
-          _ => _escalaStep(),
+          0 => _tipoEntidadStep(),
+          1 => _tipoEntidad == 'publica' ? _escalaPublicoStep() : _empresaStep(),
+          2 => _tipoEntidad == 'publica' ? _configuracionPublicaStep() : _operacionStep(),
+          3 => _tipoEntidad == 'publica' ? const SizedBox.shrink() : _fiscalStep(),
+          4 => _tipoEntidad == 'publica' ? const SizedBox.shrink() : _escalaStep(),
+          _ => const SizedBox.shrink(),
         },
+      ),
+    );
+  }
+
+  Widget _tipoEntidadStep() {
+    return _Panel(
+      title: 'Tipo de Entidad',
+      subtitle: 'Selecciona el tipo de entidad para configurar los módulos apropiados.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '¿Qué tipo de entidad es?',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            title: const Text('Empresa privada / comercial'),
+            subtitle: const Text('Sistema ERP estándar para empresas privadas'),
+            leading: Radio<String>(
+              value: 'privada',
+              groupValue: _tipoEntidad,
+              onChanged: (value) => setState(() {
+                _tipoEntidad = value!;
+                _subtipoEntidadPublica = null;
+              }),
+            ),
+            trailing: const Icon(Icons.business),
+          ),
+          ListTile(
+            title: const Text('Entidad pública'),
+            subtitle: const Text('Sistema ERP especializado para sector público colombiano'),
+            leading: Radio<String>(
+              value: 'publica',
+              groupValue: _tipoEntidad,
+              onChanged: (value) => setState(() {
+                _tipoEntidad = value!;
+              }),
+            ),
+            trailing: const Icon(Icons.account_balance),
+          ),
+          if (_tipoEntidad == 'publica') ...[
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text(
+              'Tipo de entidad pública:',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              title: const Text('Municipio / Alcaldía'),
+              subtitle: const Text('Entidad territorial municipal'),
+              leading: Radio<String>(
+                value: 'municipio',
+                groupValue: _subtipoEntidadPublica,
+                onChanged: (value) => setState(() => _subtipoEntidadPublica = value),
+              ),
+              trailing: const Icon(Icons.location_city),
+            ),
+            ListTile(
+              title: const Text('Gobernación / Departamento'),
+              subtitle: const Text('Entidad territorial departamental'),
+              leading: Radio<String>(
+                value: 'gobernacion',
+                groupValue: _subtipoEntidadPublica,
+                onChanged: (value) => setState(() => _subtipoEntidadPublica = value),
+              ),
+              trailing: const Icon(Icons.map),
+            ),
+            ListTile(
+              title: const Text('Hospital público / ESE'),
+              subtitle: const Text('Entidad de salud del sector público'),
+              leading: Radio<String>(
+                value: 'hospital',
+                groupValue: _subtipoEntidadPublica,
+                onChanged: (value) => setState(() => _subtipoEntidadPublica = value),
+              ),
+              trailing: const Icon(Icons.local_hospital),
+            ),
+            ListTile(
+              title: const Text('Otro ente descentralizado'),
+              subtitle: const Text('Entidad pública diferente a las anteriores'),
+              leading: Radio<String>(
+                value: 'otro',
+                groupValue: _subtipoEntidadPublica,
+                onChanged: (value) => setState(() => _subtipoEntidadPublica = value),
+              ),
+              trailing: const Icon(Icons.corporate_fare),
+            ),
+          ],
+          const SizedBox(height: 16),
+          if (_tipoEntidad == 'publica' && _subtipoEntidadPublica == null)
+            const Text(
+              '⚠️ Debes seleccionar un subtipo de entidad pública',
+              style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+            ),
+          if (_tipoEntidad == 'privada')
+            const Text(
+              '✅ Se configurará el sistema ERP estándar para empresas privadas',
+              style: TextStyle(color: Colors.green),
+            ),
+          if (_tipoEntidad == 'publica' && _subtipoEntidadPublica != null)
+            Text(
+              '✅ Se configurará el sistema ERP público para: ${_obtenerNombreSubtipo(_subtipoEntidadPublica!)}',
+              style: const TextStyle(color: Colors.green),
+            ),
+        ],
       ),
     );
   }
@@ -388,6 +571,214 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  Widget _configuracionPublicaStep() {
+    return _Panel(
+      title: 'Configuración Sector Público',
+      subtitle: 'Parámetros específicos para entidades públicas colombianas.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Módulos del Sector Público',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            value: features['presupuesto_publico'] ?? true,
+            title: const Text('Presupuesto Público + PAC'),
+            subtitle: const Text('Plan Anual de Caja y ejecución presupuestal'),
+            onChanged: (value) => _toggle('presupuesto_publico', value),
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            value: features['contabilidad_nicsp'] ?? true,
+            title: const Text('Contabilidad NICSP'),
+            subtitle: const Text('Normas Internacionales de Contabilidad del Sector Público'),
+            onChanged: (value) => _toggle('contabilidad_nicsp', value),
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            value: features['contratacion_publica'] ?? true,
+            title: const Text('Contratación Pública + SECOP II'),
+            subtitle: const Text('Integración con SECOP II Colombia Compra Eficiente'),
+            onChanged: (value) => _toggle('contratacion_publica', value),
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            value: features['nomina_publica'] ?? true,
+            title: const Text('Nómina Pública + PILA'),
+            subtitle: const Text('Nómina para trabajadores oficiales y PILA'),
+            onChanged: (value) => _toggle('nomina_publica', value),
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            value: features['auditoria_forense'] ?? true,
+            title: const Text('Auditoría Forense + CHIP'),
+            subtitle: const Text('Control disciplinario y CHIP'),
+            onChanged: (value) => _toggle('auditoria_forense', value),
+          ),
+          const SizedBox(height: 12),
+          const Divider(),
+          const SizedBox(height: 12),
+          const Text(
+            'Módulos según tipo de entidad:',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          _mostrarModulosPorSubtipo(),
+        ],
+      ),
+    );
+  }
+
+  Widget _mostrarModulosPorSubtipo() {
+    switch (_subtipoEntidadPublica) {
+      case 'municipio':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['predial'] ?? true,
+              title: const Text('Predial + ICA'),
+              subtitle: const Text('Impuesto predial e industria, comercio y avisos'),
+              onChanged: (value) => _toggle('predial', value),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['planeacion'] ?? true,
+              title: const Text('Planeación + Banco de Proyectos'),
+              subtitle: const Text('MGA y PDT'),
+              onChanged: (value) => _toggle('planeacion', value),
+            ),
+          ],
+        );
+      case 'gobernacion':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['rentas_departamentales'] ?? true,
+              title: const Text('Rentas Departamentales'),
+              subtitle: const Text('Impuesto de vehículos, registro, licores, estampillas'),
+              onChanged: (value) => _toggle('rentas_departamentales', value),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['planeacion'] ?? true,
+              title: const Text('Planeación + Banco de Proyectos'),
+              subtitle: const Text('MGA y PDT'),
+              onChanged: (value) => _toggle('planeacion', value),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['consolidacion_nicsp_40'] ?? true,
+              title: const Text('Consolidación NICSP 40'),
+              subtitle: const Text('Estados financieros consolidados'),
+              onChanged: (value) => _toggle('consolidacion_nicsp_40', value),
+            ),
+          ],
+        );
+      case 'hospital':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['salud_publica'] ?? true,
+              title: const Text('Salud Pública: RIPS/EPS/Glosas'),
+              subtitle: const Text('Registro Individual de Prestación de Servicios'),
+              onChanged: (value) => _toggle('salud_publica', value),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['sgp'] ?? true,
+              title: const Text('SGP - Sistema General de Participaciones'),
+              subtitle: const Text('Componente salud'),
+              onChanged: (value) => _toggle('sgp', value),
+            ),
+          ],
+        );
+      case 'otro':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['predial'] ?? false,
+              title: const Text('Predial + ICA (opcional)'),
+              subtitle: const Text('Si aplica para este ente'),
+              onChanged: (value) => _toggle('predial', value),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['rentas_departamentales'] ?? false,
+              title: const Text('Rentas Departamentales (opcional)'),
+              subtitle: const Text('Si aplica para este ente'),
+              onChanged: (value) => _toggle('rentas_departamentales', value),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['planeacion'] ?? false,
+              title: const Text('Planeación + Banco de Proyectos (opcional)'),
+              subtitle: const Text('Si aplica para este ente'),
+              onChanged: (value) => _toggle('planeacion', value),
+            ),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: features['salud_publica'] ?? false,
+              title: const Text('Salud Pública (opcional)'),
+              subtitle: const Text('Si aplica para este ente'),
+              onChanged: (value) => _toggle('salud_publica', value),
+            ),
+          ],
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _escalaPublicoStep() {
+    return _Panel(
+      title: 'Datos de la Entidad',
+      subtitle: 'Información básica de la entidad pública.',
+      child: Column(
+        children: [
+          _field(companyNameCtrl, 'Nombre de la entidad', icon: Icons.account_balance),
+          const SizedBox(height: 10),
+          _field(countryCtrl, 'País', icon: Icons.public),
+          const SizedBox(height: 10),
+          _field(currencyCtrl, 'Moneda', icon: Icons.payments),
+          const SizedBox(height: 10),
+          _field(timezoneCtrl, 'Zona horaria', icon: Icons.schedule),
+          const SizedBox(height: 16),
+          const Text(
+            'Nota: La configuración fiscal de entidades públicas usa normas NICSP automáticamente.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _escalaStep() {
     return _Panel(
       title: 'Tamano operativo',
@@ -417,11 +808,37 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _continuar() {
+    // Validar que si es pública, se haya seleccionado subtipo
+    if (currentStep == 0 && _tipoEntidad == 'publica' && _subtipoEntidadPublica == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Debes seleccionar un subtipo de entidad pública'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
     if (currentStep == _steps.length - 1) {
       _finish();
       return;
     }
     setState(() => currentStep++);
+  }
+
+  String _obtenerNombreSubtipo(String subtipo) {
+    switch (subtipo) {
+      case 'municipio':
+        return 'Municipio / Alcaldía';
+      case 'gobernacion':
+        return 'Gobernación / Departamento';
+      case 'hospital':
+        return 'Hospital público / ESE';
+      case 'otro':
+        return 'Otro ente descentralizado';
+      default:
+        return subtipo;
+    }
   }
 
   @override
