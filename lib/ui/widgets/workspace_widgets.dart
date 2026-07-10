@@ -65,22 +65,22 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
           _WorkspaceSection(
             label: 'Operacion',
             icon: Icons.storefront,
-            modules: state._visible(state._operacion()),
+            modules: state._visible(operacion()),
           ),
           _WorkspaceSection(
             label: 'Finanzas',
             icon: Icons.account_balance,
-            modules: state._visible(state._finanzas()),
+            modules: state._visible(finanzas()),
           ),
           _WorkspaceSection(
             label: 'Control',
             icon: Icons.query_stats,
-            modules: state._visible(state._control()),
+            modules: state._visible(control()),
           ),
           _WorkspaceSection(
             label: 'Gestion',
             icon: Icons.tune,
-            modules: state._visible(state._gestion()),
+            modules: state._visible(gestion()),
           ),
         ];
       }
