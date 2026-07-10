@@ -2516,6 +2516,121 @@ class _ShellEmptyState extends StatelessWidget {
   }
 }
 
+void _showCommandPaletteDialog(
+  _MenuPrincipalState state,
+  BuildContext context,
+  List<ModuleDefinition> modules,
+) {
+  var query = state._globalSearchController.text;
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          final commands = _filteredCommandsHelper(modules, query);
+          return AlertDialog(
+            title: const Text('Command Palette'),
+            content: SizedBox(
+              width: 720,
+              height: 520,
+              child: Column(
+                children: [
+                  TextField(
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.manage_search),
+                      hintText: 'Buscar modulo, accion, reporte o registro',
+                    ),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        query = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: EnterpriseSpacing.md),
+                  Expanded(
+                    child: commands.isEmpty
+                        ? const _ShellEmptyState(
+                            icon: Icons.search_off,
+                            title: 'Sin resultados',
+                            detail:
+                                'Prueba con ventas, cartera, compras, caja, CRM o reportes.',
+                          )
+                        : ListView.separated(
+                            itemCount: commands.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final command = commands[index];
+                              return ListTile(
+                                leading: Icon(
+                                  command.icon,
+                                  color: command.color,
+                                ),
+                                title: Text(
+                                  command.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  command.description,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: const Icon(Icons.keyboard_return),
+                                onTap: () {
+                                  Navigator.pop(dialogContext);
+                                  state._openModule(context, command.module);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+List<_WorkspaceCommand> _filteredCommandsHelper(
+  List<ModuleDefinition> modules,
+  String query,
+) {
+  final normalized = query.toLowerCase().trim();
+  final commands = [
+    for (final module in modules)
+      _WorkspaceCommand(
+        title: module.title,
+        description: _moduleSubtitle(module.id),
+        icon: module.icon,
+        color: module.color,
+        module: module,
+      ),
+  ];
+  if (normalized.isEmpty) return commands;
+  return commands.where((command) {
+    final haystack =
+        '${command.title} ${command.description} ${command.module.id}'
+            .toLowerCase();
+    return haystack.contains(normalized) ||
+        _fuzzyMatchHelper(haystack, normalized);
+  }).toList();
+}
+
+bool _fuzzyMatchHelper(String source, String query) {
+  var index = 0;
+  for (final codeUnit in query.codeUnits) {
+    index = source.indexOf(String.fromCharCode(codeUnit), index);
+    if (index == -1) return false;
+    index++;
+  }
+  return true;
+}
+
 class _WorkspaceCommand {
   const _WorkspaceCommand({
     required this.title,
