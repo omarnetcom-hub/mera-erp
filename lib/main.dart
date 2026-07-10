@@ -1042,47 +1042,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 
 
   void _showCopilot(BuildContext context, List<ModuleDefinition> modules) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          alignment: Alignment.centerRight,
-          insetPadding: const EdgeInsets.only(top: 16, bottom: 16, right: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: SizedBox(
-            width: 380,
-            height: MediaQuery.sizeOf(context).height * 0.85,
-            child: CopilotPanel(
-              onClose: () => Navigator.pop(dialogContext),
-              modules: modules,
-              onNavigateToModule: (moduleId) {
-                final module = _moduleById(modules, moduleId);
-                Navigator.pop(dialogContext);
-                _openModule(context, module);
-              },
-              onLoadSaleProduct: (query) {
-                Navigator.pop(dialogContext);
-                setState(() {
-                  _workspaceMode = _WorkspaceMode.sales;
-                });
-              },
-              onLoadClientPayment: () {
-                final module = _moduleById(modules, 'receivables');
-                Navigator.pop(dialogContext);
-                _openModule(context, module);
-              },
-              onLoadPurchaseOrder: () {
-                final module = _moduleById(modules, 'purchases');
-                Navigator.pop(dialogContext);
-                _openModule(context, module);
-              },
-            ),
-          ),
-        );
-      },
-    );
+    _showCopilotDialog(this, context, modules);
   }
 
   void _showMobileQuickActions(
