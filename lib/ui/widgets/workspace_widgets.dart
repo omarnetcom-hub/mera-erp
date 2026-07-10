@@ -48,6 +48,196 @@ Future<String> _obtenerTipoEntidad() async {
   return 'privada'; // Default
 }
 
+Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
+  return FutureBuilder<String>(
+    future: _obtenerTipoEntidad(),
+    builder: (context, snapshot) {
+      final tipoEntidad = snapshot.data ?? 'privada';
+
+      List<_WorkspaceSection> baseSections;
+
+      if (tipoEntidad == 'publica') {
+        // Mostrar módulos del sector público
+        baseSections = state._seccionesSectorPublico();
+      } else {
+        // Mostrar módulos privados (default)
+        baseSections = [
+          _WorkspaceSection(
+            label: 'Operacion',
+            icon: Icons.storefront,
+            modules: state._visible(state._operacion()),
+          ),
+          _WorkspaceSection(
+            label: 'Finanzas',
+            icon: Icons.account_balance,
+            modules: state._visible(state._finanzas()),
+          ),
+          _WorkspaceSection(
+            label: 'Control',
+            icon: Icons.query_stats,
+            modules: state._visible(state._control()),
+          ),
+          _WorkspaceSection(
+            label: 'Gestion',
+            icon: Icons.tune,
+            modules: state._visible(state._gestion()),
+          ),
+        ];
+      }
+
+      final sections = state._filterSections(baseSections);
+      final allModules = state._allModules(baseSections);
+      final favoriteModules = state._modulesByIds(allModules, state._favoriteModuleIds);
+      final recentModules = state._modulesByIds(allModules, state._recentModuleIds);
+      void commandPalette() => state._showCommandPalette(context, allModules);
+      void copilot() => state._showCopilot(context, allModules);
+      void notifications() => state._showNotificationCenter(context, allModules);
+
+      return CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+              commandPalette,
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+              commandPalette,
+        },
+        child: Focus(
+          autofocus: true,
+          child: DefaultTabController(
+            length: sections.length,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final viewport = EnterpriseBreakpoints.fromWidth(
+                  constraints.maxWidth,
+                );
+                final mobile = viewport.isMobile;
+
+                return Scaffold(
+                  drawer: mobile
+                      ? _MobileModuleDrawer(
+                          sections: baseSections,
+                          favoriteIds: state._favoriteModuleIds,
+                          onToggleFavorite: state._toggleFavorite,
+                          onOpen: (module) => state._openModule(context, module),
+                          onLogout: () {
+                            AppSession.cerrar();
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const LoginPage(),
+                              ),
+                            );
+                          },
+                        )
+                      : null,
+                  appBar: AppBar(
+                    title: mobile
+                        ? const Text(AppBrand.name)
+                        : const MerkaBrandHeader(compact: true),
+                    actions: [
+                      IconButton(
+                        tooltip: 'Busqueda global',
+                        onPressed: commandPalette,
+                        icon: const Icon(Icons.search),
+                      ),
+                      IconButton(
+                        tooltip: 'ERP Copilot',
+                        onPressed: copilot,
+                        icon: const Icon(Icons.auto_awesome),
+                      ),
+                      IconButton(
+                        tooltip: 'Notificaciones',
+                        onPressed: notifications,
+                        icon: const Icon(Icons.notifications_none),
+                      ),
+                      IconButton(
+                        tooltip: 'Modo oscuro',
+                        onPressed: state._toggleTheme,
+                        icon: Icon(
+                          merkaThemeMode.value == ThemeMode.dark
+                              ? PhosphorIcons.sun()
+                              : PhosphorIcons.moon(),
+                        ),
+                      ),
+                      if (!mobile)
+                        IconButton.filledTonal(
+                          tooltip: 'Exportar XLS',
+                          onPressed: () => ExportarExcel.exportar(context),
+                          icon: const Icon(Icons.table_chart),
+                        ),
+                      const SizedBox(width: 6),
+                      if (!mobile)
+                        IconButton(
+                          tooltip: 'Cerrar sesion',
+                          onPressed: () {
+                            AppSession.cerrar();
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const LoginPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.logout),
+                        ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                  floatingActionButton: mobile
+                      ? FloatingActionButton.extended(
+                          tooltip: 'Accion rapida',
+                          onPressed: () =>
+                              state._showMobileQuickActions(context, allModules),
+                          icon: const Icon(Icons.bolt),
+                          label: const Text('Acciones'),
+                        )
+                      : null,
+                  body: SafeArea(
+                    child: Row(
+                      children: [
+                        if (viewport.isDesktop)
+                          _EnterpriseSidebar(
+                            sections: baseSections,
+                            collapsed: state._sidebarCollapsed,
+                            onToggleCollapsed: () {
+                              state._updateState(() {
+                                state._sidebarCollapsed = !state._sidebarCollapsed;
+                              });
+                            },
+                            onOpen: (module) => state._openModule(context, module),
+                          ),
+                        Expanded(
+                          child: _WorkspaceBody(
+                            sections: sections,
+                            favoriteModules: favoriteModules,
+                            recentModules: recentModules,
+                            viewport: viewport,
+                            mode: state._workspaceMode,
+                            onModeChanged: (mode) {
+                              state._updateState(() => state._workspaceMode = mode);
+                            },
+                            searchController: state._globalSearchController,
+                            onSearchChanged: (_) => state._updateState(() {}),
+                            onOpen: (module) => state._openModule(context, module),
+                            onToggleFavorite: state._toggleFavorite,
+                            favoriteIds: state._favoriteModuleIds,
+                            onCommandPalette: commandPalette,
+                            onCopilot: copilot,
+                            onNotifications: notifications,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _WorkspaceBody extends StatelessWidget {
   const _WorkspaceBody({
     required this.sections,

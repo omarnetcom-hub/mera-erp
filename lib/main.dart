@@ -280,6 +280,14 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     super.dispose();
   }
 
+  /// Wrapper para exponer setState() al part file (workspace_widgets.dart) sin
+  /// triggers de invalid_use_of_protected_member. El part accede a campos
+  /// privados de State sin problemas, pero setState() requiere este wrapper
+  /// porque es un miembro protegido (solo instancias de State pueden usarlo).
+  void _updateState(VoidCallback fn) {
+    setState(fn);
+  }
+
   List<ModuleDefinition> _operacion() => [
     ModuleDefinition(
       id: 'cash',
@@ -1397,193 +1405,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   }
 
   Widget _buildCentroTrabajo(BuildContext context) {
-    return FutureBuilder<String>(
-      future: _obtenerTipoEntidad(),
-      builder: (context, snapshot) {
-        final tipoEntidad = snapshot.data ?? 'privada';
-        
-        List<_WorkspaceSection> baseSections;
-        
-        if (tipoEntidad == 'publica') {
-          // Mostrar módulos del sector público
-          baseSections = _seccionesSectorPublico();
-        } else {
-          // Mostrar módulos privados (default)
-          baseSections = [
-            _WorkspaceSection(
-              label: 'Operacion',
-              icon: Icons.storefront,
-              modules: _visible(_operacion()),
-            ),
-            _WorkspaceSection(
-              label: 'Finanzas',
-              icon: Icons.account_balance,
-              modules: _visible(_finanzas()),
-            ),
-            _WorkspaceSection(
-              label: 'Control',
-              icon: Icons.query_stats,
-              modules: _visible(_control()),
-            ),
-            _WorkspaceSection(
-              label: 'Gestion',
-              icon: Icons.tune,
-              modules: _visible(_gestion()),
-            ),
-          ];
-        }
-
-        final sections = _filterSections(baseSections);
-        final allModules = _allModules(baseSections);
-        final favoriteModules = _modulesByIds(allModules, _favoriteModuleIds);
-        final recentModules = _modulesByIds(allModules, _recentModuleIds);
-        void commandPalette() => _showCommandPalette(context, allModules);
-        void copilot() => _showCopilot(context, allModules);
-        void notifications() => _showNotificationCenter(context, allModules);
-
-        return CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-                commandPalette,
-            const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-                commandPalette,
-          },
-          child: Focus(
-            autofocus: true,
-            child: DefaultTabController(
-              length: sections.length,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final viewport = EnterpriseBreakpoints.fromWidth(
-                    constraints.maxWidth,
-                  );
-                  final mobile = viewport.isMobile;
-
-                  return Scaffold(
-                    drawer: mobile
-                        ? _MobileModuleDrawer(
-                            sections: baseSections,
-                            favoriteIds: _favoriteModuleIds,
-                            onToggleFavorite: _toggleFavorite,
-                            onOpen: (module) => _openModule(context, module),
-                            onLogout: () {
-                              AppSession.cerrar();
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const LoginPage(),
-                                ),
-                              );
-                            },
-                          )
-                        : null,
-                    appBar: AppBar(
-                      title: mobile
-                          ? const Text(AppBrand.name)
-                          : const MerkaBrandHeader(compact: true),
-                      actions: [
-                        IconButton(
-                          tooltip: 'Busqueda global',
-                          onPressed: commandPalette,
-                          icon: const Icon(Icons.search),
-                        ),
-                        IconButton(
-                          tooltip: 'ERP Copilot',
-                          onPressed: copilot,
-                          icon: const Icon(Icons.auto_awesome),
-                        ),
-                        IconButton(
-                          tooltip: 'Notificaciones',
-                          onPressed: notifications,
-                          icon: const Icon(Icons.notifications_none),
-                        ),
-                        IconButton(
-                          tooltip: 'Modo oscuro',
-                          onPressed: _toggleTheme,
-                          icon: Icon(
-                            merkaThemeMode.value == ThemeMode.dark
-                                ? PhosphorIcons.sun()
-                                : PhosphorIcons.moon(),
-                          ),
-                        ),
-                        if (!mobile)
-                          IconButton.filledTonal(
-                            tooltip: 'Exportar XLS',
-                            onPressed: () => ExportarExcel.exportar(context),
-                            icon: const Icon(Icons.table_chart),
-                          ),
-                        const SizedBox(width: 6),
-                        if (!mobile)
-                          IconButton(
-                            tooltip: 'Cerrar sesion',
-                            onPressed: () {
-                              AppSession.cerrar();
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const LoginPage(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.logout),
-                          ),
-                        const SizedBox(width: 8),
-                      ],
-                    ),
-                    floatingActionButton: mobile
-                        ? FloatingActionButton.extended(
-                            tooltip: 'Accion rapida',
-                            onPressed: () =>
-                                _showMobileQuickActions(context, allModules),
-                            icon: const Icon(Icons.bolt),
-                            label: const Text('Acciones'),
-                          )
-                        : null,
-                    body: SafeArea(
-                      child: Row(
-                        children: [
-                          if (viewport.isDesktop)
-                            _EnterpriseSidebar(
-                              sections: baseSections,
-                              collapsed: _sidebarCollapsed,
-                              onToggleCollapsed: () {
-                                setState(() {
-                                  _sidebarCollapsed = !_sidebarCollapsed;
-                                });
-                              },
-                              onOpen: (module) => _openModule(context, module),
-                            ),
-                          Expanded(
-                            child: _WorkspaceBody(
-                              sections: sections,
-                              favoriteModules: favoriteModules,
-                              recentModules: recentModules,
-                              viewport: viewport,
-                              mode: _workspaceMode,
-                              onModeChanged: (mode) {
-                                setState(() => _workspaceMode = mode);
-                              },
-                              searchController: _globalSearchController,
-                              onSearchChanged: (_) => setState(() {}),
-                              onOpen: (module) => _openModule(context, module),
-                              onToggleFavorite: _toggleFavorite,
-                              favoriteIds: _favoriteModuleIds,
-                              onCommandPalette: commandPalette,
-                              onCopilot: copilot,
-                              onNotifications: notifications,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    return _buildWorkspaceCenter(this, context);
   }
 
   @override
