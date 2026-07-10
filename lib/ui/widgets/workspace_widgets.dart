@@ -2815,6 +2815,95 @@ void _showCopilotDialog(
   );
 }
 
+void _showMobileQuickActionsSheet(
+  _MenuPrincipalState state,
+  BuildContext context,
+  List<ModuleDefinition> modules,
+) {
+  ModuleDefinition? findModule(String id) {
+    for (final module in modules) {
+      if (module.id == id) return module;
+    }
+    return null;
+  }
+
+  void openIfAvailable(String id) {
+    final module = findModule(id);
+    Navigator.pop(context);
+    if (module != null) {
+      state._openModule(context, module);
+    } else {
+      state._showCommandPalette(context, modules);
+    }
+  }
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    constraints: const BoxConstraints(maxWidth: 520),
+    builder: (sheetContext) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Acciones rapidas',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: EnterpriseSpacing.md),
+              _MobileQuickActionTile(
+                icon: Icons.point_of_sale,
+                color: AppBrand.secondary,
+                title: 'Crear venta',
+                detail: 'POS, factura o documento comercial.',
+                onTap: () => openIfAvailable('sales'),
+              ),
+              _MobileQuickActionTile(
+                icon: Icons.shopping_bag,
+                color: AppBrand.success,
+                title: 'Crear compra',
+                detail: 'Orden, recepcion o factura proveedor.',
+                onTap: () => openIfAvailable('purchases'),
+              ),
+              _MobileQuickActionTile(
+                icon: Icons.payments,
+                color: AppBrand.warning,
+                title: 'Registrar pago',
+                detail: 'Cobros, pagos y aplicaciones parciales.',
+                onTap: () => openIfAvailable('receivables'),
+              ),
+              _MobileQuickActionTile(
+                icon: Icons.search,
+                color: AppBrand.info,
+                title: 'Buscar en el ERP',
+                detail: 'Clientes, compras, ventas, activos y reportes.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  state._showCommandPalette(context, modules);
+                },
+              ),
+              _MobileQuickActionTile(
+                icon: Icons.auto_awesome,
+                color: AppBrand.accent,
+                title: 'Preguntar al Copilot',
+                detail: 'Analisis, pendientes, alertas y acciones.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  state._showCopilot(context, modules);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _WorkspaceCommand {
   const _WorkspaceCommand({
     required this.title,
