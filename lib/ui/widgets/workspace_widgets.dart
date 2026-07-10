@@ -14,6 +14,40 @@ class _WorkspaceSection {
 
 enum _WorkspaceMode { dashboard, sales, operations, finance }
 
+Future<String> _obtenerTipoEntidad() async {
+  try {
+    final db = await DatabaseHelper.instance.database;
+    // Obtener company_id activo
+    final companyRows = await db.query(
+      'app_config',
+      where: 'clave = ?',
+      whereArgs: ['company_active_id'],
+      limit: 1,
+    );
+    if (companyRows.isEmpty) {
+      return 'privada';
+    }
+    final companyId = companyRows.first['valor']?.toString();
+    if (companyId == null) {
+      return 'privada';
+    }
+
+    // Buscar tipo_entidad en company_settings
+    final rows = await db.query(
+      'company_settings',
+      where: 'company_id = ? AND setting_key = ?',
+      whereArgs: [int.parse(companyId), 'tipo_entidad'],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      return rows.first['setting_value']?.toString() ?? 'privada';
+    }
+  } catch (e) {
+    debugPrint('Error al obtener tipo de entidad: $e');
+  }
+  return 'privada'; // Default
+}
+
 class _WorkspaceBody extends StatelessWidget {
   const _WorkspaceBody({
     required this.sections,
