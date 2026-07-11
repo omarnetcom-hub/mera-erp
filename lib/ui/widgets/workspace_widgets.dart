@@ -17,42 +17,42 @@ List<_WorkspaceSection> _seccionesSectorPublico(_MenuPrincipalState state) {
     _WorkspaceSection(
       label: 'Presupuesto Público',
       icon: Icons.account_balance,
-      modules: state._visible(modulosPresupuestoPublico()),
+      modules: visible(modulosPresupuestoPublico()),
     ),
     _WorkspaceSection(
       label: 'Contabilidad NICSP',
       icon: Icons.receipt_long,
-      modules: state._visible(modulosContabilidadNICSP()),
+      modules: visible(modulosContabilidadNICSP()),
     ),
     _WorkspaceSection(
       label: 'Contratación Pública',
       icon: Icons.gavel,
-      modules: state._visible(modulosContratacionPublica()),
+      modules: visible(modulosContratacionPublica()),
     ),
     _WorkspaceSection(
       label: 'Nómina Pública',
       icon: Icons.badge,
-      modules: state._visible(modulosNominaPublica()),
+      modules: visible(modulosNominaPublica()),
     ),
     _WorkspaceSection(
       label: 'Rentas',
       icon: Icons.attach_money,
-      modules: state._visible(modulosRentas()),
+      modules: visible(modulosRentas()),
     ),
     _WorkspaceSection(
       label: 'Planeación',
       icon: Icons.map,
-      modules: state._visible(modulosPlaneacion()),
+      modules: visible(modulosPlaneacion()),
     ),
     _WorkspaceSection(
       label: 'Activos del Estado',
       icon: Icons.factory,
-      modules: state._visible(modulosActivosEstado()),
+      modules: visible(modulosActivosEstado()),
     ),
     _WorkspaceSection(
       label: 'Auditoría y Transparencia',
       icon: Icons.security,
-      modules: state._visible(modulosAuditoriaTransparencia()),
+      modules: visible(modulosAuditoriaTransparencia()),
     ),
   ];
 }
@@ -110,30 +110,30 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
           _WorkspaceSection(
             label: 'Operacion',
             icon: Icons.storefront,
-            modules: state._visible(operacion()),
+            modules: visible(operacion()),
           ),
           _WorkspaceSection(
             label: 'Finanzas',
             icon: Icons.account_balance,
-            modules: state._visible(finanzas()),
+            modules: visible(finanzas()),
           ),
           _WorkspaceSection(
             label: 'Control',
             icon: Icons.query_stats,
-            modules: state._visible(control()),
+            modules: visible(control()),
           ),
           _WorkspaceSection(
             label: 'Gestion',
             icon: Icons.tune,
-            modules: state._visible(gestion()),
+            modules: visible(gestion()),
           ),
         ];
       }
 
       final sections = state._filterSections(baseSections);
       final allModules = state._allModules(baseSections);
-      final favoriteModules = state._modulesByIds(allModules, state._favoriteModuleIds);
-      final recentModules = state._modulesByIds(allModules, state._recentModuleIds);
+      final favoriteModules = modulesByIds(allModules, state._favoriteModuleIds);
+      final recentModules = modulesByIds(allModules, state._recentModuleIds);
       void commandPalette() => state._showCommandPalette(context, allModules);
       void copilot() => state._showCopilot(context, allModules);
       void notifications() => state._showNotificationCenter(context, allModules);

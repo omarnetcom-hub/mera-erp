@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:sqflite/sqflite.dart';
 
-
 import 'app_bootstrap.dart';
 import 'app_session.dart';
 import 'control_center_agent.dart';
@@ -41,6 +40,7 @@ import 'sector_publico/presupuesto/pages/presupuesto_publico_page.dart';
 
 import 'core/workspace/workspace_config.dart';
 import 'core/workspace/public_sector_config.dart';
+import 'core/workspace/workspace_helpers.dart';
 part 'ui/widgets/workspace_widgets.dart';
 
 Future<void> main() async {
@@ -248,9 +248,6 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   }
 
 
-  List<ModuleDefinition> _visible(List<ModuleDefinition> modules) {
-    return modules.where(AppSession.puedeAbrirModulo).toList();
-  }
 
   List<ModuleDefinition> _allModules(List<_WorkspaceSection> sections) {
     return sections.expand((section) => section.modules).toList();
@@ -274,16 +271,6 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     ];
   }
 
-  List<ModuleDefinition> _modulesByIds(
-    List<ModuleDefinition> modules,
-    Iterable<String> ids,
-  ) {
-    final byId = {for (final module in modules) module.id: module};
-    return [
-      for (final id in ids)
-        if (byId[id] != null) byId[id]!,
-    ];
-  }
 
 
 
@@ -309,13 +296,8 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         ? ThemeMode.light
         : ThemeMode.dark;
     merkaThemeMode.value = next;
-    final db = await DatabaseHelper.instance.database;
-    await db.insert('preferencias_usuario', {
-      'usuario': AppSession.nombre,
-      'clave': 'theme_mode',
-      'valor': next == ThemeMode.dark ? 'dark' : 'light',
-      'actualizado_en': DateTime.now().toIso8601String(),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    // Persistir la preferencia (la lógica de persistencia fue extraída a workspace_helpers.dart)
+    await persistThemePreference(next == ThemeMode.dark ? 'dark' : 'light');
   }
 
   void _openModule(BuildContext context, ModuleDefinition module) {
