@@ -1253,6 +1253,95 @@ class DatabaseHelper {
     return await _sincronizarEmpresaLegacy(db);
   }
 
+  /// Guarda la configuración relacionada con DIAN en la tabla app_config.
+  /// Solo guarda las claves que vengan no nulas. Usa ConflictAlgorithm.replace
+  /// para asegurar que el valor quede actualizado.
+  Future<void> guardarDianConfig({
+    String? dianTechKey,
+    String? dianPin,
+    String? dianResolution,
+    String? dianSoftwareId,
+  }) async {
+    final db = await instance.database;
+    if (dianTechKey != null) {
+      await db.insert(
+        'app_config',
+        {'clave': 'dian_tech_key', 'valor': dianTechKey},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    if (dianPin != null) {
+      await db.insert(
+        'app_config',
+        {'clave': 'dian_pin', 'valor': dianPin},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    if (dianResolution != null) {
+      await db.insert(
+        'app_config',
+        {'clave': 'dian_resolution', 'valor': dianResolution},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    if (dianSoftwareId != null) {
+      await db.insert(
+        'app_config',
+        {'clave': 'dian_software_id', 'valor': dianSoftwareId},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  /// Recupera el PIN técnico DIAN (clave 'dian_pin') desde app_config.
+  /// Devuelve null si no está configurado.
+  Future<String?> obtenerDianPin([DatabaseExecutor? txn]) async {
+    final executor = txn ?? await instance.database;
+    final rows = await executor.query(
+      'app_config',
+      where: 'clave = ?',
+      whereArgs: ['dian_pin'],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      return rows.first['valor']?.toString();
+    }
+    return null;
+  }
+
+  /// Recupera la clave técnica DIAN (dian_tech_key) desde app_config.
+  Future<String?> obtenerDianTechKey([DatabaseExecutor? txn]) async {
+    final executor = txn ?? await instance.database;
+    final rows = await executor.query(
+      'app_config',
+      where: 'clave = ?',
+      whereArgs: ['dian_tech_key'],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      return rows.first['valor']?.toString();
+    }
+    return null;
+  }
+
+  /// Recupera las claves DIAN (dian_tech_key, dian_pin, dian_resolution, dian_software_id)
+  /// como un mapa clave->valor. Si alguna clave no existe, no aparece en el mapa.
+  Future<Map<String, String>> obtenerDianConfig([DatabaseExecutor? txn]) async {
+    final executor = txn ?? await instance.database;
+    final rows = await executor.query(
+      'app_config',
+      where: 'clave IN (?,?,?,?)',
+      whereArgs: ['dian_tech_key', 'dian_pin', 'dian_resolution', 'dian_software_id'],
+    );
+    final Map<String, String> result = {};
+    for (final r in rows) {
+      final k = r['clave']?.toString();
+      final v = r['valor']?.toString();
+      if (k != null && v != null) result[k] = v;
+    }
+    return result;
+  }
+
   Future<Map<String, dynamic>> _conEmpresa(Map<String, dynamic> row) async {
     return {...row, 'company_id': await obtenerEmpresaActivaId()};
   }

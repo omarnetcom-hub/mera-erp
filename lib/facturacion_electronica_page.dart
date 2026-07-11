@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'control_center_agent.dart';
 import 'db_helper.dart';
+import 'core/invoicing/cufe.dart';
 
 class FacturacionElectronicaPage extends StatefulWidget {
   const FacturacionElectronicaPage({super.key});
@@ -73,24 +73,33 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
     }
   }
 
-  String _generateCUFE(int ventaId, double total, String fecha) {
-    final raw = 'Venta:$ventaId|Total:$total|Fecha:$fecha|PIN:${_pinCtrl.text}';
-    return '${base64Encode(utf8.encode(raw)).replaceAll('=', '').toLowerCase()}fe2026dian';
-  }
-
   Future<void> _emitirFacturaElectronica(Map<String, dynamic> venta) async {
     final ventaId = (venta['id'] as num).toInt();
     final total = (venta['total'] as num).toDouble();
     final fecha = venta['fecha']?.toString() ?? DateTime.now().toIso8601String();
-    
-    final cufe = _generateCUFE(ventaId, total, fecha);
+
+    // Use the persisted PIN as the single source of truth. Do not fall back to _pinCtrl.text.
+    final pin = await DatabaseHelper.instance.obtenerDianPin();
+    if (pin == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Guarde primero la configuración de Resolución DIAN antes de emitir.'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+      }
+      return;
+    }
+
+    final cufe = computeCufe(ventaId: ventaId, total: total, fechaIso: fecha, pin: pin);
     final consecutivo = '${_prefixCtrl.text}-${1000 + ventaId}';
 
     setState(() => _loading = true);
     try {
       await DatabaseHelper.instance.crearFacturaElectronicaBorrador(
         ventaId: ventaId,
-        observacion: 'Emisión directa realizada. Transmitiendo a DIAN...',
+        observacion: 'Emisión directa realizada. Pendiente de transmisión al proveedor tecnológico.'
       );
 
       // Fetch newly created invoice to update CUFE and state
@@ -99,9 +108,9 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
 
       await DatabaseHelper.instance.actualizarEstadoFacturaElectronica(
         id: creada['id'] as int,
-        estado: 'validada',
+        estado: 'pendiente_dian',
         cufe: cufe,
-        respuestaDian: 'HTTP 200: Documento validado exitosamente por la DIAN. CUFE registrado.',
+        respuestaDian: 'Sin conectar -- configure su proveedor tecnológico autorizado.',
       );
 
       await ControlCenterAgent.reportEvent(
@@ -114,7 +123,7 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Factura Electrónica $consecutivo validada por la DIAN.'),
+            content: Text('Factura Electrónica $consecutivo creada (pendiente de transmisión).'),
             backgroundColor: const Color(0xFF10B981),
           ),
         );
@@ -362,9 +371,25 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
                         height: 48,
                         child: FilledButton(
                           style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Resolución DIAN guardada y validada.'), backgroundColor: Color(0xFF10B981)));
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            try {
+                              await DatabaseHelper.instance.guardarDianConfig(
+                                dianTechKey: _techKeyCtrl.text,
+                                dianPin: _pinCtrl.text,
+                                dianResolution: _resolutionCtrl.text,
+                                dianSoftwareId: _softwareIdCtrl.text,
+                              );
+                              if (mounted) {
+                                messenger.showSnackBar(const SnackBar(content: Text('Resolución DIAN guardada.'), backgroundColor: Color(0xFF10B981)));
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                messenger.showSnackBar(SnackBar(content: Text('Error guardando configuración DIAN: $e'), backgroundColor: const Color(0xFFEF4444)));
+                              }
+                            }
                           },
+
                           child: const Text('GUARDAR RESOLUCIÓN', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       )
@@ -409,8 +434,9 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
                         child: FilledButton(
                           style: FilledButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Conexión con Proveedor Tecnológico verificada exitosamente.'), backgroundColor: Color(0xFF10B981)));
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin conectar -- configure su proveedor tecnológico autorizado.'), backgroundColor: Color(0xFFF59E0B)));
                           },
+
                           child: const Text('PROBAR CONEXIÓN Y CERTIFICADO', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       )

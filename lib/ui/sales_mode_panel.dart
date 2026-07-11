@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../db_helper.dart';
 import '../control_center_agent.dart';
 import '../sales/application/create_sale_use_case.dart';
 import '../services/merka_intelligence_service.dart';
+import '../core/invoicing/cufe.dart';
 
 class SalesModePanel extends StatefulWidget {
   const SalesModePanel({
@@ -279,7 +279,7 @@ class _SalesModePanelState extends State<SalesModePanel> {
     );
   }
 
-  void _showTicketDialog({
+  Future<void> _showTicketDialog({
     required int saleId,
     required double subtotal,
     required double impuestos,
@@ -287,14 +287,15 @@ class _SalesModePanelState extends State<SalesModePanel> {
     required String clientName,
     required String paymentMethod,
     required List<Map<String, dynamic>> items,
-  }) {
+  }) async {
     final now = DateTime.now();
-    final fechaFmt = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    
-    final rawCufe = 'Venta:$saleId|Total:$total|Fecha:$fechaFmt|PIN:12345';
-    final cufe = base64Encode(utf8.encode(rawCufe)).replaceAll('=', '').toLowerCase();
-    final shortCufe = cufe.length > 40 ? '${cufe.substring(0, 40)}fe2026' : '${cufe}fe2026';
+    final fechaIso = now.toIso8601String();
 
+    // Obtain persisted PIN; if absent, show a pending message instead of generating CUFE.
+    final pin = await DatabaseHelper.instance.obtenerDianPin();
+    final String? cufeFull = pin == null ? null : computeCufe(ventaId: saleId, total: total, fechaIso: fechaIso, pin: pin);
+
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -307,16 +308,19 @@ class _SalesModePanelState extends State<SalesModePanel> {
               printing = true;
             });
             SystemSound.play(SystemSoundType.click);
+            final navigatorContext = ctx;
+            final messenger = ScaffoldMessenger.of(navigatorContext);
             Timer(const Duration(seconds: 2), () {
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Comprobante POS impreso correctamente.'),
-                    backgroundColor: Color(0xFF10B981),
-                  ),
-                );
+              if (navigatorContext.mounted) {
+                Navigator.pop(navigatorContext);
               }
+              if (!mounted) return;
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Comprobante POS impreso correctamente.'),
+                  backgroundColor: Color(0xFF10B981),
+                ),
+              );
             });
           }
 
@@ -359,7 +363,7 @@ class _SalesModePanelState extends State<SalesModePanel> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('TICKET POS: #$saleId', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                              Text('Fecha: ${fechaFmt.split(' ').first}', style: const TextStyle(fontSize: 11)),
+                              Text('Fecha: ${fechaIso.split('T').first}', style: const TextStyle(fontSize: 11)),
                             ],
                           ),
                           Text('Cliente: $clientName', style: const TextStyle(fontSize: 11)),
@@ -412,7 +416,10 @@ class _SalesModePanelState extends State<SalesModePanel> {
                           const Text('Prefijo: FE | Rango: 1001 a 20000', textAlign: TextAlign.center, style: TextStyle(fontSize: 9)),
                           const Text('Habilitado por Proveedor Tecnológico DIAN', textAlign: TextAlign.center, style: TextStyle(fontSize: 9)),
                           const SizedBox(height: 6),
-                          Text('CUFE: $shortCufe', textAlign: TextAlign.center, style: const TextStyle(fontSize: 8, fontStyle: FontStyle.italic)),
+                          if (cufeFull == null)
+                            const Text('CUFE: Pendiente -- configure PIN en Centro de Facturación', textAlign: TextAlign.center, style: TextStyle(fontSize: 8, fontStyle: FontStyle.italic))
+                          else
+                            SelectableText(cufeFull, textAlign: TextAlign.center, style: const TextStyle(fontSize: 8, fontFamily: 'monospace')),
                           const SizedBox(height: 8),
                           const Text('*** GRACIAS POR SU COMPRA ***', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                           const Text('MerkaERP Software de Gestión', textAlign: TextAlign.center, style: TextStyle(fontSize: 9, color: Colors.grey)),
