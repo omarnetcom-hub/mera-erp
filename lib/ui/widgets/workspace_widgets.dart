@@ -57,6 +57,30 @@ List<_WorkspaceSection> _seccionesSectorPublico(_MenuPrincipalState state) {
   ];
 }
 
+// Moved from _MenuPrincipalState in main.dart (Bloque 4d.3).
+List<ModuleDefinition> _allModules(List<_WorkspaceSection> sections) {
+  return sections.expand((section) => section.modules).toList();
+}
+
+// Moved from _MenuPrincipalState in main.dart (Bloque 4d.3).
+List<_WorkspaceSection> _filterSections(_MenuPrincipalState state, List<_WorkspaceSection> sections) {
+  final query = state._globalSearchController.text.toLowerCase().trim();
+  if (query.isEmpty) return sections;
+  return [
+    for (final section in sections)
+      _WorkspaceSection(
+        label: section.label,
+        icon: section.icon,
+        modules: section.modules.where((module) {
+          final haystack =
+              '${module.title} ${module.id} ${_moduleSubtitle(module.id)} ${section.label}'
+                  .toLowerCase();
+          return haystack.contains(query);
+        }).toList(),
+      ),
+  ];
+}
+
 enum _WorkspaceMode { dashboard, sales, operations, finance }
 
 Future<String> _obtenerTipoEntidad() async {
@@ -130,8 +154,8 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
         ];
       }
 
-      final sections = state._filterSections(baseSections);
-      final allModules = state._allModules(baseSections);
+          final sections = _filterSections(state, baseSections);
+          final allModules = _allModules(baseSections);
       final favoriteModules = modulesByIds(allModules, state._favoriteModuleIds);
       final recentModules = modulesByIds(allModules, state._recentModuleIds);
       void commandPalette() => state._showCommandPalette(context, allModules);

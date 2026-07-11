@@ -249,27 +249,6 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 
 
 
-  List<ModuleDefinition> _allModules(List<_WorkspaceSection> sections) {
-    return sections.expand((section) => section.modules).toList();
-  }
-
-  List<_WorkspaceSection> _filterSections(List<_WorkspaceSection> sections) {
-    final query = _globalSearchController.text.toLowerCase().trim();
-    if (query.isEmpty) return sections;
-    return [
-      for (final section in sections)
-        _WorkspaceSection(
-          label: section.label,
-          icon: section.icon,
-          modules: section.modules.where((module) {
-            final haystack =
-                '${module.title} ${module.id} ${_moduleSubtitle(module.id)} ${section.label}'
-                    .toLowerCase();
-            return haystack.contains(query);
-          }).toList(),
-        ),
-    ];
-  }
 
 
 
