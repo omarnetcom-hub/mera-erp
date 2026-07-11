@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'control_center_agent.dart';
 import 'db_helper.dart';
 import 'core/invoicing/cufe.dart';
+import 'core/invoicing/dian_transmission_client.dart';
+import 'core/invoicing/dian_transmission_client_registry.dart';
 
 class FacturacionElectronicaPage extends StatefulWidget {
   const FacturacionElectronicaPage({super.key});
@@ -433,8 +435,29 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
                         height: 48,
                         child: FilledButton(
                           style: FilledButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin conectar -- configure su proveedor tecnológico autorizado.'), backgroundColor: Color(0xFFF59E0B)));
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            // Use NoOp client by default. In future a real client can be injected.
+                            final client = dianTransmissionClientInstance;
+
+                            final cfgStatus = await client.checkConfiguration();
+                            if (cfgStatus == ConfigStatus.notConfigured) {
+                              if (mounted) {
+                                messenger.showSnackBar(const SnackBar(content: Text('Sin configuración DIAN. Guarde la configuración en Centro de Facturación.'), backgroundColor: Color(0xFFEF4444)));
+                              }
+                              return;
+                            }
+
+                            final conn = await client.checkConnectivity();
+                            if (!mounted) return;
+
+                            if (conn.status == ConnectivityStatus.notConnected || conn.status == ConnectivityStatus.notConfigured) {
+                              messenger.showSnackBar(SnackBar(content: Text(conn.message ?? 'Sin conexión'), backgroundColor: const Color(0xFFF59E0B)));
+                            } else if (conn.status == ConnectivityStatus.connected) {
+                              messenger.showSnackBar(SnackBar(content: Text(conn.message ?? 'Conectado'), backgroundColor: const Color(0xFF10B981)));
+                            } else {
+                              messenger.showSnackBar(SnackBar(content: Text(conn.message ?? 'Estado: ${conn.status}'), backgroundColor: const Color(0xFFF59E0B)));
+                            }
                           },
 
                           child: const Text('PROBAR CONEXIÓN Y CERTIFICADO', style: TextStyle(fontWeight: FontWeight.bold)),
