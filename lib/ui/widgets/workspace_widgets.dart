@@ -12,6 +12,51 @@ class _WorkspaceSection {
   final List<ModuleDefinition> modules;
 }
 
+List<_WorkspaceSection> _seccionesSectorPublico(_MenuPrincipalState state) {
+  return [
+    _WorkspaceSection(
+      label: 'Presupuesto Público',
+      icon: Icons.account_balance,
+      modules: state._visible(modulosPresupuestoPublico()),
+    ),
+    _WorkspaceSection(
+      label: 'Contabilidad NICSP',
+      icon: Icons.receipt_long,
+      modules: state._visible(modulosContabilidadNICSP()),
+    ),
+    _WorkspaceSection(
+      label: 'Contratación Pública',
+      icon: Icons.gavel,
+      modules: state._visible(modulosContratacionPublica()),
+    ),
+    _WorkspaceSection(
+      label: 'Nómina Pública',
+      icon: Icons.badge,
+      modules: state._visible(modulosNominaPublica()),
+    ),
+    _WorkspaceSection(
+      label: 'Rentas',
+      icon: Icons.attach_money,
+      modules: state._visible(modulosRentas()),
+    ),
+    _WorkspaceSection(
+      label: 'Planeación',
+      icon: Icons.map,
+      modules: state._visible(modulosPlaneacion()),
+    ),
+    _WorkspaceSection(
+      label: 'Activos del Estado',
+      icon: Icons.factory,
+      modules: state._visible(modulosActivosEstado()),
+    ),
+    _WorkspaceSection(
+      label: 'Auditoría y Transparencia',
+      icon: Icons.security,
+      modules: state._visible(modulosAuditoriaTransparencia()),
+    ),
+  ];
+}
+
 enum _WorkspaceMode { dashboard, sales, operations, finance }
 
 Future<String> _obtenerTipoEntidad() async {
@@ -58,7 +103,7 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
 
       if (tipoEntidad == 'publica') {
         // Mostrar módulos del sector público
-        baseSections = state._seccionesSectorPublico();
+        baseSections = _seccionesSectorPublico(state);
       } else {
         // Mostrar módulos privados (default)
         baseSections = [

@@ -285,50 +285,6 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     ];
   }
 
-  List<_WorkspaceSection> _seccionesSectorPublico() {
-    return [
-      _WorkspaceSection(
-        label: 'Presupuesto Público',
-        icon: Icons.account_balance,
-        modules: _visible(modulosPresupuestoPublico()),
-      ),
-      _WorkspaceSection(
-        label: 'Contabilidad NICSP',
-        icon: Icons.receipt_long,
-        modules: _visible(modulosContabilidadNICSP()),
-      ),
-      _WorkspaceSection(
-        label: 'Contratación Pública',
-        icon: Icons.gavel,
-        modules: _visible(modulosContratacionPublica()),
-      ),
-      _WorkspaceSection(
-        label: 'Nómina Pública',
-        icon: Icons.badge,
-        modules: _visible(modulosNominaPublica()),
-      ),
-      _WorkspaceSection(
-        label: 'Rentas',
-        icon: Icons.attach_money,
-        modules: _visible(modulosRentas()),
-      ),
-      _WorkspaceSection(
-        label: 'Planeación',
-        icon: Icons.map,
-        modules: _visible(modulosPlaneacion()),
-      ),
-      _WorkspaceSection(
-        label: 'Activos del Estado',
-        icon: Icons.factory,
-        modules: _visible(modulosActivosEstado()),
-      ),
-      _WorkspaceSection(
-        label: 'Auditoría y Transparencia',
-        icon: Icons.security,
-        modules: _visible(modulosAuditoriaTransparencia()),
-      ),
-    ];
-  }
 
 
 
