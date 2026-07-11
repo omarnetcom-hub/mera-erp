@@ -154,8 +154,8 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
         ];
       }
 
-          final sections = _filterSections(state, baseSections);
-          final allModules = _allModules(baseSections);
+      final sections = _filterSections(state, baseSections);
+      final allModules = _allModules(baseSections);
       final favoriteModules = modulesByIds(allModules, state._favoriteModuleIds);
       final recentModules = modulesByIds(allModules, state._recentModuleIds);
       void commandPalette() => state._showCommandPalette(context, allModules);
