@@ -101,7 +101,7 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
     try {
       await DatabaseHelper.instance.crearFacturaElectronicaBorrador(
         ventaId: ventaId,
-        observacion: 'Emisión directa realizada. Pendiente de transmisión al proveedor tecnológico.'
+        observacion: 'Emisión directa realizada. Pendiente de transmisión al proveedor tecnológico.',
       );
 
       // Fetch newly created invoice to update CUFE and state

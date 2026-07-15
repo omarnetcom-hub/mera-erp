@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../invoicing/xml/generator.dart';
 
 class ExportService {
   static final ExportService instance = ExportService._internal();
@@ -77,75 +78,15 @@ class ExportService {
   Future<File> exportToXMLDIAN(
     String filename,
     Map<String, dynamic> invoiceData,
+    {String? cufe}
   ) async {
-    final buffer = StringBuffer();
-    
-    buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
-    buffer.writeln('<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">');
-    buffer.writeln('  <cbc:ID>${invoiceData['invoice_number'] ?? ''}</cbc:ID>');
-    buffer.writeln('  <cbc:IssueDate>${invoiceData['issue_date'] ?? ''}</cbc:IssueDate>');
-    buffer.writeln('  <cbc:InvoiceTypeCode>${invoiceData['type_code'] ?? '01'}</cbc:InvoiceTypeCode>');
-    
-    // Supplier
-    if (invoiceData['supplier'] != null) {
-      final supplier = invoiceData['supplier'] as Map<String, dynamic>;
-      buffer.writeln('  <AccountingSupplierParty>');
-      buffer.writeln('    <cbc:ID>${supplier['nit'] ?? ''}</cbc:ID>');
-      buffer.writeln('    <Party>');
-      buffer.writeln('      <PartyLegalEntity>');
-      buffer.writeln('        <cbc:RegistrationName>${supplier['name'] ?? ''}</cbc:RegistrationName>');
-      buffer.writeln('      </PartyLegalEntity>');
-      buffer.writeln('    </Party>');
-      buffer.writeln('  </AccountingSupplierParty>');
-    }
-    
-    // Customer
-    if (invoiceData['customer'] != null) {
-      final customer = invoiceData['customer'] as Map<String, dynamic>;
-      buffer.writeln('  <AccountingCustomerParty>');
-      buffer.writeln('    <cbc:ID>${customer['nit'] ?? ''}</cbc:ID>');
-      buffer.writeln('    <Party>');
-      buffer.writeln('      <PartyLegalEntity>');
-      buffer.writeln('        <cbc:RegistrationName>${customer['name'] ?? ''}</cbc:RegistrationName>');
-      buffer.writeln('      </PartyLegalEntity>');
-      buffer.writeln('    </Party>');
-      buffer.writeln('  </AccountingCustomerParty>');
-    }
-    
-    // Lines
-    if (invoiceData['lines'] != null) {
-      final lines = invoiceData['lines'] as List<Map<String, dynamic>>;
-      buffer.writeln('  <InvoiceLine>');
-      
-      for (final line in lines) {
-        buffer.writeln('    <ID>${line['id'] ?? ''}</ID>');
-        buffer.writeln('    <InvoicedQuantity unitCode="${line['unit_code'] ?? 'NIU'}">${line['quantity'] ?? 0}</InvoicedQuantity>');
-        buffer.writeln('    <LineExtensionAmount>${line['total'] ?? 0}</LineExtensionAmount>');
-        buffer.writeln('    <Item>');
-        buffer.writeln('      <Description>${line['description'] ?? ''}</Description>');
-        buffer.writeln('    </Item>');
-        buffer.writeln('    <Price>');
-        buffer.writeln('      <PriceAmount>${line['unit_price'] ?? 0}</PriceAmount>');
-        buffer.writeln('    </Price>');
-      }
-      
-      buffer.writeln('  </InvoiceLine>');
-    }
-    
-    // Totals
-    buffer.writeln('  <LegalMonetaryTotal>');
-    buffer.writeln('    <LineExtensionAmount>${invoiceData['subtotal'] ?? 0}</LineExtensionAmount>');
-    buffer.writeln('    <TaxExclusiveAmount>${invoiceData['subtotal'] ?? 0}</TaxExclusiveAmount>');
-    buffer.writeln('    <TaxInclusiveAmount>${invoiceData['total'] ?? 0}</TaxInclusiveAmount>');
-    buffer.writeln('    <PayableAmount>${invoiceData['total'] ?? 0}</PayableAmount>');
-    buffer.writeln('  </LegalMonetaryTotal>');
-    
-    buffer.writeln('</Invoice>');
-    
+    // Delegar la generación de contenido XML al generador puro
+    final xml = XmlInvoiceGenerator.generateInvoiceXml(cufe: cufe, invoiceData: invoiceData);
+
     final directory = await getApplicationDocumentsDirectory();
     final file = File('${directory.path}/$filename.xml');
-    await file.writeAsString(buffer.toString());
-    
+    await file.writeAsString(xml);
+
     return file;
   }
   
