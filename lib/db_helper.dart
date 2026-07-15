@@ -131,42 +131,97 @@ class DatabaseHelper {
     ''');
 
     // 5. Crear triggers para clientes
+    await db.execute('DROP TRIGGER IF EXISTS trg_sync_insert_clientes');
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sync_insert_clientes AFTER INSERT ON clientes
       WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
       BEGIN
         INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
-        VALUES ('clientes', NEW.id, 'insert', json_object('id', NEW.id, 'identificacion', NEW.identificacion, 'nombre', NEW.nombre, 'email', NEW.email, 'telefono', NEW.telefono, 'direccion', NEW.direccion, 'ciudad', NEW.ciudad, 'tipo_cliente', NEW.tipo_cliente, 'limite_credito', NEW.limite_credito, 'saldo_actual', NEW.saldo_actual, 'activo', NEW.activo, 'updated_at', NEW.updated_at), datetime('now'), 0);
+        VALUES ('clientes', NEW.id, 'insert', json_object(
+          'id', NEW.id,
+          'identificacion', NEW.documento,
+          'nombre', NEW.nombre,
+          'email', NEW.email,
+          'telefono', NEW.telefono,
+          'direccion', NEW.direccion,
+          'ciudad', NULL,
+          'tipo_cliente', NULL,
+          'limite_credito', NULL,
+          'saldo_actual', NULL,
+          'activo', CASE WHEN NEW.estado = 'activo' THEN 1 ELSE 0 END,
+          'updated_at', NEW.fecha
+        ), datetime('now'), 0);
       END;
     ''');
+    await db.execute('DROP TRIGGER IF EXISTS trg_sync_update_clientes');
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sync_update_clientes AFTER UPDATE ON clientes
       WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
       BEGIN
         INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
-        VALUES ('clientes', NEW.id, 'update', json_object('id', NEW.id, 'identificacion', NEW.identificacion, 'nombre', NEW.nombre, 'email', NEW.email, 'telefono', NEW.telefono, 'direccion', NEW.direccion, 'ciudad', NEW.ciudad, 'tipo_cliente', NEW.tipo_cliente, 'limite_credito', NEW.limite_credito, 'saldo_actual', NEW.saldo_actual, 'activo', NEW.activo, 'updated_at', NEW.updated_at), datetime('now'), 0);
+        VALUES ('clientes', NEW.id, 'update', json_object(
+          'id', NEW.id,
+          'identificacion', NEW.documento,
+          'nombre', NEW.nombre,
+          'email', NEW.email,
+          'telefono', NEW.telefono,
+          'direccion', NEW.direccion,
+          'ciudad', NULL,
+          'tipo_cliente', NULL,
+          'limite_credito', NULL,
+          'saldo_actual', NULL,
+          'activo', CASE WHEN NEW.estado = 'activo' THEN 1 ELSE 0 END,
+          'updated_at', NEW.fecha
+        ), datetime('now'), 0);
       END;
     ''');
 
     // 6. Crear triggers para ventas
+    await db.execute('DROP TRIGGER IF EXISTS trg_sync_insert_ventas');
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sync_insert_ventas AFTER INSERT ON ventas
       WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
       BEGIN
         INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
-        VALUES ('ventas', NEW.id, 'insert', json_object('id', NEW.id, 'numero_factura', NEW.numero_factura, 'cliente_id', NEW.cliente_id, 'fecha', NEW.fecha, 'subtotal', NEW.subtotal, 'iva', NEW.iva, 'total', NEW.total, 'metodo_pago', NEW.metodo_pago, 'estado', NEW.estado, 'observaciones', NEW.observaciones, 'updated_at', NEW.updated_at), datetime('now'), 0);
+        VALUES ('ventas', NEW.id, 'insert', json_object(
+          'id', NEW.id,
+          'numero_factura', CAST(NEW.id AS TEXT),
+          'cliente_id', NULL,
+          'fecha', NEW.fecha,
+          'subtotal', NEW.subtotal,
+          'iva', NEW.impuesto_total,
+          'total', NEW.total,
+          'metodo_pago', CASE WHEN NEW.metodo_pago_id = 1 THEN 'EFECTIVO' WHEN NEW.metodo_pago_id = 2 THEN 'TARJETA' ELSE 'TRANSFERENCIA' END,
+          'estado', NEW.estado,
+          'observaciones', NULL,
+          'updated_at', NEW.fecha
+        ), datetime('now'), 0);
       END;
     ''');
+    await db.execute('DROP TRIGGER IF EXISTS trg_sync_update_ventas');
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sync_update_ventas AFTER UPDATE ON ventas
       WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
       BEGIN
         INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
-        VALUES ('ventas', NEW.id, 'update', json_object('id', NEW.id, 'numero_factura', NEW.numero_factura, 'cliente_id', NEW.cliente_id, 'fecha', NEW.fecha, 'subtotal', NEW.subtotal, 'iva', NEW.iva, 'total', NEW.total, 'metodo_pago', NEW.metodo_pago, 'estado', NEW.estado, 'observaciones', NEW.observaciones, 'updated_at', NEW.updated_at), datetime('now'), 0);
+        VALUES ('ventas', NEW.id, 'update', json_object(
+          'id', NEW.id,
+          'numero_factura', CAST(NEW.id AS TEXT),
+          'cliente_id', NULL,
+          'fecha', NEW.fecha,
+          'subtotal', NEW.subtotal,
+          'iva', NEW.impuesto_total,
+          'total', NEW.total,
+          'metodo_pago', CASE WHEN NEW.metodo_pago_id = 1 THEN 'EFECTIVO' WHEN NEW.metodo_pago_id = 2 THEN 'TARJETA' ELSE 'TRANSFERENCIA' END,
+          'estado', NEW.estado,
+          'observaciones', NULL,
+          'updated_at', NEW.fecha
+        ), datetime('now'), 0);
       END;
     ''');
 
     // 7. Crear triggers para venta_items
+    await db.execute('DROP TRIGGER IF EXISTS trg_sync_insert_venta_items');
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sync_insert_venta_items AFTER INSERT ON ventas_detalle
       WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
@@ -175,6 +230,7 @@ class DatabaseHelper {
         VALUES ('venta_items', NEW.id, 'insert', json_object('id', NEW.id, 'venta_id', NEW.venta_id, 'producto_id', NEW.producto_id, 'cantidad', NEW.cantidad, 'precio_unitario', NEW.precio_unitario, 'subtotal', NEW.subtotal), datetime('now'), 0);
       END;
     ''');
+    await db.execute('DROP TRIGGER IF EXISTS trg_sync_update_venta_items');
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sync_update_venta_items AFTER UPDATE ON ventas_detalle
       WHEN (SELECT is_syncing FROM sync_state WHERE rowid = 1) = 0
@@ -194,14 +250,39 @@ class DatabaseHelper {
 
     await db.execute('''
       INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
-      SELECT 'clientes', CAST(id AS TEXT), 'insert', json_object('id', id, 'identificacion', identificacion, 'nombre', nombre, 'email', email, 'telefono', telefono, 'direccion', direccion, 'ciudad', ciudad, 'tipo_cliente', tipo_cliente, 'limite_credito', limite_credito, 'saldo_actual', saldo_actual, 'activo', activo, 'updated_at', updated_at), datetime('now'), 0
+      SELECT 'clientes', CAST(id AS TEXT), 'insert', json_object(
+        'id', id,
+        'identificacion', documento,
+        'nombre', nombre,
+        'email', email,
+        'telefono', telefono,
+        'direccion', direccion,
+        'ciudad', NULL,
+        'tipo_cliente', NULL,
+        'limite_credito', NULL,
+        'saldo_actual', NULL,
+        'activo', CASE WHEN estado = 'activo' THEN 1 ELSE 0 END,
+        'updated_at', fecha
+      ), datetime('now'), 0
       FROM clientes
       WHERE CAST(id AS TEXT) NOT IN (SELECT record_id FROM local_changes WHERE table_name = 'clientes');
     ''');
 
     await db.execute('''
       INSERT INTO local_changes (table_name, record_id, operation, data, timestamp, synced)
-      SELECT 'ventas', CAST(id AS TEXT), 'insert', json_object('id', id, 'numero_factura', numero_factura, 'cliente_id', cliente_id, 'fecha', fecha, 'subtotal', subtotal, 'iva', iva, 'total', total, 'metodo_pago', metodo_pago, 'estado', estado, 'observaciones', observaciones, 'updated_at', updated_at), datetime('now'), 0
+      SELECT 'ventas', CAST(id AS TEXT), 'insert', json_object(
+        'id', id,
+        'numero_factura', CAST(id AS TEXT),
+        'cliente_id', NULL,
+        'fecha', fecha,
+        'subtotal', subtotal,
+        'iva', impuesto_total,
+        'total', total,
+        'metodo_pago', CASE WHEN metodo_pago_id = 1 THEN 'EFECTIVO' WHEN metodo_pago_id = 2 THEN 'TARJETA' ELSE 'TRANSFERENCIA' END,
+        'estado', estado,
+        'observaciones', NULL,
+        'updated_at', fecha
+      ), datetime('now'), 0
       FROM ventas
       WHERE CAST(id AS TEXT) NOT IN (SELECT record_id FROM local_changes WHERE table_name = 'ventas');
     ''');
@@ -229,7 +310,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 59,
+      version: 60,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -546,6 +627,24 @@ class DatabaseHelper {
         where: 'clave = ?',
         whereArgs: ['control_center_endpoint'],
       );
+    }
+
+    if (oldVersion < 60) {
+      final cuentasNuevas = [
+        {'codigo': '135515', 'nombre': 'Retencion en la fuente', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '135517', 'nombre': 'Impuesto a las ventas y retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '135518', 'nombre': 'Impuesto de Industria y comercio y retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '135520', 'nombre': 'Impuesto de Industria y comercio descontable', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '135525', 'nombre': 'Impuesto de Avisos y Tableros retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {'codigo': '135530', 'nombre': 'Impuesto de Avisos y Tableros descontable', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+      ];
+      for (final cuenta in cuentasNuevas) {
+        await db.insert(
+          'cuentas_contables',
+          cuenta,
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
     }
   }
 
@@ -3658,6 +3757,12 @@ class DatabaseHelper {
       {'codigo': '130505', 'nombre': 'Clientes Nacionales', 'tipo': 'activo', 'naturaleza': 'debito'},
       {'codigo': '1325', 'nombre': 'Anticipos y avances', 'tipo': 'activo', 'naturaleza': 'debito'},
       {'codigo': '1355', 'nombre': 'Impuestos descontables (Anticipos)', 'tipo': 'activo', 'naturaleza': 'debito'},
+      {'codigo': '135515', 'nombre': 'Retencion en la fuente', 'tipo': 'activo', 'naturaleza': 'debito'},
+      {'codigo': '135517', 'nombre': 'Impuesto a las ventas y retenido', 'tipo': 'activo', 'naturaleza': 'debito'},
+      {'codigo': '135518', 'nombre': 'Impuesto de Industria y comercio y retenido', 'tipo': 'activo', 'naturaleza': 'debito'},
+      {'codigo': '135520', 'nombre': 'Impuesto de Industria y comercio descontable', 'tipo': 'activo', 'naturaleza': 'debito'},
+      {'codigo': '135525', 'nombre': 'Impuesto de Avisos y Tableros retenido', 'tipo': 'activo', 'naturaleza': 'debito'},
+      {'codigo': '135530', 'nombre': 'Impuesto de Avisos y Tableros descontable', 'tipo': 'activo', 'naturaleza': 'debito'},
       {'codigo': '1365', 'nombre': 'Cuentas por cobrar a trabajadores', 'tipo': 'activo', 'naturaleza': 'debito'},
       {'codigo': '14', 'nombre': 'Inventarios', 'tipo': 'activo', 'naturaleza': 'debito'},
       {'codigo': '1435', 'nombre': 'Inventario (Mercancias no fab. por la empresa)', 'tipo': 'activo', 'naturaleza': 'debito'},
