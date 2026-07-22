@@ -43,6 +43,7 @@ import 'sector_publico/activos/database/schema_activos.dart';
 import 'sector_publico/salud/database/schema_salud.dart';
 import 'sector_publico/regalias/database/schema_regalias.dart';
 import 'sector_publico/transparencia/database/schema_transparencia.dart';
+import 'sector_publico/siif/database/schema_siif.dart';
 
 part 'core/database/database_initializer.dart';
 
@@ -78,6 +79,10 @@ class DatabaseHelper {
     if (db != null) {
       await db.close();
     }
+  }
+
+  static void setTestDatabase(Database db) {
+    _database = db;
   }
 
   // ── Inicialización ────────────────────────────────────────
@@ -680,6 +685,7 @@ class DatabaseHelper {
       await SchemaSalud.crearTablas(db);
       await SchemaRegalias.crearTablas(db);
       await SchemaTransparencia.crearTablas(db);
+      await SchemaSIIF.crearTablas(db);
       print('✓ Tablas del Sector Público migradas correctamente en v61.');
     }
   }

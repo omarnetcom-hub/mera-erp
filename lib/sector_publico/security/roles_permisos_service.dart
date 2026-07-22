@@ -2,6 +2,7 @@
 /// Implementa las reglas no negociables: un tesorero no puede aprobar su propio pago
 library;
 
+import 'package:sqflite/sqflite.dart';
 
 enum RolSectorPublico {
   alcaldeRepresentanteLegal,
@@ -182,6 +183,43 @@ class RolesPermisosService {
       Permiso.registrarObligacion,
     },
   };
+
+  /// Resuelve el RolSectorPublico de un usuario en la entidad territorial especificada.
+  /// 
+  /// REGLAS DE SEGURIDAD OBLIGATORIAS (FAIL-CLOSED):
+  /// 1. La búsqueda se realiza EXCLUSIVAMENTE por usuario_id = ? (filtrado estricto por la clave del usuario).
+  /// 2. null = sin rol resuelto = acceso denegado, NUNCA asumir un rol por defecto.
+  /// 3. Si no hay resultado, o si hay más de un funcionario activo vinculado al mismo usuario_id en la entidad (dato corrupto),
+  ///    el método retorna null explícitamente.
+  /// 4. Castea usuarioId (dynamic/int/String) a String explícitamente para evitar mismatches.
+  static Future<RolSectorPublico?> obtenerRolUsuarioEnEntidad({
+    required Database db,
+    required String entidadId,
+    required dynamic usuarioId,
+  }) async {
+    final usuarioIdStr = usuarioId.toString();
+    final res = await db.query(
+      'funcionarios_entidad',
+      where: 'entidad_id = ? AND usuario_id = ?',
+      whereArgs: [entidadId, usuarioIdStr],
+    );
+
+    // Fail-closed: si no hay un resultado único (0 o >1), retornar null explícitamente.
+    if (res.length != 1) {
+      return null;
+    }
+
+    final cargoClave = res.first['cargo_clave'] as String?;
+    if (cargoClave == null || cargoClave.isEmpty) {
+      return null;
+    }
+
+    try {
+      return RolSectorPublico.values.firstWhere((r) => r.name == cargoClave);
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Verifica si un rol tiene un permiso específico
   static bool tienePermiso(RolSectorPublico rol, Permiso permiso) {

@@ -1,29 +1,29 @@
-/// Servicio de FUT (Fondo de Unidad de Tesorería)
+/// Servicio de Fondo de Unidad de Tesorería (FUT Local / Recursos de Terceros)
 /// Manejo de recursos de terceros
 library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
-import '../models/fut.dart';
+import '../models/fondo_unidad_tesoreria.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
-class FUTService {
+class FondoUnidadTesoreriaService {
   final Database db;
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  FUTService({
+  FondoUnidadTesoreriaService({
     required this.db,
     required this.auditoriaService,
   });
 
-  /// Crea un FUT
-  Future<FUT> crearFUT({
+  /// Crea un Fondo de Unidad de Tesorería (FUT)
+  Future<FondoUnidadTesoreria> crearFUT({
     required String entidadId,
     required String usuarioId,
     required String nombreFUT,
-    required TipoFUT tipoFUT,
+    required TipoFondoUnidadTesoreria tipoFUT,
     required String terceroId,
     required String terceroNombre,
     required String terceroIdentificacion,
@@ -36,7 +36,7 @@ class FUTService {
     final numeroFUT = 'FUT-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaApertura = DateTime.now();
 
-    final fut = FUT(
+    final fut = FondoUnidadTesoreria(
       id: id,
       entidadId: entidadId,
       numeroFUT: numeroFUT,
@@ -51,11 +51,11 @@ class FUTService {
       valorEjecutado: 0,
       saldoDisponible: valorInicial,
       fechaApertura: fechaApertura,
-      estado: EstadoFUT.activo,
+      estado: EstadoFondoUnidadTesoreria.activo,
       responsable: responsable,
     );
 
-    await db.insert('fut', fut.toJson());
+    await db.insert('fondo_unidad_tesoreria', fut.toJson());
 
     await auditoriaService.registrarEvento(
       entidadId: entidadId,
@@ -76,14 +76,14 @@ class FUTService {
   }
 
   /// Registra una ejecución en el FUT
-  Future<FUT> registrarEjecucion({
+  Future<FondoUnidadTesoreria> registrarEjecucion({
     required String entidadId,
     required String usuarioId,
     required String futId,
     required double montoEjecucion,
   }) async {
     final futResult = await db.query(
-      'fut',
+      'fondo_unidad_tesoreria',
       where: 'id = ?',
       whereArgs: [futId],
     );
@@ -92,7 +92,7 @@ class FUTService {
       throw Exception('FUT no encontrado');
     }
 
-    final fut = FUT.fromJson(futResult.first);
+    final fut = FondoUnidadTesoreria.fromJson(futResult.first);
 
     if (!fut.estaActivo()) {
       throw Exception('El FUT no está activo');
@@ -106,11 +106,11 @@ class FUTService {
     final nuevoSaldo = fut.saldoDisponible - montoEjecucion;
 
     await db.update(
-      'fut',
+      'fondo_unidad_tesoreria',
       {
         'valor_ejecutado': nuevoValorEjecutado,
         'saldo_disponible': nuevoSaldo,
-        'estado': EstadoFUT.enEjecucion.toString().split('.').last,
+        'estado': EstadoFondoUnidadTesoreria.enEjecucion.name,
       },
       where: 'id = ?',
       whereArgs: [futId],
@@ -134,87 +134,47 @@ class FUTService {
       referenciaId: futId,
     );
 
-    return fut.copyWith(
+    return FondoUnidadTesoreria(
+      id: fut.id,
+      entidadId: fut.entidadId,
+      numeroFUT: fut.numeroFUT,
+      nombreFUT: fut.nombreFUT,
+      tipoFUT: fut.tipoFUT,
+      numeroContrato: fut.numeroContrato,
+      numeroConvenio: fut.numeroConvenio,
+      terceroId: fut.terceroId,
+      terceroNombre: fut.terceroNombre,
+      terceroIdentificacion: fut.terceroIdentificacion,
+      valorInicial: fut.valorInicial,
       valorEjecutado: nuevoValorEjecutado,
       saldoDisponible: nuevoSaldo,
-      estado: EstadoFUT.enEjecucion,
+      fechaApertura: fut.fechaApertura,
+      fechaCierre: fut.fechaCierre,
+      estado: EstadoFondoUnidadTesoreria.enEjecucion,
+      responsable: fut.responsable,
+      observaciones: fut.observaciones,
     );
   }
 
-  /// Cierra un FUT
-  Future<FUT> cerrarFUT({
+  Future<List<FondoUnidadTesoreria>> consultarFUT({
     required String entidadId,
-    required String usuarioId,
-    required String futId,
+    EstadoFondoUnidadTesoreria? estado,
   }) async {
-    final futResult = await db.query(
-      'fut',
-      where: 'id = ?',
-      whereArgs: [futId],
-    );
-
-    if (futResult.isEmpty) {
-      throw Exception('FUT no encontrado');
-    }
-
-    final fut = FUT.fromJson(futResult.first);
-
-    if (fut.saldoDisponible > 0) {
-      throw Exception('No se puede cerrar FUT con saldo disponible');
-    }
-
-    final fechaCierre = DateTime.now();
-
-    await db.update(
-      'fut',
-      {
-        'estado': EstadoFUT.terminado.toString().split('.').last,
-        'fecha_cierre': fechaCierre.toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [futId],
-    );
-
-    await auditoriaService.registrarEvento(
-      entidadId: entidadId,
-      usuarioId: usuarioId,
-      tipoEvento: TipoEventoAuditoria.modificacionRegistro,
-      modulo: 'activos',
-      accion: 'cierre_fut',
-      valorAnterior: {'estado_anterior': fut.estado.toString()},
-      valorNuevo: {
-        'estado_nuevo': EstadoFUT.terminado.toString(),
-        'fecha_cierre': fechaCierre.toIso8601String(),
-      },
-      referenciaId: futId,
-    );
-
-    return fut.copyWith(
-      estado: EstadoFUT.terminado,
-      fechaCierre: fechaCierre,
-    );
-  }
-
-  Future<List<FUT>> consultarFUT({
-    required String entidadId,
-    EstadoFUT? estado,
-  }) async {
-    String query = 'SELECT * FROM fut WHERE entidad_id = ?';
+    String query = 'SELECT * FROM fondo_unidad_tesoreria WHERE entidad_id = ?';
     List<dynamic> args = [entidadId];
 
     if (estado != null) {
       query += ' AND estado = ?';
-      args.add(estado.toString().split('.').last);
+      args.add(estado.name);
     }
 
     query += ' ORDER BY fecha_apertura DESC';
 
     final resultados = await db.rawQuery(query, args);
-    return resultados.map((r) => FUT.fromJson(r)).toList();
+    return resultados.map((r) => FondoUnidadTesoreria.fromJson(r)).toList();
   }
 
   String _generarNumeroSecuencial() {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-

@@ -134,6 +134,109 @@ class SchemaRentas {
       )
     ''');
 
+    // Tablas de Impuesto de Industria y Comercio (ICA)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS censo_ica (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        nit TEXT NOT NULL,
+        razon_social TEXT NOT NULL,
+        direccion TEXT NOT NULL,
+        telefono TEXT NOT NULL,
+        tipo_actividad TEXT NOT NULL,
+        actividad_economica TEXT NOT NULL,
+        ingresos_anuales_estimados REAL NOT NULL,
+        email TEXT,
+        estado TEXT NOT NULL DEFAULT 'activo',
+        fecha_registro TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        UNIQUE(entidad_id, nit)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS declaraciones_ica (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        contribuyente_id TEXT NOT NULL,
+        periodo TEXT NOT NULL,
+        periodo_declaracion TEXT NOT NULL,
+        fecha_declaracion TEXT NOT NULL,
+        ingresos_gravables REAL NOT NULL,
+        ingresos_no_gravables REAL NOT NULL,
+        ingresos_exentos REAL NOT NULL,
+        base_gravable REAL NOT NULL,
+        tarifa REAL NOT NULL,
+        impuesto_ica REAL NOT NULL,
+        intereses_mora REAL NOT NULL DEFAULT 0,
+        total_pagar REAL NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'pendiente_pago',
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (contribuyente_id) REFERENCES censo_ica(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS reteica (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        nit_retenedor TEXT NOT NULL,
+        nit_retenido TEXT NOT NULL,
+        periodo TEXT NOT NULL,
+        valor_retenido REAL NOT NULL,
+        numero_factura TEXT NOT NULL,
+        fecha_factura TEXT NOT NULL,
+        fecha_registro TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'pendiente_declaracion',
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS avisos_tablero (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        contribuyente_id TEXT NOT NULL,
+        periodo TEXT NOT NULL,
+        tipo_aviso TEXT NOT NULL,
+        valor_aviso REAL NOT NULL,
+        ubicacion TEXT NOT NULL,
+        area_metros REAL NOT NULL,
+        tarifa REAL NOT NULL,
+        impuesto_aviso REAL NOT NULL,
+        fecha_registro TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'pendiente_pago',
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (contribuyente_id) REFERENCES censo_ica(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pagos_ica (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        declaracion_id TEXT NOT NULL,
+        periodo TEXT NOT NULL,
+        valor_pagado REAL NOT NULL,
+        fecha_pago TEXT NOT NULL,
+        numero_recibo TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'aplicado',
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (declaracion_id) REFERENCES declaraciones_ica(id)
+      )
+    ''');
+
+    // Índices para optimización
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_censo_ica_entidad ON censo_ica(entidad_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_censo_ica_nit ON censo_ica(nit)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_entidad ON declaraciones_ica(entidad_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_contribuyente ON declaraciones_ica(contribuyente_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_periodo ON declaraciones_ica(periodo)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_reteica_entidad ON reteica(entidad_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_reteica_periodo ON reteica(periodo)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_avisos_tablero_entidad ON avisos_tablero(entidad_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_pagos_ica_entidad ON pagos_ica(entidad_id)');
+
     // Índices para optimización
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_predios_entidad 

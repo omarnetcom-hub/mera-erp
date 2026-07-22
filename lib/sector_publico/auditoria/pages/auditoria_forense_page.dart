@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../../db_helper.dart';
 import '../../security/auditoria_service.dart';
 import '../services/chip_reporter_service.dart';
+import '../services/sia_observa_service.dart';
+import '../services/fut_territorial_service.dart';
+import '../../siif/pages/siif_page.dart';
 import '../../models/registro_auditoria.dart';
 import '../models/reporte_chip.dart';
 
@@ -437,25 +440,199 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Integraciones Regulatorias Pendientes (Fase 4):',
+              'Integraciones Regulatorias Activas (Fase 4):',
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
             ),
           ),
           const SizedBox(height: 8),
-          const ListTile(
-            leading: Icon(Icons.info_outline, color: Colors.amber),
-            title: Text('TODO: Integración SIIF Nación'),
-            subtitle: Text('Sincronización directa del plan presupuestal con el Ministerio de Hacienda.'),
+          ListTile(
+            leading: const Icon(Icons.cloud_upload, color: Color(0xFF006D77)),
+            title: const Text('Módulo SIIF Nación II (MinHacienda)'),
+            subtitle: const Text('Consolidación y exportación de reportes presupuestales y financieros mensuales.'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SIIFPage(
+                    entidadId: widget.entidadId,
+                    usuarioId: widget.usuarioId,
+                  ),
+                ),
+              );
+            },
           ),
-          const ListTile(
-            leading: Icon(Icons.info_outline, color: Colors.amber),
-            title: Text('TODO: Conexión SIA Observa'),
-            subtitle: Text('Envío automatizado de contratos adjudicados para auditorías de las Contralorías Territoriales.'),
+          ListTile(
+            leading: const Icon(Icons.assessment, color: Color(0xFF006D77)),
+            title: const Text('Rendición SIA Observa (CGR)'),
+            subtitle: const Text('Consolidado anual de Contratación, Presupuesto y Nómina para Plan de Mejoramiento.'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _dialogoGenerarSIAObserva,
           ),
-          const ListTile(
-            leading: Icon(Icons.info_outline, color: Colors.amber),
-            title: Text('TODO: Reportes FUT (Formulario Único Territorial)'),
-            subtitle: Text('Estructuración y consolidación trimestral para el DNP.'),
+          ListTile(
+            leading: const Icon(Icons.assignment_turned_in, color: Color(0xFF006D77)),
+            title: const Text('Reportes FUT Territorial (DNP)'),
+            subtitle: const Text('Estructuración trimestral de Ingresos, Gastos, Deuda Pública y Regalías.'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _dialogoGenerarFUTTerritorial,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _dialogoGenerarFUTTerritorial() {
+    final vigenciaCtrl = TextEditingController(text: DateTime.now().year.toString());
+    int trimestreSeleccionado = 1;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Generar Formulario FUT Territorial (DNP)'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: vigenciaCtrl,
+                decoration: const InputDecoration(labelText: 'Vigencia Fiscal', hintText: 'ej. 2026'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: trimestreSeleccionado,
+                decoration: const InputDecoration(labelText: 'Trimestre a Reportar'),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text('Trimestre 1 (Ene-Mar)')),
+                  DropdownMenuItem(value: 2, child: Text('Trimestre 2 (Abr-Jun)')),
+                  DropdownMenuItem(value: 3, child: Text('Trimestre 3 (Jul-Sep)')),
+                  DropdownMenuItem(value: 4, child: Text('Trimestre 4 (Oct-Dic)')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => trimestreSeleccionado = val);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () async {
+                if (vigenciaCtrl.text.isEmpty) return;
+                try {
+                  final db = await DatabaseHelper.instance.database;
+                  final auditoria = AuditoriaService(db);
+                  final service = FUTTerritorialService(db: db, auditoriaService: auditoria);
+
+                  final rep = await service.generarFUTIngresos(
+                    entidadId: widget.entidadId,
+                    usuarioId: widget.usuarioId,
+                    vigencia: vigenciaCtrl.text,
+                    trimestre: trimestreSeleccionado,
+                  );
+
+                  final plano = await service.exportarAPlano(rep.id);
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Formulario FUT DNP Generado (.txt / CSV)'),
+                        content: SingleChildScrollView(child: SelectableText(plano)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                        ],
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Generar y Exportar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _dialogoGenerarSIAObserva() {
+    final vigenciaCtrl = TextEditingController(text: DateTime.now().year.toString());
+    final hallazgosCtrl = TextEditingController();
+    final accionesCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rendición SIA Observa (CGR)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: vigenciaCtrl,
+              decoration: const InputDecoration(labelText: 'Vigencia Fiscal', hintText: 'ej. 2026'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: hallazgosCtrl,
+              decoration: const InputDecoration(labelText: 'Total Hallazgos Atendidos', hintText: 'ej. 10'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: accionesCtrl,
+              decoration: const InputDecoration(labelText: 'Total Acciones Implementadas', hintText: 'ej. 8'),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              if (vigenciaCtrl.text.isEmpty || hallazgosCtrl.text.isEmpty || accionesCtrl.text.isEmpty) return;
+              try {
+                final db = await DatabaseHelper.instance.database;
+                final auditoria = AuditoriaService(db);
+                final service = SIAObservaService(db: db, auditoriaService: auditoria);
+
+                final rep = await service.generarReportePlanMejoramiento(
+                  entidadId: widget.entidadId,
+                  usuarioId: widget.usuarioId,
+                  vigencia: vigenciaCtrl.text,
+                  hallazgosAtendidos: int.parse(hallazgosCtrl.text),
+                  accionesImplementadas: int.parse(accionesCtrl.text),
+                );
+
+                final plano = await service.exportarAPlano(rep.id);
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Reporte SIA Observa Generado (.txt)'),
+                      content: SingleChildScrollView(child: SelectableText(plano)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                      ],
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('Generar y Exportar'),
           ),
         ],
       ),

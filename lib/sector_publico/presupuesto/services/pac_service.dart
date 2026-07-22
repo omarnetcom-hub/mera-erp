@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/pac.dart';
 import '../../security/auditoria_service.dart';
+import '../../security/roles_permisos_service.dart';
 import '../../models/registro_auditoria.dart';
 
 class PACService {
@@ -18,6 +19,28 @@ class PACService {
     required this.auditoriaService,
   });
 
+  Future<RolSectorPublico> _validarPermiso({
+    required String entidadId,
+    required String usuarioId,
+    required Permiso permiso,
+  }) async {
+    final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+    );
+
+    if (rol == null) {
+      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+    }
+
+    if (!RolesPermisosService.tienePermiso(rol, permiso)) {
+      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+    }
+
+    return rol;
+  }
+
   /// Programa el PAC para un mes y rubro
   Future<PAC> programarPAC({
     required String entidadId,
@@ -28,6 +51,7 @@ class PACService {
     required double valorProgramado,
     required String funcionarioProgramo,
   }) async {
+    await _validarPermiso(entidadId: entidadId, usuarioId: usuarioId, permiso: Permiso.modificarPAC);
     // Verificar si ya existe un PAC para este mes y rubro
     final existente = await db.query(
       'pac',

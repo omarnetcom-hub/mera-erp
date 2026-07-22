@@ -11,6 +11,7 @@ import '../models/rp.dart';
 import '../models/obligacion.dart';
 import '../models/pago.dart';
 import '../../security/auditoria_service.dart';
+import '../../security/roles_permisos_service.dart';
 import '../../models/registro_auditoria.dart';
 
 class PresupuestoService {
@@ -100,6 +101,42 @@ class PresupuestoService {
     return Apropiacion.fromJson(resultado.first);
   }
 
+  /// Valida permiso y segregación de funciones (Fail-closed)
+  Future<RolSectorPublico> _validarPermisoYSegregacion({
+    required String entidadId,
+    required String usuarioId,
+    required Permiso permiso,
+    RolSectorPublico? rolQuienCrea,
+  }) async {
+    final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+    );
+
+    // Fail-Closed: si no hay un funcionario activo con rol resuelto, bloquear inmediatamente.
+    if (rol == null) {
+      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+    }
+
+    if (!RolesPermisosService.tienePermiso(rol, permiso)) {
+      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+    }
+
+    if (rolQuienCrea != null) {
+      final esValido = RolesPermisosService.validarSegregacionFunciones(
+        rolQuienEjecuta: rol,
+        rolQuienAprobo: rolQuienCrea,
+        accion: permiso,
+      );
+      if (!esValido) {
+        throw Exception('Segregación de funciones violada: Un ${rol.name} no puede ejecutar la acción ${permiso.name} sobre un registro creado por ${rolQuienCrea.name}');
+      }
+    }
+
+    return rol;
+  }
+
   // ==================== CDP ====================
 
   /// Expide un CDP con validación de disponibilidad real
@@ -114,6 +151,11 @@ class PresupuestoService {
     required String objetoGasto,
     required String? contratoNumero,
   }) async {
+    await _validarPermisoYSegregacion(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.expedirCDP,
+    );
     // Obtener la apropiación
     final apropiacion = await obtenerApropiacion(apropiacionId);
     if (apropiacion == null) {
@@ -207,6 +249,11 @@ class PresupuestoService {
     required String funcionarioSolicitante,
     required String objetoGasto,
   }) async {
+    await _validarPermisoYSegregacion(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.expedirRP,
+    );
     // Obtener el CDP
     final cdp = await obtenerCDP(cdpId);
     if (cdp == null) {
@@ -331,6 +378,11 @@ class PresupuestoService {
     String? facturaNumero,
     DateTime? facturaFecha,
   }) async {
+    await _validarPermisoYSegregacion(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.registrarObligacion,
+    );
     // Obtener el RP
     final rp = await obtenerRP(rpId);
     if (rp == null) {
@@ -539,6 +591,114 @@ class PresupuestoService {
 
     if (resultado.isEmpty) return null;
     return Pago.fromJson(resultado.first);
+  }
+
+  /// Aprobar Pago con segregación de funciones dura (Fail-Closed)
+  Future<Pago> aprobarPago({
+    required String entidadId,
+    required String usuarioId,
+    required String pagoId,
+    required String usuarioIdCreador,
+  }) async {
+    final rolCreador = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: usuarioIdCreador,
+    );
+
+    await _validarPermisoYSegregacion(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.aprobarPago,
+      rolQuienCrea: rolCreador,
+    );
+
+    final res = await db.query('pagos', where: 'id = ?', whereArgs: [pagoId]);
+    if (res.isEmpty) throw Exception('Pago no encontrado');
+    final pago = Pago.fromJson(res.first);
+
+    await db.update(
+      'pagos',
+      {'estado': EstadoPago.aprobado.name},
+      where: 'id = ?',
+      whereArgs: [pagoId],
+    );
+
+    return Pago(
+      id: pago.id,
+      entidadId: pago.entidadId,
+      numeroPago: pago.numeroPago,
+      vigencia: pago.vigencia,
+      obligacionId: pago.obligacionId,
+      numeroObligacion: pago.numeroObligacion,
+      rpId: pago.rpId,
+      numeroRP: pago.numeroRP,
+      terceroId: pago.terceroId,
+      terceroNombre: pago.terceroNombre,
+      bancoDestino: pago.bancoDestino,
+      cuentaDestino: pago.cuentaDestino,
+      tipoCuenta: pago.tipoCuenta,
+      valorPago: pago.valorPago,
+      fechaProgramacion: pago.fechaProgramacion,
+      funcionarioAprobo: usuarioId,
+      funcionarioProgramo: pago.funcionarioProgramo,
+      tipoPago: pago.tipoPago,
+      estado: EstadoPago.aprobado,
+    );
+  }
+
+  /// Ejecutar Pago (Tesorero) con segregación de funciones dura (Fail-Closed)
+  Future<Pago> ejecutarPago({
+    required String entidadId,
+    required String usuarioId,
+    required String pagoId,
+    required String usuarioIdAprobador,
+  }) async {
+    final rolAprobador = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: usuarioIdAprobador,
+    );
+
+    await _validarPermisoYSegregacion(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.ejecutarPago,
+      rolQuienCrea: rolAprobador,
+    );
+
+    final res = await db.query('pagos', where: 'id = ?', whereArgs: [pagoId]);
+    if (res.isEmpty) throw Exception('Pago no encontrado');
+    final pago = Pago.fromJson(res.first);
+
+    await db.update(
+      'pagos',
+      {'estado': EstadoPago.pagado.name},
+      where: 'id = ?',
+      whereArgs: [pagoId],
+    );
+
+    return Pago(
+      id: pago.id,
+      entidadId: pago.entidadId,
+      numeroPago: pago.numeroPago,
+      vigencia: pago.vigencia,
+      obligacionId: pago.obligacionId,
+      numeroObligacion: pago.numeroObligacion,
+      rpId: pago.rpId,
+      numeroRP: pago.numeroRP,
+      terceroId: pago.terceroId,
+      terceroNombre: pago.terceroNombre,
+      bancoDestino: pago.bancoDestino,
+      cuentaDestino: pago.cuentaDestino,
+      tipoCuenta: pago.tipoCuenta,
+      valorPago: pago.valorPago,
+      fechaProgramacion: pago.fechaProgramacion,
+      funcionarioAprobo: pago.funcionarioAprobo,
+      funcionarioProgramo: pago.funcionarioProgramo,
+      tipoPago: pago.tipoPago,
+      estado: EstadoPago.pagado,
+    );
   }
 
   // ==================== UTILIDADES ====================

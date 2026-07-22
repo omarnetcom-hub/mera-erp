@@ -59,7 +59,17 @@ void main() {
       'retroactivos',
       'proyectos_mga',
       'activos_estado',
-      'regalias'
+      'regalias',
+      // Tablas Lote 2 completadas en esquema
+      'censo_ica',
+      'declaraciones_ica',
+      'reteica',
+      'avisos_tablero',
+      'pagos_ica',
+      'configuracion_depreciacion_unidades',
+      'registros_produccion',
+      'revalorizaciones',
+      'flujos_viabilizacion',
     ];
 
     for (final tabla in tablasRequeridas) {

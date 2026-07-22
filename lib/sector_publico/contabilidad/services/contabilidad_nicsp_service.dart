@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../models/asiento_contable.dart';
 import '../models/cuenta_contable.dart';
 import '../../security/auditoria_service.dart';
+import '../../security/roles_permisos_service.dart';
 import '../../models/registro_auditoria.dart';
 
 class ContabilidadNICSPService {
@@ -20,6 +21,40 @@ class ContabilidadNICSPService {
     required this.auditoriaService,
   });
 
+  Future<RolSectorPublico> _validarPermisoYSegregacion({
+    required String entidadId,
+    required String usuarioId,
+    required Permiso permiso,
+    RolSectorPublico? rolQuienCrea,
+  }) async {
+    final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+    );
+
+    if (rol == null) {
+      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+    }
+
+    if (!RolesPermisosService.tienePermiso(rol, permiso)) {
+      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+    }
+
+    if (rolQuienCrea != null) {
+      final esValido = RolesPermisosService.validarSegregacionFunciones(
+        rolQuienEjecuta: rol,
+        rolQuienAprobo: rolQuienCrea,
+        accion: permiso,
+      );
+      if (!esValido) {
+        throw Exception('Segregación de funciones violada: Un ${rol.name} no puede ejecutar la acción ${permiso.name} sobre un registro creado por ${rolQuienCrea.name}');
+      }
+    }
+
+    return rol;
+  }
+
   // ==================== ASIENTOS CONTABLES ====================
 
   /// Crea un asiento contable manual
@@ -31,6 +66,11 @@ class ContabilidadNICSPService {
     required List<DetalleAsiento> detalles,
     String? observaciones,
   }) async {
+    await _validarPermisoYSegregacion(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.crearAsientoContable,
+    );
     final id = _uuid.v4();
     final numeroAsiento = 'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
 
@@ -333,6 +373,19 @@ class ContabilidadNICSPService {
     if (asientoOriginal == null) {
       throw Exception('Asiento no encontrado');
     }
+
+    final rolCreador = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: asientoOriginal.usuarioCreo,
+    );
+
+    await _validarPermisoYSegregacion(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.reversarAsiento,
+      rolQuienCrea: rolCreador,
+    );
 
     if (!asientoOriginal.sePuedeReversar()) {
       throw Exception('El asiento no se puede reversar');

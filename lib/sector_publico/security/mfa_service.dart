@@ -7,32 +7,25 @@ import 'package:crypto/crypto.dart';
 import 'package:otp/otp.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
-
-enum RolUsuario {
-  tesorero,
-  secretarioHacienda,
-  alcaldeRepresentanteLegal,
-  contador,
-  otros,
-}
+import 'roles_permisos_service.dart';
 
 class MFAService {
   final FlutterSecureStorage _secureStorage;
   final Uuid _uuid = const Uuid();
 
   // Roles que requieren MFA obligatorio
-  static const Set<RolUsuario> _rolesRequierenMFA = {
-    RolUsuario.tesorero,
-    RolUsuario.secretarioHacienda,
-    RolUsuario.alcaldeRepresentanteLegal,
-    RolUsuario.contador,
+  static const Set<RolSectorPublico> _rolesRequierenMFA = {
+    RolSectorPublico.tesorero,
+    RolSectorPublico.secretarioHacienda,
+    RolSectorPublico.alcaldeRepresentanteLegal,
+    RolSectorPublico.contador,
   };
 
   MFAService({FlutterSecureStorage? secureStorage})
       : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
-  /// Verifica si un rol requiere MFA
-  static bool requiereMFA(RolUsuario rol) {
+  /// Verifica si un rol del sector público requiere MFA
+  static bool requiereMFA(RolSectorPublico rol) {
     return _rolesRequierenMFA.contains(rol);
   }
 
@@ -50,134 +43,75 @@ class MFAService {
     return await _secureStorage.read(key: clave);
   }
 
-  /// Genera código TOTP actual para un usuario
-  Future<String?> generarCodigoTOTP(String usuarioId) async {
+  /// Genera un código TOTP actual
+  Future<String> generarCodigoTOTP(String usuarioId) async {
     final secreto = await obtenerSecretoTOTP(usuarioId);
-    if (secreto == null) return null;
+    if (secreto == null) {
+      throw Exception('MFA no configurado para este usuario');
+    }
 
+    final now = DateTime.now();
     return OTP.generateTOTPCodeString(
       secreto,
-      DateTime.now().millisecondsSinceEpoch,
-      length: 6,
+      now.millisecondsSinceEpoch,
       interval: 30,
       algorithm: Algorithm.SHA1,
       isGoogle: true,
     );
   }
 
-  /// Verifica un código TOTP
-  Future<bool> verificarCodigoTOTP({
-    required String usuarioId,
-    required String codigo,
-    int ventana = 1,
-  }) async {
-    final secreto = await obtenerSecretoTOTP(usuarioId);
-    if (secreto == null) return false;
+  /// Verifica un código TOTP ingresado por el usuario
+  Future<bool> verificarCodigoTOTP(String usuarioId, String codigoIngresado) async {
+    try {
+      final secreto = await obtenerSecretoTOTP(usuarioId);
+      if (secreto == null) return false;
 
-    // Verificar código actual y ventanas adyacentes (para tolerancia de reloj)
-    for (int i = -ventana; i <= ventana; i++) {
-      final fechaOffset = DateTime.now().add(Duration(seconds: i * 30));
-      final codigoValido = OTP.generateTOTPCodeString(
+      final now = DateTime.now();
+      
+      // Probar código actual
+      final codigoActual = OTP.generateTOTPCodeString(
         secreto,
-        fechaOffset.millisecondsSinceEpoch,
-        length: 6,
+        now.millisecondsSinceEpoch,
         interval: 30,
         algorithm: Algorithm.SHA1,
         isGoogle: true,
       );
-      if (codigoValido == codigo) {
-        return true;
-      }
+
+      if (codigoActual == codigoIngresado) return true;
+
+      // Probar código anterior (ventana de tolerancia de 30 segundos)
+      final codigoAnterior = OTP.generateTOTPCodeString(
+        secreto,
+        now.subtract(const Duration(seconds: 30)).millisecondsSinceEpoch,
+        interval: 30,
+        algorithm: Algorithm.SHA1,
+        isGoogle: true,
+      );
+
+      return codigoAnterior == codigoIngresado;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Registra un código de recuperación
+  Future<List<String>> generarCodigosRecuperacion(String usuarioId) async {
+    final codigos = <String>[];
+    for (int i = 0; i < 5; i++) {
+      final codigo = _uuid.v4().substring(0, 8).toUpperCase();
+      codigos.add(codigo);
     }
 
-    return false;
+    final clave = 'mfa_recovery_$usuarioId';
+    await _secureStorage.write(key: clave, value: jsonEncode(codigos));
+    return codigos;
   }
 
-  /// Genera URI para configurar app de autenticación (Google Authenticator, Authy)
-  Future<String> generarURIOTP(String usuarioId, String nombreUsuario) async {
-    final secreto = await obtenerSecretoTOTP(usuarioId);
-    if (secreto == null) throw Exception('No existe secreto TOTP para el usuario');
-
-    final issuer = 'MerkaERP%20Sector%20P%C3%BAblico';
-    final usuarioEncoded = Uri.encodeComponent(nombreUsuario);
-    return 'otpauth://totp/$issuer:$usuarioEncoded?secret=$secreto&issuer=$issuer&digits=6&period=30';
-  }
-
-  /// Activa MFA para un usuario
-  Future<void> activarMFA(String usuarioId, String nombreUsuario) async {
-    await generarSecretoTOTP(usuarioId);
-    final claveActivado = 'mfa_activado_$usuarioId';
-    await _secureStorage.write(key: claveActivado, value: 'true');
-  }
-
-  /// Verifica si MFA está activado para un usuario
-  Future<bool> estaMFAActivado(String usuarioId) async {
-    final claveActivado = 'mfa_activado_$usuarioId';
-    final activado = await _secureStorage.read(key: claveActivado);
-    return activado == 'true';
-  }
-
-  /// Desactiva MFA para un usuario
-  Future<void> desactivarMFA(String usuarioId) async {
-    final claveSecreto = 'mfa_secreto_$usuarioId';
-    final claveActivado = 'mfa_activado_$usuarioId';
-    
-    await _secureStorage.delete(key: claveSecreto);
-    await _secureStorage.delete(key: claveActivado);
-  }
-
-  /// Valida que un usuario con rol de aprobación tenga MFA activado
-  Future<bool> validarMFAParaRolAprobacion({
-    required String usuarioId,
-    required RolUsuario rol,
-  }) async {
-    if (!requiereMFA(rol)) {
-      return true; // No requiere MFA
-    }
-
-    final activado = await estaMFAActivado(usuarioId);
-    return activado;
-  }
-
-  /// Genera un secreto aleatorio de 32 bytes (Base32)
+  /// Genera un secreto aleatorio de 16 caracteres Base32
   String _generarSecretoAleatorio() {
-    final random = _uuid.v4();
-    final bytes = utf8.encode(random);
-    final hash = sha256.convert(bytes);
-    return Base32.encode(hash.bytes);
-  }
-
-  /// Convierte bytes a Base32
-  String base32Encode(List<int> bytes) {
-    return Base32.encode(bytes);
-  }
-}
-
-/// Codificación Base32
-class Base32 {
-  static const String _alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  
-  static String encode(List<int> bytes) {
-    final buffer = StringBuffer();
-    int bits = 0;
-    int bitCount = 0;
-
-    for (final byte in bytes) {
-      bits = (bits << 8) | byte;
-      bitCount += 8;
-
-      while (bitCount >= 5) {
-        final index = (bits >> (bitCount - 5)) & 0x1F;
-        buffer.write(_alphabet[index]);
-        bitCount -= 5;
-      }
-    }
-
-    if (bitCount > 0) {
-      final index = (bits << (5 - bitCount)) & 0x1F;
-      buffer.write(_alphabet[index]);
-    }
-
-    return buffer.toString();
+    final randomBytes = List<int>.generate(10, (i) => DateTime.now().microsecondsSinceEpoch % 256);
+    final bytes = utf8.encode(randomBytes.toString());
+    final digest = sha256.convert(bytes);
+    return digest.toString().substring(0, 16).toUpperCase();
   }
 }

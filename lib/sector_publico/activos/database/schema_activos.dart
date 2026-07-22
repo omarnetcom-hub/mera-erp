@@ -1,5 +1,5 @@
 /// Esquema de base de datos para el módulo de Activos del Estado
-/// NICSP 17 + FUT
+/// NICSP 17 + Fondo de Unidad de Tesorería (FUT Local) + Actas de Responsabilidad de Cuentadantes
 library;
 
 import 'package:sqflite/sqflite.dart';
@@ -33,7 +33,7 @@ class SchemaActivos {
     ''');
 
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS fut (
+      CREATE TABLE IF NOT EXISTS fondo_unidad_tesoreria (
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
         numero_fut TEXT NOT NULL UNIQUE,
@@ -56,11 +56,105 @@ class SchemaActivos {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS configuracion_depreciacion_unidades (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        activo_id TEXT NOT NULL,
+        numero_inventario TEXT NOT NULL,
+        unidades_totales_estimadas REAL NOT NULL,
+        valor_adquisicion REAL NOT NULL,
+        valor_residual REAL NOT NULL,
+        costo_depreciable REAL NOT NULL,
+        costo_por_unidad REAL NOT NULL,
+        fecha_inicio TEXT NOT NULL,
+        unidades_producidas_acumuladas REAL NOT NULL DEFAULT 0,
+        depreciacion_acumulada REAL NOT NULL DEFAULT 0,
+        observaciones TEXT,
+        fecha_registro TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'activo',
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (activo_id) REFERENCES activos_estado(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS registros_produccion (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        configuracion_id TEXT NOT NULL,
+        activo_id TEXT NOT NULL,
+        unidades_producidas REAL NOT NULL,
+        costo_por_unidad REAL NOT NULL,
+        depreciacion_periodo REAL NOT NULL,
+        fecha_produccion TEXT NOT NULL,
+        observaciones TEXT,
+        fecha_registro TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (configuracion_id) REFERENCES configuracion_depreciacion_unidades(id),
+        FOREIGN KEY (activo_id) REFERENCES activos_estado(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS revalorizaciones (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        activo_id TEXT NOT NULL,
+        numero_inventario TEXT NOT NULL,
+        metodo TEXT NOT NULL,
+        valor_anterior REAL NOT NULL,
+        valor_nuevo REAL NOT NULL,
+        incremento REAL NOT NULL,
+        porcentaje_incremento REAL NOT NULL,
+        fecha_revalorizacion TEXT NOT NULL,
+        perito_avaluo TEXT NOT NULL,
+        numero_dictamen TEXT NOT NULL,
+        motivo TEXT NOT NULL,
+        observaciones TEXT,
+        fecha_registro TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'aprobado',
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (activo_id) REFERENCES activos_estado(id)
+      )
+    ''');
+
+    // Tabla de Actas de Responsabilidad y Cuentadantes de Bienes del Estado
+    // FK: entidad_id -> entidades_territoriales(id)
+    // FK: activo_id -> activos_estado(id)
+    // FK: funcionario_id -> empleados_sp(id)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS actas_responsabilidad (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        numero_acta TEXT NOT NULL UNIQUE,
+        activo_id TEXT NOT NULL,
+        funcionario_id TEXT NOT NULL,
+        funcionario_nombre TEXT NOT NULL,
+        funcionario_identificacion TEXT NOT NULL,
+        dependencia TEXT NOT NULL,
+        ubicacion_fisica TEXT NOT NULL,
+        fecha_asignacion TEXT NOT NULL,
+        fecha_devolucion TEXT,
+        estado_acta TEXT NOT NULL DEFAULT 'activa',
+        observaciones TEXT,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (activo_id) REFERENCES activos_estado(id),
+        FOREIGN KEY (funcionario_id) REFERENCES empleados_sp(id)
+      )
+    ''');
+
     await db.execute('CREATE INDEX IF NOT EXISTS idx_activos_entidad ON activos_estado(entidad_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_activos_estado ON activos_estado(estado)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_activos_tipo ON activos_estado(tipo_activo)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_fut_entidad ON fut(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_fut_estado ON fut(estado)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_fut_tercero ON fut(tercero_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_fondo_unidad_tesoreria_entidad ON fondo_unidad_tesoreria(entidad_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_fondo_unidad_tesoreria_estado ON fondo_unidad_tesoreria(estado)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_fondo_unidad_tesoreria_tercero ON fondo_unidad_tesoreria(tercero_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_config_deprec_activo ON configuracion_depreciacion_unidades(activo_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_registros_prod_config ON registros_produccion(configuracion_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_revalorizaciones_activo ON revalorizaciones(activo_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_actas_entidad ON actas_responsabilidad(entidad_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_actas_activo ON actas_responsabilidad(activo_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_actas_funcionario ON actas_responsabilidad(funcionario_id)');
   }
 }

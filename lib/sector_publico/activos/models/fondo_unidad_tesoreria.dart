@@ -1,9 +1,8 @@
-/// Modelo de FUT (Fondo de Unidad de Tesorería)
+/// Modelo de Fondo de Unidad de Tesorería (FUT Local / Recursos de Terceros)
 /// Fondo de Unidad de Tesorería - Manejo de recursos de terceros
 library;
 
-
-enum TipoFUT {
+enum TipoFondoUnidadTesoreria {
   contrato,
   convenio,
   donacion,
@@ -11,7 +10,7 @@ enum TipoFUT {
   otro,
 }
 
-enum EstadoFUT {
+enum EstadoFondoUnidadTesoreria {
   activo,
   enEjecucion,
   suspendido,
@@ -20,12 +19,12 @@ enum EstadoFUT {
   cancelado,
 }
 
-class FUT {
+class FondoUnidadTesoreria {
   final String id;
   final String entidadId;
   final String numeroFUT; // Formato: FUT-YYYY-NNNNNN
   final String nombreFUT;
-  final TipoFUT tipoFUT;
+  final TipoFondoUnidadTesoreria tipoFUT;
   final String? numeroContrato;
   final String? numeroConvenio;
   final String terceroId;
@@ -36,11 +35,11 @@ class FUT {
   final double saldoDisponible;
   final DateTime fechaApertura;
   final DateTime? fechaCierre;
-  final EstadoFUT estado;
+  final EstadoFondoUnidadTesoreria estado;
   final String? responsable;
   final String? observaciones;
 
-  FUT({
+  FondoUnidadTesoreria({
     required this.id,
     required this.entidadId,
     required this.numeroFUT,
@@ -61,14 +60,15 @@ class FUT {
     this.observaciones,
   });
 
-  factory FUT.fromJson(Map<String, dynamic> json) {
-    return FUT(
+  factory FondoUnidadTesoreria.fromJson(Map<String, dynamic> json) {
+    return FondoUnidadTesoreria(
       id: json['id'] as String,
       entidadId: json['entidad_id'] as String,
       numeroFUT: json['numero_fut'] as String,
       nombreFUT: json['nombre_fut'] as String,
-      tipoFUT: TipoFUT.values.firstWhere(
-        (e) => e.toString() == 'TipoFUT.${json['tipo_fut']}',
+      tipoFUT: TipoFondoUnidadTesoreria.values.firstWhere(
+        (e) => e.name == json['tipo_fut'] || e.toString() == 'TipoFUT.${json['tipo_fut']}',
+        orElse: () => TipoFondoUnidadTesoreria.convenio,
       ),
       numeroContrato: json['numero_contrato'] as String?,
       numeroConvenio: json['numero_convenio'] as String?,
@@ -82,8 +82,9 @@ class FUT {
       fechaCierre: json['fecha_cierre'] != null
           ? DateTime.parse(json['fecha_cierre'] as String)
           : null,
-      estado: EstadoFUT.values.firstWhere(
-        (e) => e.toString() == 'EstadoFUT.${json['estado']}',
+      estado: EstadoFondoUnidadTesoreria.values.firstWhere(
+        (e) => e.name == json['estado'] || e.toString() == 'EstadoFUT.${json['estado']}',
+        orElse: () => EstadoFondoUnidadTesoreria.activo,
       ),
       responsable: json['responsable'] as String?,
       observaciones: json['observaciones'] as String?,
@@ -96,7 +97,7 @@ class FUT {
       'entidad_id': entidadId,
       'numero_fut': numeroFUT,
       'nombre_fut': nombreFUT,
-      'tipo_fut': tipoFUT.toString().split('.').last,
+      'tipo_fut': tipoFUT.name,
       'numero_contrato': numeroContrato,
       'numero_convenio': numeroConvenio,
       'tercero_id': terceroId,
@@ -107,7 +108,7 @@ class FUT {
       'saldo_disponible': saldoDisponible,
       'fecha_apertura': fechaApertura.toIso8601String(),
       'fecha_cierre': fechaCierre?.toIso8601String(),
-      'estado': estado.toString().split('.').last,
+      'estado': estado.name,
       'responsable': responsable,
       'observaciones': observaciones,
     };
@@ -121,53 +122,11 @@ class FUT {
 
   /// Verifica si está activo
   bool estaActivo() {
-    return estado == EstadoFUT.activo || estado == EstadoFUT.enEjecucion;
+    return estado == EstadoFondoUnidadTesoreria.activo || estado == EstadoFondoUnidadTesoreria.enEjecucion;
   }
 
   /// Verifica si tiene saldo disponible
   bool tieneSaldo() {
     return saldoDisponible > 0;
-  }
-
-  FUT copyWith({
-    String? id,
-    String? entidadId,
-    String? numeroFUT,
-    String? nombreFUT,
-    TipoFUT? tipoFUT,
-    String? numeroContrato,
-    String? numeroConvenio,
-    String? terceroId,
-    String? terceroNombre,
-    String? terceroIdentificacion,
-    double? valorInicial,
-    double? valorEjecutado,
-    double? saldoDisponible,
-    DateTime? fechaApertura,
-    DateTime? fechaCierre,
-    EstadoFUT? estado,
-    String? responsable,
-    String? observaciones,
-  }) {
-    return FUT(
-      id: id ?? this.id,
-      entidadId: entidadId ?? this.entidadId,
-      numeroFUT: numeroFUT ?? this.numeroFUT,
-      nombreFUT: nombreFUT ?? this.nombreFUT,
-      tipoFUT: tipoFUT ?? this.tipoFUT,
-      numeroContrato: numeroContrato ?? this.numeroContrato,
-      numeroConvenio: numeroConvenio ?? this.numeroConvenio,
-      terceroId: terceroId ?? this.terceroId,
-      terceroNombre: terceroNombre ?? this.terceroNombre,
-      terceroIdentificacion: terceroIdentificacion ?? this.terceroIdentificacion,
-      valorInicial: valorInicial ?? this.valorInicial,
-      valorEjecutado: valorEjecutado ?? this.valorEjecutado,
-      saldoDisponible: saldoDisponible ?? this.saldoDisponible,
-      fechaApertura: fechaApertura ?? this.fechaApertura,
-      fechaCierre: fechaCierre ?? this.fechaCierre,
-      estado: estado ?? this.estado,
-      responsable: responsable ?? this.responsable,
-      observaciones: observaciones ?? this.observaciones,
-    );
   }
 }

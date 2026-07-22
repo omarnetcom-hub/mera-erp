@@ -10,6 +10,7 @@ import '../models/acuerdo_pago.dart';
 import 'intereses_moratorios_service.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
+import '../../security/roles_permisos_service.dart';
 
 class PredialService {
   final Database db;
@@ -22,6 +23,28 @@ class PredialService {
     required this.interesesService,
     required this.auditoriaService,
   });
+
+  Future<RolSectorPublico> _validarPermiso({
+    required String entidadId,
+    required String usuarioId,
+    required Permiso permiso,
+  }) async {
+    final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+    );
+
+    if (rol == null) {
+      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+    }
+
+    if (!RolesPermisosService.tienePermiso(rol, permiso)) {
+      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+    }
+
+    return rol;
+  }
 
   /// Carga masiva de catastro IGAC
   Future<void> cargarCatastroIGAC({
@@ -118,12 +141,6 @@ class PredialService {
     required String vigencia,
     required String predioId,
     required double ipcAnual,
-    // fechaLiquidacion: fecha de referencia para el descuento de pronto pago
-    // (primer trimestre). Por defecto usa la fecha actual del sistema; cuando
-    // se conecte la UI real de liquidación masiva (pendiente, ver plan maestro
-    // fase de conexión UI-servicios), debe decidirse explícitamente si esta
-    // fecha es la del proceso batch o si se permite reliquidar vigencias
-    // atrasadas con otra fecha.
     DateTime? fechaLiquidacion,
   }) async {
     // Obtener el predio
@@ -318,6 +335,37 @@ class PredialService {
     final resultados = await db.rawQuery(query, args);
 
     return resultados.map((r) => LiquidacionPredial.fromJson(r)).toList();
+  }
+
+  /// Consulta predios activos de una entidad
+  Future<List<Predio>> consultarPredios({
+    required String entidadId,
+  }) async {
+    final prediosResult = await db.query(
+      'predios',
+      where: 'entidad_id = ? AND activo = 1',
+      whereArgs: [entidadId],
+      orderBy: 'fecha_registro DESC',
+    );
+
+    return prediosResult.map((r) => Predio.fromJson(r)).toList();
+  }
+
+  /// Exporta el recibo / declaración oficial del impuesto predial unificado en formato plano
+  Future<String> exportarDeclaracionPredialAPlano(String liquidacionId) async {
+    final res = await db.query('liquidaciones_prediales', where: 'id = ?', whereArgs: [liquidacionId]);
+    if (res.isEmpty) throw Exception('Liquidación predial no encontrada');
+    final liq = LiquidacionPredial.fromJson(res.first);
+
+    final buffer = StringBuffer();
+    buffer.writeln('PREDIAL_HEADER|${liq.numeroLiquidacion}|${liq.entidadId}|VIGENCIA|${liq.vigencia}');
+    buffer.writeln('PREDIO|${liq.numeroPredial}|AVALUO|${liq.avaluoCatastral}');
+    buffer.writeln('CONTRIBUYENTE|${liq.contribuyenteIdentificacion}|${liq.contribuyenteNombre}');
+    buffer.writeln('LIQUIDACION|TARIFA|${liq.tarifa}|IMPUESTO_BASE|${liq.impuestoBase}|DESCUENTO|${liq.descuentoProntoPago}|TOTAL|${liq.totalPagar}');
+    buffer.writeln('ESTADO|${liq.estado.name}|VENCIMIENTO|${liq.fechaVencimiento.toIso8601String()}');
+    buffer.writeln('PREDIAL_FOOTER|DOCUMENTO_OFICIAL_COBRO');
+
+    return buffer.toString();
   }
 
   String _generarNumeroSecuencial() {

@@ -49,10 +49,28 @@ class SchemaPlaneacion {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS flujos_viabilizacion (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        proyecto_id TEXT NOT NULL,
+        etapa TEXT NOT NULL,
+        motivo TEXT NOT NULL,
+        fecha_inicio TEXT NOT NULL,
+        iniciado_por TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'activo',
+        observaciones TEXT,
+        fecha_respuesta TEXT,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (proyecto_id) REFERENCES proyectos_mga(id)
+      )
+    ''');
+
     await db.execute('CREATE INDEX IF NOT EXISTS idx_proyectos_entidad ON proyectos_mga(entidad_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_proyectos_estado ON proyectos_mga(estado)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_proyectos_bpin ON proyectos_mga(codigo_bpin)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_pdt_entidad ON pdt(entidad_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_pdt_vigencia ON pdt(vigencia)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_flujos_viab_proyecto ON flujos_viabilizacion(proyecto_id)');
   }
 }

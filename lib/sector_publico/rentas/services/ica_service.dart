@@ -477,5 +477,22 @@ class ICAService {
     final resultados = await db.rawQuery(query, args);
     return resultados;
   }
+
+  /// Exporta la declaración oficial de ICA en formato plano
+  Future<String> exportarDeclaracionICAAPlano(String declaracionId) async {
+    final res = await db.query('declaraciones_ica', where: 'id = ?', whereArgs: [declaracionId]);
+    if (res.isEmpty) throw Exception('Declaración ICA no encontrada');
+    final dec = res.first;
+
+    final buffer = StringBuffer();
+    buffer.writeln('ICA_DECLARATION_HEADER|${dec['id']}|${dec['entidad_id']}|PERIODO|${dec['periodo']}');
+    buffer.writeln('CONTRIBUYENTE_ID|${dec['contribuyente_id']}');
+    buffer.writeln('VALORES|GRAVABLE|${dec['ingresos_gravables']}|EXENTO|${dec['ingresos_exentos']}|BASE|${dec['base_gravable']}');
+    buffer.writeln('LIQUIDACION|TARIFA|${dec['tarifa']}|IMPUESTO_ICA|${dec['impuesto_ica']}|MORA|${dec['intereses_mora']}|TOTAL|${dec['total_pagar']}');
+    buffer.writeln('ESTADO|${dec['estado']}');
+    buffer.writeln('ICA_DECLARATION_FOOTER|DOCUMENTO_OFICIAL_RECAUDO');
+
+    return buffer.toString();
+  }
 }
 

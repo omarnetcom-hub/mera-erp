@@ -204,6 +204,7 @@ class SchemaMultiTenant {
       CREATE TABLE IF NOT EXISTS funcionarios_entidad (
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
+        usuario_id TEXT,
         cargo_clave TEXT NOT NULL,
         nombre_completo TEXT NOT NULL,
         identificacion TEXT NOT NULL,
@@ -215,6 +216,9 @@ class SchemaMultiTenant {
         UNIQUE(entidad_id, cargo_clave)
       )
     ''');
+
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_funcionarios_usuario ON funcionarios_entidad(usuario_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_funcionarios_entidad_usuario ON funcionarios_entidad(entidad_id, usuario_id)');
   }
 
   /// Inserta datos semilla del Catálogo General de Cuentas (CGC)

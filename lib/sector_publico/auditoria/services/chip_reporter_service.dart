@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/reporte_chip.dart';
 import '../../security/auditoria_service.dart';
+import '../../security/roles_permisos_service.dart';
 import '../../models/registro_auditoria.dart';
 
 class CHIPReporterService {
@@ -18,6 +19,28 @@ class CHIPReporterService {
     required this.auditoriaService,
   });
 
+  Future<RolSectorPublico> _validarPermiso({
+    required String entidadId,
+    required String usuarioId,
+    required Permiso permiso,
+  }) async {
+    final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+    );
+
+    if (rol == null) {
+      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+    }
+
+    if (!RolesPermisosService.tienePermiso(rol, permiso)) {
+      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+    }
+
+    return rol;
+  }
+
   /// Genera formulario CGN 2015_001 - Información de la Entidad
   Future<ReporteCHIP> generarCGN2015_001({
     required String entidadId,
@@ -25,6 +48,7 @@ class CHIPReporterService {
     required String vigencia,
     required DatosCGN2015_001 datos,
   }) async {
+    await _validarPermiso(entidadId: entidadId, usuarioId: usuarioId, permiso: Permiso.consultarAuditoria);
     final id = _uuid.v4();
     final fechaGeneracion = DateTime.now();
 

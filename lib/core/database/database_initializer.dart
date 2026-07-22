@@ -217,6 +217,7 @@ extension DatabaseInitializer on DatabaseHelper {
     await SchemaSalud.crearTablas(db);
     await SchemaRegalias.crearTablas(db);
     await SchemaTransparencia.crearTablas(db);
+    await SchemaSIIF.crearTablas(db);
 
     // Métodos iniciales
     await db.insert('metodos_pago', {'nombre': 'EFECTIVO'});
