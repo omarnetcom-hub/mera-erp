@@ -60,7 +60,7 @@ class ContabilidadNICSPService {
       usuarioCreo: usuarioId,
     );
 
-    await db.insert('asientos_contables', {
+    await db.insert('asientos_contables_sp', {
       'id': id,
       'entidad_id': entidadId,
       'numero_asiento': numeroAsiento,
@@ -139,7 +139,7 @@ class ContabilidadNICSPService {
       tipoDocumentoOrigen: tipoDocumento,
     );
 
-    await db.insert('asientos_contables', {
+    await db.insert('asientos_contables_sp', {
       'id': id,
       'entidad_id': entidadId,
       'numero_asiento': numeroAsiento,
@@ -293,7 +293,7 @@ class ContabilidadNICSPService {
     }
 
     await db.update(
-      'asientos_contables',
+      'asientos_contables_sp',
       {
         'estado': EstadoAsiento.registrado.toString().split('.').last,
       },
@@ -370,7 +370,7 @@ class ContabilidadNICSPService {
       observaciones: motivo,
     );
 
-    await db.insert('asientos_contables', {
+    await db.insert('asientos_contables_sp', {
       'id': id,
       'entidad_id': entidadId,
       'numero_asiento': numeroAsiento,
@@ -400,7 +400,7 @@ class ContabilidadNICSPService {
 
     // Actualizar estado del asiento original
     await db.update(
-      'asientos_contables',
+      'asientos_contables_sp',
       {
         'estado': EstadoAsiento.reversado.toString().split('.').last,
       },
@@ -432,7 +432,7 @@ class ContabilidadNICSPService {
   /// Obtiene un asiento por ID
   Future<AsientoContable?> obtenerAsiento(String id) async {
     final resultado = await db.query(
-      'asientos_contables',
+      'asientos_contables_sp',
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -559,7 +559,7 @@ class ContabilidadNICSPService {
     DateTime? fechaHasta,
     TipoAsiento? tipoAsiento,
   }) async {
-    String query = 'SELECT * FROM asientos_contables WHERE entidad_id = ?';
+    String query = 'SELECT * FROM asientos_contables_sp WHERE entidad_id = ?';
     List<dynamic> args = [entidadId];
 
     if (fechaDesde != null) {

@@ -9,7 +9,7 @@ class SchemaContabilidad {
   static Future<void> crearTablas(Database db) async {
     // Tabla de asientos contables
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS asientos_contables (
+      CREATE TABLE IF NOT EXISTS asientos_contables_sp (
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
         numero_asiento TEXT NOT NULL UNIQUE,
@@ -39,7 +39,7 @@ class SchemaContabilidad {
         debito REAL NOT NULL,
         credito REAL NOT NULL,
         referencia_id TEXT,
-        FOREIGN KEY (asiento_id) REFERENCES asientos_contables(id) ON DELETE CASCADE
+        FOREIGN KEY (asiento_id) REFERENCES asientos_contables_sp(id) ON DELETE CASCADE
       )
     ''');
 
@@ -105,7 +105,7 @@ class SchemaContabilidad {
         estado TEXT NOT NULL,
         observaciones TEXT,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
-        FOREIGN KEY (asiento_cierre_id) REFERENCES asientos_contables(id),
+        FOREIGN KEY (asiento_cierre_id) REFERENCES asientos_contables_sp(id),
         UNIQUE(entidad_id, vigencia)
       )
     ''');
@@ -113,15 +113,15 @@ class SchemaContabilidad {
     // Índices para optimización
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_asientos_entidad 
-      ON asientos_contables(entidad_id)
+      ON asientos_contables_sp(entidad_id)
     ''');
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_asientos_fecha 
-      ON asientos_contables(fecha_asiento)
+      ON asientos_contables_sp(fecha_asiento)
     ''');
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_asientos_tipo 
-      ON asientos_contables(tipo_asiento)
+      ON asientos_contables_sp(tipo_asiento)
     ''');
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_detalles_asiento 

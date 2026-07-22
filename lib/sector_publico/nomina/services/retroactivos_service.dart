@@ -32,7 +32,7 @@ class RetroactivosService {
     required TipoRetroactivo tipoRetroactivo,
   }) async {
     final empleadoResult = await db.query(
-      'empleados',
+      'empleados_sp',
       where: 'id = ?',
       whereArgs: [empleadoId],
     );

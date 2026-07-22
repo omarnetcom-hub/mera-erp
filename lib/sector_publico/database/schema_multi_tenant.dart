@@ -198,6 +198,23 @@ class SchemaMultiTenant {
       CREATE INDEX IF NOT EXISTS idx_consolidacion_periodo 
       ON consolidacion_nicsp40(periodo)
     ''');
+
+    // Tabla de funcionarios responsables de la entidad (representante legal, ordenador del gasto, contador)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS funcionarios_entidad (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        cargo_clave TEXT NOT NULL,
+        nombre_completo TEXT NOT NULL,
+        identificacion TEXT NOT NULL,
+        tarjeta_profesional TEXT,
+        telefono TEXT NOT NULL,
+        email TEXT NOT NULL,
+        direccion TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        UNIQUE(entidad_id, cargo_clave)
+      )
+    ''');
   }
 
   /// Inserta datos semilla del Catálogo General de Cuentas (CGC)

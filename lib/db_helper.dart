@@ -31,6 +31,19 @@ import 'sales/application/warranty_service.dart';
 import 'core/templates/template_service.dart';
 import 'core/privacy/gdpr_service.dart';
 
+import 'sector_publico/database/schema_multi_tenant.dart';
+import 'sector_publico/presupuesto/database/schema_presupuesto.dart';
+import 'sector_publico/contabilidad/database/schema_contabilidad.dart';
+import 'sector_publico/auditoria/database/schema_auditoria.dart';
+import 'sector_publico/rentas/database/schema_rentas.dart';
+import 'sector_publico/contratacion/database/schema_contratacion.dart';
+import 'sector_publico/nomina/database/schema_nomina.dart';
+import 'sector_publico/planeacion/database/schema_planeacion.dart';
+import 'sector_publico/activos/database/schema_activos.dart';
+import 'sector_publico/salud/database/schema_salud.dart';
+import 'sector_publico/regalias/database/schema_regalias.dart';
+import 'sector_publico/transparencia/database/schema_transparencia.dart';
+
 part 'core/database/database_initializer.dart';
 
 class ActiveCompanyConfiguration {
@@ -310,7 +323,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 60,
+      version: 61,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -318,6 +331,12 @@ class DatabaseHelper {
       onUpgrade: _migrarDB,
     );
   }
+
+  @visibleForTesting
+  Future<void> crearDBForTesting(Database db, int version) => _crearDB(db, version);
+
+  @visibleForTesting
+  Future<void> migrarDBForTesting(Database db, int oldVersion, int newVersion) => _migrarDB(db, oldVersion, newVersion);
 
   Future<void> _migrarDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 49) {
@@ -645,6 +664,23 @@ class DatabaseHelper {
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
       }
+    }
+
+    if (oldVersion < 61) {
+      print('Ejecutando migración v61: Inicializando tablas del Sector Público...');
+      await SchemaMultiTenant.crearTablas(db);
+      await SchemaPresupuesto.crearTablas(db);
+      await SchemaContabilidad.crearTablas(db);
+      await SchemaAuditoria.crearTablas(db);
+      await SchemaRentas.crearTablas(db);
+      await SchemaContratacion.crearTablas(db);
+      await SchemaNomina.crearTablas(db);
+      await SchemaPlaneacion.crearTablas(db);
+      await SchemaActivos.crearTablas(db);
+      await SchemaSalud.crearTablas(db);
+      await SchemaRegalias.crearTablas(db);
+      await SchemaTransparencia.crearTablas(db);
+      print('✓ Tablas del Sector Público migradas correctamente en v61.');
     }
   }
 

@@ -180,7 +180,7 @@ class FlujoEfectivoService {
         '''
           SELECT da.*
           FROM detalles_asientos da
-          INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          INNER JOIN asientos_contables_sp ac ON da.asiento_id = ac.id
           WHERE ac.entidad_id = ?
             AND da.cuenta_codigo = ?
             AND ac.fecha_asiento BETWEEN ? AND ?
@@ -218,7 +218,7 @@ class FlujoEfectivoService {
         '''
           SELECT da.*
           FROM detalles_asientos da
-          INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          INNER JOIN asientos_contables_sp ac ON da.asiento_id = ac.id
           WHERE ac.entidad_id = ?
             AND da.cuenta_codigo = ?
             AND ac.fecha_asiento BETWEEN ? AND ?
@@ -270,7 +270,7 @@ class FlujoEfectivoService {
         '''
           SELECT da.*
           FROM detalles_asientos da
-          INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          INNER JOIN asientos_contables_sp ac ON da.asiento_id = ac.id
           WHERE ac.entidad_id = ?
             AND da.cuenta_codigo = ?
             AND ac.fecha_asiento BETWEEN ? AND ?
@@ -306,7 +306,7 @@ class FlujoEfectivoService {
         '''
           SELECT da.*
           FROM detalles_asientos da
-          INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          INNER JOIN asientos_contables_sp ac ON da.asiento_id = ac.id
           WHERE ac.entidad_id = ?
             AND da.cuenta_codigo = ?
             AND ac.fecha_asiento BETWEEN ? AND ?
@@ -358,7 +358,7 @@ class FlujoEfectivoService {
         '''
           SELECT da.*
           FROM detalles_asientos da
-          INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          INNER JOIN asientos_contables_sp ac ON da.asiento_id = ac.id
           WHERE ac.entidad_id = ?
             AND da.cuenta_codigo = ?
             AND ac.fecha_asiento BETWEEN ? AND ?
@@ -394,7 +394,7 @@ class FlujoEfectivoService {
         '''
           SELECT da.*
           FROM detalles_asientos da
-          INNER JOIN asientos_contables ac ON da.asiento_id = ac.id
+          INNER JOIN asientos_contables_sp ac ON da.asiento_id = ac.id
           WHERE ac.entidad_id = ?
             AND da.cuenta_codigo = ?
             AND ac.fecha_asiento BETWEEN ? AND ?
@@ -449,7 +449,7 @@ class FlujoEfectivoService {
 
     // Ajustes por depreciación (partida no monetaria)
     final resultadoDepreciacion = await db.query(
-      'asientos_contables',
+      'asientos_contables_sp',
       where: '''
         entidad_id = ? AND 
         tipo_documento_origen = ? AND 

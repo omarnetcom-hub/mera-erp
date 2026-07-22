@@ -226,7 +226,7 @@ class DepreciacionUnidadesService {
     final cuentaGasto = '510501'; // Gasto por depreciación
     final cuentaDepreciacion = '159901'; // Depreciación acumulada
 
-    await db.insert('asientos_contables', {
+    await db.insert('asientos_contables_sp', {
       'id': asientoId,
       'entidad_id': entidadId,
       'numero_asiento': numeroAsiento,
@@ -384,7 +384,7 @@ class DepreciacionUnidadesService {
   /// Genera el número de asiento siguiente
   Future<String> _generarNumeroAsiento(String entidadId) async {
     final resultado = await db.rawQuery(
-      "SELECT MAX(numero_asiento) as max_numero FROM asientos_contables WHERE entidad_id = ?",
+      "SELECT MAX(numero_asiento) as max_numero FROM asientos_contables_sp WHERE entidad_id = ?",
       [entidadId],
     );
 

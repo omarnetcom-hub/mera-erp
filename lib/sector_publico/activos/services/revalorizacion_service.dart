@@ -154,7 +154,7 @@ class RevalorizacionService {
     final cuentaActivo = '160501'; // Propiedades planta y equipo revalorizadas
     final cuentaSuperavit = '310501'; // Superávit por revalorización
 
-    await db.insert('asientos_contables', {
+    await db.insert('asientos_contables_sp', {
       'id': asientoId,
       'entidad_id': entidadId,
       'numero_asiento': numeroAsiento,
@@ -336,7 +336,7 @@ class RevalorizacionService {
   /// Genera el número de asiento siguiente
   Future<String> _generarNumeroAsiento(String entidadId) async {
     final resultado = await db.rawQuery(
-      "SELECT MAX(numero_asiento) as max_numero FROM asientos_contables WHERE entidad_id = ?",
+      "SELECT MAX(numero_asiento) as max_numero FROM asientos_contables_sp WHERE entidad_id = ?",
       [entidadId],
     );
 

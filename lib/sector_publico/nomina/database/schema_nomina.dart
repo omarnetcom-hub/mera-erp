@@ -7,7 +7,7 @@ import 'package:sqflite/sqflite.dart';
 class SchemaNomina {
   static Future<void> crearTablas(Database db) async {
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS empleados (
+      CREATE TABLE IF NOT EXISTS empleados_sp (
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
         numero_identificacion TEXT NOT NULL UNIQUE,
@@ -63,7 +63,7 @@ class SchemaNomina {
         pila_id TEXT,
         observaciones TEXT,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
-        FOREIGN KEY (empleado_id) REFERENCES empleados(id)
+        FOREIGN KEY (empleado_id) REFERENCES empleados_sp(id)
       )
     ''');
 
@@ -92,12 +92,12 @@ class SchemaNomina {
         acto_administrativo TEXT,
         observaciones TEXT,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
-        FOREIGN KEY (empleado_id) REFERENCES empleados(id)
+        FOREIGN KEY (empleado_id) REFERENCES empleados_sp(id)
       )
     ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_empleados_entidad ON empleados(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_empleados_identificacion ON empleados(numero_identificacion)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_empleados_entidad ON empleados_sp(entidad_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_empleados_identificacion ON empleados_sp(numero_identificacion)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_liquidaciones_entidad ON liquidaciones_nomina(entidad_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_liquidaciones_periodo ON liquidaciones_nomina(periodo)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_liquidaciones_empleado ON liquidaciones_nomina(empleado_id)');

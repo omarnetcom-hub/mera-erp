@@ -375,7 +375,7 @@ class CierreVigenciaService {
   }) async {
     // Actividades de operación (cuentas 1, 4, 5 relacionadas con operación)
     final actividadesOperacion = await db.query(
-      'detalles_asientos d JOIN asientos_contables a ON d.asiento_id = a.id',
+      'detalles_asientos d JOIN asientos_contables_sp a ON d.asiento_id = a.id',
       columns: ['d.cuenta_codigo', 'd.cuenta_nombre', 'd.debito', 'd.credito'],
       where: 'a.entidad_id = ? AND a.fecha_asiento BETWEEN ? AND ? AND d.cuenta_codigo IN (?, ?)',
       whereArgs: [

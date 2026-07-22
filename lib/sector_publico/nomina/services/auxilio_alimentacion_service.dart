@@ -138,7 +138,7 @@ class AuxilioAlimentacionService {
   }) async {
     // Obtener todos los empleados activos
     final empleados = await db.query(
-      'empleados',
+      'empleados_sp',
       where: 'entidad_id = ? AND estado = ?',
       whereArgs: [entidadId, 'activo'],
     );

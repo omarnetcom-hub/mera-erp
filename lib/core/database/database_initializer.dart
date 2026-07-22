@@ -203,6 +203,21 @@ extension DatabaseInitializer on DatabaseHelper {
     await TemplateService.instance.createTables(db);
     await GDPRService.instance.createTables(db);
 
+    // Crear tablas de los nuevos servicios del Sector Público
+    print('Inicializando tablas del Sector Público para nueva instalación...');
+    await SchemaMultiTenant.crearTablas(db);
+    await SchemaPresupuesto.crearTablas(db);
+    await SchemaContabilidad.crearTablas(db);
+    await SchemaAuditoria.crearTablas(db);
+    await SchemaRentas.crearTablas(db);
+    await SchemaContratacion.crearTablas(db);
+    await SchemaNomina.crearTablas(db);
+    await SchemaPlaneacion.crearTablas(db);
+    await SchemaActivos.crearTablas(db);
+    await SchemaSalud.crearTablas(db);
+    await SchemaRegalias.crearTablas(db);
+    await SchemaTransparencia.crearTablas(db);
+
     // Métodos iniciales
     await db.insert('metodos_pago', {'nombre': 'EFECTIVO'});
     await db.insert('metodos_pago', {'nombre': 'TRANSFERENCIA'});

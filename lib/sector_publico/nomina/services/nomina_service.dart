@@ -30,7 +30,7 @@ class NominaService {
     double? recargoNocturno,
   }) async {
     final empleadoResult = await db.query(
-      'empleados',
+      'empleados_sp',
       where: 'id = ?',
       whereArgs: [empleadoId],
     );

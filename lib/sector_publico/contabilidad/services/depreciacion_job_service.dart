@@ -190,7 +190,7 @@ class DepreciacionJobService {
     final cuentaDepreciacionAcumulada = '160401'; // Depreciación acumulada
 
     // Crear asiento contable
-    await db.insert('asientos_contables', {
+    await db.insert('asientos_contables_sp', {
       'id': asientoId,
       'entidad_id': entidadId,
       'numero_asiento': numeroAsiento,
@@ -255,7 +255,7 @@ class DepreciacionJobService {
   /// Genera el número de asiento siguiente
   Future<String> _generarNumeroAsiento(String entidadId) async {
     final resultado = await db.rawQuery(
-      "SELECT MAX(numero_asiento) as max_numero FROM asientos_contables WHERE entidad_id = ?",
+      "SELECT MAX(numero_asiento) as max_numero FROM asientos_contables_sp WHERE entidad_id = ?",
       [entidadId],
     );
 
@@ -318,7 +318,7 @@ class DepreciacionJobService {
     required String periodo,
   }) async {
     final resultado = await db.query(
-      'asientos_contables',
+      'asientos_contables_sp',
       where: 'entidad_id = ? AND tipo_documento_origen = ? AND referencia_origen = ? AND fecha_asiento LIKE ?',
       whereArgs: [entidadId, 'job', 'job_depreciacion', '$periodo%'],
     );
