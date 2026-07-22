@@ -1388,7 +1388,7 @@ class DatabaseHelper {
           return companies.first['id'] as int;
         }
       } catch (_) {}
-      return 1;
+      throw StateError('No se encontró una empresa activa para la transacción contable.');
     }
     final db = await instance.database;
     return await _sincronizarEmpresaLegacy(db);
@@ -7804,7 +7804,7 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> obtenerLineasContablesBancariasNoConciliadas(int bancoId) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    final bancos = await db.query('bancos', where: 'id = ?', whereArgs: [bancoId]);
+    final bancos = await db.query('bancos', where: 'id = ? AND company_id = ?', whereArgs: [bancoId, companyId]);
     if (bancos.isEmpty) return [];
     final cuentaPuc = bancos.first['cuenta_puc']?.toString() ?? '111005';
 
@@ -7814,10 +7814,10 @@ class DatabaseHelper {
       JOIN asientos_contables ac ON al.asiento_id = ac.id
       WHERE al.company_id = ? AND al.codigo LIKE ?
       AND al.id NOT IN (
-        SELECT IFNULL(asiento_linea_id, 0) FROM extractos_bancarios WHERE conciliado = 1
+        SELECT IFNULL(asiento_linea_id, 0) FROM extractos_bancarios WHERE company_id = ? AND conciliado = 1
       )
       ORDER BY ac.fecha DESC
-    ''', [companyId, '$cuentaPuc%']);
+    ''', [companyId, '$cuentaPuc%', companyId]);
   }
 
   Future<void> conciliarTransacciones(int extractoId, int asientoLineaId) async {
@@ -8046,11 +8046,12 @@ class DatabaseHelper {
     double tarifaPorMil = 11.04,
   }) async {
     final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
     final inicio = DateTime(anio, mesInicio, 1).toIso8601String();
     final fin = DateTime(anio, mesFin + 1, 1).toIso8601String();
     final res = await db.rawQuery(
-      "SELECT COALESCE(SUM(total), 0) AS total FROM ventas WHERE fecha >= ? AND fecha < ? AND COALESCE(estado, 'emitida') != 'anulada'",
-      [inicio, fin],
+      "SELECT COALESCE(SUM(total), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, 'emitida') != 'anulada'",
+      [companyId, inicio, fin],
     );
     final ingresosBrutos = (res.first['total'] as num?)?.toDouble() ?? 0;
     final ingresosNetos = ingresosBrutos * 0.95;
@@ -8058,8 +8059,8 @@ class DatabaseHelper {
     final avisosTableros = ica * 0.15;
 
     final reteica = await db.rawQuery(
-      'SELECT COALESCE(SUM(reteica), 0) AS total FROM ventas WHERE fecha >= ? AND fecha < ?',
-      [inicio, fin],
+      'SELECT COALESCE(SUM(reteica), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ?',
+      [companyId, inicio, fin],
     );
     final reteicaPracticada = (reteica.first['total'] as num?)?.toDouble() ?? 0;
 

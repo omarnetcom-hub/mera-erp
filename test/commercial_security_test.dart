@@ -221,5 +221,20 @@ void main() {
       expect(AppSession.puedeEjecutarAccion('sales', AppAction.create), isFalse);
       expect(AppSession.puedeEjecutarAccion('sales', AppAction.view), isFalse);
     });
+
+    test('6. obtenerEmpresaActivaId transaccional lanza StateError en BD sin empresa (Fail-Closed)', () async {
+      final blankDb = await databaseFactory.openDatabase(inMemoryDatabasePath);
+      await blankDb.execute('CREATE TABLE app_config (clave TEXT PRIMARY KEY, valor TEXT NOT NULL)');
+      await blankDb.execute('CREATE TABLE companies (id INTEGER PRIMARY KEY)');
+
+      await blankDb.transaction((txn) async {
+        expect(
+          () => DatabaseHelper.instance.obtenerEmpresaActivaId(txn),
+          throwsA(isA<StateError>()),
+        );
+      });
+
+      await blankDb.close();
+    });
   });
 }
