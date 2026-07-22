@@ -41,6 +41,7 @@ import 'sector_publico/presupuesto/pages/presupuesto_publico_page.dart';
 import 'core/workspace/workspace_config.dart';
 import 'core/workspace/public_sector_config.dart';
 import 'core/workspace/workspace_helpers.dart';
+import 'core/workspace/selector_modo_screen.dart';
 part 'ui/widgets/workspace_widgets.dart';
 
 Future<void> main() async {

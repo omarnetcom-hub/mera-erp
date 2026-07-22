@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app_session.dart';
 import '../../features/module_definition.dart';
 import '../../features/feature_key.dart';
 
@@ -22,8 +23,8 @@ List<ModuleDefinition> modulosPresupuestoPublico() => [
     color: Colors.blue,
     category: ModuleCategory.operation,
     builder: (context) => PresupuestoPublicoPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.presupuesto_publico,
   ),
@@ -34,8 +35,8 @@ List<ModuleDefinition> modulosPresupuestoPublico() => [
     color: Colors.blue,
     category: ModuleCategory.operation,
     builder: (context) => PACTesoreriaPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.presupuesto_publico,
   ),
@@ -49,8 +50,8 @@ List<ModuleDefinition> modulosContabilidadNICSP() => [
     color: Colors.green,
     category: ModuleCategory.accounting,
     builder: (context) => ContabilidadNICSPPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.contabilidad_nicsp,
   ),
@@ -61,8 +62,8 @@ List<ModuleDefinition> modulosContabilidadNICSP() => [
     color: Colors.green,
     category: ModuleCategory.accounting,
     builder: (context) => ContabilidadNICSPPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.contabilidad_nicsp,
   ),
@@ -73,8 +74,8 @@ List<ModuleDefinition> modulosContabilidadNICSP() => [
     color: Colors.green,
     category: ModuleCategory.accounting,
     builder: (context) => ContabilidadNICSPPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.contabilidad_nicsp,
   ),
@@ -88,8 +89,8 @@ List<ModuleDefinition> modulosContratacionPublica() => [
     color: Colors.orange,
     category: ModuleCategory.operation,
     builder: (context) => ContratacionPublicaPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.contratacion_publica,
   ),
@@ -100,8 +101,8 @@ List<ModuleDefinition> modulosContratacionPublica() => [
     color: Colors.orange,
     category: ModuleCategory.operation,
     builder: (context) => ContratacionPublicaPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.contratacion_publica,
   ),
@@ -112,8 +113,8 @@ List<ModuleDefinition> modulosContratacionPublica() => [
     color: Colors.orange,
     category: ModuleCategory.operation,
     builder: (context) => ContratacionPublicaPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.contratacion_publica,
   ),
@@ -127,8 +128,8 @@ List<ModuleDefinition> modulosNominaPublica() => [
     color: Colors.purple,
     category: ModuleCategory.management,
     builder: (context) => NominaPublicaPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.nomina_publica,
   ),
@@ -139,8 +140,8 @@ List<ModuleDefinition> modulosNominaPublica() => [
     color: Colors.purple,
     category: ModuleCategory.management,
     builder: (context) => NominaPublicaPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.nomina_publica,
   ),
@@ -151,8 +152,8 @@ List<ModuleDefinition> modulosNominaPublica() => [
     color: Colors.purple,
     category: ModuleCategory.management,
     builder: (context) => NominaPublicaPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.nomina_publica,
   ),
@@ -166,8 +167,8 @@ List<ModuleDefinition> modulosRentas() => [
     color: Colors.red,
     category: ModuleCategory.operation,
     builder: (context) => PredialICAPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.predial,
   ),
@@ -178,8 +179,8 @@ List<ModuleDefinition> modulosRentas() => [
     color: Colors.red,
     category: ModuleCategory.operation,
     builder: (context) => PredialICAPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.predial,
   ),
@@ -190,8 +191,8 @@ List<ModuleDefinition> modulosRentas() => [
     color: Colors.red,
     category: ModuleCategory.operation,
     builder: (context) => PredialICAPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.rentas_departamentales,
   ),
@@ -205,8 +206,8 @@ List<ModuleDefinition> modulosPlaneacion() => [
     color: Colors.teal,
     category: ModuleCategory.operation,
     builder: (context) => PlaneacionPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.planeacion,
   ),
@@ -217,8 +218,8 @@ List<ModuleDefinition> modulosPlaneacion() => [
     color: Colors.teal,
     category: ModuleCategory.operation,
     builder: (context) => PlaneacionPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.planeacion,
   ),
@@ -229,8 +230,8 @@ List<ModuleDefinition> modulosPlaneacion() => [
     color: Colors.teal,
     category: ModuleCategory.operation,
     builder: (context) => PlaneacionPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.planeacion,
   ),
@@ -244,8 +245,8 @@ List<ModuleDefinition> modulosActivosEstado() => [
     color: Colors.brown,
     category: ModuleCategory.accounting,
     builder: (context) => ActivosEstadoPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.activos_estado,
   ),
@@ -256,8 +257,8 @@ List<ModuleDefinition> modulosActivosEstado() => [
     color: Colors.brown,
     category: ModuleCategory.accounting,
     builder: (context) => ActivosEstadoPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.activos_estado,
   ),
@@ -271,8 +272,8 @@ List<ModuleDefinition> modulosAuditoriaTransparencia() => [
     color: Colors.indigo,
     category: ModuleCategory.control,
     builder: (context) => AuditoriaForensePage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.auditoria_forense,
   ),
@@ -283,8 +284,8 @@ List<ModuleDefinition> modulosAuditoriaTransparencia() => [
     color: Colors.indigo,
     category: ModuleCategory.control,
     builder: (context) => AuditoriaForensePage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.auditoria_forense,
   ),
@@ -295,8 +296,8 @@ List<ModuleDefinition> modulosAuditoriaTransparencia() => [
     color: Colors.indigo,
     category: ModuleCategory.control,
     builder: (context) => TransparenciaPage(
-      entidadId: 'default',
-      usuarioId: 'default',
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId,
     ),
     featureKey: FeatureKey.transparencia,
   ),

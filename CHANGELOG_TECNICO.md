@@ -2,31 +2,20 @@
 
 ---
 
-## [Fase 6 - Verificación Auditoría Forense y Reportes de Ley] Conexión RBAC en Servicios de Reportes
+## [Fase 7 - Auditoría de Persistencia en Base de Datos] Inventario de Registros 'default'
 **Fecha:** 2026-07-22
 
-### Auditoría Métodos de Escritura / Persistencia en Servicios de Reportes
-Se revisaron los 4 servicios de rendición de cuentas y auditoría forense para verificar la presencia de operaciones de escritura (`db.insert`):
+### Inventario de Base de Datos de Desarrollo
+Se ejecutó un script de inspección sobre las 17 bases de datos SQLite encontradas en el entorno local (incluyendo bases de datos de pruebas e integraciones temporales):
 
-1. **`CHIPReporterService` (`generarCGN2015_001` a `005`, `generarCGN2016C01`):**
-   - **Acción:** Persiste registros en la tabla `reportes_chip`.
-   - **RBAC Aplicado:** Conectado `_validarPermiso` con `Permiso.consultarAuditoria`.
-2. **`SIAObservaService` (`generarReportePlanMejoramiento`):**
-   - **Acción:** Persiste registros en la tabla `reportes_sia_observa`.
-   - **RBAC Aplicado:** Conectado `_validarPermiso` con `Permiso.consultarAuditoria`.
-3. **`FUTTerritorialService` (`generarFUTIngresos`, `generarFUTGastos`, `generarFUTDeudaPublica`, `generarFUTRegalias`):**
-   - **Acción:** Persiste registros en la tabla `reportes_fut_territorial`.
-   - **RBAC Aplicado:** Conectado `_validarPermiso` con `Permiso.consultarAuditoria`.
-4. **`SIIFService` (`generarReportePresupuestoMensual`):**
-   - **Acción:** Persiste registros en la tabla `reportes_siif_nacion`.
-   - **RBAC Aplicado:** Conectado `_validarPermiso` con `Permiso.consultarAuditoria`.
+- **Columnas auditadas:** `entidad_id` en todas las tablas del esquema (apropiaciones, cuentas_contables, predios, cdps, rps, pagos, asientos_contables_sp, proyectos_ocad, bienios_sgr, contratos_eps_adres, facturas_salud, actas_responsabilidad, funcionarios_entidad, etc.).
+- **Registros hallados con `entidad_id = 'default'`:** **0 registros** across todas las tablas.
 
-### Garantía de Perfil de Auditor (`jefeControlInterno`)
-- **Acceso Autorizado:** El rol `jefeControlInterno` posee el permiso `Permiso.consultarAuditoria`, por lo que **PUEDE** generar y guardar estos reportes analíticos oficiales de control.
-- **Acceso Denegado (Solo Lectura Operativa):** Ninguno de estos 4 servicios modifica tablas de negocio operativo (`cdps`, `rps`, `pagos`, `asientos_contables_sp`, `contratos`). Al intentar invocar acciones operativas desde servicios de Presupuesto, Tesorería o Contabilidad, la capa de servicio le niega el acceso inmediatamente de forma **Fail-Closed**.
+### Conclusión Técnica
+Dado que las pruebas automatizadas (Fases 3 a 6) inyectan explícitamente identificadores territoriales reales (como `'ENT-001'` o `'ENT-999'`) directamente en la capa de servicios, el valor estático `'default'` de `public_sector_config.dart` solo existía a nivel de interfaz de usuario durante la navegación de desarrollo y **nunca llegó a contaminar datos persistidos en base de datos**. No se requiere migración ni depuración de datos previa a la Fase 8.
 
 ---
 
-## [Fase 6 - Cobertura Transversal RBAC] Segregación de Funciones en Tesorería, Contabilidad, Rentas y Auditoría
+## [Fase 7 - Auditoría Multi-Entidad & Corrección de Sesión Estricta] AppSession.usuarioId (String?) & Fail-Closed Null Handling
 **Fecha:** 2026-07-22
 ...

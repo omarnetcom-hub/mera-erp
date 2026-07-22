@@ -84,37 +84,11 @@ List<_WorkspaceSection> _filterSections(_MenuPrincipalState state, List<_Workspa
 enum _WorkspaceMode { dashboard, sales, operations, finance }
 
 Future<String> _obtenerTipoEntidad() async {
-  try {
-    final db = await DatabaseHelper.instance.database;
-    // Obtener company_id activo
-    final companyRows = await db.query(
-      'app_config',
-      where: 'clave = ?',
-      whereArgs: ['company_active_id'],
-      limit: 1,
-    );
-    if (companyRows.isEmpty) {
-      return 'privada';
-    }
-    final companyId = companyRows.first['valor']?.toString();
-    if (companyId == null) {
-      return 'privada';
-    }
-
-    // Buscar tipo_entidad en company_settings
-    final rows = await db.query(
-      'company_settings',
-      where: 'company_id = ? AND setting_key = ?',
-      whereArgs: [int.parse(companyId), 'tipo_entidad'],
-      limit: 1,
-    );
-    if (rows.isNotEmpty) {
-      return rows.first['setting_value']?.toString() ?? 'privada';
-    }
-  } catch (e) {
-    debugPrint('Error al obtener tipo de entidad: $e');
+  final modo = await SelectorModoService.obtenerModoActual();
+  if (modo == ModoOperacion.publica) {
+    return 'publica';
   }
-  return 'privada'; // Default
+  return 'privada';
 }
 
 Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
@@ -226,6 +200,46 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
                               ? PhosphorIcons.sun()
                               : PhosphorIcons.moon(),
                         ),
+                      ),
+                      FutureBuilder<bool>(
+                        future: () async {
+                          final uid = AppSession.usuarioId;
+                          if (uid == null) return false;
+                          final db = await DatabaseHelper.instance.database;
+                          return SelectorModoService.tieneAutoridadReconfiguracion(
+                            db: db,
+                            entidadId: AppSession.entidadId,
+                            usuarioId: uid,
+                          );
+                        }(),
+                        builder: (context, snapshot) {
+                          final tieneAutoridad = snapshot.data ?? false;
+                          if (!tieneAutoridad) {
+                            return const SizedBox.shrink();
+                          }
+                          return IconButton(
+                            tooltip: 'Perfil del ERP (Comercial / Sector Público)',
+                            onPressed: () async {
+                              final uid = AppSession.usuarioId ?? 'sin_sesion';
+                              final modoActual = await SelectorModoService.obtenerModoActual();
+                              if (!context.mounted) return;
+                              final nuevoModo = await Navigator.push<ModoOperacion>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => SelectorModoScreen(
+                                    entidadId: AppSession.entidadId,
+                                    usuarioId: uid,
+                                    modoInicial: modoActual,
+                                  ),
+                                ),
+                              );
+                              if (nuevoModo != null) {
+                                state.setState(() {});
+                              }
+                            },
+                            icon: const Icon(Icons.swap_horiz),
+                          );
+                        },
                       ),
                       if (!mobile)
                         IconButton.filledTonal(

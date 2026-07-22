@@ -11,6 +11,23 @@ class AppSession {
   static String get nombre =>
       usuarioActual?['nombre']?.toString() ?? 'Usuario local';
 
+  static String? get usuarioId {
+    if (usuarioActual == null) return null;
+    final idVal = usuarioActual!['id'] ?? usuarioActual!['usuario'];
+    if (idVal == null) return null;
+    final str = idVal.toString().trim();
+    if (str.isEmpty) return null;
+    return str;
+  }
+
+  static String? _entidadIdActiva;
+
+  static String get entidadId => _entidadIdActiva ?? 'ENT-001';
+
+  static void establecerEntidadActiva(String id) {
+    _entidadIdActiva = id;
+  }
+
   static void iniciar(Map<String, dynamic> usuario) {
     usuarioActual = usuario;
   }

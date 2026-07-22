@@ -197,7 +197,11 @@ class RolesPermisosService {
     required String entidadId,
     required dynamic usuarioId,
   }) async {
-    final usuarioIdStr = usuarioId.toString();
+    if (usuarioId == null) return null;
+    final usuarioIdStr = usuarioId.toString().trim();
+    if (usuarioIdStr.isEmpty || usuarioIdStr == 'null' || usuarioIdStr == 'sin_sesion') {
+      return null;
+    }
     final res = await db.query(
       'funcionarios_entidad',
       where: 'entidad_id = ? AND usuario_id = ?',
