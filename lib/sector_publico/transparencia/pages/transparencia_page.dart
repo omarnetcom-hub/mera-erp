@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../db_helper.dart';
 import '../../security/auditoria_service.dart';
+import '../../contabilidad/services/consolidacion_jerarquica_service.dart';
 import '../services/transparencia_service.dart';
 import '../services/disciplinario_service.dart';
 import '../services/nicsp40_service.dart';
@@ -28,6 +29,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
   bool _loading = true;
   late TransparenciaService _transparenciaService;
   late DisciplinarioService _disciplinarioService;
+  late ConsolidacionJerarquicaService _consolidacionJerarquicaService;
+  Map<String, dynamic>? _consolidadoJerarquicoReporte;
   late NICSP40Service _nicsp40Service;
 
   List<ReporteTransparencia> _reportes = [];
@@ -57,6 +60,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
       _transparenciaService = TransparenciaService(db: db, auditoriaService: auditoriaService);
       _disciplinarioService = DisciplinarioService(db: db, auditoriaService: auditoriaService);
       _nicsp40Service = NICSP40Service(db: db, auditoriaService: auditoriaService);
+      _consolidacionJerarquicaService = ConsolidacionJerarquicaService(db: db);
 
       await _cargarDatos();
     } catch (e) {
@@ -335,15 +339,56 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 'Transferencias Consolidadas',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF006D77)),
               ),
-              ElevatedButton.icon(
-                onPressed: _generarReporteNICSP40,
-                icon: const Icon(Icons.assessment),
-                label: const Text('Reporte NICSP 40'),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _generarConsolidadoJerarquico,
+                    icon: const Icon(Icons.account_balance),
+                    label: const Text('Consolidado Jerárquico'),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF028090)),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _generarReporteNICSP40,
+                    icon: const Icon(Icons.assessment),
+                    label: const Text('Reporte NICSP 40'),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                  ),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 16),
+          if (_consolidadoJerarquicoReporte != null) ...[
+            Card(
+              color: const Color(0xFFE8F5E9),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Consolidado de Saldos Contables (Gobernación + Entidades Adscritas)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1B5E20)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Entidades Consolidadas: ${_consolidadoJerarquicoReporte!['total_entidades_consolidadas']}'),
+                    Text('Vigencia: ${_consolidadoJerarquicoReporte!['vigencia']}'),
+                    const Divider(),
+                    Text('Activos: \$${(_consolidadoJerarquicoReporte!['resumen']['activos'] as double).toStringAsFixed(2)}'),
+                    Text('Pasivos: \$${(_consolidadoJerarquicoReporte!['resumen']['pasivos'] as double).toStringAsFixed(2)}'),
+                    Text('Patrimonio: \$${(_consolidadoJerarquicoReporte!['resumen']['patrimonio'] as double).toStringAsFixed(2)}'),
+                    Text('Ingresos: \$${(_consolidadoJerarquicoReporte!['resumen']['ingresos'] as double).toStringAsFixed(2)}'),
+                    Text('Gastos: \$${(_consolidadoJerarquicoReporte!['resumen']['gastos'] as double).toStringAsFixed(2)}'),
+                    Text('Superávit/Déficit: \$${(_consolidadoJerarquicoReporte!['resumen']['superavit_deficit'] as double).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    const Text('* NOTA: Consolidación de solo lectura sin eliminación de partidas recíprocas.', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (_nicsp40Reporte != null) ...[
             Card(
               color: const Color(0xFFE0F2F1),
@@ -1076,6 +1121,56 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
             child: const Text('Generar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _generarConsolidadoJerarquico() {
+    final formKey = GlobalKey<FormState>();
+    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Consolidado de Saldos Contables (Gobernación + Entidades Adscritas)'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: vigenciaController,
+            decoration: const InputDecoration(labelText: 'Vigencia Fiscal (Año)'),
+            validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context);
+                setState(() => _loading = true);
+                try {
+                  final res = await _consolidacionJerarquicaService.obtenerConsolidadoContable(
+                    entidadIdPadre: widget.entidadId,
+                    vigencia: vigenciaController.text,
+                  );
+                  setState(() {
+                    _consolidadoJerarquicoReporte = res;
+                  });
+                  _mostrarExito('Consolidado jerárquico de saldos generado correctamente');
+                } catch (e) {
+                  _mostrarError('Error al generar consolidado jerárquico: $e');
+                } finally {
+                  setState(() => _loading = false);
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF028090)),
+            child: const Text('Consolidar'),
           ),
         ],
       ),

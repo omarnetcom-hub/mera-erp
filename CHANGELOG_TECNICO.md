@@ -2,6 +2,29 @@
 
 ---
 
+## [Fase 8.2c - Consolidación Jerárquica Multi-Entidad de Saldos Contables y Presupuestales]
+**Fecha:** 2026-07-22
+
+### 1. Servicio de Consolidación Jerárquica (`ConsolidacionJerarquicaService`)
+- **Implementación**: Se creó `ConsolidacionJerarquicaService` (`lib/sector_publico/contabilidad/services/consolidacion_jerarquica_service.dart`).
+- **Naturaleza de Solo Lectura**: No ejecuta ninguna mutación (`INSERT`, `UPDATE`, `DELETE`), operando únicamente como motor de agregación analítica de saldos.
+- **Funcionalidad Contable (`obtenerConsolidadoContable`)**:
+  - Resuelve la jerarquía completa de entidades (`entidades_territoriales`) filtrando por `id = entidadIdPadre OR gobernacion_id = entidadIdPadre`.
+  - Suma y agrupa los saldos de `saldos_cuentas` por clase de cuenta contable CGN (`SUBSTR(cuenta_codigo, 1, 1)`: 1 Activos, 2 Pasivos, 3 Patrimonio, 4 Ingresos, 5 Gastos).
+- **Funcionalidad Presupuestal (`obtenerConsolidadoPresupuestal`)**:
+  - Agrega el flujo completo de ejecuciones presupuestales (`apropiaciones`, `cdps`, `rps`, `pagos`) para todas las entidades de la jerarquía.
+- **Validación Fail-Closed**: Si la entidad padre no existe en la base de datos o no tiene entidades hijas adscritas mediante `gobernacion_id`, lanza una excepción `StateError` para evitar presentar reportes consolidados vacíos o engañosos.
+- **Nota de Limitación Documentada**: Se especifica explícitamente en el docstring del servicio que este reporte **NO realiza la eliminación automatizada de partidas ni operaciones recíprocas** (transferencias entre Gobernación y Municipios adscritos). Esta funcionalidad queda agendada para fases futuras.
+
+### 2. Integración en la Interfaz de Usuario (`TransparenciaPage`)
+- Se conectó `ConsolidacionJerarquicaService` en `TransparenciaPage` (`lib/sector_publico/transparencia/pages/transparencia_page.dart`) añadiendo el botón y tarjeta interactiva **"Consolidado de Saldos Contables (Gobernación + Entidades Adscritas)"**, claramente diferenciada de la sección existente de revelaciones NICSP 40 (transferencias individuales).
+
+### 3. Suite de Pruebas Unitarias Automatizadas (`test/consolidacion_jerarquica_test.dart`)
+- `1. Agregación contable correcta`: Verifica la consolidación exacta de saldos de 1 Entidad Padre + 2 Entidades Hijas adscritas.
+- `2. Validación Fail-Closed`: Verifica que `obtenerConsolidadoContable` lanza un `StateError` de forma segura cuando la entidad no existe o no posee entidades hijas adscritas.
+
+---
+
 ## [Fase 8.2b - Unificación de Tenencia Multi-Entidad en el Motor de Sincronización]
 **Fecha:** 2026-07-22
 
