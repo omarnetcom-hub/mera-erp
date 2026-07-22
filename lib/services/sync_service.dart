@@ -237,8 +237,9 @@ class SyncService {
   Future<bool> login(String username, String password) async {
     try {
       final dio = Dio();
+      final url = ControlCenterEndpoint.buildUrl(_serverEndpoint, 'auth/login');
       final response = await dio.post(
-        ControlCenterEndpoint.buildUrl(_serverEndpoint, 'auth/login'),
+        url,
         data: {
           'username': username,
           'password': password,
@@ -246,15 +247,25 @@ class SyncService {
         },
         options: Options(
           headers: {'Content-Type': 'application/json'},
-          sendTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
         ),
       );
 
-      if (response.statusCode == 200) {
-        final data = response.data as Map<String, dynamic>;
-        _authToken = data['token'] as String;
-        _userId = data['user']['id'] as String;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data as Map<String, dynamic>?;
+        if (data == null) return false;
+
+        final token = data['token']?.toString();
+        final userData = data['user'] as Map<String, dynamic>?;
+        final userId = userData?['id']?.toString() ?? data['userId']?.toString();
+
+        if (token == null || token.isEmpty || userId == null || userId.isEmpty) {
+          return false;
+        }
+
+        _authToken = token;
+        _userId = userId;
 
         // Guardar en base de datos
         final db = await DatabaseHelper.instance.database;
@@ -270,14 +281,10 @@ class SyncService {
         _startAutoSync();
         return true;
       }
-      // Comentado temporalmente para evitar error 401
-      // return false;
-      return true; // Temporalmente retorna true sin login
+      return false;
     } catch (e) {
-      debugPrint('Login error: $e');
-      // Comentado temporalmente para evitar error 401
-      // return false;
-      return true; // Temporalmente retorna true sin login
+      debugPrint('Login error en SyncService: $e');
+      return false;
     }
   }
 

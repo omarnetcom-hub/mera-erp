@@ -2,6 +2,19 @@
 
 ---
 
+## [Fase 8.2a - Reestablecimiento de Autenticación Real en SyncService]
+**Fecha:** 2026-07-22
+
+### 1. Remediación del Método `login()` en `SyncService` (`lib/services/sync_service.dart`)
+- **Falla Corregida:** El método `login(username, password)` tenía comentadas las cláusulas de retorno de fallo (`return false;`) y retornaba incondicionalmente `true` ante errores 401 Unauthorized y excepciones de red (`catch`), permitiendo que el sistema asumiera erróneamente un inicio de sesión remoto exitoso sin validar credenciales contra el servidor.
+- **Solución Aplicada:**
+  - Se restauró y reforzó la validación real contra el endpoint del backend (`https://merkaerp-control-center-backend.onrender.com/api/v1/auth/login`).
+  - **Manejo Fail-Closed de Respuestas HTTP**: Si el servidor responde con un código distinto de 200/201 (ej. 401 Credenciales Inválidas, 403 Prohibido), el método retorna explícitamente `false` y no inicia el temporizador de sincronización automática.
+  - **Manejo Fail-Closed de Excepciones**: En caso de servidor caído, fallo de conexión o timeout (15s), la excepción es capturada en el bloque `catch` y el método retorna `false` de forma segura.
+  - **Validación de Payloads**: Valida que la respuesta contenga strings no nulos ni vacíos para `token` y `userId` antes de guardarlos en SQLite (`app_config`) e iniciar `_startAutoSync()`.
+
+---
+
 ## [Fase 8 - Hardening Comercial Completo: Aislamiento Tributario y Fail-Closed]
 **Fecha:** 2026-07-22
 
