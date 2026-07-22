@@ -3328,6 +3328,13 @@ class DatabaseHelper {
       'vector_clock_json',
       'TEXT',
     );
+
+    final syncTablas = ['sync_outbox', 'sync_inbox', 'sync_conflicts'];
+    for (final st in syncTablas) {
+      await _agregarColumnaSiNoExiste(db, st, 'tenant_type', "TEXT DEFAULT 'commercial'");
+      await _agregarColumnaSiNoExiste(db, st, 'entidad_id', 'TEXT');
+      await _agregarColumnaSiNoExiste(db, st, 'user_id', 'TEXT');
+    }
   }
 
   Future<void> _sembrarCatalogosMaestros(

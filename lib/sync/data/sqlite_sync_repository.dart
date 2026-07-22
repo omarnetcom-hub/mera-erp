@@ -16,6 +16,9 @@ class SqliteSyncRepository implements SyncEventRepository {
     await _gateway.insert('sync_outbox', {
       'company_id': event.companyId,
       'branch_id': event.branchId,
+      'tenant_type': event.tenantType,
+      'entidad_id': event.entidadId,
+      'user_id': event.usuarioId,
       'aggregate_type': event.aggregateType,
       'aggregate_id': event.aggregateId,
       'event_type': event.operation.name,
@@ -84,6 +87,9 @@ class SqliteSyncRepository implements SyncEventRepository {
     await _gateway.insert('sync_conflicts', {
       'company_id': conflict.remote.companyId,
       'branch_id': conflict.remote.branchId,
+      'tenant_type': conflict.remote.tenantType,
+      'entidad_id': conflict.remote.entidadId,
+      'user_id': conflict.remote.usuarioId,
       'aggregate_type': conflict.remote.aggregateType,
       'aggregate_id': conflict.remote.aggregateId,
       'local_payload_json': jsonEncode(conflict.local.toMap()),
@@ -121,6 +127,9 @@ class SqliteSyncRepository implements SyncEventRepository {
     await _gateway.insert('sync_inbox', {
       'company_id': event.companyId,
       'branch_id': event.branchId,
+      'tenant_type': event.tenantType,
+      'entidad_id': event.entidadId,
+      'user_id': event.usuarioId,
       'aggregate_type': event.aggregateType,
       'aggregate_id': event.aggregateId,
       'event_type': event.operation.name,
@@ -149,6 +158,9 @@ class SqliteSyncRepository implements SyncEventRepository {
       id: row['id'].toString(),
       companyId: (row['company_id'] as num?)?.toInt() ?? 0,
       branchId: (row['branch_id'] as num?)?.toInt() ?? 0,
+      tenantType: row['tenant_type']?.toString() ?? 'commercial',
+      entidadId: row['entidad_id']?.toString(),
+      usuarioId: row['user_id']?.toString() ?? row['usuario_id']?.toString(),
       aggregateType: row['aggregate_type']?.toString() ?? '',
       aggregateId: row['aggregate_id']?.toString() ?? '',
       operation: SyncOperation.values.firstWhere(

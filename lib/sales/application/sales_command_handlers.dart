@@ -3,6 +3,7 @@ import '../../core/events/domain_event.dart';
 import '../../core/security/action_permission.dart';
 import '../../sync/application/sync_orchestrator.dart';
 import '../../sync/domain/sync_models.dart';
+import '../../sync/domain/sync_tenant_scope.dart';
 import '../../telemetry/application/telemetry_service.dart';
 import '../data/sales_document_repository.dart';
 import '../domain/sales_document.dart';
@@ -255,11 +256,18 @@ class SalesCommandHandlers {
   ) async {
     final sync = _sync;
     if (sync == null || document.id == null) return;
+    final scope = SyncTenantScope.commercial(
+      companyId: document.companyId,
+      branchId: document.branchId,
+    );
     await sync.enqueue(
       SyncEnvelope(
         id: 'sales-${document.id}-${DateTime.now().microsecondsSinceEpoch}',
-        companyId: document.companyId,
-        branchId: document.branchId,
+        companyId: scope.companyId ?? document.companyId,
+        branchId: scope.branchId ?? document.branchId,
+        tenantType: scope.tenantType,
+        entidadId: scope.entidadId,
+        usuarioId: scope.usuarioId,
         aggregateType: 'sales_document',
         aggregateId: document.id.toString(),
         operation: operation,

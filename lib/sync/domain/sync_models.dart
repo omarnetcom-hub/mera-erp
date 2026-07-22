@@ -45,6 +45,9 @@ class SyncEnvelope {
     required this.occurredAt,
     required this.idempotencyKey,
     required this.vectorClock,
+    this.tenantType = 'commercial',
+    this.entidadId,
+    this.usuarioId,
     this.status = SyncEventStatus.pending,
     this.version = 1,
     this.attempts = 0,
@@ -53,6 +56,9 @@ class SyncEnvelope {
   final String id;
   final int companyId;
   final int branchId;
+  final String tenantType;
+  final String? entidadId;
+  final String? usuarioId;
   final String aggregateType;
   final String aggregateId;
   final SyncOperation operation;
@@ -68,11 +74,17 @@ class SyncEnvelope {
     SyncEventStatus? status,
     int? attempts,
     SyncVectorClock? vectorClock,
+    String? tenantType,
+    String? entidadId,
+    String? usuarioId,
   }) {
     return SyncEnvelope(
       id: id,
       companyId: companyId,
       branchId: branchId,
+      tenantType: tenantType ?? this.tenantType,
+      entidadId: entidadId ?? this.entidadId,
+      usuarioId: usuarioId ?? this.usuarioId,
       aggregateType: aggregateType,
       aggregateId: aggregateId,
       operation: operation,
@@ -90,6 +102,9 @@ class SyncEnvelope {
     'id': id,
     'company_id': companyId,
     'branch_id': branchId,
+    'tenant_type': tenantType,
+    'entidad_id': entidadId,
+    'usuario_id': usuarioId,
     'aggregate_type': aggregateType,
     'aggregate_id': aggregateId,
     'operation': operation.name,
