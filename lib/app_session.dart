@@ -5,8 +5,12 @@ import 'core/security/action_permission.dart';
 class AppSession {
   static Map<String, dynamic>? usuarioActual;
 
-  static String get rol =>
-      usuarioActual?['rol']?.toString().toLowerCase() ?? 'consulta';
+  static String? get rol {
+    if (usuarioActual == null) return null;
+    final r = usuarioActual!['rol']?.toString().toLowerCase().trim();
+    if (r == null || r.isEmpty || r == 'sistema') return null;
+    return r;
+  }
 
   static String get nombre =>
       usuarioActual?['nombre']?.toString() ?? 'Usuario local';
@@ -37,8 +41,10 @@ class AppSession {
   }
 
   static bool puedeAbrir(String modulo) {
+    final userRol = rol;
+    if (userRol == null) return false;
     final normalizado = _normalizarModulo(modulo);
-    if (rol == 'administrador') return true;
+    if (userRol == 'administrador') return true;
 
     const permisos = {
       'contador': {
@@ -109,8 +115,10 @@ class AppSession {
   }
 
   static bool puedeEjecutarAccion(String moduloId, AppAction accion) {
+    final userRol = rol;
+    if (userRol == null || userRol.isEmpty) return false;
     return PermissionService.instance.can(
-      role: rol,
+      role: userRol,
       moduleId: moduloId,
       action: accion,
     );

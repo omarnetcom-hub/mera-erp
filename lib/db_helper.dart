@@ -5095,6 +5095,7 @@ class DatabaseHelper {
     required String tipo,
   }) async {
     final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
     final inicio = DateTime(anio, mes, 1).toIso8601String();
     final fin = DateTime(anio, mes + 1, 1).toIso8601String();
     final categoriaNormalizada = categoria.trim().toLowerCase();
@@ -5105,9 +5106,9 @@ class DatabaseHelper {
           '''
           SELECT COALESCE(SUM(total), 0) AS total
           FROM ventas
-          WHERE fecha >= ? AND fecha < ?
+          WHERE company_id = ? AND fecha >= ? AND fecha < ?
           ''',
-          [inicio, fin],
+          [companyId, inicio, fin],
         );
         return (res.first['total'] as num).toDouble();
       }
@@ -5116,9 +5117,9 @@ class DatabaseHelper {
         '''
         SELECT COALESCE(SUM(monto), 0) AS total
         FROM movimientos_caja
-        WHERE fecha >= ? AND fecha < ? AND tipo = 'ingreso'
+        WHERE company_id = ? AND fecha >= ? AND fecha < ? AND tipo = 'ingreso'
         ''',
-        [inicio, fin],
+        [companyId, inicio, fin],
       );
       return (res.first['total'] as num).toDouble();
     }
@@ -5129,9 +5130,9 @@ class DatabaseHelper {
         '''
         SELECT COALESCE(SUM(total), 0) AS total
         FROM compras
-        WHERE fecha >= ? AND fecha < ? AND estado != 'anulada'
+        WHERE company_id = ? AND fecha >= ? AND fecha < ? AND estado != 'anulada'
         ''',
-        [inicio, fin],
+        [companyId, inicio, fin],
       );
       return (res.first['total'] as num).toDouble();
     }
@@ -5140,9 +5141,9 @@ class DatabaseHelper {
       '''
       SELECT COALESCE(SUM(monto), 0) AS total
       FROM movimientos_caja
-      WHERE fecha >= ? AND fecha < ? AND tipo = 'egreso'
+      WHERE company_id = ? AND fecha >= ? AND fecha < ? AND tipo = 'egreso'
       ''',
-      [inicio, fin],
+      [companyId, inicio, fin],
     );
     return (res.first['total'] as num).toDouble();
   }
@@ -5159,6 +5160,9 @@ class DatabaseHelper {
     String pin = '',
     bool activo = true,
   }) async {
+    if (rol.trim().toLowerCase() == 'sistema') {
+      throw ArgumentError('El rol "sistema" es reservado y no puede asignarse a usuarios.');
+    }
     final db = await instance.database;
     final id = await db.insert('usuarios', {
       'nombre': nombre,
@@ -5186,6 +5190,9 @@ class DatabaseHelper {
     String pin = '',
     bool activo = true,
   }) async {
+    if (rol.trim().toLowerCase() == 'sistema') {
+      throw ArgumentError('El rol "sistema" es reservado y no puede asignarse a usuarios.');
+    }
     final db = await instance.database;
     await db.update(
       'usuarios',
@@ -5853,40 +5860,41 @@ class DatabaseHelper {
     required int mes,
   }) async {
     final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
     final inicio = DateTime(anio, mes, 1).toIso8601String();
     final fin = DateTime(anio, mes + 1, 1).toIso8601String();
 
     Future<double> total(String sql) async {
-      final res = await db.rawQuery(sql, [inicio, fin]);
+      final res = await db.rawQuery(sql, [companyId, inicio, fin]);
       return (res.first['total'] as num).toDouble();
     }
 
     final ventas = await total(
-      "SELECT COALESCE(SUM(total), 0) AS total FROM ventas WHERE fecha >= ? AND fecha < ? AND COALESCE(estado, 'emitida') != 'anulada'",
+      "SELECT COALESCE(SUM(total), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, 'emitida') != 'anulada'",
     );
     final compras = await total(
-      "SELECT COALESCE(SUM(total), 0) AS total FROM compras WHERE fecha >= ? AND fecha < ? AND estado != 'anulada'",
+      "SELECT COALESCE(SUM(total), 0) AS total FROM compras WHERE company_id = ? AND fecha >= ? AND fecha < ? AND estado != 'anulada'",
     );
     final ivaGenerado = await total(
-      "SELECT COALESCE(SUM(impuesto_total), 0) AS total FROM ventas WHERE fecha >= ? AND fecha < ? AND COALESCE(estado, 'emitida') != 'anulada'",
+      "SELECT COALESCE(SUM(impuesto_total), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, 'emitida') != 'anulada'",
     );
     final ivaDescontable = await total(
-      "SELECT COALESCE(SUM(impuesto_total), 0) AS total FROM compras WHERE fecha >= ? AND fecha < ? AND estado != 'anulada'",
+      "SELECT COALESCE(SUM(impuesto_total), 0) AS total FROM compras WHERE company_id = ? AND fecha >= ? AND fecha < ? AND estado != 'anulada'",
     );
     final nomina = await total(
-      "SELECT COALESCE(SUM(neto), 0) AS total FROM nomina_liquidaciones WHERE fecha >= ? AND fecha < ? AND COALESCE(estado, 'activo') != 'anulado'",
+      "SELECT COALESCE(SUM(neto), 0) AS total FROM nomina_liquidaciones WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, 'activo') != 'anulado'",
     );
     final retefuenteVentas = await total(
-      'SELECT COALESCE(SUM(retefuente), 0) AS total FROM ventas WHERE fecha >= ? AND fecha < ? AND COALESCE(estado, \'emitida\') != \'anulada\'',
+      'SELECT COALESCE(SUM(retefuente), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, \'emitida\') != \'anulada\'',
     );
     final reteivaVentas = await total(
-      'SELECT COALESCE(SUM(reteiva), 0) AS total FROM ventas WHERE fecha >= ? AND fecha < ? AND COALESCE(estado, \'emitida\') != \'anulada\'',
+      'SELECT COALESCE(SUM(reteiva), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, \'emitida\') != \'anulada\'',
     );
     final reteicaVentas = await total(
-      'SELECT COALESCE(SUM(reteica), 0) AS total FROM ventas WHERE fecha >= ? AND fecha < ? AND COALESCE(estado, \'emitida\') != \'anulada\'',
+      'SELECT COALESCE(SUM(reteica), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, \'emitida\') != \'anulada\'',
     );
     final retefuenteCompras = await total(
-      'SELECT COALESCE(SUM(retefuente), 0) AS total FROM compras WHERE fecha >= ? AND fecha < ? AND estado != \'anulada\'',
+      'SELECT COALESCE(SUM(retefuente), 0) AS total FROM compras WHERE company_id = ? AND fecha >= ? AND fecha < ? AND estado != \'anulada\'',
     );
 
     return {

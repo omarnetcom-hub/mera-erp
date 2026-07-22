@@ -67,6 +67,7 @@ class PermissionService {
 
   static const _rules = <PermissionRule>[
     PermissionRule(role: 'administrador', moduleId: '*', actions: _allActions),
+    PermissionRule(role: 'sistema', moduleId: '*', actions: _allActions),
     PermissionRule(
       role: 'contador',
       moduleId: '*',
@@ -221,10 +222,13 @@ class PermissionService {
   ];
 
   bool can({
-    required String role,
+    required String? role,
     required String moduleId,
     required AppAction action,
   }) {
+    if (role == null || role.trim().isEmpty || role == 'sin_sesion') {
+      return false;
+    }
     final normalizedRole = role.toLowerCase().trim();
     final normalizedModule = moduleId.toLowerCase().trim();
     return _rules.any(
