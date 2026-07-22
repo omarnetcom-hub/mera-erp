@@ -563,4 +563,75 @@ class CHIPReporterService {
 
     return errores;
   }
+
+  /// Guarda o actualiza los funcionarios responsables y datos de contacto de la entidad
+  Future<void> guardarFuncionariosResponsables({
+    required String entidadId,
+    required String representanteNombre,
+    required String representanteId,
+    required String ordenadorNombre,
+    required String ordenadorId,
+    required String contadorNombre,
+    required String contadorId,
+    required String contadorTarjeta,
+    required String direccion,
+    required String telefono,
+    required String email,
+  }) async {
+    final batch = db.batch();
+
+    // Representante Legal
+    batch.insert('funcionarios_entidad', {
+      'id': 'FL-$entidadId-representante_legal',
+      'entidad_id': entidadId,
+      'cargo_clave': 'representante_legal',
+      'nombre_completo': representanteNombre,
+      'identificacion': representanteId,
+      'tarjeta_profesional': '',
+      'telefono': '',
+      'email': '',
+      'direccion': '',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    // Ordenador
+    batch.insert('funcionarios_entidad', {
+      'id': 'FL-$entidadId-ordenador_gasto',
+      'entidad_id': entidadId,
+      'cargo_clave': 'ordenador_gasto',
+      'nombre_completo': ordenadorNombre,
+      'identificacion': ordenadorId,
+      'tarjeta_profesional': '',
+      'telefono': '',
+      'email': '',
+      'direccion': '',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    // Contador
+    batch.insert('funcionarios_entidad', {
+      'id': 'FL-$entidadId-contador',
+      'entidad_id': entidadId,
+      'cargo_clave': 'contador',
+      'nombre_completo': contadorNombre,
+      'identificacion': contadorId,
+      'tarjeta_profesional': contadorTarjeta,
+      'telefono': '',
+      'email': '',
+      'direccion': '',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    // Contacto Entidad
+    batch.insert('funcionarios_entidad', {
+      'id': 'FL-$entidadId-contacto_entidad',
+      'entidad_id': entidadId,
+      'cargo_clave': 'contacto_entidad',
+      'nombre_completo': '',
+      'identificacion': '',
+      'tarjeta_profesional': '',
+      'telefono': telefono,
+      'email': email,
+      'direccion': direccion,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    await batch.commit(noResult: true);
+  }
 }

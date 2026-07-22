@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as p;
 import 'package:merka_erp/db_helper.dart';
+import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
+import 'package:merka_erp/sector_publico/nomina/services/nomina_service.dart';
 
 void main() {
   setUpAll(() {
@@ -104,6 +106,47 @@ void main() {
     );
     print('Total funcionarios registrados: ${list.length}');
     expect(list.length, equals(1));
+
+    // 4.5. Probar liquidación de nómina real con NominaService
+    print('=== PASO 4.5: Probando liquidación de nómina real ===');
+    final empleadoId = 'EMP-INTEGRACION-01';
+
+    // Insertar empleado mock en la tabla consolidada empleados_sp
+    await db.insert('empleados_sp', {
+      'id': empleadoId,
+      'entidad_id': entidadId,
+      'numero_identificacion': '80.999.888',
+      'nombre_completo': 'Empleado de Integracion Publica',
+      'cargo': 'Profesional Universitario',
+      'dependencia': 'Hacienda',
+      'tipo_contrato': 'indefinido',
+      'tipo_vinculacion': 'carrera',
+      'salario_basico': 3500000.0, // 3.5 millones
+      'activo': 1,
+      'fecha_ingreso': DateTime.now().toIso8601String(),
+    });
+
+    final auditoriaService = AuditoriaService(db);
+    final nominaService = NominaService(
+      db: db,
+      auditoriaService: auditoriaService,
+    );
+
+    // Calcular liquidación
+    final liquidacion = await nominaService.liquidarNomina(
+      entidadId: entidadId,
+      usuarioId: 'USR-TEST-1',
+      empleadoId: empleadoId,
+      periodo: '2026-07',
+      diasTrabajados: 30,
+    );
+
+    print('✓ Liquidación generada con éxito sin errores de tabla.');
+    print('  Neto a Pagar: \$${liquidacion.netoPagar}');
+    print('  Observaciones / Warnings: ${liquidacion.observaciones}');
+
+    expect(liquidacion.netoPagar, isNotNull);
+    expect(liquidacion.observaciones, contains('SMMLV/auxilio de transporte por defecto'));
 
     await db.close();
 

@@ -2,6 +2,7 @@
 /// Cálculo de nómina con aportes parafiscales
 library;
 
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/empleado.dart';
@@ -41,18 +42,60 @@ class NominaService {
 
     final empleado = Empleado.fromJson(empleadoResult.first);
 
-    final salarioDevengado = (empleado.salarioBasico / 30) * diasTrabajados;
-    final auxilioTransporte = _calcularAuxilioTransporte(empleado.salarioBasico);
-    final auxilioAlimentacion = 0.0; // Implementar según política
+    // Recuperar configuración de la entidad (SMMLV y Auxilio de Transporte) para evitar hardcoding
+    final configResult = await db.query(
+      'configuracion_entidad',
+      where: 'entidad_id = ?',
+      whereArgs: [entidadId],
+    );
 
-    final totalDevengado = salarioDevengado + auxilioTransporte + auxilioAlimentacion + 
-                           (horasExtra ?? 0) + (recargoNocturno ?? 0);
+    double smmlv = 1300000.0; // Default SMMLV
+    double auxilioTransporteConfig = 162000.0; // Default Auxilio de Transporte
+    bool configPorDefecto = true;
+
+    if (configResult.isNotEmpty) {
+      try {
+        final Map<String, dynamic> config = jsonDecode(configResult.first['valor'] as String);
+        bool hasSmmlv = config.containsKey('smmlv');
+        bool hasAux = config.containsKey('auxilio_transporte');
+        if (hasSmmlv) {
+          smmlv = (config['smmlv'] as num).toDouble();
+        }
+        if (hasAux) {
+          auxilioTransporteConfig = (config['auxilio_transporte'] as num).toDouble();
+        }
+        if (hasSmmlv && hasAux) {
+          configPorDefecto = false;
+        }
+      } catch (_) {
+        // En caso de error, utiliza los valores por defecto
+      }
+    }
+
+    final salarioDevengado = (empleado.salarioBasico / 30) * diasTrabajados;
+    final auxilioTransporte = _calcularAuxilioTransporte(
+      salarioBasico: empleado.salarioBasico,
+      smmlv: smmlv,
+      auxilioTransporte: auxilioTransporteConfig,
+    );
+    final auxilioAlimentacion = 0.0; // Implementar según política (Gap F3)
+
+    final totalDevengado = _calcularTotalDevengado(
+      salarioDevengado: salarioDevengado,
+      auxTrans: auxilioTransporte,
+      auxAlim: auxilioAlimentacion,
+      hExtra: horasExtra ?? 0.0,
+      recNoct: recargoNocturno ?? 0.0,
+    );
 
     final baseAportes = totalDevengado;
     final salud = baseAportes * 0.085; // 8.5%
     final pension = baseAportes * 0.12; // 12%
-    final fondoSolidaridad = _calcularFondoSolidaridad(baseAportes);
-    final riesgosLaborales = baseAportes * 0.00522; // 0.522% (clase I)
+    final fondoSolidaridad = _calcularFondoSolidaridad(baseAportes, smmlv);
+    
+    // Riesgos Laborales (ARL): Clase V (6.96%) como default conservador por falta de clase_riesgo en Empleado.
+    final riesgosLaborales = baseAportes * 0.0696; 
+    
     final cajaCompensacion = baseAportes * 0.04; // 4%
     final sena = baseAportes * 0.02; // 2%
     final icbf = baseAportes * 0.03; // 3%
@@ -64,6 +107,13 @@ class NominaService {
     final id = _uuid.v4();
     final numeroLiquidacion = 'LN-$periodo-${_generarNumeroSecuencial()}';
     final fechaLiquidacion = DateTime.now();
+
+    final warnings = <String>[];
+    warnings.add('Advertencia: Tarifa ARL calculada al 6.96% (Clase V) por defecto. Falta clase de riesgo en registro del empleado.');
+    if (configPorDefecto) {
+      warnings.add('Advertencia: SMMLV/auxilio de transporte por defecto. Falta configuración real de la entidad.');
+    }
+    final observacionesStr = warnings.join(' | ');
 
     final liquidacion = LiquidacionNomina(
       id: id,
@@ -92,6 +142,7 @@ class NominaService {
       netoPagar: netoPagar,
       estado: EstadoLiquidacion.generada,
       fechaLiquidacion: fechaLiquidacion,
+      observaciones: observacionesStr,
     );
 
     await db.insert('liquidaciones_nomina', liquidacion.toJson());
@@ -114,21 +165,30 @@ class NominaService {
     return liquidacion;
   }
 
+  double _calcularTotalDevengado({
+    required double salarioDevengado,
+    required double auxTrans,
+    required double auxAlim,
+    required double hExtra,
+    required double recNoct,
+  }) {
+    return salarioDevengado + auxTrans + auxAlim + hExtra + recNoct;
+  }
+
   /// Calcula auxilio de transporte (hasta 2 SMMLV)
-  double _calcularAuxilioTransporte(double salarioBasico) {
-    const smmlv = 908526; // Valor SMMLV 2024
-    const auxilioMaximo = smmlv * 2;
-    
+  double _calcularAuxilioTransporte({
+    required double salarioBasico,
+    required double smmlv,
+    required double auxilioTransporte,
+  }) {
     if (salarioBasico <= (smmlv * 2)) {
-      return 162000; // Valor fijo auxilio transporte
+      return auxilioTransporte;
     }
     return 0;
   }
 
   /// Calcula fondo de solidaridad (1-2% según salario)
-  double _calcularFondoSolidaridad(double base) {
-    const smmlv = 908526;
-    
+  double _calcularFondoSolidaridad(double base, double smmlv) {
     if (base <= (smmlv * 4)) {
       return base * 0.0; // 0%
     } else if (base <= (smmlv * 16)) {
@@ -168,4 +228,3 @@ class NominaService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-

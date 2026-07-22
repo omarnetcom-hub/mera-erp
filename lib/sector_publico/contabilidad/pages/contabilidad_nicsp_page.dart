@@ -1,8 +1,10 @@
-/// Página principal del módulo de Contabilidad NICSP
-/// Implementa Resolución 533/2015 CGN + NICSP 1, 2, 12, 17, 19
-library;
-
 import 'package:flutter/material.dart';
+import '../../../../db_helper.dart';
+import '../../security/auditoria_service.dart';
+import '../services/contabilidad_nicsp_service.dart';
+import '../services/cierre_vigencia_service.dart';
+import '../models/asiento_contable.dart';
+import '../models/cuenta_contable.dart';
 
 class ContabilidadNICSPPage extends StatefulWidget {
   final String entidadId;
@@ -20,6 +22,13 @@ class ContabilidadNICSPPage extends StatefulWidget {
 
 class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
   int _selectedIndex = 0;
+  bool _loading = true;
+  late ContabilidadNICSPService _contabilidadService;
+  late CierreVigenciaService _cierreService;
+  List<AsientoContable> _asientos = [];
+  List<SaldoCuenta> _saldos = [];
+  List<Map<String, dynamic>> _planCuentas = [];
+
   final List<String> _titulos = [
     'Asientos',
     'Saldos',
@@ -28,25 +37,104 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _inicializarServicio();
+  }
+
+  Future<void> _inicializarServicio() async {
+    setState(() => _loading = true);
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final auditoriaService = AuditoriaService(db);
+      _contabilidadService = ContabilidadNICSPService(db: db, auditoriaService: auditoriaService);
+      _cierreService = CierreVigenciaService(
+        db: db,
+        contabilidadService: _contabilidadService,
+        auditoriaService: auditoriaService,
+      );
+
+      // Cargar plan de cuentas para los formularios
+      _planCuentas = await db.query(
+        'plan_cuentas_cgc',
+        where: 'entidad_id = ? AND activa = 1',
+        whereArgs: [widget.entidadId],
+        orderBy: 'codigo_cuenta',
+      );
+
+      await _cargarDatos();
+    } catch (e) {
+      _mostrarError('Error al inicializar: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _cargarDatos() async {
+    try {
+      // 1. Cargar Asientos
+      _asientos = await _contabilidadService.consultarAsientos(
+        entidadId: widget.entidadId,
+      );
+
+      // 2. Cargar Saldos
+      final db = await DatabaseHelper.instance.database;
+      final saldosResult = await db.query(
+        'saldos_cuentas',
+        where: 'entidad_id = ?',
+        whereArgs: [widget.entidadId],
+        orderBy: 'cuenta_codigo',
+      );
+      _saldos = saldosResult.map((r) => SaldoCuenta(
+        cuentaId: r['id'] as String,
+        cuentaCodigo: r['cuenta_codigo'] as String,
+        cuentaNombre: r['cuenta_nombre'] as String,
+        saldoDeudor: (r['saldo_deudor'] as num).toDouble(),
+        saldoAcreedor: (r['saldo_acreedor'] as num).toDouble(),
+        saldoNeto: (r['saldo_neto'] as num).toDouble(),
+        fechaUltimoMovimiento: DateTime.parse(r['fecha_ultimo_movimiento'] as String),
+      )).toList();
+    } catch (e) {
+      _mostrarError('Error al cargar datos: $e');
+    }
+  }
+
+  void _mostrarError(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
+    );
+  }
+
+  void _mostrarExito(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje), backgroundColor: Colors.green),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Contabilidad NICSP'),
+        title: Text(_titulos[_selectedIndex]),
         backgroundColor: const Color(0xFF006D77),
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: [
-          _buildAsientosTab(),
-          _buildSaldosTab(),
-          _buildEstadosFinancierosTab(),
-          _buildCierreVigenciaTab(),
-        ],
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : IndexedStack(
+              index: _selectedIndex,
+              children: [
+                _buildAsientosTab(),
+                _buildSaldosTab(),
+                _buildEstadosFinancierosTab(),
+                _buildCierreVigenciaTab(),
+              ],
+            ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF006D77),
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long),
@@ -66,281 +154,666 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _mostrarDialogoCreacion,
-        backgroundColor: const Color(0xFF006D77),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton(
+              onPressed: _crearAsientoManual,
+              backgroundColor: const Color(0xFF006D77),
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
   Widget _buildAsientosTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'Asientos Contables',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          const Text('Gestión de asientos manuales y automáticos'),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _crearAsientoManual(),
-            icon: const Icon(Icons.add),
-            label: const Text('Crear Asiento Manual'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
+    if (_asientos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'No hay asientos contables registrados',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _crearAsientoManual,
+              icon: const Icon(Icons.add),
+              label: const Text('Crear Asiento Manual'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF006D77),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _asientos.length,
+      itemBuilder: (context, index) {
+        final asiento = _asientos[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ExpansionTile(
+            title: Text(asiento.numeroAsiento),
+            subtitle: Text('${asiento.descripcion} (${asiento.tipoAsiento.name})'),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '\$${asiento.totalDebito.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                ),
+                Text(
+                  asiento.fechaAsiento.toLocal().toString().split(' ')[0],
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  children: [
+                    const Divider(),
+                    ...asiento.detalles.map((d) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Text('${d.cuentaCodigo} - ${d.cuentaNombre}'),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Text(
+                                  d.debito > 0 ? '\$${d.debito.toStringAsFixed(2)}' : '',
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(color: Colors.green),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Text(
+                                  d.credito > 0 ? '\$${d.credito.toStringAsFixed(2)}' : '',
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                    if (asiento.observaciones != null) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Observaciones: ${asiento.observaciones}',
+                          style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
+              )
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildSaldosTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.account_balance, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'Saldos de Cuentas',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          const Text('Consulta de saldos por vigencia y cuenta'),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _consultarSaldos(),
-            icon: const Icon(Icons.search),
-            label: const Text('Consultar Saldos'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
+    if (_saldos.isEmpty) {
+      return const Center(
+        child: Text('No hay saldos registrados. Ejecute transacciones primero.'),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _saldos.length,
+      itemBuilder: (context, index) {
+        final saldo = _saldos[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            title: Text('${saldo.cuentaCodigo} - ${saldo.cuentaNombre}'),
+            subtitle: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Débito: \$${saldo.saldoDeudor.toStringAsFixed(2)}'),
+                Text('Crédito: \$${saldo.saldoAcreedor.toStringAsFixed(2)}'),
+              ],
+            ),
+            trailing: Text(
+              '\$${saldo.saldoNeto.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: saldo.saldoNeto >= 0 ? Colors.green : Colors.red,
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildEstadosFinancierosTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.description, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'Estados Financieros NICSP',
-            style: Theme.of(context).textTheme.headlineSmall,
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.balance, color: Color(0xFF006D77)),
+            title: const Text('Estado de Situación Financiera'),
+            subtitle: const Text('Generar balance general (NICSP 1)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _mostrarConfiguracionSituacion,
           ),
-          const SizedBox(height: 8),
-          const Text('Generación de EEFF según NICSP 1, 2'),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _generarEstadoSituacion(),
-            icon: const Icon(Icons.balance),
-            label: const Text('Estado Situación Financiera'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
-            ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.trending_up, color: Color(0xFF006D77)),
+            title: const Text('Estado de Resultados'),
+            subtitle: const Text('Generar resultado operacional (NICSP 1)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _mostrarConfiguracionResultados,
           ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: () => _generarEstadoResultado(),
-            icon: const Icon(Icons.trending_up),
-            label: const Text('Estado de Resultado'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
-            ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.payments, color: Color(0xFF006D77)),
+            title: const Text('Estado de Flujos de Efectivo'),
+            subtitle: const Text('Generar flujos de efectivo (NICSP 2)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _mostrarConfiguracionFlujos,
           ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: () => _generarEstadoFlujos(),
-            icon: Icon(Icons.payments),
-            label: const Text('Estado de Flujos de Efectivo'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildCierreVigenciaTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.lock_clock, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'Cierre de Vigencia',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          const Text('Cierre anual según Art. 89 EOP y NICSP'),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _ejecutarCierre(),
-            icon: const Icon(Icons.lock),
-            label: const Text('Ejecutar Cierre'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock_clock, size: 80, color: Color(0xFF006D77)),
+            const SizedBox(height: 24),
+            const Text(
+              'Cierre Anual de Vigencia',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            const Text(
+              'Esta operación consolidará los saldos, calculará las reservas y generará los asientos contables de cierre y de apertura para la siguiente vigencia de acuerdo con el Art. 89 EOP y las normas NICSP.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _ejecutarCierre,
+              icon: const Icon(Icons.lock),
+              label: const Text('Ejecutar Cierre Presupuestal y Contable'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-  }
-
-  void _mostrarDialogoCreacion() {
-    switch (_selectedIndex) {
-      case 0:
-        _crearAsientoManual();
-        break;
-      case 1:
-        _consultarSaldos();
-        break;
-      case 2:
-        _generarEstadoSituacion();
-        break;
-      case 3:
-        _ejecutarCierre();
-        break;
-    }
   }
 
   void _crearAsientoManual() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Crear Asiento Manual'),
-        content: const Text('Formulario de creación de asiento contable'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Asiento creado exitosamente')),
-              );
-            },
-            child: const Text('Crear'),
-          ),
-        ],
+      builder: (context) => _AsientoManualFormDialog(
+        entidadId: widget.entidadId,
+        usuarioId: widget.usuarioId,
+        planCuentas: _planCuentas,
+        contabilidadService: _contabilidadService,
+        onSaved: () async {
+          setState(() => _loading = true);
+          await _cargarDatos();
+          setState(() => _loading = false);
+          _mostrarExito('Asiento creado correctamente');
+        },
       ),
     );
   }
 
-  void _consultarSaldos() {
+  void _mostrarConfiguracionSituacion() {
+    final formKey = GlobalKey<FormState>();
+    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    DateTime fechaCorte = DateTime.now();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Consultar Saldos'),
-        content: const Text('Consulta de saldos por cuenta y vigencia'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Generar Estado Situación Financiera'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: vigenciaController,
+                  decoration: const InputDecoration(labelText: 'Vigencia (Año)'),
+                  keyboardType: TextInputType.number,
+                  validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Fecha de Corte: ${fechaCorte.toString().split(' ')[0]}'),
+                    TextButton(
+                      onPressed: () async {
+                        final selected = await showDatePicker(
+                          context: context,
+                          initialDate: fechaCorte,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (selected != null) {
+                          setDialogState(() {
+                            fechaCorte = selected;
+                          });
+                        }
+                      },
+                      child: const Text('Seleccionar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(context);
+                  _generarEstadoSituacion(vigenciaController.text, fechaCorte);
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              child: const Text('Generar'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _generarEstadoSituacion() {
+  void _generarEstadoSituacion(String vigencia, DateTime fechaCorte) async {
+    setState(() => _loading = true);
+    try {
+      final esf = await _cierreService.generarEstadoSituacionFinanciera(
+        entidadId: widget.entidadId,
+        vigencia: vigencia,
+        fechaCorte: fechaCorte,
+      );
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Estado Situación Financiera'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Entidad ID: ${esf.entidadId}'),
+              Text('Vigencia: ${esf.vigencia}'),
+              Text('Fecha Corte: ${esf.fechaCorte.toString().split(' ')[0]}'),
+              const Divider(),
+              Text('Total Activos: \$${esf.totalActivo.toStringAsFixed(2)}'),
+              Text('Total Pasivos: \$${esf.totalPasivo.toStringAsFixed(2)}'),
+              Text('Total Patrimonio: \$${esf.totalPatrimonio.toStringAsFixed(2)}'),
+              const Divider(),
+              Text(
+                'Diferencia (Activo - Pasivo - Pat): \$${(esf.totalActivo - esf.totalPasivo - esf.totalPatrimonio).abs().toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      _mostrarError('Error al generar balance: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  void _mostrarConfiguracionResultados() {
+    final formKey = GlobalKey<FormState>();
+    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    DateTime fechaInicio = DateTime(DateTime.now().year, 1, 1);
+    DateTime fechaFin = DateTime(DateTime.now().year, 12, 31);
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Estado de Situación Financiera'),
-        content: const Text('Generación de Balance General según NICSP 1'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Generar Estado de Resultados'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: vigenciaController,
+                  decoration: const InputDecoration(labelText: 'Vigencia (Año)'),
+                  keyboardType: TextInputType.number,
+                  validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Inicio: ${fechaInicio.toString().split(' ')[0]}'),
+                    TextButton(
+                      onPressed: () async {
+                        final selected = await showDatePicker(
+                          context: context,
+                          initialDate: fechaInicio,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (selected != null) {
+                          setDialogState(() {
+                            fechaInicio = selected;
+                          });
+                        }
+                      },
+                      child: const Text('Cambiar'),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Fin: ${fechaFin.toString().split(' ')[0]}'),
+                    TextButton(
+                      onPressed: () async {
+                        final selected = await showDatePicker(
+                          context: context,
+                          initialDate: fechaFin,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (selected != null) {
+                          setDialogState(() {
+                            fechaFin = selected;
+                          });
+                        }
+                      },
+                      child: const Text('Cambiar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Estado generado exitosamente')),
-              );
-            },
-            child: const Text('Generar'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(context);
+                  _generarEstadoResultado(vigenciaController.text, fechaInicio, fechaFin);
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              child: const Text('Generar'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _generarEstadoResultado() {
+  void _generarEstadoResultado(String vigencia, DateTime fechaInicio, DateTime fechaFin) async {
+    setState(() => _loading = true);
+    try {
+      final er = await _cierreService.generarEstadoResultado(
+        entidadId: widget.entidadId,
+        vigencia: vigencia,
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin,
+      );
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Estado de Resultado Operacional'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Vigencia: ${er.vigencia}'),
+              Text('Periodo: ${er.fechaInicio.toString().split(' ')[0]} a ${er.fechaFin.toString().split(' ')[0]}'),
+              const Divider(),
+              Text('Ingresos Fiscales: \$${er.totalIngresos.toStringAsFixed(2)}'),
+              Text('Gastos de Operación: \$${er.totalGastos.toStringAsFixed(2)}'),
+              const Divider(),
+              Text(
+                'Resultado Operacional: \$${er.resultadoOperacional.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: er.resultadoOperacional >= 0 ? Colors.green : Colors.red,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      _mostrarError('Error al generar estado de resultados: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  void _mostrarConfiguracionFlujos() {
+    final formKey = GlobalKey<FormState>();
+    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    DateTime fechaInicio = DateTime(DateTime.now().year, 1, 1);
+    DateTime fechaFin = DateTime(DateTime.now().year, 12, 31);
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Estado de Resultado'),
-        content: const Text('Generación de PyG según NICSP 1'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Generar Estado de Flujos de Efectivo'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: vigenciaController,
+                  decoration: const InputDecoration(labelText: 'Vigencia (Año)'),
+                  keyboardType: TextInputType.number,
+                  validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Inicio: ${fechaInicio.toString().split(' ')[0]}'),
+                    TextButton(
+                      onPressed: () async {
+                        final selected = await showDatePicker(
+                          context: context,
+                          initialDate: fechaInicio,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (selected != null) {
+                          setDialogState(() {
+                            fechaInicio = selected;
+                          });
+                        }
+                      },
+                      child: const Text('Cambiar'),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Fin: ${fechaFin.toString().split(' ')[0]}'),
+                    TextButton(
+                      onPressed: () async {
+                        final selected = await showDatePicker(
+                          context: context,
+                          initialDate: fechaFin,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (selected != null) {
+                          setDialogState(() {
+                            fechaFin = selected;
+                          });
+                        }
+                      },
+                      child: const Text('Cambiar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Estado generado exitosamente')),
-              );
-            },
-            child: const Text('Generar'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(context);
+                  _generarEstadoFlujos(vigenciaController.text, fechaInicio, fechaFin);
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              child: const Text('Generar'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _generarEstadoFlujos() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Estado de Flujos de Efectivo'),
-        content: const Text('Generación según NICSP 2'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
+  void _generarEstadoFlujos(String vigencia, DateTime fechaInicio, DateTime fechaFin) async {
+    setState(() => _loading = true);
+    try {
+      final efe = await _cierreService.generarEstadoFlujosEfectivo(
+        entidadId: widget.entidadId,
+        vigencia: vigencia,
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin,
+      );
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Estado de Flujos de Efectivo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Vigencia: ${efe.vigencia}'),
+              Text('Periodo: ${efe.fechaInicio.toString().split(' ')[0]} a ${efe.fechaFin.toString().split(' ')[0]}'),
+              const Divider(),
+              Text('Flujos Operación: \$${efe.totalActividadesOperacion.toStringAsFixed(2)}'),
+              Text('Flujos Inversión: \$${efe.totalActividadesInversion.toStringAsFixed(2)}'),
+              Text('Flujos Financiación: \$${efe.totalActividadesFinanciacion.toStringAsFixed(2)}'),
+              const Divider(),
+              Text(
+                'Aumento/Disminución Neto: \$${efe.variacionNetaEfectivo.toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Estado generado exitosamente')),
-              );
-            },
-            child: const Text('Generar'),
-          ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      _mostrarError('Error al generar flujos: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
   }
 
   void _ejecutarCierre() {
+    final formKey = GlobalKey<FormState>();
+    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final motivoController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Ejecutar Cierre de Vigencia'),
-        content: const Text(
-          'Esta acción cerrará la vigencia y generará los asientos de cierre y apertura. '
-          '¿Desea continuar?',
+        title: const Text('Confirmar Cierre de Vigencia'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: vigenciaController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Vigencia (Año)'),
+                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: motivoController,
+                decoration: const InputDecoration(labelText: 'Motivo / Justificación Legal del Cierre'),
+                validator: (value) => value == null || value.isEmpty ? 'El motivo es obligatorio' : null,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -348,19 +821,309 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Cierre ejecutado exitosamente')),
-              );
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context);
+                setState(() => _loading = true);
+                try {
+                  final resultado = await _cierreService.ejecutarCierreVigencia(
+                    entidadId: widget.entidadId,
+                    usuarioId: widget.usuarioId,
+                    vigencia: vigenciaController.text,
+                    motivo: motivoController.text,
+                  );
+                  _mostrarExito(
+                    'Cierre ejecutado: Reservas \$${(resultado['reservas'] as double).toStringAsFixed(2)}, '
+                    'Cuentas por pagar \$${(resultado['cuentas_por_pagar'] as double).toStringAsFixed(2)}',
+                  );
+                  await _cargarDatos();
+                } catch (e) {
+                  _mostrarError('Error al ejecutar cierre: $e');
+                } finally {
+                  setState(() => _loading = false);
+                }
+              }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Ejecutar Cierre'),
           ),
         ],
       ),
     );
   }
+}
+
+class _AsientoManualFormDialog extends StatefulWidget {
+  final String entidadId;
+  final String usuarioId;
+  final List<Map<String, dynamic>> planCuentas;
+  final ContabilidadNICSPService contabilidadService;
+  final VoidCallback onSaved;
+
+  const _AsientoManualFormDialog({
+    required this.entidadId,
+    required this.usuarioId,
+    required this.planCuentas,
+    required this.contabilidadService,
+    required this.onSaved,
+  });
+
+  @override
+  State<_AsientoManualFormDialog> createState() => _AsientoManualFormDialogState();
+}
+
+class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _descripcionController = TextEditingController();
+  final _observacionesController = TextEditingController();
+  final List<_DetalleRow> _detalles = [];
+  DateTime _fechaAsiento = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    // Iniciar con dos filas vacías por defecto (débito y crédito)
+    _agregarFila();
+    _agregarFila();
+  }
+
+  void _agregarFila() {
+    setState(() {
+      _detalles.add(_DetalleRow(
+        cuentaController: TextEditingController(),
+        debitoController: TextEditingController(text: '0.0'),
+        creditoController: TextEditingController(text: '0.0'),
+      ));
+    });
+  }
+
+  void _eliminarFila(int index) {
+    if (_detalles.length <= 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Un asiento requiere mínimo 2 registros')),
+      );
+      return;
+    }
+    setState(() {
+      _detalles.removeAt(index);
+    });
+  }
+
+  double get _totalDebitos {
+    return _detalles.fold(0.0, (sum, row) {
+      final val = double.tryParse(row.debitoController.text) ?? 0.0;
+      return sum + val;
+    });
+  }
+
+  double get _totalCreditos {
+    return _detalles.fold(0.0, (sum, row) {
+      final val = double.tryParse(row.creditoController.text) ?? 0.0;
+      return sum + val;
+    });
+  }
+
+  Future<void> _guardar() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if ((_totalDebitos - _totalCreditos).abs() >= 0.01) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'El asiento no está cuadrado. '
+            'Débitos: \$${_totalDebitos.toStringAsFixed(2)} | '
+            'Créditos: \$${_totalCreditos.toStringAsFixed(2)}'
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final detallesAsiento = _detalles.map((row) {
+        // Encontrar cuenta en el plan
+        final cuenta = widget.planCuentas.firstWhere(
+          (c) => c['codigo_cuenta'] == row.cuentaController.text,
+        );
+
+        return DetalleAsiento(
+          id: '', // Se genera en el servicio
+          cuentaCodigo: cuenta['codigo_cuenta'] as String,
+          cuentaNombre: cuenta['nombre_cuenta'] as String,
+          debito: double.parse(row.debitoController.text),
+          credito: double.parse(row.creditoController.text),
+        );
+      }).toList();
+
+      await widget.contabilidadService.crearAsientoManual(
+        entidadId: widget.entidadId,
+        usuarioId: widget.usuarioId,
+        fechaAsiento: _fechaAsiento,
+        descripcion: _descripcionController.text,
+        detalles: detallesAsiento,
+        observaciones: _observacionesController.text.isEmpty ? null : _observacionesController.text,
+      );
+
+      widget.onSaved();
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Crear Asiento Manual'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _descripcionController,
+                  decoration: const InputDecoration(labelText: 'Descripción / Concepto'),
+                  validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                ),
+                TextFormField(
+                  controller: _observacionesController,
+                  decoration: const InputDecoration(labelText: 'Observaciones (Opcional)'),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Fecha de Asiento: ${_fechaAsiento.toString().split(' ')[0]}'),
+                    TextButton.icon(
+                      icon: const Icon(Icons.calendar_month),
+                      label: const Text('Seleccionar'),
+                      onPressed: () async {
+                        final selected = await showDatePicker(
+                          context: context,
+                          initialDate: _fechaAsiento,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (selected != null) {
+                          setState(() {
+                            _fechaAsiento = selected;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Detalle de Asiento (Partida Doble)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const Divider(),
+                ...List.generate(_detalles.length, (index) {
+                  final row = _detalles[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: row.cuentaController.text.isEmpty ? null : row.cuentaController.text,
+                            decoration: const InputDecoration(labelText: 'Cuenta'),
+                            items: widget.planCuentas.map((c) {
+                              return DropdownMenuItem<String>(
+                                value: c['codigo_cuenta'] as String,
+                                child: Text('${c['codigo_cuenta']} - ${c['nombre_cuenta']}'),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                row.cuentaController.text = val ?? '';
+                              });
+                            },
+                            validator: (value) => value == null ? 'Requerido' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 1,
+                          child: TextFormField(
+                            controller: row.debitoController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'Débito'),
+                            onChanged: (val) => setState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 1,
+                          child: TextFormField(
+                            controller: row.creditoController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'Crédito'),
+                            onChanged: (val) => setState(() {}),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _eliminarFila(index),
+                        )
+                      ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _agregarFila,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Agregar Fila'),
+                ),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Total Débitos: \$${_totalDebitos.toStringAsFixed(2)}'),
+                    Text('Total Créditos: \$${_totalCreditos.toStringAsFixed(2)}'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _guardar,
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DetalleRow {
+  final TextEditingController cuentaController;
+  final TextEditingController debitoController;
+  final TextEditingController creditoController;
+
+  _DetalleRow({
+    required this.cuentaController,
+    required this.debitoController,
+    required this.creditoController,
+  });
 }
