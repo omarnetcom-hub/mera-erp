@@ -229,6 +229,7 @@ class _CopilotPanelState extends State<CopilotPanel> {
               FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.all(12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

@@ -488,7 +488,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                           onPressed: () => _sincronizarContrato(contrato),
                           icon: Icon(Icons.sync, size: 16),
                           label: const Text('Sincronizar'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
                         ),
                       ),
                     );
@@ -625,7 +626,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Crear'),
             ),
           ],
@@ -693,7 +695,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Asociar'),
             ),
           ],
@@ -751,7 +754,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Publicar'),
           ),
         ],
@@ -823,7 +827,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Adjudicar'),
           ),
         ],
@@ -1024,7 +1029,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Crear'),
             ),
           ],
@@ -1186,7 +1192,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Registrar'),
             ),
           ],

@@ -488,6 +488,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
                 onPressed: _loading ? null : _activateOffline,
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
                 ),
                 child: _loading
                     ? const SizedBox(

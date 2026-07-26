@@ -196,6 +196,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
               label: const Text('Crear Reporte'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -269,6 +270,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
               label: const Text('Iniciar Proceso'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -349,13 +351,15 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                     onPressed: _generarConsolidadoJerarquico,
                     icon: Icon(Icons.account_balance),
                     label: const Text('Consolidado Jerárquico'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.secondary),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.secondary
+foregroundColor: Colors.white,),
                   ),
                   ElevatedButton.icon(
                     onPressed: _generarReporteNICSP40,
                     icon: Icon(Icons.assessment),
                     label: const Text('Reporte NICSP 40'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
                   ),
                 ],
               ),
@@ -608,7 +612,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Crear'),
             ),
           ],
@@ -659,7 +664,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Publicar'),
           ),
         ],
@@ -784,7 +790,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Iniciar'),
             ),
           ],
@@ -876,7 +883,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Registrar'),
             ),
           ],
@@ -1007,7 +1015,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Registrar'),
             ),
           ],
@@ -1072,7 +1081,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Actualizar'),
           ),
         ],
@@ -1122,7 +1132,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Generar'),
           ),
         ],
@@ -1172,7 +1183,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.secondary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.secondary
+foregroundColor: Colors.white,),
             child: const Text('Consolidar'),
           ),
         ],

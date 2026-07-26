@@ -822,6 +822,7 @@ class _SalesModePanelState extends State<SalesModePanel> {
                     label: const Text('COBRAR [F10]', style: TextStyle(fontWeight: FontWeight.bold)),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),

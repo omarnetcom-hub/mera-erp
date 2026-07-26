@@ -573,6 +573,7 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
             label: const Text('ACTIVAR EN LÍNEA', style: TextStyle(fontWeight: FontWeight.bold)),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
@@ -612,6 +613,7 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
                 label: const Text('ACTIVAR OFFLINE', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),

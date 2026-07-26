@@ -185,6 +185,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               label: const Text('Crear Asiento Manual'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -368,6 +369,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               label: const Text('Ejecutar Cierre Presupuestal y Contable'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               ),
             ),
@@ -454,7 +456,8 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                   _generarEstadoSituacion(vigenciaController.text, fechaCorte);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Generar'),
             ),
           ],
@@ -592,7 +595,8 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                   _generarEstadoResultado(vigenciaController.text, fechaInicio, fechaFin);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Generar'),
             ),
           ],
@@ -732,7 +736,8 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                   _generarEstadoFlujos(vigenciaController.text, fechaInicio, fechaFin);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Generar'),
             ),
           ],
@@ -846,7 +851,8 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red
+foregroundColor: Colors.white,),
             child: const Text('Ejecutar Cierre'),
           ),
         ],
@@ -1110,7 +1116,8 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
         ),
         ElevatedButton(
           onPressed: _guardar,
-          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
           child: const Text('Guardar'),
         ),
       ],

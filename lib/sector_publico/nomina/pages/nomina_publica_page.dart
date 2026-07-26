@@ -231,6 +231,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
               label: const Text('Registrar Empleado'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -285,6 +286,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
               label: const Text('Liquidar Nómina'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -381,6 +383,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
               label: const Text('Calcular Retroactivo'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -465,6 +468,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             label: const Text('Generar Liquidación PILA'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             ),
           ),
@@ -497,7 +501,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   onPressed: _enviarOperadorPILA,
                   icon: Icon(Icons.send),
                   label: const Text('Enviar a Operador'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green
+foregroundColor: Colors.white,),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
@@ -601,6 +606,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
               label: const Text('Guardar Parámetros'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
@@ -771,7 +777,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Registrar'),
             ),
           ],
@@ -869,7 +876,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Liquidar'),
             ),
           ],
@@ -1026,7 +1034,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Calcular'),
             ),
           ],
@@ -1085,7 +1094,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Aprobar'),
           ),
         ],
@@ -1144,7 +1154,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Registrar Pago'),
           ),
         ],
@@ -1195,7 +1206,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Calcular'),
           ),
         ],
@@ -1253,7 +1265,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Enviar'),
           ),
         ],

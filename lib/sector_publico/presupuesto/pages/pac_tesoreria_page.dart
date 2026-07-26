@@ -231,6 +231,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
               label: const Text('Programar PAC'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -360,6 +361,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
             label: const Text('Registrar Traslado de Cupo'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             ),
           ),
@@ -387,6 +389,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
               label: const Text('Registrar Embargo Judicial'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -519,7 +522,8 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Programar'),
             ),
           ],
@@ -585,7 +589,8 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Aprobar'),
           ),
         ],
@@ -657,7 +662,8 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Modificar'),
           ),
         ],
@@ -781,7 +787,8 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
               child: const Text('Trasladar'),
             ),
           ],
@@ -858,7 +865,8 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
+foregroundColor: Colors.white,),
             child: const Text('Registrar'),
           ),
         ],
