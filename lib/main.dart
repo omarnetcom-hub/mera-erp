@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:sqflite/sqflite.dart';
@@ -49,6 +50,15 @@ part 'ui/widgets/workspace_widgets.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_CO');
+
+  // Cargar variables de entorno (.env). isOptional=true para que no falle
+  // si el archivo está vacío o no existe (modo offline / sin credenciales API).
+  try {
+    await dotenv.load(fileName: '.env', mergeWith: {});
+  } catch (_) {
+    // .env ausente o vacío — los servicios que dependen de claves API
+    // operarán en modo local/SQLite sin integración externa.
+  }
 
   final bootstrap = await AppBootstrap.initialize(
     configureDatabase: () async {

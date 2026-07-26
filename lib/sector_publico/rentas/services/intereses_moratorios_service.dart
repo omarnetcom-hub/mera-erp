@@ -28,10 +28,19 @@ class InteresesMoratoriosService {
     receiveTimeout: _timeout,
     headers: {
       'Content-Type': 'application/json',
-      'X-App-Token': dotenv.env['SOCRATA_APP_TOKEN'] ?? '',
-      'Authorization': dotenv.env['SOCRATA_AUTH_HEADER'] ?? '',
+      'X-App-Token': _safeEnv('SOCRATA_APP_TOKEN'),
+      'Authorization': _safeEnv('SOCRATA_AUTH_HEADER'),
     },
   ));
+
+  /// Lee una variable de entorno sin lanzar NotInitializedError si dotenv no cargó.
+  static String _safeEnv(String key) {
+    try {
+      return dotenv.env[key] ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
 
   /// Obtiene la tasa de mora actual (Usura - 2 puntos)
   double get tasaMoraMensual {

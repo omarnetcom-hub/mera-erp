@@ -47,10 +47,19 @@ class SECOPService {
     receiveTimeout: _timeout,
     headers: {
       'Content-Type': 'application/json',
-      'X-App-Token': dotenv.env['SOCRATA_APP_TOKEN'] ?? '',
-      'Authorization': dotenv.env['SOCRATA_AUTH_HEADER'] ?? '',
+      'X-App-Token': _safeEnv('SOCRATA_APP_TOKEN'),
+      'Authorization': _safeEnv('SOCRATA_AUTH_HEADER'),
     },
   ));
+
+  /// Lee una variable de entorno sin lanzar NotInitializedError si dotenv no cargó.
+  static String _safeEnv(String key) {
+    try {
+      return dotenv.env[key] ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
 
   /// Publica un proceso en SECOP II vía X-Road
   /// VALIDACIÓN NORMATIVA: Todos los procesos deben publicarse en SECOP II
