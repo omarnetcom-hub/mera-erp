@@ -1345,7 +1345,7 @@ class _WorkspaceModeSelector extends StatelessWidget {
             (
               _WorkspaceMode.publicBudget,
               PhosphorIcons.chartBar(),
-              'Ejecucion Presupuestal',
+              'Ejecución Presupuestal',
             ),
             (
               _WorkspaceMode.publicCompliance,

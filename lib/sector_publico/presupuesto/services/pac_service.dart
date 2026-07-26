@@ -497,7 +497,7 @@ class PACService {
         SUM(saldo_disponible) as total_saldo
       FROM pac
       WHERE entidad_id = ? AND vigencia = ?
-      GROUP BY mes 1
+      GROUP BY mes
       ORDER BY mes
     ''', [entidadId, vigencia]);
 

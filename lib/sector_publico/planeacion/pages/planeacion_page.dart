@@ -194,6 +194,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
               label: const Text('Registrar Proyecto MGA'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -279,6 +280,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
               label: const Text('Crear PDT'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -309,7 +311,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
             trailing: pdt.estado == EstadoPDT.borrador
                 ? ElevatedButton(
                     onPressed: () => _aprobarPDTConcejoDialog(pdt),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
                     child: const Text('Aprobar Concejo', style: TextStyle(fontSize: 11)),
                   )
                 : const Chip(

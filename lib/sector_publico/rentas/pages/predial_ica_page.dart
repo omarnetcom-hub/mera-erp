@@ -77,9 +77,13 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al inicializar servicios de Rentas: $e'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('No se pudo inicializar el módulo de Rentas. Verifica la conexión e intenta de nuevo.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
+      debugPrint('Error al inicializar servicios de Rentas: $e');
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -107,9 +111,13 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar datos de Rentas: $e'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('No se pudieron cargar los datos de Rentas. Intenta de nuevo.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
+      debugPrint('Error al cargar datos de Rentas: $e');
     }
   }
 
@@ -193,7 +201,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
               onPressed: _registrarPredioDialog,
               icon: Icon(Icons.add),
               label: const Text('Cargar Catastro IGAC'),
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
             ),
           ],
         ),
@@ -240,7 +248,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
               onPressed: _liquidacionMasivaDialog,
               icon: Icon(Icons.playlist_add_check),
               label: const Text('Liquidación Masiva'),
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
             ),
           ],
         ),
@@ -286,7 +294,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             onPressed: _crearAcuerdoDialog,
             icon: Icon(Icons.add),
             label: const Text('Crear Acuerdo de Pago'),
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
           ),
         ],
       ),
@@ -308,7 +316,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             onPressed: _iniciarCobroCoactivoDialog,
             icon: Icon(Icons.gavel),
             label: const Text('Iniciar Cobro Coactivo'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
           ),
         ],
       ),

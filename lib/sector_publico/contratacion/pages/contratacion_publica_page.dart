@@ -72,7 +72,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
       await _cargarDatos();
     } catch (e) {
-      _mostrarError('Error al inicializar servicios: $e');
+      _mostrarError('No se pudo inicializar el módulo de Contratación. Verifica la conexión e intenta de nuevo.');
+      debugPrint('Error al inicializar servicios de Contratación: $e');
     } finally {
       setState(() => _loading = false);
     }
@@ -219,6 +220,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               label: const Text('Crear Proceso'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -314,6 +316,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               label: const Text('Crear Contrato'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -390,6 +393,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               label: const Text('Registrar Póliza'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],

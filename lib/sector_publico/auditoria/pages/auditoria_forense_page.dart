@@ -433,6 +433,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
             label: const Text('Verificar Cadena Completa'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
           ),

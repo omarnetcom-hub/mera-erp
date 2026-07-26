@@ -190,6 +190,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               label: const Text('Crear Apropiación'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -261,6 +262,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               label: const Text('Expedir CDP'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -323,6 +325,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               label: const Text('Expedir RP'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -385,6 +388,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               label: const Text('Registrar Obligación'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
@@ -448,6 +452,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               label: const Text('Programar Pago'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
