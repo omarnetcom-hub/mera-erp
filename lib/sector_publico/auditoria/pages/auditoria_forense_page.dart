@@ -7,6 +7,8 @@ import '../services/fut_territorial_service.dart';
 import '../../siif/pages/siif_page.dart';
 import '../../models/registro_auditoria.dart';
 import '../models/reporte_chip.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class AuditoriaForensePage extends StatefulWidget {
   final String entidadId;
@@ -140,7 +142,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titulos[_selectedIndex]),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -157,7 +159,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF006D77),
+        selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
@@ -206,7 +208,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                         ),
                         trailing: Text(
                           '#${reg.hashActual.substring(0, 8)}',
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                          style: TextStyle(fontFamily: 'monospace', fontSize: 11),
                         ),
                         isThreeLine: true,
                         onTap: () => _mostrarDetalleRegistro(reg),
@@ -266,7 +268,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextButton.icon(
-                icon: const Icon(Icons.date_range),
+                icon: Icon(Icons.date_range),
                 label: Text(_fechaDesde == null ? 'Desde: Inicial' : 'Desde: ${_fechaDesde!.toString().split(' ')[0]}'),
                 onPressed: () async {
                   final d = await showDatePicker(
@@ -282,7 +284,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                 },
               ),
               TextButton.icon(
-                icon: const Icon(Icons.date_range),
+                icon: Icon(Icons.date_range),
                 label: Text(_fechaHasta == null ? 'Hasta: Actual' : 'Hasta: ${_fechaHasta!.toString().split(' ')[0]}'),
                 onPressed: () async {
                   final d = await showDatePicker(
@@ -298,7 +300,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.clear_all),
+                icon: Icon(Icons.clear_all),
                 tooltip: 'Limpiar Filtros',
                 onPressed: () {
                   setState(() {
@@ -331,9 +333,9 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
               ),
               ElevatedButton.icon(
                 onPressed: _dialogoGenerarCHIP,
-                icon: const Icon(Icons.add),
+                icon: Icon(Icons.add),
                 label: const Text('Generar Paquete CHIP'),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               ),
             ],
           ),
@@ -350,7 +352,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ExpansionTile(
                         title: Text(rep.nombreFormulario),
-                        subtitle: Text('Vigencia: ${rep.vigencia} | Fecha: ${rep.fechaGeneracion.toLocal().toString().split(' ')[0]}'),
+                        subtitle: Text('Vigencia: ${rep.vigencia} | Fecha: ${DateFormatter.format(rep.fechaGeneracion)}'),
                         trailing: Chip(
                           label: Text(rep.estado.toUpperCase()),
                           backgroundColor: rep.estado == 'enviado' ? Colors.green : Colors.grey,
@@ -372,20 +374,20 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     TextButton.icon(
-                                      icon: const Icon(Icons.text_snippet),
+                                      icon: Icon(Icons.text_snippet),
                                       label: const Text('Exportar Plano'),
                                       onPressed: () => _exportarPlanoCHIP(rep),
                                     ),
                                     const SizedBox(width: 8),
                                     TextButton.icon(
-                                      icon: const Icon(Icons.verified),
+                                      icon: Icon(Icons.verified),
                                       label: const Text('Validar Estructura'),
                                       onPressed: () => _validarEstructuraCHIP(rep),
                                     ),
                                     if (rep.estado != 'enviado') ...[
                                       const SizedBox(width: 8),
                                       TextButton.icon(
-                                        icon: const Icon(Icons.send),
+                                        icon: Icon(Icons.send),
                                         label: const Text('Marcar Enviado'),
                                         onPressed: () => _marcarEnviadoCHIP(rep),
                                       ),
@@ -411,7 +413,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.shield_outlined, size: 96, color: Color(0xFF006D77)),
+          Icon(Icons.shield_outlined, size: 96, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 24),
           const Text(
             'Verificación Criptográfica de la Cadena',
@@ -427,10 +429,10 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
           const SizedBox(height: 40),
           ElevatedButton.icon(
             onPressed: _verificarIntegridadChain,
-            icon: const Icon(Icons.verified),
+            icon: Icon(Icons.verified),
             label: const Text('Verificar Cadena Completa'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
+              backgroundColor: Theme.of(context).colorScheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
           ),
@@ -446,10 +448,10 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
           ),
           const SizedBox(height: 8),
           ListTile(
-            leading: const Icon(Icons.cloud_upload, color: Color(0xFF006D77)),
+            leading: Icon(Icons.cloud_upload, color: Theme.of(context).colorScheme.primary),
             title: const Text('Módulo SIIF Nación II (MinHacienda)'),
             subtitle: const Text('Consolidación y exportación de reportes presupuestales y financieros mensuales.'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            trailing: Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
               Navigator.push(
                 context,
@@ -463,17 +465,17 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.assessment, color: Color(0xFF006D77)),
+            leading: Icon(Icons.assessment, color: Theme.of(context).colorScheme.primary),
             title: const Text('Rendición SIA Observa (CGR)'),
             subtitle: const Text('Consolidado anual de Contratación, Presupuesto y Nómina para Plan de Mejoramiento.'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            trailing: Icon(Icons.arrow_forward_ios, size: 16),
             onTap: _dialogoGenerarSIAObserva,
           ),
           ListTile(
-            leading: const Icon(Icons.assignment_turned_in, color: Color(0xFF006D77)),
+            leading: Icon(Icons.assignment_turned_in, color: Theme.of(context).colorScheme.primary),
             title: const Text('Reportes FUT Territorial (DNP)'),
             subtitle: const Text('Estructuración trimestral de Ingresos, Gastos, Deuda Pública y Regalías.'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            trailing: Icon(Icons.arrow_forward_ios, size: 16),
             onTap: _dialogoGenerarFUTTerritorial,
           ),
         ],
@@ -664,17 +666,17 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
         final anom = _anomalias[index];
         final esHoraNoLaboral = anom.fechaHora.hour >= 22 || anom.fechaHora.hour < 5;
         return Card(
-          color: const Color(0xFFFFF3E0),
+          color: AppTheme.getWarningColor(context).withOpacity(0.12),
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
-            leading: const Icon(Icons.warning, color: Colors.orange),
+            leading: Icon(Icons.warning, color: Colors.orange),
             title: Text('Anomalía: ${anom.accion}'),
             subtitle: Text(
               '${esHoraNoLaboral ? "REGISTRO NOCTURNO INUSUAL" : "INTENTO DE ELIMINACIÓN BLOQUEADO"}\n'
               'Módulo: ${anom.modulo} | Usuario: ${anom.usuarioNombre ?? anom.usuarioId}\n'
               'Fecha: ${anom.fechaHora.toLocal()}',
             ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            trailing: Icon(Icons.arrow_forward_ios, size: 16),
             isThreeLine: true,
             onTap: () => _mostrarDetalleRegistro(anom),
           ),
@@ -786,7 +788,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ID: ${reg.id}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('ID: ${reg.id}', style: TextStyle(fontSize: 12, color: Colors.grey)),
               const Divider(),
               Text('Módulo: ${reg.modulo}'),
               Text('Tipo Evento: ${reg.tipoEvento.toString().split('.').last}'),
@@ -800,8 +802,8 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
               const Text('Valor Nuevo:', style: TextStyle(fontWeight: FontWeight.bold)),
               Text(reg.valorNuevo.toString()),
               const Divider(),
-              Text('Hash Anterior: ${reg.hashAnterior ?? "N/A"}', style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
-              Text('Hash Actual: ${reg.hashActual}', style: const TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold)),
+              Text('Hash Anterior: ${reg.hashAnterior ?? "N/A"}', style: TextStyle(fontFamily: 'monospace', fontSize: 11)),
+              Text('Hash Actual: ${reg.hashActual}', style: TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold)),
               if (reg.observaciones != null) ...[
                 const Divider(),
                 Text('Observaciones: ${reg.observaciones}'),
@@ -909,7 +911,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('CGN 2015_001 (Datos de la Entidad):', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF006D77))),
+                  Text('CGN 2015_001 (Datos de la Entidad):', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                   const SizedBox(height: 6),
                   Text('NIT: ${datosEntidad!['nit']}'),
                   Text('Razón Social: ${datosEntidad['razon_social']}'),
@@ -936,7 +938,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                     validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 16),
-                  const Text('Funcionarios Responsables (Firmas CHIP):', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF006D77))),
+                  Text('Funcionarios Responsables (Firmas CHIP):', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: representanteController,
@@ -974,7 +976,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                     validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 16),
-                  const Text('CGN 2015_002 (Ingresos y Gastos):', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF006D77))),
+                  Text('CGN 2015_002 (Ingresos y Gastos):', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: tributariosController,
@@ -1013,7 +1015,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                     validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 16),
-                  const Text('CGN 2015_003 (Balance / Situación Financiera):', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF006D77))),
+                  Text('CGN 2015_003 (Balance / Situación Financiera):', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: activoCorrController,
@@ -1161,7 +1163,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Generar'),
             ),
           ],
@@ -1185,7 +1187,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
               color: Colors.black87,
               child: Text(
                 plano,
-                style: const TextStyle(color: Colors.greenAccent, fontFamily: 'monospace', fontSize: 11),
+                style: TextStyle(color: Colors.greenAccent, fontFamily: 'monospace', fontSize: 11),
               ),
             ),
           ),
@@ -1233,7 +1235,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                   const SizedBox(width: 8),
                   Text(
                     esValido ? 'Estructura Correcta' : 'Estructura con Inconsistencias',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -1242,7 +1244,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
               if (errores.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 const Text('Errores de Formato/Cuadraturas:', style: TextStyle(fontWeight: FontWeight.bold)),
-                ...errores.map((e) => Text('• $e', style: const TextStyle(color: Colors.red))),
+                ...errores.map((e) => Text('• $e', style: TextStyle(color: Colors.red))),
               ] else
                 const Text('• Cumple con reglas de balance activo/pasivo+patrimonio.'),
             ],
@@ -1301,7 +1303,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                     ? 'INTEGRIDAD CONFIRMADA: La secuencia completa de hashes SHA-256 está intacta. No hay registros alterados ni eliminados.'
                     : 'ALERTA DE SEGURIDAD: La secuencia de hashes está rota. Se detectaron modificaciones directas o registros eliminados en la base de datos.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),

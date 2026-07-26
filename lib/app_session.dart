@@ -1,6 +1,8 @@
 import 'features/company_configuration_service.dart';
 import 'features/module_definition.dart';
 import 'core/security/action_permission.dart';
+import 'db_helper.dart';
+import 'sector_publico/security/roles_permisos_service.dart';
 
 class AppSession {
   static Map<String, dynamic>? usuarioActual;
@@ -25,11 +27,22 @@ class AppSession {
   }
 
   static String? _entidadIdActiva;
+  static RolSectorPublico? _rolSectorPublico;
 
   static String get entidadId => _entidadIdActiva ?? 'ENT-001';
 
   static void establecerEntidadActiva(String id) {
     _entidadIdActiva = id;
+  }
+
+  static Future<RolSectorPublico?> cargarRolSectorPublico() async {
+    final db = await DatabaseHelper.instance.database;
+    _rolSectorPublico = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+      db: db,
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+    );
+    return _rolSectorPublico;
   }
 
   static void iniciar(Map<String, dynamic> usuario) {
@@ -38,6 +51,7 @@ class AppSession {
 
   static void cerrar() {
     usuarioActual = null;
+    _rolSectorPublico = null;
   }
 
   static bool puedeAbrir(String modulo) {
@@ -107,6 +121,9 @@ class AppSession {
 
   static bool puedeAbrirModulo(ModuleDefinition modulo) {
     if (modulo.requiresAdmin && !puedeAdministrar()) return false;
+    if (_esModuloSectorPublico(modulo.id)) {
+      return _puedeAbrirModuloSectorPublico(modulo.id);
+    }
     if (!puedeAbrir(modulo.permissionLabel ?? modulo.title)) return false;
     if (!puedeEjecutarAccion(modulo.id, AppAction.view)) return false;
     final featureKey = modulo.featureKey;
@@ -123,6 +140,106 @@ class AppSession {
       action: accion,
     );
   }
+
+  static bool _esModuloSectorPublico(String moduloId) {
+    const ids = {
+      'presupuesto_publico',
+      'pac',
+      'contabilidad_nicsp',
+      'estado_flujos_efectivo',
+      'provisiones_nicsp',
+      'contratacion_publica',
+      'secop_ii',
+      'interventoria',
+      'nomina_publica',
+      'pila',
+      'horas_extra',
+      'predial',
+      'ica',
+      'rentas_departamentales',
+      'planeacion',
+      'mga',
+      'pdt',
+      'activos_estado',
+      'fut',
+      'auditoria_forense',
+      'chip',
+      'transparencia',
+      'regalias_sgp',
+      'siif',
+      'salud_publica',
+    };
+    return ids.contains(moduloId);
+  }
+
+  static bool _puedeAbrirModuloSectorPublico(String moduloId) {
+    final userRol = rol;
+    if (userRol == 'administrador' || userRol == 'sistema') return true;
+    final rolPublico = _rolSectorPublico;
+    if (rolPublico == null) return false;
+    if (RolesPermisosService.tienePermiso(
+      rolPublico,
+      Permiso.consultarTodo,
+    )) {
+      return true;
+    }
+
+    final permisos = _permisosVistaPublica[moduloId];
+    if (permisos == null) return false;
+    return permisos.any(
+      (permiso) => RolesPermisosService.tienePermiso(rolPublico, permiso),
+    );
+  }
+
+  static const Map<String, Set<Permiso>> _permisosVistaPublica = {
+    'presupuesto_publico': {
+      Permiso.modificarPAC,
+      Permiso.ejecutarPago,
+      Permiso.expedirCDP,
+      Permiso.expedirRP,
+      Permiso.registrarObligacion,
+    },
+    'pac': {
+      Permiso.modificarPAC,
+      Permiso.ejecutarPago,
+      Permiso.aprobarPago,
+    },
+    'contabilidad_nicsp': {
+      Permiso.crearAsientoContable,
+      Permiso.consultarEstadosFinancieros,
+    },
+    'estado_flujos_efectivo': {Permiso.consultarEstadosFinancieros},
+    'provisiones_nicsp': {Permiso.consultarEstadosFinancieros},
+    'contratacion_publica': {
+      Permiso.iniciarProcesoContratacion,
+      Permiso.adjudicarContrato,
+      Permiso.firmarContrato,
+      Permiso.supervisarContrato,
+    },
+    'secop_ii': {Permiso.iniciarProcesoContratacion},
+    'interventoria': {Permiso.supervisarContrato, Permiso.liquidarContrato},
+    'nomina_publica': {Permiso.liquidarNomina, Permiso.aprobarNomina},
+    'pila': {Permiso.liquidarNomina, Permiso.pagarNomina},
+    'horas_extra': {Permiso.liquidarNomina, Permiso.reliquidarNomina},
+    'predial': {Permiso.liquidarTributo, Permiso.cobrarTributo},
+    'ica': {Permiso.liquidarTributo, Permiso.cobrarTributo},
+    'rentas_departamentales': {Permiso.liquidarTributo, Permiso.cobrarTributo},
+    'planeacion': {Permiso.crearProyecto, Permiso.modificarProyecto},
+    'mga': {Permiso.crearProyecto, Permiso.vincularProyectoPresupuesto},
+    'pdt': {Permiso.crearProyecto, Permiso.aprobarProyecto},
+    'activos_estado': {Permiso.consultarEstadosFinancieros},
+    'fut': {Permiso.exportarDatos, Permiso.consultarAuditoria},
+    'auditoria_forense': {Permiso.consultarAuditoria},
+    'chip': {Permiso.exportarDatos, Permiso.consultarAuditoria},
+    'transparencia': {Permiso.exportarDatos, Permiso.consultarAuditoria},
+    'regalias_sgp': {Permiso.crearProyecto, Permiso.modificarProyecto},
+    'siif': {Permiso.exportarDatos, Permiso.consultarEstadosFinancieros},
+    'salud_publica': {
+      Permiso.expedirCDP,
+      Permiso.expedirRP,
+      Permiso.registrarObligacion,
+    },
+  };
 
   static String _normalizarModulo(String modulo) {
     final value = modulo.toLowerCase().trim();

@@ -11,6 +11,8 @@ import '../models/rp.dart';
 import '../models/obligacion.dart';
 import '../models/pago.dart';
 import '../services/presupuesto_service.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class PresupuestoPublicoPage extends StatefulWidget {
   final String entidadId;
@@ -114,7 +116,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Presupuesto Público'),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
       body: IndexedStack(
         index: _selectedIndex,
@@ -157,8 +159,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogoCreacion,
-        backgroundColor: const Color(0xFF006D77),
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Icon(Icons.add),
       ),
     );
   }
@@ -173,7 +175,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.account_balance_wallet, size: 64, color: Colors.grey),
+            Icon(Icons.account_balance_wallet, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'Apropiaciones Presupuestales',
@@ -184,10 +186,10 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => _crearApropiacion(),
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Crear Apropiación'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -208,8 +210,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Vigencia: ${apropiacion.vigencia}'),
-                Text('Valor: \$${apropiacion.valorApropiado.toStringAsFixed(2)}'),
-                Text('Saldo disponible: \$${apropiacion.saldoDisponible.toStringAsFixed(2)}'),
+                Text('Valor: ${CurrencyFormatter.format(apropiacion.valorApropiado)}'),
+                Text('Saldo disponible: ${CurrencyFormatter.format(apropiacion.saldoDisponible)}'),
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: apropiacion.valorApropiado > 0 
@@ -220,9 +222,13 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               ],
             ),
             trailing: Chip(
-              label: Text('${((apropiacion.valorPagado / apropiacion.valorApropiado) * 100).toStringAsFixed(1)}%'),
-              backgroundColor: const Color(0xFF006D77),
-              labelStyle: const TextStyle(color: Colors.white),
+              label: Text(
+                apropiacion.valorApropiado > 0
+                    ? '${((apropiacion.valorPagado / apropiacion.valorApropiado) * 100).toStringAsFixed(1)}%'
+                    : '0.0%',
+              ),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              labelStyle: TextStyle(color: Colors.white),
             ),
           ),
         );
@@ -240,7 +246,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.description, size: 64, color: Colors.grey),
+            Icon(Icons.description, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'Certificados de Disponibilidad Presupuestal',
@@ -251,10 +257,10 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => _expedirCDP(),
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Expedir CDP'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -275,9 +281,9 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Rubro: ${cdp.codigoRubro}'),
-                Text('Valor: \$${cdp.valorCDP.toStringAsFixed(2)}'),
-                Text('Saldo disponible: \$${cdp.saldoDisponible.toStringAsFixed(2)}'),
-                Text('Vence: ${cdp.fechaVigencia.toLocal().toString().split(' ')[0]}'),
+                Text('Valor: ${CurrencyFormatter.format(cdp.valorCDP)}'),
+                Text('Saldo disponible: ${CurrencyFormatter.format(cdp.saldoDisponible)}'),
+                Text('Vence: ${DateFormatter.format(cdp.fechaVigencia)}'),
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(cdp.estado.toString().split('.').last.toUpperCase()),
@@ -302,7 +308,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.assignment, size: 64, color: Colors.grey),
+            Icon(Icons.assignment, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'Registros Presupuestales',
@@ -313,10 +319,10 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => _expedirRP(),
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Expedir RP'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -338,8 +344,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               children: [
                 Text('CDP: ${rp.numeroCDP}'),
                 Text('Contrato: ${rp.contratoNumero}'),
-                Text('Valor: \$${rp.valorRP.toStringAsFixed(2)}'),
-                Text('Saldo disponible: \$${rp.saldoDisponible.toStringAsFixed(2)}'),
+                Text('Valor: ${CurrencyFormatter.format(rp.valorRP)}'),
+                Text('Saldo disponible: ${CurrencyFormatter.format(rp.saldoDisponible)}'),
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(rp.estado.toString().split('.').last.toUpperCase()),
@@ -364,7 +370,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'Obligaciones Presupuestales',
@@ -375,10 +381,10 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => _registrarObligacion(),
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Registrar Obligación'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -399,8 +405,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Tercero: ${obligacion.terceroNombre}'),
-                Text('Valor: \$${obligacion.valorObligacion.toStringAsFixed(2)}'),
-                Text('Pendiente: \$${obligacion.saldoPendiente.toStringAsFixed(2)}'),
+                Text('Valor: ${CurrencyFormatter.format(obligacion.valorObligacion)}'),
+                Text('Pendiente: ${CurrencyFormatter.format(obligacion.saldoPendiente)}'),
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(obligacion.estado.toString().split('.').last.toUpperCase()),
@@ -427,7 +433,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.payment, size: 64, color: Colors.grey),
+            Icon(Icons.payment, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'Pagos',
@@ -438,10 +444,10 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => _programarPago(),
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Programar Pago'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -462,7 +468,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Tercero: ${pago.terceroNombre}'),
-                Text('Valor: \$${pago.valorPago.toStringAsFixed(2)}'),
+                Text('Valor: ${CurrencyFormatter.format(pago.valorPago)}'),
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(pago.estado.toString().split('.').last.toUpperCase()),
@@ -760,8 +766,8 @@ class _ApropiacionFormState extends State<_ApropiacionForm> {
               ),
               ListTile(
                 title: const Text('Fecha Aprobación Concejo'),
-                subtitle: Text(_fechaAprobacion?.toLocal().toString().split(' ')[0] ?? 'No seleccionada'),
-                trailing: const Icon(Icons.calendar_today),
+                subtitle: Text(_fechaAprobacion == null ? 'No seleccionada' : DateFormatter.format(_fechaAprobacion!)),
+                trailing: Icon(Icons.calendar_today),
                 onTap: () async {
                   final fecha = await showDatePicker(
                     context: context,
@@ -881,7 +887,7 @@ class _CDPFormState extends State<_CDPForm> {
                 items: widget.apropiaciones.map((apropiacion) {
                   return DropdownMenuItem(
                     value: apropiacion,
-                    child: Text('${apropiacion.codigoRubro} - \$${apropiacion.saldoDisponible.toStringAsFixed(2)}'),
+                    child: Text('${apropiacion.codigoRubro} - ${CurrencyFormatter.format(apropiacion.saldoDisponible)}'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -893,8 +899,8 @@ class _CDPFormState extends State<_CDPForm> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Saldo disponible: \$${_apropiacionSeleccionada!.saldoDisponible.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    'Saldo disponible: ${CurrencyFormatter.format(_apropiacionSeleccionada!.saldoDisponible)}',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               TextFormField(
@@ -1039,7 +1045,7 @@ class _RPFormState extends State<_RPForm> {
                 items: cdpsVigentes.map((cdp) {
                   return DropdownMenuItem(
                     value: cdp,
-                    child: Text('${cdp.numeroCDP} - \$${cdp.saldoDisponible.toStringAsFixed(2)}'),
+                    child: Text('${cdp.numeroCDP} - ${CurrencyFormatter.format(cdp.saldoDisponible)}'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1051,8 +1057,8 @@ class _RPFormState extends State<_RPForm> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Saldo disponible: \$${_cdpSeleccionado!.saldoDisponible.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    'Saldo disponible: ${CurrencyFormatter.format(_cdpSeleccionado!.saldoDisponible)}',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               TextFormField(
@@ -1215,7 +1221,7 @@ class _ObligacionFormState extends State<_ObligacionForm> {
                 items: rpsVigentes.map((rp) {
                   return DropdownMenuItem(
                     value: rp,
-                    child: Text('${rp.numeroRP} - \$${rp.saldoDisponible.toStringAsFixed(2)}'),
+                    child: Text('${rp.numeroRP} - ${CurrencyFormatter.format(rp.saldoDisponible)}'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1227,8 +1233,8 @@ class _ObligacionFormState extends State<_ObligacionForm> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Saldo disponible: \$${_rpSeleccionado!.saldoDisponible.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    'Saldo disponible: ${CurrencyFormatter.format(_rpSeleccionado!.saldoDisponible)}',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               TextFormField(
@@ -1280,8 +1286,8 @@ class _ObligacionFormState extends State<_ObligacionForm> {
               ),
               ListTile(
                 title: const Text('Fecha Acta Recibo'),
-                subtitle: Text(_actaFecha?.toLocal().toString().split(' ')[0] ?? 'No seleccionada'),
-                trailing: const Icon(Icons.calendar_today),
+                subtitle: Text(_actaFecha == null ? 'No seleccionada' : DateFormatter.format(_actaFecha!)),
+                trailing: Icon(Icons.calendar_today),
                 onTap: () async {
                   final fecha = await showDatePicker(
                     context: context,
@@ -1300,8 +1306,8 @@ class _ObligacionFormState extends State<_ObligacionForm> {
               ),
               ListTile(
                 title: const Text('Fecha Factura'),
-                subtitle: Text(_facturaFecha?.toLocal().toString().split(' ')[0] ?? 'No seleccionada'),
-                trailing: const Icon(Icons.calendar_today),
+                subtitle: Text(_facturaFecha == null ? 'No seleccionada' : DateFormatter.format(_facturaFecha!)),
+                trailing: Icon(Icons.calendar_today),
                 onTap: () async {
                   final fecha = await showDatePicker(
                     context: context,
@@ -1426,7 +1432,7 @@ class _PagoFormState extends State<_PagoForm> {
                 items: obligacionesPendientes.map((obligacion) {
                   return DropdownMenuItem(
                     value: obligacion,
-                    child: Text('${obligacion.numeroObligacion} - \$${obligacion.saldoPendiente.toStringAsFixed(2)}'),
+                    child: Text('${obligacion.numeroObligacion} - ${CurrencyFormatter.format(obligacion.saldoPendiente)}'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1438,8 +1444,8 @@ class _PagoFormState extends State<_PagoForm> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Saldo pendiente: \$${_obligacionSeleccionada!.saldoPendiente.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    'Saldo pendiente: ${CurrencyFormatter.format(_obligacionSeleccionada!.saldoPendiente)}',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               TextFormField(

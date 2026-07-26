@@ -13,6 +13,7 @@ import '../services/acta_responsabilidad_service.dart';
 import '../models/activo_estado.dart';
 import '../models/fondo_unidad_tesoreria.dart';
 import '../models/acta_responsabilidad.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 class ActivosEstadoPage extends StatefulWidget {
   final String entidadId;
@@ -95,10 +96,10 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Propiedad, Planta y Equipo (NICSP 17)'),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _cargarDatos,
           ),
         ],
@@ -136,8 +137,8 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogoAccion,
-        backgroundColor: const Color(0xFF006D77),
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Icon(Icons.add),
       ),
     );
   }
@@ -169,7 +170,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inventory, size: 64, color: Colors.grey),
+            Icon(Icons.inventory, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('Gestión de Activos del Estado', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
@@ -177,9 +178,9 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _registrarActivoDialog,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Registrar Activo'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ],
         ),
@@ -194,16 +195,16 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12.0),
           child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFF006D77),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.precision_manufacturing, color: Colors.white),
             ),
-            title: Text('${activo.nombreActivo} (#${activo.numeroInventario})', style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text('${activo.nombreActivo} (#${activo.numeroInventario})', style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Tipo: ${activo.tipoActivo.name} | Adquisición: \$${activo.valorAdquisicion.toStringAsFixed(2)}'),
-                Text('Libros: \$${activo.valorLibros.toStringAsFixed(2)} | Deprec. Acum.: \$${activo.depreciacionAcumulada.toStringAsFixed(2)}'),
+                Text('Tipo: ${activo.tipoActivo.name} | Adquisición: ${CurrencyFormatter.format(activo.valorAdquisicion)}'),
+                Text('Libros: ${CurrencyFormatter.format(activo.valorLibros)} | Deprec. Acum.: ${CurrencyFormatter.format(activo.depreciacionAcumulada)}'),
               ],
             ),
             trailing: PopupMenuButton<String>(
@@ -214,9 +215,9 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                 if (val == 'asignar_acta') _asignarActaDialog(activo);
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'asignar_acta',
-                  child: Row(children: [Icon(Icons.assignment_ind, color: Color(0xFF006D77)), SizedBox(width: 8), Text('Asignar Acta Custodia')]),
+                  child: Row(children: [Icon(Icons.assignment_ind, color: Theme.of(context).colorScheme.primary), SizedBox(width: 8), Text('Asignar Acta Custodia')]),
                 ),
                 const PopupMenuItem(
                   value: 'depreciar_lineal',
@@ -244,7 +245,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.account_balance_wallet, size: 64, color: Colors.grey),
+            Icon(Icons.account_balance_wallet, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('Fondo de Unidad de Tesorería (FUT)', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
@@ -252,9 +253,9 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _crearFUTDialog,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Crear FUT'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ],
         ),
@@ -268,12 +269,12 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
         final fut = _futs[index];
         return Card(
           child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFF006D77),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.account_balance, color: Colors.white),
             ),
-            title: Text('${fut.nombreFUT} (#${fut.numeroFUT})', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Valor Inicial: \$${fut.valorInicial.toStringAsFixed(2)} | Ejecutado: \$${fut.valorEjecutado.toStringAsFixed(2)}'),
+            title: Text('${fut.nombreFUT} (#${fut.numeroFUT})', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Valor Inicial: ${CurrencyFormatter.format(fut.valorInicial)} | Ejecutado: ${CurrencyFormatter.format(fut.valorEjecutado)}'),
           ),
         );
       },
@@ -382,7 +383,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Depreciación lineal actualizada. Valor en libros: \$${res.valorLibros.toStringAsFixed(2)}')),
+          SnackBar(content: Text('Depreciación lineal actualizada. Valor en libros: ${CurrencyFormatter.format(res.valorLibros)}')),
         );
       }
       _cargarDatos();

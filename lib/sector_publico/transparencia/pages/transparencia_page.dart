@@ -9,6 +9,9 @@ import '../models/reporte_transparencia.dart';
 import '../models/proceso_disciplinario.dart';
 import '../models/consolidacion_nicsp40.dart';
 import '../../nomina/models/empleado.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class TransparenciaPage extends StatefulWidget {
   final String entidadId;
@@ -119,7 +122,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titulos[_selectedIndex]),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -135,7 +138,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF006D77),
+        selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
@@ -155,20 +158,20 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: _crearReporte,
-              backgroundColor: const Color(0xFF006D77),
-              child: const Icon(Icons.add),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
             )
           : _selectedIndex == 1
               ? FloatingActionButton(
                   onPressed: _iniciarProceso,
-                  backgroundColor: const Color(0xFF006D77),
-                  child: const Icon(Icons.add),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Icon(Icons.add),
                 )
               : _selectedIndex == 2
                   ? FloatingActionButton(
                       onPressed: _registrarTransferencia,
-                      backgroundColor: const Color(0xFF006D77),
-                      child: const Icon(Icons.add),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: Icon(Icons.add),
                     )
                   : null,
     );
@@ -180,7 +183,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.visibility, size: 64, color: Colors.grey),
+            Icon(Icons.visibility, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay reportes de transparencia',
@@ -189,10 +192,10 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _crearReporte,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Crear Reporte'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -222,16 +225,16 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Descripción: ${rep.descripcion}'),
-                    Text('Periodo: ${rep.periodoInicio.toLocal().toString().split(' ')[0]} a ${rep.periodoFin.toLocal().toString().split(' ')[0]}'),
+                    Text('Periodo: ${DateFormatter.format(rep.periodoInicio)} a ${DateFormatter.format(rep.periodoFin)}'),
                     if (rep.urlPublicacion != null)
-                      Text('URL Publicación: ${rep.urlPublicacion}', style: const TextStyle(color: Colors.blue)),
+                      Text('URL Publicación: ${rep.urlPublicacion}', style: TextStyle(color: Colors.blue)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (rep.estado == EstadoReporte.borrador)
                           TextButton.icon(
-                            icon: const Icon(Icons.publish),
+                            icon: Icon(Icons.publish),
                             label: const Text('Publicar en Web/Portal'),
                             onPressed: () => _publicarReporte(rep),
                           ),
@@ -253,7 +256,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.gavel, size: 64, color: Colors.grey),
+            Icon(Icons.gavel, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay procesos disciplinarios iniciados',
@@ -262,10 +265,10 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _iniciarProceso,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Iniciar Proceso'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -295,13 +298,13 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Descripción de la Falta: ${proc.descripcion}'),
-                    Text('Inicio: ${proc.fechaInicio.toLocal().toString().split(' ')[0]}'),
+                    Text('Inicio: ${DateFormatter.format(proc.fechaInicio)}'),
                     if (proc.fechaDecision != null)
-                      Text('Decisión: ${proc.fechaDecision!.toLocal().toString().split(' ')[0]}'),
+                      Text('Decisión: ${DateFormatter.format(proc.fechaDecision!)}'),
                     if (proc.sancion != null)
-                      Text('Sanción / Medida: ${proc.sancion}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Sanción / Medida: ${proc.sancion}', style: TextStyle(fontWeight: FontWeight.bold)),
                     if (proc.montoSancion != null && proc.montoSancion! > 0)
-                      Text('Monto Sanción: \$${proc.montoSancion!.toStringAsFixed(2)}'),
+                      Text('Monto Sanción: ${CurrencyFormatter.format(proc.montoSancion!)}'),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -310,7 +313,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                             proc.estado != EstadoProcesoDisciplinario.absuelto &&
                             proc.estado != EstadoProcesoDisciplinario.sancionado)
                           TextButton.icon(
-                            icon: const Icon(Icons.assignment_turned_in),
+                            icon: Icon(Icons.assignment_turned_in),
                             label: const Text('Registrar Decisión/Fallo'),
                             onPressed: () => _registrarDecisionDisciplinaria(proc),
                           ),
@@ -335,24 +338,24 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Transferencias Consolidadas',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF006D77)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
               ),
               Wrap(
                 spacing: 8,
                 children: [
                   ElevatedButton.icon(
                     onPressed: _generarConsolidadoJerarquico,
-                    icon: const Icon(Icons.account_balance),
+                    icon: Icon(Icons.account_balance),
                     label: const Text('Consolidado Jerárquico'),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF028090)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.secondary),
                   ),
                   ElevatedButton.icon(
                     onPressed: _generarReporteNICSP40,
-                    icon: const Icon(Icons.assessment),
+                    icon: Icon(Icons.assessment),
                     label: const Text('Reporte NICSP 40'),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                   ),
                 ],
               ),
@@ -361,26 +364,26 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
           const SizedBox(height: 16),
           if (_consolidadoJerarquicoReporte != null) ...[
             Card(
-              color: const Color(0xFFE8F5E9),
+              color: AppTheme.getSuccessColor(context).withOpacity(0.12),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Consolidado de Saldos Contables (Gobernación + Entidades Adscritas)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1B5E20)),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.getSuccessColor(context)),
                     ),
                     const SizedBox(height: 4),
                     Text('Entidades Consolidadas: ${_consolidadoJerarquicoReporte!['total_entidades_consolidadas']}'),
                     Text('Vigencia: ${_consolidadoJerarquicoReporte!['vigencia']}'),
                     const Divider(),
-                    Text('Activos: \$${(_consolidadoJerarquicoReporte!['resumen']['activos'] as double).toStringAsFixed(2)}'),
-                    Text('Pasivos: \$${(_consolidadoJerarquicoReporte!['resumen']['pasivos'] as double).toStringAsFixed(2)}'),
-                    Text('Patrimonio: \$${(_consolidadoJerarquicoReporte!['resumen']['patrimonio'] as double).toStringAsFixed(2)}'),
-                    Text('Ingresos: \$${(_consolidadoJerarquicoReporte!['resumen']['ingresos'] as double).toStringAsFixed(2)}'),
-                    Text('Gastos: \$${(_consolidadoJerarquicoReporte!['resumen']['gastos'] as double).toStringAsFixed(2)}'),
-                    Text('Superávit/Déficit: \$${(_consolidadoJerarquicoReporte!['resumen']['superavit_deficit'] as double).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Activos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['activos'] as double))}'),
+                    Text('Pasivos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['pasivos'] as double))}'),
+                    Text('Patrimonio: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['patrimonio'] as double))}'),
+                    Text('Ingresos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['ingresos'] as double))}'),
+                    Text('Gastos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['gastos'] as double))}'),
+                    Text('Superávit/Déficit: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['superavit_deficit'] as double))}', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     const Text('* NOTA: Consolidación de solo lectura sin eliminación de partidas recíprocas.', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey)),
                   ],
@@ -391,20 +394,20 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
           ],
           if (_nicsp40Reporte != null) ...[
             Card(
-              color: const Color(0xFFE0F2F1),
+              color: Theme.of(context).colorScheme.secondaryContainer,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Resumen Consolidado (Revelaciones)',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40)),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSecondaryContainer),
                     ),
                     const SizedBox(height: 8),
-                    Text('Total Transferido: \$${(_nicsp40Reporte!['total_transferido'] as double).toStringAsFixed(2)}'),
-                    Text('Total Ejecutado: \$${(_nicsp40Reporte!['total_ejecutado'] as double).toStringAsFixed(2)}'),
-                    Text('Total No Ejecutado: \$${(_nicsp40Reporte!['total_no_ejecutado'] as double).toStringAsFixed(2)}'),
+                    Text('Total Transferido: ${CurrencyFormatter.format((_nicsp40Reporte!['total_transferido'] as double))}'),
+                    Text('Total Ejecutado: ${CurrencyFormatter.format((_nicsp40Reporte!['total_ejecutado'] as double))}'),
+                    Text('Total No Ejecutado: ${CurrencyFormatter.format((_nicsp40Reporte!['total_no_ejecutado'] as double))}'),
                   ],
                 ),
               ),
@@ -431,8 +434,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                     title: Text('${con.entidadOrigen} ➔ ${con.entidadDestino}'),
                     subtitle: Text('${con.numeroConsolidacion} | Vigencia: ${con.vigencia}'),
                     trailing: Text(
-                      '\$${con.valorTransferido.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      '${CurrencyFormatter.format(con.valorTransferido)}',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     children: [
                       Padding(
@@ -442,18 +445,18 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                           children: [
                             Text('Tipo: ${con.tipoTransferencia.toString().split('.').last}'),
                             Text('Descripción: ${con.descripcion}'),
-                            Text('Fecha Transferencia: ${con.fechaTransferencia.toLocal().toString().split(' ')[0]}'),
+                            Text('Fecha Transferencia: ${DateFormatter.format(con.fechaTransferencia)}'),
                             if (con.proyecto != null)
                               Text('Proyecto Asociado: ${con.proyecto}'),
                             const Divider(),
-                            Text('Valor Ejecutado: \$${con.valorEjecutado.toStringAsFixed(2)}'),
-                            Text('Valor No Ejecutado: \$${con.valorNoEjecutado.toStringAsFixed(2)}'),
+                            Text('Valor Ejecutado: ${CurrencyFormatter.format(con.valorEjecutado)}'),
+                            Text('Valor No Ejecutado: ${CurrencyFormatter.format(con.valorNoEjecutado)}'),
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 TextButton.icon(
-                                  icon: const Icon(Icons.edit),
+                                  icon: Icon(Icons.edit),
                                   label: const Text('Actualizar Ejecución'),
                                   onPressed: () => _actualizarEjecucionNICSP40(con),
                                 ),
@@ -605,7 +608,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Crear'),
             ),
           ],
@@ -656,7 +659,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Publicar'),
           ),
         ],
@@ -781,7 +784,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Iniciar'),
             ),
           ],
@@ -873,7 +876,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Registrar'),
             ),
           ],
@@ -1004,7 +1007,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Registrar'),
             ),
           ],
@@ -1028,7 +1031,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Consolidación: ${con.numeroConsolidacion}'),
-              Text('Valor Transferido: \$${con.valorTransferido.toStringAsFixed(2)}'),
+              Text('Valor Transferido: ${CurrencyFormatter.format(con.valorTransferido)}'),
               const Divider(),
               TextFormField(
                 controller: valorEjecutadoController,
@@ -1069,7 +1072,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Actualizar'),
           ),
         ],
@@ -1119,7 +1122,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Generar'),
           ),
         ],
@@ -1169,7 +1172,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF028090)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.secondary),
             child: const Text('Consolidar'),
           ),
         ],

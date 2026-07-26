@@ -9,15 +9,19 @@ import '../services/retroactivos_service.dart';
 import '../models/empleado.dart';
 import '../models/liquidacion_nomina.dart';
 import '../models/retroactivo.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class NominaPublicaPage extends StatefulWidget {
   final String entidadId;
   final String usuarioId;
+  final int tabInicial;
 
   const NominaPublicaPage({
     super.key,
     required this.entidadId,
     required this.usuarioId,
+    this.tabInicial = 0,
   });
 
   @override
@@ -51,6 +55,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.tabInicial.clamp(0, _titulos.length - 1).toInt();
     _inicializarServicios();
   }
 
@@ -142,7 +147,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titulos[_selectedIndex]),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -160,7 +165,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF006D77),
+        selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
@@ -188,20 +193,20 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: _registrarEmpleado,
-              backgroundColor: const Color(0xFF006D77),
-              child: const Icon(Icons.person_add),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.person_add),
             )
           : _selectedIndex == 1
               ? FloatingActionButton(
                   onPressed: _liquidarNomina,
-                  backgroundColor: const Color(0xFF006D77),
-                  child: const Icon(Icons.calculate),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Icon(Icons.calculate),
                 )
               : _selectedIndex == 2
                   ? FloatingActionButton(
                       onPressed: _calcularRetroactivo,
-                      backgroundColor: const Color(0xFF006D77),
-                      child: const Icon(Icons.add),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: Icon(Icons.add),
                     )
                   : null,
     );
@@ -213,7 +218,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.people, size: 64, color: Colors.grey),
+            Icon(Icons.people, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay empleados registrados',
@@ -222,10 +227,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _registrarEmpleado,
-              icon: const Icon(Icons.person_add),
+              icon: Icon(Icons.person_add),
               label: const Text('Registrar Empleado'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -247,7 +252,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
               children: [
                 Text('Identificación: ${emp.numeroIdentificacion}'),
                 Text('Cargo: ${emp.cargo} | Dependencia: ${emp.dependencia}'),
-                Text('Salario: \$${emp.salarioBasico.toStringAsFixed(2)}'),
+                Text('Salario: ${CurrencyFormatter.format(emp.salarioBasico)}'),
               ],
             ),
             trailing: Chip(
@@ -267,7 +272,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay liquidaciones generadas',
@@ -276,10 +281,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _liquidarNomina,
-              icon: const Icon(Icons.calculate),
+              icon: Icon(Icons.calculate),
               label: const Text('Liquidar Nómina'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -298,8 +303,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             title: Text(liq.numeroLiquidacion),
             subtitle: Text('${liq.empleadoNombre} | Periodo: ${liq.periodo}'),
             trailing: Text(
-              '\$${liq.netoPagar.toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+              '${CurrencyFormatter.format(liq.netoPagar)}',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
             ),
             children: [
               Padding(
@@ -307,22 +312,22 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Salario Básico: \$${liq.salarioBasico.toStringAsFixed(2)}'),
-                    Text('Salario Devengado: \$${liq.salarioDevengado.toStringAsFixed(2)}'),
-                    Text('Auxilio Transporte: \$${liq.auxilioTransporte.toStringAsFixed(2)}'),
-                    Text('Horas Extra / Recargo Nocturno: \$${(liq.horasExtra + liq.recargoNocturno).toStringAsFixed(2)}'),
+                    Text('Salario Básico: ${CurrencyFormatter.format(liq.salarioBasico)}'),
+                    Text('Salario Devengado: ${CurrencyFormatter.format(liq.salarioDevengado)}'),
+                    Text('Auxilio Transporte: ${CurrencyFormatter.format(liq.auxilioTransporte)}'),
+                    Text('Horas Extra / Recargo Nocturno: ${CurrencyFormatter.format((liq.horasExtra + liq.recargoNocturno))}'),
                     const Divider(),
-                    Text('Deducción Salud (8.5%): \$${liq.salud.toStringAsFixed(2)}'),
-                    Text('Deducción Pensión (12%): \$${liq.pension.toStringAsFixed(2)}'),
-                    Text('Deducción Solidaridad: \$${liq.fondoSolidaridad.toStringAsFixed(2)}'),
-                    Text('Riesgos Laborales: \$${liq.riesgosLaborales.toStringAsFixed(2)}'),
+                    Text('Deducción Salud (8.5%): ${CurrencyFormatter.format(liq.salud)}'),
+                    Text('Deducción Pensión (12%): ${CurrencyFormatter.format(liq.pension)}'),
+                    Text('Deducción Solidaridad: ${CurrencyFormatter.format(liq.fondoSolidaridad)}'),
+                    Text('Riesgos Laborales: ${CurrencyFormatter.format(liq.riesgosLaborales)}'),
                     const Divider(),
-                    Text('Aporte Caja Compensación: \$${liq.cajaCompensacion.toStringAsFixed(2)}'),
-                    Text('Aporte SENA / ICBF: \$${(liq.sena + liq.icbf).toStringAsFixed(2)}'),
+                    Text('Aporte Caja Compensación: ${CurrencyFormatter.format(liq.cajaCompensacion)}'),
+                    Text('Aporte SENA / ICBF: ${CurrencyFormatter.format((liq.sena + liq.icbf))}'),
                     const Divider(),
                     Text(
-                      'Neto a Pagar: \$${liq.netoPagar.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                      'Neto a Pagar: ${CurrencyFormatter.format(liq.netoPagar)}',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
                     ),
                     if (liq.observaciones != null && liq.observaciones!.isNotEmpty) ...[
                       const SizedBox(height: 12),
@@ -335,12 +340,12 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.warning, color: Colors.amber, size: 16),
+                            Icon(Icons.warning, color: Colors.amber, size: 16),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 liq.observaciones!,
-                                style: const TextStyle(fontSize: 11, color: Colors.brown),
+                                style: TextStyle(fontSize: 11, color: Colors.brown),
                               ),
                             ),
                           ],
@@ -363,7 +368,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.history, size: 64, color: Colors.grey),
+            Icon(Icons.history, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay retroactivos calculados',
@@ -372,10 +377,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _calcularRetroactivo,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Calcular Retroactivo'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -392,7 +397,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             title: Text(ret.numeroRetroactivo),
-            subtitle: Text('${ret.empleadoNombre} | Total: \$${ret.valorTotal.toStringAsFixed(2)}'),
+            subtitle: Text('${ret.empleadoNombre} | Total: ${CurrencyFormatter.format(ret.valorTotal)}'),
             trailing: Chip(
               label: Text(ret.estado.toString().split('.').last.toUpperCase()),
               backgroundColor: ret.estado == EstadoRetroactivo.pagado ? Colors.green : Colors.orange,
@@ -405,9 +410,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Motivo: ${ret.motivo}'),
-                    Text('Rango: ${ret.fechaInicio.toLocal().toString().split(' ')[0]} a ${ret.fechaFin.toLocal().toString().split(' ')[0]} (${ret.meses} meses)'),
-                    Text('Salario Anterior: \$${ret.salarioAnterior.toStringAsFixed(2)} | Nuevo: \$${ret.salarioNuevo.toStringAsFixed(2)}'),
-                    Text('Diferencia Mensual: \$${ret.diferenciaMensual.toStringAsFixed(2)}'),
+                    Text('Rango: ${DateFormatter.format(ret.fechaInicio)} a ${DateFormatter.format(ret.fechaFin)} (${ret.meses} meses)'),
+                    Text('Salario Anterior: ${CurrencyFormatter.format(ret.salarioAnterior)} | Nuevo: ${CurrencyFormatter.format(ret.salarioNuevo)}'),
+                    Text('Diferencia Mensual: ${CurrencyFormatter.format(ret.diferenciaMensual)}'),
                     if (ret.actoAdministrativo != null)
                       Text('Acto Administrativo: ${ret.actoAdministrativo}'),
                     const SizedBox(height: 12),
@@ -416,13 +421,13 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                       children: [
                         if (ret.estado == EstadoRetroactivo.calculado)
                           TextButton.icon(
-                            icon: const Icon(Icons.check_circle),
+                            icon: Icon(Icons.check_circle),
                             label: const Text('Aprobar'),
                             onPressed: () => _aprobarRetroactivo(ret),
                           ),
                         if (ret.estado == EstadoRetroactivo.aprobado)
                           TextButton.icon(
-                            icon: const Icon(Icons.payment),
+                            icon: Icon(Icons.payment),
                             label: const Text('Registrar Pago'),
                             onPressed: () => _registrarPagoRetroactivo(ret),
                           ),
@@ -444,9 +449,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Planilla Integrada de Liquidación de Aportes (PILA)',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF006D77)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -456,10 +461,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _generarReportePILA,
-            icon: const Icon(Icons.calculate),
+            icon: Icon(Icons.calculate),
             label: const Text('Generar Liquidación PILA'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
+              backgroundColor: Theme.of(context).colorScheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             ),
           ),
@@ -474,30 +479,30 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             Text('Periodo: ${_pilaReporte!['periodo']}'),
             Text('Total Empleados: ${_pilaReporte!['total_empleados']}'),
             const SizedBox(height: 8),
-            Text('Aporte Salud: \$${(_pilaReporte!['total_salud'] as double).toStringAsFixed(2)}'),
-            Text('Aporte Pensión: \$${(_pilaReporte!['total_pension'] as double).toStringAsFixed(2)}'),
-            Text('Fondo Solidaridad: \$${(_pilaReporte!['total_fondo_solidaridad'] as double).toStringAsFixed(2)}'),
-            Text('Riesgos Laborales: \$${(_pilaReporte!['total_riesgos_laborales'] as double).toStringAsFixed(2)}'),
-            Text('Caja Compensación: \$${(_pilaReporte!['total_caja_compensacion'] as double).toStringAsFixed(2)}'),
-            Text('SENA: \$${(_pilaReporte!['total_sena'] as double).toStringAsFixed(2)} | ICBF: \$${(_pilaReporte!['total_icbf'] as double).toStringAsFixed(2)}'),
+            Text('Aporte Salud: ${CurrencyFormatter.format((_pilaReporte!['total_salud'] as double))}'),
+            Text('Aporte Pensión: ${CurrencyFormatter.format((_pilaReporte!['total_pension'] as double))}'),
+            Text('Fondo Solidaridad: ${CurrencyFormatter.format((_pilaReporte!['total_fondo_solidaridad'] as double))}'),
+            Text('Riesgos Laborales: ${CurrencyFormatter.format((_pilaReporte!['total_riesgos_laborales'] as double))}'),
+            Text('Caja Compensación: ${CurrencyFormatter.format((_pilaReporte!['total_caja_compensacion'] as double))}'),
+            Text('SENA: ${CurrencyFormatter.format((_pilaReporte!['total_sena'] as double))} | ICBF: ${CurrencyFormatter.format((_pilaReporte!['total_icbf'] as double))}'),
             const Divider(),
             Text(
-              'Gran Total Planilla: \$${(_pilaReporte!['gran_total'] as double).toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16),
+              'Gran Total Planilla: ${CurrencyFormatter.format((_pilaReporte!['gran_total'] as double))}',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16),
             ),
             const SizedBox(height: 24),
             Row(
               children: [
                 ElevatedButton.icon(
                   onPressed: _enviarOperadorPILA,
-                  icon: const Icon(Icons.send),
+                  icon: Icon(Icons.send),
                   label: const Text('Enviar a Operador'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: _exportarPlanoPILA,
-                  icon: const Icon(Icons.file_download),
+                  icon: Icon(Icons.file_download),
                   label: const Text('Exportar Formato Plano'),
                 ),
               ],
@@ -520,9 +525,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Parámetros Legales de Nómina',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF006D77)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -592,10 +597,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   }
                 }
               },
-              icon: const Icon(Icons.save),
+              icon: Icon(Icons.save),
               label: const Text('Guardar Parámetros'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
@@ -766,7 +771,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Registrar'),
             ),
           ],
@@ -864,7 +869,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Liquidar'),
             ),
           ],
@@ -1021,7 +1026,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Calcular'),
             ),
           ],
@@ -1044,7 +1049,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Empleado: ${ret.empleadoNombre}'),
-              Text('Total a Pagar: \$${ret.valorTotal.toStringAsFixed(2)}'),
+              Text('Total a Pagar: ${CurrencyFormatter.format(ret.valorTotal)}'),
               const Divider(),
               TextFormField(
                 controller: actoController,
@@ -1080,7 +1085,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Aprobar'),
           ),
         ],
@@ -1102,7 +1107,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Empleado: ${ret.empleadoNombre}'),
-              Text('Saldo Pendiente: \$${ret.saldoPendiente.toStringAsFixed(2)}'),
+              Text('Saldo Pendiente: ${CurrencyFormatter.format(ret.saldoPendiente)}'),
               const Divider(),
               TextFormField(
                 controller: montoController,
@@ -1139,7 +1144,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Registrar Pago'),
           ),
         ],
@@ -1190,7 +1195,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Calcular'),
           ),
         ],
@@ -1248,7 +1253,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Enviar'),
           ),
         ],
@@ -1273,7 +1278,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           content: SingleChildScrollView(
             child: Text(
               contenidoPlano,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
           actions: [

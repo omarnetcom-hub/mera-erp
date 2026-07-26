@@ -110,7 +110,7 @@ class _ErpReadinessPageState extends State<ErpReadinessPage> {
       ApiRequest(
         method: method,
         path: path,
-        role: AppSession.rol,
+        role: AppSession.rol ?? 'consulta',
         userId: AppSession.nombre,
         requestId: 'ui-${DateTime.now().microsecondsSinceEpoch}',
       ),

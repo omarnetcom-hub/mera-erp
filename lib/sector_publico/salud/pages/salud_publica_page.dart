@@ -12,6 +12,7 @@ import '../models/rips.dart';
 import '../models/glosa.dart';
 import '../models/contrato_eps.dart';
 import '../models/factura_salud.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 class SaludPublicaPage extends StatefulWidget {
   final String entidadId;
@@ -96,10 +97,10 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Salud Pública (RIPS / EPS / ADRES)'),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _cargarDatos,
           ),
         ],
@@ -147,19 +148,19 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogoAccion,
-        backgroundColor: const Color(0xFF006D77),
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Icon(Icons.add),
       ),
     );
   }
 
   Widget _buildEpsAdresBanner() {
     return Container(
-      color: Colors.teal.shade50,
+      color: Colors.teal.shade100,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          const Icon(Icons.verified, color: Color(0xFF006D77)),
+          const Icon(Icons.verified, color: Color(0xFF00695C)), // teal.shade800 — contraste suficiente sobre teal.shade100
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -182,18 +183,18 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _registrarRIPSDialog,
-                  icon: const Icon(Icons.add),
+                  icon: Icon(Icons.add),
                   label: const Text('Registrar RIPS'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _generarArchivoPlanoDialog,
-                  icon: const Icon(Icons.file_download),
+                  icon: Icon(Icons.file_download),
                   label: const Text('Generar Archivo Plano'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                 ),
               ),
             ],
@@ -205,7 +206,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.description, size: 64, color: Colors.grey),
+                      Icon(Icons.description, size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
                       Text('Registros RIPS', style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
@@ -220,12 +221,12 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     final item = _rips[index];
                     return Card(
                       child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFF006D77),
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           child: Icon(Icons.local_hospital, color: Colors.white),
                         ),
-                        title: Text('${item.nombrePaciente} (${item.tipoIdentificacion}: ${item.numeroIdentificacion})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Factura #${item.numeroFactura} | Servicio: ${item.nombreServicio} | Neto: \$${item.valorNeto.toStringAsFixed(2)}'),
+                        title: Text('${item.nombrePaciente} (${item.tipoIdentificacion}: ${item.numeroIdentificacion})', style: TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('Factura #${item.numeroFactura} | Servicio: ${item.nombreServicio} | Neto: ${CurrencyFormatter.format(item.valorNeto)}'),
                       ),
                     );
                   },
@@ -244,9 +245,9 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _registrarContratoEPSDialog,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Registrar Contrato EPS / ADRES'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ),
         ),
@@ -256,7 +257,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.handshake, size: 64, color: Colors.grey),
+                      Icon(Icons.handshake, size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
                       Text('Contratos EPS / ADRES', style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
@@ -271,12 +272,12 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     final c = _contratos[index];
                     return Card(
                       child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFF006D77),
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           child: Icon(Icons.business, color: Colors.white),
                         ),
-                        title: Text('Contrato #${c.numeroContrato} - ${c.epsAdresNombre}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Régimen: ${c.regimen.name} | Contratado: \$${c.montoContrato.toStringAsFixed(2)} | Facturado: \$${c.montoFacturado.toStringAsFixed(2)}'),
+                        title: Text('Contrato #${c.numeroContrato} - ${c.epsAdresNombre}', style: TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('Régimen: ${c.regimen.name} | Contratado: ${CurrencyFormatter.format(c.montoContrato)} | Facturado: ${CurrencyFormatter.format(c.montoFacturado)}'),
                       ),
                     );
                   },
@@ -295,9 +296,9 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _generarFacturaSaludDialog,
-              icon: const Icon(Icons.receipt_long),
+              icon: Icon(Icons.receipt_long),
               label: const Text('Generar Factura de Servicios de Salud'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ),
         ),
@@ -307,7 +308,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.receipt, size: 64, color: Colors.grey),
+                      Icon(Icons.receipt, size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
                       Text('Facturación de Servicios de Salud', style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
@@ -322,14 +323,14 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     final f = _facturas[index];
                     return Card(
                       child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFF006D77),
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           child: Icon(Icons.receipt, color: Colors.white),
                         ),
-                        title: Text('Factura #${f.numeroFactura} - Periodo: ${f.periodo}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Total: \$${f.montoTotal.toStringAsFixed(2)} | Glosado: \$${f.montoGlosado.toStringAsFixed(2)} | Estado: ${f.estado}'),
+                        title: Text('Factura #${f.numeroFactura} - Periodo: ${f.periodo}', style: TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('Total: ${CurrencyFormatter.format(f.montoTotal)} | Glosado: ${CurrencyFormatter.format(f.montoGlosado)} | Estado: ${f.estado}'),
                         trailing: IconButton(
-                          icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF006D77)),
+                          icon: Icon(Icons.picture_as_pdf, color: Theme.of(context).colorScheme.primary),
                           tooltip: 'Exportar Factura Plano',
                           onPressed: () => _exportarFacturaPlano(f),
                         ),
@@ -351,9 +352,9 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _generarGlosaDialog,
-              icon: const Icon(Icons.add_alert),
+              icon: Icon(Icons.add_alert),
               label: const Text('Generar Glosa EPS'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ),
         ),
@@ -363,7 +364,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.warning, size: 64, color: Colors.grey),
+                      Icon(Icons.warning, size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
                       Text('Gestión de Glosas EPS', style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
@@ -380,10 +381,10 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: glosa.estado == EstadoGlosa.aceptada ? Colors.green : Colors.orange,
-                          child: const Icon(Icons.rule, color: Colors.white),
+                          child: Icon(Icons.rule, color: Colors.white),
                         ),
-                        title: Text('Glosa #${glosa.numeroGlosa} - EPS: ${glosa.eps}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Factura #${glosa.numeroFactura} | Glosado: \$${glosa.valorGlosado.toStringAsFixed(2)} | Estado: ${glosa.estado.name}'),
+                        title: Text('Glosa #${glosa.numeroGlosa} - EPS: ${glosa.eps}', style: TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('Factura #${glosa.numeroFactura} | Glosado: ${CurrencyFormatter.format(glosa.valorGlosado)} | Estado: ${glosa.estado.name}'),
                       ),
                     );
                   },

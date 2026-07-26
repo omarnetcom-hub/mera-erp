@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -33,6 +34,7 @@ import 'core/logging/logging_service.dart';
 import 'core/features/feature_flag.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/theme/theme_service.dart';
+import 'core/theme/app_theme.dart';
 import 'core/dashboard/dashboard_service.dart';
 import 'core/accessibility/accessibility_service.dart';
 import 'pages/license_activation_page.dart';
@@ -46,6 +48,7 @@ part 'ui/widgets/workspace_widgets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('es_CO');
 
   final bootstrap = await AppBootstrap.initialize(
     configureDatabase: () async {
@@ -167,8 +170,8 @@ class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _checkLicense(),
+    return FutureBuilder<_StartupState>(
+      future: _checkStartup(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -177,25 +180,46 @@ class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
             ),
           );
         }
-        
-        if (snapshot.data == true) {
-          return const LoginPage();
-        } else {
-          return LicenseActivationPage(onActivated: _reload);
+
+        final state = snapshot.data ?? _StartupState.needsOnboarding;
+
+        switch (state) {
+          case _StartupState.needsOnboarding:
+            return OnboardingPage(
+              onFinished: _reload,
+            );
+          case _StartupState.needsLicense:
+            return LicenseActivationPage(onActivated: _reload);
+          case _StartupState.ready:
+            return const LoginPage();
         }
       },
     );
   }
 
-  Future<bool> _checkLicense() async {
+  Future<_StartupState> _checkStartup() async {
     try {
+      // 1. Onboarding primero: sin empresa configurada no tiene sentido activar licencia
+      final needsOnboarding =
+          await CompanyConfigurationService.instance.needsOnboarding();
+      if (needsOnboarding) return _StartupState.needsOnboarding;
+
+      // 2. Verificar licencia
       final license = await LicenciaService.instance.obtenerLicencia();
-      return license != null && license.estado == EstadoLicencia.activa;
+      if (license == null || license.estado != EstadoLicencia.activa) {
+        return _StartupState.needsLicense;
+      }
+
+      return _StartupState.ready;
     } catch (e) {
-      return false;
+      // En caso de error en la DB, mostrar onboarding para que el usuario
+      // pueda configurar la empresa desde cero
+      return _StartupState.needsOnboarding;
     }
   }
 }
+
+enum _StartupState { needsOnboarding, needsLicense, ready }
 
 ThemeData _merkaTheme({
   Brightness brightness = Brightness.light,

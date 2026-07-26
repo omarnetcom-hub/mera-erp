@@ -5,6 +5,7 @@ import 'db_helper.dart';
 import 'logo_widget.dart';
 import 'main.dart';
 import 'services/sync_service.dart';
+import 'core/workspace/selector_modo_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -56,10 +57,35 @@ class _LoginPageState extends State<LoginPage> {
         // Ignorar errores de conexión a nube, continuar con sesión local
       }
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MenuPrincipal()),
-      );
+      // Verificar si el modo de operación está configurado
+      final modoActual = await SelectorModoService.obtenerModoActual();
+      
+      if (!mounted) return;
+      
+      if (modoActual == null) {
+        // No hay modo configurado, redirigir a selector
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SelectorModoScreen(
+              entidadId: AppSession.entidadId,
+              usuarioId: usuario['id']?.toString() ?? 'sin_sesion',
+              onModoSeleccionado: (modo) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MenuPrincipal()),
+                );
+              },
+            ),
+          ),
+        );
+      } else {
+        // Modo ya configurado, ir directamente al menu principal
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MenuPrincipal()),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => cargando = false);

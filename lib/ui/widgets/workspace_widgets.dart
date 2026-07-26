@@ -81,11 +81,24 @@ List<_WorkspaceSection> _filterSections(_MenuPrincipalState state, List<_Workspa
   ];
 }
 
-enum _WorkspaceMode { dashboard, sales, operations, finance }
+enum _WorkspaceMode {
+  dashboard,
+  sales,
+  operations,
+  finance,
+  publicBudget,
+  publicCompliance,
+  publicTransparency,
+}
 
 Future<String> _obtenerTipoEntidad() async {
   final modo = await SelectorModoService.obtenerModoActual();
   if (modo == ModoOperacion.publica) {
+    try {
+      await AppSession.cargarRolSectorPublico();
+    } catch (e) {
+      debugPrint('No se pudo cargar rol publico: $e');
+    }
     return 'publica';
   }
   return 'privada';
@@ -293,6 +306,7 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
                             sections: sections,
                             favoriteModules: favoriteModules,
                             recentModules: recentModules,
+                            tipoEntidad: tipoEntidad,
                             viewport: viewport,
                             mode: state._workspaceMode,
                             onModeChanged: (mode) {
@@ -326,6 +340,7 @@ class _WorkspaceBody extends StatelessWidget {
     required this.sections,
     required this.favoriteModules,
     required this.recentModules,
+    required this.tipoEntidad,
     required this.viewport,
     required this.mode,
     required this.onModeChanged,
@@ -342,6 +357,7 @@ class _WorkspaceBody extends StatelessWidget {
   final List<_WorkspaceSection> sections;
   final List<ModuleDefinition> favoriteModules;
   final List<ModuleDefinition> recentModules;
+  final String tipoEntidad;
   final EnterpriseViewport viewport;
   final _WorkspaceMode mode;
   final ValueChanged<_WorkspaceMode> onModeChanged;
@@ -376,6 +392,7 @@ class _WorkspaceBody extends StatelessWidget {
       sections: sections,
       favoriteModules: favoriteModules,
       recentModules: recentModules,
+      tipoEntidad: tipoEntidad,
       viewport: viewport,
       mode: mode,
       onModeChanged: onModeChanged,
@@ -396,6 +413,7 @@ class _DesktopWorkspace extends StatelessWidget {
     required this.sections,
     required this.favoriteModules,
     required this.recentModules,
+    required this.tipoEntidad,
     required this.viewport,
     required this.mode,
     required this.onModeChanged,
@@ -412,6 +430,7 @@ class _DesktopWorkspace extends StatelessWidget {
   final List<_WorkspaceSection> sections;
   final List<ModuleDefinition> favoriteModules;
   final List<ModuleDefinition> recentModules;
+  final String tipoEntidad;
   final EnterpriseViewport viewport;
   final _WorkspaceMode mode;
   final ValueChanged<_WorkspaceMode> onModeChanged;
@@ -444,6 +463,7 @@ class _DesktopWorkspace extends StatelessWidget {
         children: [
           _EnterpriseTopBar(
             searchController: searchController,
+            tipoEntidad: tipoEntidad,
             mode: mode,
             onModeChanged: onModeChanged,
             favoriteModules: favoriteModules,
@@ -467,6 +487,7 @@ class _DesktopWorkspace extends StatelessWidget {
                   )
                 : _ModeWorkspace(
                     mode: mode,
+                    tipoEntidad: tipoEntidad,
                     modules: modules,
                     onOpen: onOpen,
                     onCommandPalette: onCommandPalette,
@@ -1307,19 +1328,45 @@ class _DesktopSearchResults extends StatelessWidget {
 }
 
 class _WorkspaceModeSelector extends StatelessWidget {
-  const _WorkspaceModeSelector({required this.mode, required this.onChanged});
+  const _WorkspaceModeSelector({
+    required this.tipoEntidad,
+    required this.mode,
+    required this.onChanged,
+  });
 
+  final String tipoEntidad;
   final _WorkspaceMode mode;
   final ValueChanged<_WorkspaceMode> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      (_WorkspaceMode.dashboard, PhosphorIcons.house(), 'Dashboard'),
-      (_WorkspaceMode.sales, PhosphorIcons.shoppingCart(), 'Ventas'),
-      (_WorkspaceMode.operations, PhosphorIcons.cube(), 'Operaciones'),
-      (_WorkspaceMode.finance, PhosphorIcons.chartBar(), 'Finanzas'),
-    ];
+    final items = tipoEntidad == 'publica'
+        ? [
+            (
+              _WorkspaceMode.publicBudget,
+              PhosphorIcons.chartBar(),
+              'Ejecucion Presupuestal',
+            ),
+            (
+              _WorkspaceMode.publicCompliance,
+              PhosphorIcons.warning(),
+              'Cumplimiento y Alertas',
+            ),
+            (
+              _WorkspaceMode.publicTransparency,
+              Icons.public,
+              'Transparencia',
+            ),
+          ]
+        : [
+            (_WorkspaceMode.dashboard, PhosphorIcons.house(), 'Dashboard'),
+            (_WorkspaceMode.sales, PhosphorIcons.shoppingCart(), 'Ventas'),
+            (_WorkspaceMode.operations, PhosphorIcons.cube(), 'Operaciones'),
+            (_WorkspaceMode.finance, PhosphorIcons.chartBar(), 'Finanzas'),
+          ];
+    final selectedMode = items.any((item) => item.$1 == mode)
+        ? mode
+        : items.first.$1;
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -1337,16 +1384,16 @@ class _WorkspaceModeSelector extends StatelessWidget {
                 avatar: Icon(
                   item.$2,
                   size: 16,
-                  color: item.$1 == mode
+                  color: item.$1 == selectedMode
                       ? Colors.white
                       : const Color(0xFF4B5563),
                 ),
                 label: Text(item.$3),
-                selected: item.$1 == mode,
+                selected: item.$1 == selectedMode,
                 showCheckmark: false,
                 selectedColor: const Color(0xFF2563EB),
                 labelStyle: TextStyle(
-                  color: item.$1 == mode
+                  color: item.$1 == selectedMode
                       ? Colors.white
                       : const Color(0xFF4B5563),
                   fontWeight: FontWeight.w700,
@@ -1363,6 +1410,7 @@ class _WorkspaceModeSelector extends StatelessWidget {
 class _ModeWorkspace extends StatelessWidget {
   const _ModeWorkspace({
     required this.mode,
+    required this.tipoEntidad,
     required this.modules,
     required this.onOpen,
     required this.onCommandPalette,
@@ -1371,6 +1419,7 @@ class _ModeWorkspace extends StatelessWidget {
   });
 
   final _WorkspaceMode mode;
+  final String tipoEntidad;
   final List<ModuleDefinition> modules;
   final ValueChanged<ModuleDefinition> onOpen;
   final VoidCallback onCommandPalette;
@@ -1386,7 +1435,16 @@ class _ModeWorkspace extends StatelessWidget {
       return null;
     }
 
-    switch (mode) {
+    final publicModes = {
+      _WorkspaceMode.publicBudget,
+      _WorkspaceMode.publicCompliance,
+      _WorkspaceMode.publicTransparency,
+    };
+    final effectiveMode = tipoEntidad == 'publica'
+        ? (publicModes.contains(mode) ? mode : _WorkspaceMode.publicBudget)
+        : (publicModes.contains(mode) ? _WorkspaceMode.dashboard : mode);
+
+    switch (effectiveMode) {
       case _WorkspaceMode.dashboard:
         return SingleChildScrollView(
           child: _DashboardModePanel(
@@ -1429,6 +1487,21 @@ class _ModeWorkspace extends StatelessWidget {
             },
             onCommandPalette: onCommandPalette,
           ),
+        );
+      case _WorkspaceMode.publicBudget:
+        return SingleChildScrollView(
+          child: _PublicDashboardModePanel(
+            onNotifications: onNotifications,
+            onCopilot: onCopilot,
+          ),
+        );
+      case _WorkspaceMode.publicCompliance:
+        return const SingleChildScrollView(
+          child: _PublicComplianceModePanel(),
+        );
+      case _WorkspaceMode.publicTransparency:
+        return const SingleChildScrollView(
+          child: _PublicTransparencyModePanel(),
         );
     }
   }
@@ -1867,6 +1940,7 @@ String _moneyCompact(double value) {
 class _EnterpriseTopBar extends StatelessWidget {
   const _EnterpriseTopBar({
     required this.searchController,
+    required this.tipoEntidad,
     required this.mode,
     required this.onModeChanged,
     required this.favoriteModules,
@@ -1879,6 +1953,7 @@ class _EnterpriseTopBar extends StatelessWidget {
   });
 
   final TextEditingController searchController;
+  final String tipoEntidad;
   final _WorkspaceMode mode;
   final ValueChanged<_WorkspaceMode> onModeChanged;
   final List<ModuleDefinition> favoriteModules;
@@ -1949,7 +2024,11 @@ class _EnterpriseTopBar extends StatelessWidget {
                   ),
                 ),
               ),
-              _WorkspaceModeSelector(mode: mode, onChanged: onModeChanged),
+              _WorkspaceModeSelector(
+                tipoEntidad: tipoEntidad,
+                mode: mode,
+                onChanged: onModeChanged,
+              ),
               const _SyncIndicator(),
               _TopBarButton(
                 icon: Icons.keyboard_command_key,
@@ -3065,6 +3144,24 @@ class _NotificationTile extends StatelessWidget {
   }
 }
 
+double _publicNum(Map<String, Object?> row, String key) {
+  final value = row[key];
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '') ?? 0.0;
+}
+
+String _publicText(
+  Map<String, Object?> row,
+  List<String> keys, {
+  String fallback = '-',
+}) {
+  for (final key in keys) {
+    final value = row[key]?.toString().trim();
+    if (value != null && value.isNotEmpty && value != 'null') return value;
+  }
+  return fallback;
+}
+
 class _PublicDashboardModePanel extends StatefulWidget {
   const _PublicDashboardModePanel({
     required this.onNotifications,
@@ -3309,28 +3406,28 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                 label: 'Ejecución Presupuestal',
                 value: '${ejecucionPorcentaje.toStringAsFixed(1)}%',
                 icon: PhosphorIcons.chartPie(),
-                color: const Color(0xFF2563EB),
+                color: AppTheme.info,
                 detail: 'Apropiación vs Pagado',
               ),
               _PublicDashboardKpi(
                 label: 'Alertas PAC',
                 value: '$mesesCriticos meses',
                 icon: PhosphorIcons.warning(),
-                color: mesesCriticos > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                color: mesesCriticos > 0 ? AppTheme.warning : AppTheme.success,
                 detail: mesesCriticos > 0 ? 'Por debajo del cupo' : 'Ejecución normal',
               ),
               _PublicDashboardKpi(
                 label: 'CDP/RP Vencen',
                 value: '$totalVencen documentos',
                 icon: PhosphorIcons.clock(),
-                color: totalVencen > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                color: totalVencen > 0 ? AppTheme.danger : AppTheme.success,
                 detail: 'Próximos 30 días',
               ),
               _PublicDashboardKpi(
                 label: 'Obligaciones Pendientes',
                 value: _formatCurrency(totalPendiente),
                 icon: PhosphorIcons.currencyDollar(),
-                color: obligacionesPendientes > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                color: obligacionesPendientes > 0 ? AppTheme.warning : AppTheme.success,
                 detail: '$obligacionesPendientes obligaciones',
               ),
             ],
@@ -3339,42 +3436,42 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
           _PublicDashboardCard(
             title: 'Ejecución Presupuestal',
             icon: PhosphorIcons.chartBar(),
-            color: const Color(0xFF2563EB),
+            color: AppTheme.info,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _PublicProgressBar(
                   label: 'Apropiación Total',
                   value: 1.0,
-                  color: const Color(0xFF2563EB),
+                  color: AppTheme.info,
                   valor: _formatCurrency(totalApropiacion),
                 ),
                 const SizedBox(height: 12),
                 _PublicProgressBar(
                   label: 'Comprometido (CDP)',
                   value: totalApropiacion > 0 ? totalCDP / totalApropiacion : 0.0,
-                  color: const Color(0xFF10B981),
+                  color: AppTheme.success,
                   valor: _formatCurrency(totalCDP),
                 ),
                 const SizedBox(height: 12),
                 _PublicProgressBar(
                   label: 'Registrado (RP)',
                   value: totalApropiacion > 0 ? totalRP / totalApropiacion : 0.0,
-                  color: const Color(0xFFF59E0B),
+                  color: AppTheme.warning,
                   valor: _formatCurrency(totalRP),
                 ),
                 const SizedBox(height: 12),
                 _PublicProgressBar(
                   label: 'Obligado',
                   value: totalApropiacion > 0 ? totalObligado / totalApropiacion : 0.0,
-                  color: const Color(0xFFEF4444),
+                  color: AppTheme.danger,
                   valor: _formatCurrency(totalObligado),
                 ),
                 const SizedBox(height: 12),
                 _PublicProgressBar(
                   label: 'Pagado',
                   value: totalApropiacion > 0 ? totalPagado / totalApropiacion : 0.0,
-                  color: const Color(0xFF10B981),
+                  color: AppTheme.success,
                   valor: _formatCurrency(totalPagado),
                 ),
               ],
@@ -3384,7 +3481,7 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
           _PublicDashboardCard(
             title: 'Alertas de Cupo PAC',
             icon: PhosphorIcons.warning(),
-            color: mesesCriticos > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+            color: mesesCriticos > 0 ? AppTheme.warning : AppTheme.success,
             child: mesesCriticos > 0
                 ? Text(
                     '$mesesCriticos mes(es) con ejecución por debajo del cupo asignado',
@@ -3393,7 +3490,7 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                 : Text(
                     'Todos los meses están dentro del cupo asignado',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF10B981),
+                      color: AppTheme.success,
                     ),
                   ),
           ),
@@ -3401,7 +3498,7 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
           _PublicDashboardCard(
             title: 'Vencimientos Próximos CDP/RP',
             icon: PhosphorIcons.clock(),
-            color: totalVencen > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+            color: totalVencen > 0 ? AppTheme.danger : AppTheme.success,
             child: totalVencen > 0
                 ? Text(
                     '$cdpsVencen CDP(s) y $rpsVencen RP(s) vencen en los próximos 30 días',
@@ -3410,7 +3507,7 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                 : Text(
                     'No hay CDPs ni RPs próximos a vencer',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF10B981),
+                      color: AppTheme.success,
                     ),
                   ),
           ),
@@ -3418,7 +3515,7 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
           _PublicDashboardCard(
             title: 'Obligaciones Pendientes de Pago',
             icon: PhosphorIcons.currencyDollar(),
-            color: obligacionesPendientes > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+            color: obligacionesPendientes > 0 ? AppTheme.warning : AppTheme.success,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -3433,9 +3530,9 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                       _formatCurrency(totalPendiente),
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: obligacionesPendientes > 0 
-                            ? const Color(0xFFF59E0B) 
-                            : const Color(0xFF10B981),
+                        color: obligacionesPendientes > 0
+                            ? AppTheme.warning
+                            : AppTheme.success,
                       ),
                     ),
                   ],
@@ -3461,16 +3558,342 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                 _ModeAction(
                   icon: PhosphorIcons.bell(),
                   label: 'Ver alertas',
-                  color: const Color(0xFFF59E0B),
+                  color: AppTheme.warning,
                   onTap: widget.onNotifications,
                 ),
                 _ModeAction(
                   icon: PhosphorIcons.brain(),
                   label: 'Preguntar al Copilot',
-                  color: const Color(0xFF2563EB),
+                  color: AppTheme.info,
                   onTap: widget.onCopilot,
                 ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublicComplianceModePanel extends StatefulWidget {
+  const _PublicComplianceModePanel();
+
+  @override
+  State<_PublicComplianceModePanel> createState() =>
+      _PublicComplianceModePanelState();
+}
+
+class _PublicComplianceModePanelState extends State<_PublicComplianceModePanel> {
+  bool _loading = true;
+  List<Map<String, Object?>> _vencimientos = const [];
+  List<Map<String, Object?>> _obligaciones = const [];
+  List<Map<String, Object?>> _pac = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComplianceData();
+  }
+
+  Future<void> _loadComplianceData() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final hoy = DateTime.now();
+      final hasta = hoy.add(const Duration(days: 30)).toIso8601String();
+
+      final cdps = await db.query(
+        'cdps',
+        where: 'fecha_vigencia >= ? AND fecha_vigencia <= ?',
+        whereArgs: [hoy.toIso8601String(), hasta],
+        orderBy: 'fecha_vigencia ASC',
+        limit: 4,
+      );
+      final rps = await db.query(
+        'rps',
+        where: 'fecha_vigencia >= ? AND fecha_vigencia <= ?',
+        whereArgs: [hoy.toIso8601String(), hasta],
+        orderBy: 'fecha_vigencia ASC',
+        limit: 4,
+      );
+      final vencimientos = <Map<String, Object?>>[
+        for (final row in cdps) {...row, 'tipo_documento': 'CDP'},
+        for (final row in rps) {...row, 'tipo_documento': 'RP'},
+      ]..sort((a, b) {
+          final fechaA = _publicText(a, ['fecha_vigencia']);
+          final fechaB = _publicText(b, ['fecha_vigencia']);
+          return fechaA.compareTo(fechaB);
+        });
+
+      final obligaciones = await db.query(
+        'obligaciones',
+        where: 'estado IN (?, ?)',
+        whereArgs: ['pendiente', 'reconocida'],
+        orderBy: 'fecha_obligacion ASC',
+        limit: 6,
+      );
+      final pac = await db.query('pac', orderBy: 'mes ASC', limit: 12);
+
+      if (!mounted) return;
+      setState(() {
+        _vencimientos = vencimientos.take(6).toList();
+        _obligaciones = obligaciones;
+        _pac = pac;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('Error al cargar cumplimiento publico: $e');
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  String _diasRestantes(Map<String, Object?> row) {
+    final fecha = DateTime.tryParse(_publicText(row, ['fecha_vigencia']));
+    if (fecha == null) return 'sin fecha';
+    final dias = fecha.difference(DateTime.now()).inDays;
+    if (dias <= 0) return 'hoy';
+    return '$dias dias';
+  }
+
+  String _estadoPac(Map<String, Object?> row) {
+    final cupo = _publicNum(row, 'cupo_asignado');
+    final ejecutado = _publicNum(row, 'valor_ejecutado');
+    if (cupo <= 0) return 'warning';
+    final avance = ejecutado / cupo;
+    if (avance < 0.8) return 'critical';
+    if (avance > 0.95) return 'warning';
+    return 'ok';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const EnterprisePanel(child: LinearProgressIndicator());
+    }
+
+    return EnterprisePanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ModeHeader(
+            icon: PhosphorIcons.warning(),
+            title: 'Cumplimiento y Alertas',
+            detail: 'Vencimientos de CDP/RP, cupos PAC y obligaciones pendientes.',
+          ),
+          const SizedBox(height: 16),
+          _PublicDashboardCard(
+            title: 'Vencimientos CDP/RP',
+            icon: PhosphorIcons.clock(),
+            color: AppTheme.danger,
+            child: _vencimientos.isEmpty
+                ? Text(
+                    'No hay CDP ni RP por vencer en los proximos 30 dias.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                : Column(
+                    children: [
+                      for (final row in _vencimientos) ...[
+                        _PublicVencimientoItem(
+                          tipo: _publicText(row, ['tipo_documento']),
+                          numero: _publicText(
+                            row,
+                            ['numero_cdp', 'numero_rp', 'numero'],
+                            fallback: 'Sin numero',
+                          ),
+                          venceEn: _diasRestantes(row),
+                          monto: _moneyCompact(
+                            _publicNum(row, 'valor_cdp') +
+                                _publicNum(row, 'valor_rp'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 16),
+          _PublicDashboardCard(
+            title: 'Obligaciones Pendientes',
+            icon: PhosphorIcons.currencyDollar(),
+            color: AppTheme.warning,
+            child: _obligaciones.isEmpty
+                ? Text(
+                    'No hay obligaciones pendientes o reconocidas.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                : Column(
+                    children: [
+                      for (final row in _obligaciones) ...[
+                        _PublicObligacionItem(
+                          numero: _publicText(
+                            row,
+                            ['numero_obligacion', 'numero'],
+                            fallback: 'Obligacion',
+                          ),
+                          proveedor: _publicText(
+                            row,
+                            ['tercero_nombre', 'proveedor', 'beneficiario'],
+                            fallback: 'Tercero sin nombre',
+                          ),
+                          monto: _moneyCompact(
+                            _publicNum(row, 'valor_obligacion'),
+                          ),
+                          diasVencido: 0,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 16),
+          _PublicDashboardCard(
+            title: 'PAC por mes',
+            icon: Icons.calendar_month,
+            color: AppTheme.info,
+            child: _pac.isEmpty
+                ? Text(
+                    'No hay programacion PAC registrada.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final row in _pac)
+                        _PublicMonthChip(
+                          label: _publicText(row, ['mes', 'periodo']),
+                          status: _estadoPac(row),
+                        ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublicTransparencyModePanel extends StatefulWidget {
+  const _PublicTransparencyModePanel();
+
+  @override
+  State<_PublicTransparencyModePanel> createState() =>
+      _PublicTransparencyModePanelState();
+}
+
+class _PublicTransparencyModePanelState
+    extends State<_PublicTransparencyModePanel> {
+  bool _loading = true;
+  int _reportes = 0;
+  int _procesos = 0;
+  int _consolidaciones = 0;
+  double _transferido = 0;
+  double _ejecutado = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransparencyData();
+  }
+
+  Future<void> _loadTransparencyData() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final reportes = await db.query('reportes_transparencia');
+      final procesos = await db.query('procesos_disciplinarios');
+      final consolidaciones = await db.query('consolidaciones_nicsp40');
+      final transferido = consolidaciones.fold<double>(
+        0,
+        (sum, row) => sum + _publicNum(row, 'valor_transferido'),
+      );
+      final ejecutado = consolidaciones.fold<double>(
+        0,
+        (sum, row) => sum + _publicNum(row, 'valor_ejecutado'),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _reportes = reportes.length;
+        _procesos = procesos.length;
+        _consolidaciones = consolidaciones.length;
+        _transferido = transferido;
+        _ejecutado = ejecutado;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('Error al cargar transparencia publica: $e');
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const EnterprisePanel(child: LinearProgressIndicator());
+    }
+
+    final avance = _transferido > 0 ? _ejecutado / _transferido : 0.0;
+    return EnterprisePanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ModeHeader(
+            icon: Icons.public,
+            title: 'Transparencia',
+            detail: 'Reportes publicados, procesos disciplinarios y NICSP 40.',
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _PublicDashboardKpi(
+                label: 'Reportes',
+                value: '$_reportes',
+                icon: Icons.description,
+                color: AppTheme.info,
+                detail: 'Transparencia registrados',
+              ),
+              _PublicDashboardKpi(
+                label: 'Disciplinarios',
+                value: '$_procesos',
+                icon: Icons.security,
+                color: AppTheme.warning,
+                detail: 'Procesos en control interno',
+              ),
+              _PublicDashboardKpi(
+                label: 'NICSP 40',
+                value: '$_consolidaciones',
+                icon: Icons.account_balance,
+                color: AppTheme.success,
+                detail: 'Consolidaciones registradas',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _PublicDashboardCard(
+            title: 'Ejecucion NICSP 40',
+            icon: Icons.trending_up,
+            color: AppTheme.success,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PublicProgressBar(
+                  label: 'Transferido',
+                  value: 1,
+                  color: AppTheme.info,
+                  valor: _moneyCompact(_transferido),
+                ),
+                const SizedBox(height: 12),
+                _PublicProgressBar(
+                  label: 'Ejecutado',
+                  value: avance.clamp(0, 1),
+                  color: AppTheme.success,
+                  valor: _moneyCompact(_ejecutado),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -3661,13 +4084,13 @@ class _PublicMonthChip extends StatelessWidget {
     Color color;
     switch (status) {
       case 'critical':
-        color = const Color(0xFFEF4444);
+        color = AppTheme.danger;
         break;
       case 'warning':
-        color = const Color(0xFFF59E0B);
+        color = AppTheme.warning;
         break;
       default:
-        color = const Color(0xFF10B981);
+        color = AppTheme.success;
     }
     
     return Container(
@@ -3719,14 +4142,14 @@ class _PublicVencimientoItem extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+            color: AppTheme.danger.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             tipo,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: const Color(0xFFEF4444),
+              color: AppTheme.danger,
             ),
           ),
         ),
@@ -3754,7 +4177,7 @@ class _PublicVencimientoItem extends StatelessWidget {
           monto,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF10B981),
+            color: AppTheme.success,
           ),
         ),
       ],
@@ -3781,13 +4204,13 @@ class _PublicObligacionItem extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: diasVencido > 10
-            ? const Color(0xFFEF4444).withValues(alpha: 0.1)
-            : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+            ? AppTheme.danger.withValues(alpha: 0.1)
+            : AppTheme.warning.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: diasVencido > 10
-              ? const Color(0xFFEF4444).withValues(alpha: 0.3)
-              : const Color(0xFFF59E0B).withValues(alpha: 0.3),
+              ? AppTheme.danger.withValues(alpha: 0.3)
+              : AppTheme.warning.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -3812,8 +4235,8 @@ class _PublicObligacionItem extends StatelessWidget {
                   'Vencido hace $diasVencido días',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: diasVencido > 10
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFFF59E0B),
+                        ? AppTheme.danger
+                        : AppTheme.warning,
                   ),
                 ),
               ],
@@ -3823,7 +4246,7 @@ class _PublicObligacionItem extends StatelessWidget {
             monto,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: const Color(0xFF10B981),
+              color: AppTheme.success,
             ),
           ),
         ],

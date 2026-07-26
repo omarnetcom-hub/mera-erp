@@ -3,6 +3,8 @@ import '../../../../db_helper.dart';
 import '../../security/auditoria_service.dart';
 import '../services/pac_service.dart';
 import '../models/pac.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class PACTesoreriaPage extends StatefulWidget {
   final String entidadId;
@@ -125,7 +127,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titulos[_selectedIndex]),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           if (_selectedIndex < 2) // Solo para Programación y Ejecución
             Container(
@@ -135,7 +137,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
               child: TextFormField(
                 controller: _vigenciaFiltroController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(color: Colors.white, fontSize: 16),
                 decoration: const InputDecoration(
                   labelText: 'Vigencia',
                   labelStyle: TextStyle(color: Colors.white70),
@@ -167,7 +169,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF006D77),
+        selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
@@ -191,20 +193,20 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: _programarPAC,
-              backgroundColor: const Color(0xFF006D77),
-              child: const Icon(Icons.add),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
             )
           : _selectedIndex == 2
               ? FloatingActionButton(
                   onPressed: _trasladarCupo,
-                  backgroundColor: const Color(0xFF006D77),
-                  child: const Icon(Icons.compare_arrows),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Icon(Icons.compare_arrows),
                 )
               : _selectedIndex == 3
                   ? FloatingActionButton(
                       onPressed: _registrarEmbargo,
-                      backgroundColor: const Color(0xFF006D77),
-                      child: const Icon(Icons.add),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: Icon(Icons.add),
                     )
                   : null,
     );
@@ -216,7 +218,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.calendar_month, size: 64, color: Colors.grey),
+            Icon(Icons.calendar_month, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay PAC programado para esta vigencia',
@@ -225,10 +227,10 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _programarPAC,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Programar PAC'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -248,8 +250,8 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Programado: \$${pac.valorProgramado.toStringAsFixed(2)}'),
-                Text('Saldo Disponible: \$${pac.saldoDisponible.toStringAsFixed(2)}'),
+                Text('Programado: ${CurrencyFormatter.format(pac.valorProgramado)}'),
+                Text('Saldo Disponible: ${CurrencyFormatter.format(pac.saldoDisponible)}'),
                 if (pac.actoAdministrativo != null)
                   Text('Acto Administrativo: ${pac.actoAdministrativo}'),
                 const SizedBox(height: 4),
@@ -265,12 +267,12 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
               children: [
                 if (pac.estado == EstadoPAC.borrador)
                   IconButton(
-                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                    icon: Icon(Icons.check_circle, color: Colors.green),
                     tooltip: 'Aprobar PAC',
                     onPressed: () => _aprobarPAC(pac),
                   ),
                 IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.blue),
+                  icon: Icon(Icons.edit, color: Colors.blue),
                   tooltip: 'Modificar PAC',
                   onPressed: () => _modificarPAC(pac),
                 ),
@@ -323,9 +325,9 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
             return TableRow(
               children: [
                 Padding(padding: const EdgeInsets.all(8), child: Text(nombresMeses[mes - 1])),
-                Padding(padding: const EdgeInsets.all(8), child: Text('\$${totalProgramado.toStringAsFixed(2)}')),
-                Padding(padding: const EdgeInsets.all(8), child: Text('\$${totalEjecutado.toStringAsFixed(2)}')),
-                Padding(padding: const EdgeInsets.all(8), child: Text('\$${totalSaldo.toStringAsFixed(2)}')),
+                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(totalProgramado)}')),
+                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(totalEjecutado)}')),
+                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(totalSaldo)}')),
               ],
             );
           }),
@@ -339,7 +341,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.swap_horiz, size: 80, color: Color(0xFF006D77)),
+          Icon(Icons.swap_horiz, size: 80, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 24),
           const Text(
             'Traslado de Cupo PAC',
@@ -354,10 +356,10 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: _trasladarCupo,
-            icon: const Icon(Icons.compare_arrows),
+            icon: Icon(Icons.compare_arrows),
             label: const Text('Registrar Traslado de Cupo'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D77),
+              backgroundColor: Theme.of(context).colorScheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             ),
           ),
@@ -372,7 +374,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.gavel, size: 64, color: Colors.grey),
+            Icon(Icons.gavel, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay embargos registrados',
@@ -381,10 +383,10 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _registrarEmbargo,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Registrar Embargo Judicial'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -406,7 +408,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
               children: [
                 Text('Juzgado: ${embargo.juzgado}'),
                 Text('Demandante: ${embargo.terceroNombre}'),
-                Text('Fecha Registro: ${embargo.fechaRegistro.toLocal().toString().split(' ')[0]}'),
+                Text('Fecha Registro: ${DateFormatter.format(embargo.fechaRegistro)}'),
                 const SizedBox(height: 4),
                 const Text(
                   'Nota: Las cuentas públicas son inembargables (Art. 19 EOP). Este registro es informativo y de control.',
@@ -415,8 +417,8 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
               ],
             ),
             trailing: Text(
-              '\$${embargo.valorEmbargo.toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+              '${CurrencyFormatter.format(embargo.valorEmbargo)}',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
             ),
           ),
         );
@@ -517,7 +519,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Programar'),
             ),
           ],
@@ -541,7 +543,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Mes: ${pac.nombreMes} | Rubro: ${pac.codigoRubro}'),
-              Text('Valor: \$${pac.valorProgramado.toStringAsFixed(2)}'),
+              Text('Valor: ${CurrencyFormatter.format(pac.valorProgramado)}'),
               const Divider(),
               TextFormField(
                 controller: funcionarioController,
@@ -583,7 +585,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Aprobar'),
           ),
         ],
@@ -655,7 +657,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Modificar'),
           ),
         ],
@@ -779,7 +781,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Trasladar'),
             ),
           ],
@@ -856,7 +858,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Registrar'),
           ),
         ],

@@ -7,15 +7,19 @@ import '../services/secop_service.dart';
 import '../models/proceso_contratacion.dart';
 import '../models/contrato.dart';
 import '../models/poliza.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class ContratacionPublicaPage extends StatefulWidget {
   final String entidadId;
   final String usuarioId;
+  final int tabInicial;
 
   const ContratacionPublicaPage({
     super.key,
     required this.entidadId,
     required this.usuarioId,
+    this.tabInicial = 0,
   });
 
   @override
@@ -44,6 +48,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.tabInicial.clamp(0, _titulos.length - 1).toInt();
     _inicializarServicios();
   }
 
@@ -135,7 +140,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titulos[_selectedIndex]),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -152,7 +157,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF006D77),
+        selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
@@ -176,20 +181,20 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: _crearProceso,
-              backgroundColor: const Color(0xFF006D77),
-              child: const Icon(Icons.add),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
             )
           : _selectedIndex == 1
               ? FloatingActionButton(
                   onPressed: _crearContrato,
-                  backgroundColor: const Color(0xFF006D77),
-                  child: const Icon(Icons.add),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Icon(Icons.add),
                 )
               : _selectedIndex == 2
                   ? FloatingActionButton(
                       onPressed: _registrarPoliza,
-                      backgroundColor: const Color(0xFF006D77),
-                      child: const Icon(Icons.add),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: Icon(Icons.add),
                     )
                   : null,
     );
@@ -201,7 +206,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.gavel, size: 64, color: Colors.grey),
+            Icon(Icons.gavel, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay procesos de contratación registrados',
@@ -210,10 +215,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _crearProceso,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Crear Proceso'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -230,7 +235,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             title: Text(proceso.numeroProceso),
-            subtitle: Text('${proceso.objetoContrato} | \$${proceso.valorEstimado.toStringAsFixed(2)}'),
+            subtitle: Text('${proceso.objetoContrato} | ${CurrencyFormatter.format(proceso.valorEstimado)}'),
             trailing: Chip(
               label: Text(proceso.estado.toString().split('.').last.toUpperCase()),
               backgroundColor: _getEstadoColor(proceso.estado),
@@ -247,34 +252,34 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     Text('Dependencia Solicitante: ${proceso.dependenciaSolicitante}'),
                     Text('Responsable: ${proceso.responsableProceso}'),
                     if (proceso.numeroCDP != null)
-                      Text('CDP Asociado: ${proceso.numeroCDP}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('CDP Asociado: ${proceso.numeroCDP}', style: TextStyle(fontWeight: FontWeight.bold)),
                     if (proceso.secopId != null)
-                      Text('ID SECOP II: ${proceso.secopId}', style: const TextStyle(color: Colors.blue)),
+                      Text('ID SECOP II: ${proceso.secopId}', style: TextStyle(color: Colors.blue)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (proceso.cdpId == null)
                           TextButton.icon(
-                            icon: const Icon(Icons.link),
+                            icon: Icon(Icons.link),
                             label: const Text('Asociar CDP'),
                             onPressed: () => _asociarCDP(proceso),
                           ),
                         if (proceso.estado == EstadoProceso.estudioPrevio && proceso.cdpId != null)
                           TextButton.icon(
-                            icon: const Icon(Icons.cloud_upload),
+                            icon: Icon(Icons.cloud_upload),
                             label: const Text('Publicar SECOP'),
                             onPressed: () => _publicarSECOP(proceso),
                           ),
                         if (proceso.estado == EstadoProceso.publicado)
                           TextButton.icon(
-                            icon: const Icon(Icons.gavel),
+                            icon: Icon(Icons.gavel),
                             label: const Text('Adjudicar'),
                             onPressed: () => _adjudicarProceso(proceso),
                           ),
                         if (proceso.estado == EstadoProceso.adjudicado)
                           TextButton.icon(
-                            icon: const Icon(Icons.description),
+                            icon: Icon(Icons.description),
                             label: const Text('Crear Contrato'),
                             onPressed: () => _crearContratoDesdeProceso(proceso),
                           ),
@@ -296,7 +301,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.description, size: 64, color: Colors.grey),
+            Icon(Icons.description, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay contratos registrados',
@@ -305,10 +310,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _crearContrato,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Crear Contrato'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -325,7 +330,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             title: Text(contrato.numeroContrato),
-            subtitle: Text('${contrato.contratistaNombre} | \$${contrato.valorContrato.toStringAsFixed(2)}'),
+            subtitle: Text('${contrato.contratistaNombre} | ${CurrencyFormatter.format(contrato.valorContrato)}'),
             trailing: Chip(
               label: Text(contrato.estado.toString().split('.').last.toUpperCase()),
               backgroundColor: _getEstadoContratoColor(contrato.estado),
@@ -340,17 +345,17 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     Text('Objeto: ${contrato.objetoContrato}'),
                     Text('Contratista Identificación: ${contrato.contratistaIdentificacion}'),
                     Text('CDP: ${contrato.numeroCDP} | RP: ${contrato.numeroRP}'),
-                    Text('Firma: ${contrato.fechaFirma.toLocal().toString().split(' ')[0]}'),
-                    Text('Ejecución: ${contrato.fechaInicioEjecucion.toLocal().toString().split(' ')[0]} a ${contrato.fechaFinEjecucion.toLocal().toString().split(' ')[0]} (${contrato.duracionDias} días)'),
+                    Text('Firma: ${DateFormatter.format(contrato.fechaFirma)}'),
+                    Text('Ejecución: ${DateFormatter.format(contrato.fechaInicioEjecucion)} a ${DateFormatter.format(contrato.fechaFinEjecucion)} (${contrato.duracionDias} días)'),
                     if (contrato.fechaLegalizacion != null)
-                      Text('Legalizado el: ${contrato.fechaLegalizacion!.toLocal().toString().split(' ')[0]}'),
+                      Text('Legalizado el: ${DateFormatter.format(contrato.fechaLegalizacion!)}'),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (contrato.estado == EstadoContrato.enFirma || contrato.estado == EstadoContrato.firmado)
                           TextButton.icon(
-                            icon: const Icon(Icons.verified),
+                            icon: Icon(Icons.verified),
                             label: const Text('Legalizar Contrato'),
                             onPressed: () => _legalizarContrato(contrato),
                           ),
@@ -372,7 +377,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.security, size: 64, color: Colors.grey),
+            Icon(Icons.security, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay pólizas registradas',
@@ -381,10 +386,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _registrarPoliza,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Registrar Póliza'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -400,14 +405,14 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
-            leading: const Icon(Icons.security, color: Color(0xFF006D77)),
+            leading: Icon(Icons.security, color: Theme.of(context).colorScheme.primary),
             title: Text('Póliza: ${poliza.numeroPoliza} (${poliza.tipoPoliza.toString().split('.').last})'),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Contrato: ${poliza.numeroContrato}'),
                 Text('Aseguradora: ${poliza.aseguradora}'),
-                Text('Vigencia: ${poliza.fechaInicioVigencia.toLocal().toString().split(' ')[0]} a ${poliza.fechaFinVigencia.toLocal().toString().split(' ')[0]}'),
+                Text('Vigencia: ${DateFormatter.format(poliza.fechaInicioVigencia)} a ${DateFormatter.format(poliza.fechaFinVigencia)}'),
               ],
             ),
             trailing: Column(
@@ -415,8 +420,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '\$${poliza.valorAsegurado.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  '${CurrencyFormatter.format(poliza.valorAsegurado)}',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -443,17 +448,17 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Card(
-            color: const Color(0xFFE0F2F1),
+            color: Theme.of(context).colorScheme.secondaryContainer,
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
-                children: const [
-                  Icon(Icons.info, color: Color(0xFF006D77)),
-                  SizedBox(width: 12),
+                children: [
+                  Icon(Icons.info, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Sincronización con el Sistema Electrónico de Contratación Pública SECOP II a través de la pasarela gubernamental X-Road.',
-                      style: TextStyle(color: Color(0xFF004D40)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSecondaryContainer),
                     ),
                   ),
                 ],
@@ -474,12 +479,12 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     return Card(
                       child: ListTile(
                         title: Text(contrato.numeroContrato),
-                        subtitle: Text('Valor: \$${contrato.valorContrato.toStringAsFixed(2)} | Contratista: ${contrato.contratistaNombre}'),
+                        subtitle: Text('Valor: ${CurrencyFormatter.format(contrato.valorContrato)} | Contratista: ${contrato.contratistaNombre}'),
                         trailing: ElevatedButton.icon(
                           onPressed: () => _sincronizarContrato(contrato),
-                          icon: const Icon(Icons.sync, size: 16),
+                          icon: Icon(Icons.sync, size: 16),
                           label: const Text('Sincronizar'),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                     );
@@ -616,7 +621,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Crear'),
             ),
           ],
@@ -647,7 +652,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               items: _cdpsDisponibles.map((c) {
                 return DropdownMenuItem<String>(
                   value: c['id'] as String,
-                  child: Text('CDP #${c['numero_cdp']} - Saldo: \$${(c['saldo_disponible'] as num).toDouble().toStringAsFixed(2)}'),
+                  child: Text('CDP #${c['numero_cdp']} - Saldo: ${CurrencyFormatter.format((c['saldo_disponible'] as num).toDouble())}'),
                 );
               }).toList(),
               onChanged: (val) {
@@ -684,7 +689,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Asociar'),
             ),
           ],
@@ -742,7 +747,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Publicar'),
           ),
         ],
@@ -814,7 +819,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Adjudicar'),
           ),
         ],
@@ -879,7 +884,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('Proceso: ${proceso.numeroProceso}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Proceso: ${proceso.numeroProceso}', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
@@ -891,7 +896,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     }).map((r) {
                       return DropdownMenuItem<String>(
                         value: r['id'] as String,
-                        child: Text('RP #${r['numero_rp']} - Valor: \$${(r['valor_compromiso'] as num).toDouble().toStringAsFixed(2)}'),
+                        child: Text('RP #${r['numero_rp']} - Valor: ${CurrencyFormatter.format((r['valor_compromiso'] as num).toDouble())}'),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -1015,7 +1020,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Crear'),
             ),
           ],
@@ -1177,7 +1182,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Registrar'),
             ),
           ],

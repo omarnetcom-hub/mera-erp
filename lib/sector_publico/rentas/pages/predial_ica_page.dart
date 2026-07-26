@@ -11,6 +11,7 @@ import '../services/cobro_coactivo_service.dart';
 import '../services/intereses_moratorios_service.dart';
 import '../models/predio.dart';
 import '../models/liquidacion_predial.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 class PredialICAPage extends StatefulWidget {
   final String entidadId;
@@ -117,10 +118,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rentas - Predial e Industria y Comercio (ICA)'),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _cargarDatos,
           ),
         ],
@@ -170,8 +171,8 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogoPredial,
-        backgroundColor: const Color(0xFF006D77),
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Icon(Icons.add),
       ),
     );
   }
@@ -182,7 +183,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.home, size: 64, color: Colors.grey),
+            Icon(Icons.home, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('Gestión de Predios Catastrales', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
@@ -190,9 +191,9 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _registrarPredioDialog,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Cargar Catastro IGAC'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ],
         ),
@@ -206,15 +207,15 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         final p = _predios[index];
         return Card(
           child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFF006D77),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.location_city, color: Colors.white),
             ),
-            title: Text('Predio: ${p.numeroPredial}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Dirección: ${p.direccion} | Avalúo: \$${p.avaluoCatastral.toStringAsFixed(2)} | Uso: ${p.usoSuelo.name}'),
+            title: Text('Predio: ${p.numeroPredial}', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Dirección: ${p.direccion} | Avalúo: ${CurrencyFormatter.format(p.avaluoCatastral)} | Uso: ${p.usoSuelo.name}'),
             trailing: ElevatedButton(
               onPressed: () => _liquidarPredioIndividualDialog(p),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Liquidar', style: TextStyle(fontSize: 11)),
             ),
           ),
@@ -229,7 +230,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.receipt, size: 64, color: Colors.grey),
+            Icon(Icons.receipt, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('Liquidaciones Prediales', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
@@ -237,9 +238,9 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _liquidacionMasivaDialog,
-              icon: const Icon(Icons.playlist_add_check),
+              icon: Icon(Icons.playlist_add_check),
               label: const Text('Liquidación Masiva'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ],
         ),
@@ -253,14 +254,14 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         final l = _liquidaciones[index];
         return Card(
           child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFF006D77),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.receipt_long, color: Colors.white),
             ),
-            title: Text('Liquidación #${l.numeroLiquidacion}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Vigencia: ${l.vigencia} | Total: \$${l.totalPagar.toStringAsFixed(2)} | Estado: ${l.estado.name}'),
+            title: Text('Liquidación #${l.numeroLiquidacion}', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Vigencia: ${l.vigencia} | Total: ${CurrencyFormatter.format(l.totalPagar)} | Estado: ${l.estado.name}'),
             trailing: IconButton(
-              icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF006D77)),
+              icon: Icon(Icons.picture_as_pdf, color: Theme.of(context).colorScheme.primary),
               tooltip: 'Exportar Declaración Plano',
               onPressed: () => _exportarPredialPlano(l),
             ),
@@ -275,7 +276,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.handshake, size: 64, color: Colors.grey),
+          Icon(Icons.handshake, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           Text('Acuerdos de Pago Predial', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
@@ -283,9 +284,9 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _crearAcuerdoDialog,
-            icon: const Icon(Icons.add),
+            icon: Icon(Icons.add),
             label: const Text('Crear Acuerdo de Pago'),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
           ),
         ],
       ),
@@ -297,7 +298,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.gavel, size: 64, color: Colors.grey),
+          Icon(Icons.gavel, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           Text('Cobro Coactivo Predial', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
@@ -305,7 +306,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _iniciarCobroCoactivoDialog,
-            icon: const Icon(Icons.gavel),
+            icon: Icon(Icons.gavel),
             label: const Text('Iniciar Cobro Coactivo'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
           ),
@@ -335,9 +336,9 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                       const Text('Censo de Contribuyentes ICA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       ElevatedButton.icon(
                         onPressed: _registrarContribuyenteCensoDialog,
-                        icon: const Icon(Icons.person_add),
+                        icon: Icon(Icons.person_add),
                         label: const Text('Registrar'),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                       ),
                     ],
                   ),
@@ -354,12 +355,12 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                           itemBuilder: (context, idx) {
                             final c = _censoICA[idx];
                             return ListTile(
-                              leading: const Icon(Icons.store, color: Color(0xFF006D77)),
+                              leading: Icon(Icons.store, color: Theme.of(context).colorScheme.primary),
                               title: Text('${c['razon_social']} (NIT: ${c['nit']})'),
                               subtitle: Text('Actividad: ${c['actividad_economica']} | Tipo: ${c['tipo_actividad']}'),
                               trailing: ElevatedButton(
                                 onPressed: () => _generarDeclaracionICADialog(c['id'].toString()),
-                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                                style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                                 child: const Text('Declarar', style: TextStyle(fontSize: 11)),
                               ),
                             );
@@ -390,11 +391,11 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                           itemBuilder: (context, idx) {
                             final d = _declaracionesICA[idx];
                             return ListTile(
-                              leading: const Icon(Icons.description, color: Colors.blue),
-                              title: Text('Periodo: ${d['periodo']} - Impuesto ICA: \$${(d['impuesto_ica'] as num).toStringAsFixed(2)}'),
-                              subtitle: Text('Base Gravable: \$${(d['base_gravable'] as num).toStringAsFixed(2)} | Total Pagar: \$${(d['total_pagar'] as num).toStringAsFixed(2)}'),
+                              leading: Icon(Icons.description, color: Colors.blue),
+                              title: Text('Periodo: ${d['periodo']} - Impuesto ICA: ${CurrencyFormatter.format((d['impuesto_ica'] as num))}'),
+                              subtitle: Text('Base Gravable: ${CurrencyFormatter.format((d['base_gravable'] as num))} | Total Pagar: ${CurrencyFormatter.format((d['total_pagar'] as num))}'),
                               trailing: IconButton(
-                                icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF006D77)),
+                                icon: Icon(Icons.picture_as_pdf, color: Theme.of(context).colorScheme.primary),
                                 tooltip: 'Exportar Declaración ICA Plano',
                                 onPressed: () => _exportarICAPlano(d),
                               ),
@@ -411,18 +412,18 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _registrarReteICADialog,
-                  icon: const Icon(Icons.receipt_long),
+                  icon: Icon(Icons.receipt_long),
                   label: const Text('Registrar ReteICA'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77), padding: const EdgeInsets.symmetric(vertical: 16)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, padding: const EdgeInsets.symmetric(vertical: 16)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _generarAvisoTableroDialog,
-                  icon: const Icon(Icons.branding_watermark),
+                  icon: Icon(Icons.branding_watermark),
                   label: const Text('Avisos y Tableros'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77), padding: const EdgeInsets.symmetric(vertical: 16)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, padding: const EdgeInsets.symmetric(vertical: 16)),
                 ),
               ),
             ],
@@ -576,7 +577,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Liquidación realizada. Total a Pagar: \$${liq.totalPagar.toStringAsFixed(2)}')),
+          SnackBar(content: Text('Liquidación realizada. Total a Pagar: ${CurrencyFormatter.format(liq.totalPagar)}')),
         );
       }
       _cargarDatos();
@@ -868,7 +869,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Declaración ICA generada. Impuesto: \$${(result['impuesto_ica'] as num).toStringAsFixed(2)}')),
+                      SnackBar(content: Text('Declaración ICA generada. Impuesto: ${CurrencyFormatter.format((result['impuesto_ica'] as num))}')),
                     );
                   }
                   _cargarDatos();

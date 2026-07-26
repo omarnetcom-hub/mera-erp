@@ -5,6 +5,8 @@ import '../services/contabilidad_nicsp_service.dart';
 import '../services/cierre_vigencia_service.dart';
 import '../models/asiento_contable.dart';
 import '../models/cuenta_contable.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class ContabilidadNICSPPage extends StatefulWidget {
   final String entidadId;
@@ -116,7 +118,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titulos[_selectedIndex]),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -133,7 +135,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF006D77),
+        selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
@@ -157,8 +159,8 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: _crearAsientoManual,
-              backgroundColor: const Color(0xFF006D77),
-              child: const Icon(Icons.add),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
             )
           : null,
     );
@@ -170,7 +172,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
               'No hay asientos contables registrados',
@@ -179,10 +181,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _crearAsientoManual,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Crear Asiento Manual'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -205,12 +207,12 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '\$${asiento.totalDebito.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                  '${CurrencyFormatter.format(asiento.totalDebito)}',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
                 ),
                 Text(
-                  asiento.fechaAsiento.toLocal().toString().split(' ')[0],
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  DateFormatter.format(asiento.fechaAsiento),
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
@@ -231,17 +233,17 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                               Expanded(
                                 flex: 1,
                                 child: Text(
-                                  d.debito > 0 ? '\$${d.debito.toStringAsFixed(2)}' : '',
+                                  d.debito > 0 ? '${CurrencyFormatter.format(d.debito)}' : '',
                                   textAlign: TextAlign.end,
-                                  style: const TextStyle(color: Colors.green),
+                                  style: TextStyle(color: Colors.green),
                                 ),
                               ),
                               Expanded(
                                 flex: 1,
                                 child: Text(
-                                  d.credito > 0 ? '\$${d.credito.toStringAsFixed(2)}' : '',
+                                  d.credito > 0 ? '${CurrencyFormatter.format(d.credito)}' : '',
                                   textAlign: TextAlign.end,
-                                  style: const TextStyle(color: Colors.red),
+                                  style: TextStyle(color: Colors.red),
                                 ),
                               ),
                             ],
@@ -253,7 +255,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Observaciones: ${asiento.observaciones}',
-                          style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+                          style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
                         ),
                       ),
                     ]
@@ -286,12 +288,12 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             subtitle: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Débito: \$${saldo.saldoDeudor.toStringAsFixed(2)}'),
-                Text('Crédito: \$${saldo.saldoAcreedor.toStringAsFixed(2)}'),
+                Text('Débito: ${CurrencyFormatter.format(saldo.saldoDeudor)}'),
+                Text('Crédito: ${CurrencyFormatter.format(saldo.saldoAcreedor)}'),
               ],
             ),
             trailing: Text(
-              '\$${saldo.saldoNeto.toStringAsFixed(2)}',
+              '${CurrencyFormatter.format(saldo.saldoNeto)}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: saldo.saldoNeto >= 0 ? Colors.green : Colors.red,
@@ -309,30 +311,30 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
       children: [
         Card(
           child: ListTile(
-            leading: const Icon(Icons.balance, color: Color(0xFF006D77)),
+            leading: Icon(Icons.balance, color: Theme.of(context).colorScheme.primary),
             title: const Text('Estado de Situación Financiera'),
             subtitle: const Text('Generar balance general (NICSP 1)'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: Icon(Icons.chevron_right),
             onTap: _mostrarConfiguracionSituacion,
           ),
         ),
         const SizedBox(height: 12),
         Card(
           child: ListTile(
-            leading: const Icon(Icons.trending_up, color: Color(0xFF006D77)),
+            leading: Icon(Icons.trending_up, color: Theme.of(context).colorScheme.primary),
             title: const Text('Estado de Resultados'),
             subtitle: const Text('Generar resultado operacional (NICSP 1)'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: Icon(Icons.chevron_right),
             onTap: _mostrarConfiguracionResultados,
           ),
         ),
         const SizedBox(height: 12),
         Card(
           child: ListTile(
-            leading: const Icon(Icons.payments, color: Color(0xFF006D77)),
+            leading: Icon(Icons.payments, color: Theme.of(context).colorScheme.primary),
             title: const Text('Estado de Flujos de Efectivo'),
             subtitle: const Text('Generar flujos de efectivo (NICSP 2)'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: Icon(Icons.chevron_right),
             onTap: _mostrarConfiguracionFlujos,
           ),
         ),
@@ -347,7 +349,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_clock, size: 80, color: Color(0xFF006D77)),
+            Icon(Icons.lock_clock, size: 80, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 24),
             const Text(
               'Cierre Anual de Vigencia',
@@ -362,7 +364,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: _ejecutarCierre,
-              icon: const Icon(Icons.lock),
+              icon: Icon(Icons.lock),
               label: const Text('Ejecutar Cierre Presupuestal y Contable'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -452,7 +454,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                   _generarEstadoSituacion(vigenciaController.text, fechaCorte);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Generar'),
             ),
           ],
@@ -483,13 +485,13 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               Text('Vigencia: ${esf.vigencia}'),
               Text('Fecha Corte: ${esf.fechaCorte.toString().split(' ')[0]}'),
               const Divider(),
-              Text('Total Activos: \$${esf.totalActivo.toStringAsFixed(2)}'),
-              Text('Total Pasivos: \$${esf.totalPasivo.toStringAsFixed(2)}'),
-              Text('Total Patrimonio: \$${esf.totalPatrimonio.toStringAsFixed(2)}'),
+              Text('Total Activos: ${CurrencyFormatter.format(esf.totalActivo)}'),
+              Text('Total Pasivos: ${CurrencyFormatter.format(esf.totalPasivo)}'),
+              Text('Total Patrimonio: ${CurrencyFormatter.format(esf.totalPatrimonio)}'),
               const Divider(),
               Text(
-                'Diferencia (Activo - Pasivo - Pat): \$${(esf.totalActivo - esf.totalPasivo - esf.totalPatrimonio).abs().toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                'Diferencia (Activo - Pasivo - Pat): ${CurrencyFormatter.format((esf.totalActivo - esf.totalPasivo - esf.totalPatrimonio).abs())}',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -590,7 +592,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                   _generarEstadoResultado(vigenciaController.text, fechaInicio, fechaFin);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Generar'),
             ),
           ],
@@ -621,11 +623,11 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               Text('Vigencia: ${er.vigencia}'),
               Text('Periodo: ${er.fechaInicio.toString().split(' ')[0]} a ${er.fechaFin.toString().split(' ')[0]}'),
               const Divider(),
-              Text('Ingresos Fiscales: \$${er.totalIngresos.toStringAsFixed(2)}'),
-              Text('Gastos de Operación: \$${er.totalGastos.toStringAsFixed(2)}'),
+              Text('Ingresos Fiscales: ${CurrencyFormatter.format(er.totalIngresos)}'),
+              Text('Gastos de Operación: ${CurrencyFormatter.format(er.totalGastos)}'),
               const Divider(),
               Text(
-                'Resultado Operacional: \$${er.resultadoOperacional.toStringAsFixed(2)}',
+                'Resultado Operacional: ${CurrencyFormatter.format(er.resultadoOperacional)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: er.resultadoOperacional >= 0 ? Colors.green : Colors.red,
@@ -730,7 +732,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                   _generarEstadoFlujos(vigenciaController.text, fechaInicio, fechaFin);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               child: const Text('Generar'),
             ),
           ],
@@ -761,13 +763,13 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               Text('Vigencia: ${efe.vigencia}'),
               Text('Periodo: ${efe.fechaInicio.toString().split(' ')[0]} a ${efe.fechaFin.toString().split(' ')[0]}'),
               const Divider(),
-              Text('Flujos Operación: \$${efe.totalActividadesOperacion.toStringAsFixed(2)}'),
-              Text('Flujos Inversión: \$${efe.totalActividadesInversion.toStringAsFixed(2)}'),
-              Text('Flujos Financiación: \$${efe.totalActividadesFinanciacion.toStringAsFixed(2)}'),
+              Text('Flujos Operación: ${CurrencyFormatter.format(efe.totalActividadesOperacion)}'),
+              Text('Flujos Inversión: ${CurrencyFormatter.format(efe.totalActividadesInversion)}'),
+              Text('Flujos Financiación: ${CurrencyFormatter.format(efe.totalActividadesFinanciacion)}'),
               const Divider(),
               Text(
-                'Aumento/Disminución Neto: \$${efe.variacionNetaEfectivo.toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                'Aumento/Disminución Neto: ${CurrencyFormatter.format(efe.variacionNetaEfectivo)}',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -833,8 +835,8 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                     motivo: motivoController.text,
                   );
                   _mostrarExito(
-                    'Cierre ejecutado: Reservas \$${(resultado['reservas'] as double).toStringAsFixed(2)}, '
-                    'Cuentas por pagar \$${(resultado['cuentas_por_pagar'] as double).toStringAsFixed(2)}',
+                    'Cierre ejecutado: Reservas ${CurrencyFormatter.format((resultado['reservas'] as double))}, '
+                    'Cuentas por pagar ${CurrencyFormatter.format((resultado['cuentas_por_pagar'] as double))}',
                   );
                   await _cargarDatos();
                 } catch (e) {
@@ -931,8 +933,8 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
         SnackBar(
           content: Text(
             'El asiento no está cuadrado. '
-            'Débitos: \$${_totalDebitos.toStringAsFixed(2)} | '
-            'Créditos: \$${_totalCreditos.toStringAsFixed(2)}'
+            'Débitos: ${CurrencyFormatter.format(_totalDebitos)} | '
+            'Créditos: ${CurrencyFormatter.format(_totalCreditos)}'
           ),
           backgroundColor: Colors.red,
         ),
@@ -1005,7 +1007,7 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
                   children: [
                     Text('Fecha de Asiento: ${_fechaAsiento.toString().split(' ')[0]}'),
                     TextButton.icon(
-                      icon: const Icon(Icons.calendar_month),
+                      icon: Icon(Icons.calendar_month),
                       label: const Text('Seleccionar'),
                       onPressed: () async {
                         final selected = await showDatePicker(
@@ -1075,7 +1077,7 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
+                          icon: Icon(Icons.delete, color: Colors.red),
                           onPressed: () => _eliminarFila(index),
                         )
                       ],
@@ -1085,15 +1087,15 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
                 const SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: _agregarFila,
-                  icon: const Icon(Icons.add),
+                  icon: Icon(Icons.add),
                   label: const Text('Agregar Fila'),
                 ),
                 const Divider(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Total Débitos: \$${_totalDebitos.toStringAsFixed(2)}'),
-                    Text('Total Créditos: \$${_totalCreditos.toStringAsFixed(2)}'),
+                    Text('Total Débitos: ${CurrencyFormatter.format(_totalDebitos)}'),
+                    Text('Total Créditos: ${CurrencyFormatter.format(_totalCreditos)}'),
                   ],
                 ),
               ],
@@ -1108,7 +1110,7 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
         ),
         ElevatedButton(
           onPressed: _guardar,
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
           child: const Text('Guardar'),
         ),
       ],

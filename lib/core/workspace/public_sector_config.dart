@@ -24,7 +24,7 @@ List<ModuleDefinition> modulosPresupuestoPublico() => [
     category: ModuleCategory.operation,
     builder: (context) => PresupuestoPublicoPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.presupuesto_publico,
   ),
@@ -36,7 +36,7 @@ List<ModuleDefinition> modulosPresupuestoPublico() => [
     category: ModuleCategory.operation,
     builder: (context) => PACTesoreriaPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.presupuesto_publico,
   ),
@@ -51,7 +51,7 @@ List<ModuleDefinition> modulosContabilidadNICSP() => [
     category: ModuleCategory.accounting,
     builder: (context) => ContabilidadNICSPPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.contabilidad_nicsp,
   ),
@@ -63,7 +63,7 @@ List<ModuleDefinition> modulosContabilidadNICSP() => [
     category: ModuleCategory.accounting,
     builder: (context) => ContabilidadNICSPPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.contabilidad_nicsp,
   ),
@@ -75,7 +75,7 @@ List<ModuleDefinition> modulosContabilidadNICSP() => [
     category: ModuleCategory.accounting,
     builder: (context) => ContabilidadNICSPPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.contabilidad_nicsp,
   ),
@@ -90,7 +90,7 @@ List<ModuleDefinition> modulosContratacionPublica() => [
     category: ModuleCategory.operation,
     builder: (context) => ContratacionPublicaPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.contratacion_publica,
   ),
@@ -102,7 +102,8 @@ List<ModuleDefinition> modulosContratacionPublica() => [
     category: ModuleCategory.operation,
     builder: (context) => ContratacionPublicaPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
+      tabInicial: 3,
     ),
     featureKey: FeatureKey.contratacion_publica,
   ),
@@ -114,7 +115,7 @@ List<ModuleDefinition> modulosContratacionPublica() => [
     category: ModuleCategory.operation,
     builder: (context) => ContratacionPublicaPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.contratacion_publica,
   ),
@@ -129,7 +130,7 @@ List<ModuleDefinition> modulosNominaPublica() => [
     category: ModuleCategory.management,
     builder: (context) => NominaPublicaPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.nomina_publica,
   ),
@@ -141,7 +142,8 @@ List<ModuleDefinition> modulosNominaPublica() => [
     category: ModuleCategory.management,
     builder: (context) => NominaPublicaPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
+      tabInicial: 3,
     ),
     featureKey: FeatureKey.nomina_publica,
   ),
@@ -153,7 +155,7 @@ List<ModuleDefinition> modulosNominaPublica() => [
     category: ModuleCategory.management,
     builder: (context) => NominaPublicaPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.nomina_publica,
   ),
@@ -168,7 +170,7 @@ List<ModuleDefinition> modulosRentas() => [
     category: ModuleCategory.operation,
     builder: (context) => PredialICAPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.predial,
   ),
@@ -180,7 +182,7 @@ List<ModuleDefinition> modulosRentas() => [
     category: ModuleCategory.operation,
     builder: (context) => PredialICAPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.predial,
   ),
@@ -192,7 +194,7 @@ List<ModuleDefinition> modulosRentas() => [
     category: ModuleCategory.operation,
     builder: (context) => PredialICAPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.rentas_departamentales,
   ),
@@ -207,7 +209,8 @@ List<ModuleDefinition> modulosPlaneacion() => [
     category: ModuleCategory.operation,
     builder: (context) => PlaneacionPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
+      tabInicial: 0,
     ),
     featureKey: FeatureKey.planeacion,
   ),
@@ -219,7 +222,7 @@ List<ModuleDefinition> modulosPlaneacion() => [
     category: ModuleCategory.operation,
     builder: (context) => PlaneacionPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.planeacion,
   ),
@@ -231,7 +234,8 @@ List<ModuleDefinition> modulosPlaneacion() => [
     category: ModuleCategory.operation,
     builder: (context) => PlaneacionPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
+      tabInicial: 1,
     ),
     featureKey: FeatureKey.planeacion,
   ),
@@ -246,7 +250,7 @@ List<ModuleDefinition> modulosActivosEstado() => [
     category: ModuleCategory.accounting,
     builder: (context) => ActivosEstadoPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.activos_estado,
   ),
@@ -256,11 +260,11 @@ List<ModuleDefinition> modulosActivosEstado() => [
     icon: Icons.inventory,
     color: Colors.brown,
     category: ModuleCategory.accounting,
-    builder: (context) => ActivosEstadoPage(
+    builder: (context) => AuditoriaForensePage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
-    featureKey: FeatureKey.activos_estado,
+    featureKey: FeatureKey.auditoria_forense,
   ),
 ];
 
@@ -273,7 +277,7 @@ List<ModuleDefinition> modulosAuditoriaTransparencia() => [
     category: ModuleCategory.control,
     builder: (context) => AuditoriaForensePage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.auditoria_forense,
   ),
@@ -285,7 +289,7 @@ List<ModuleDefinition> modulosAuditoriaTransparencia() => [
     category: ModuleCategory.control,
     builder: (context) => AuditoriaForensePage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.auditoria_forense,
   ),
@@ -297,7 +301,7 @@ List<ModuleDefinition> modulosAuditoriaTransparencia() => [
     category: ModuleCategory.control,
     builder: (context) => TransparenciaPage(
       entidadId: AppSession.entidadId,
-      usuarioId: AppSession.usuarioId,
+      usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.transparencia,
   ),

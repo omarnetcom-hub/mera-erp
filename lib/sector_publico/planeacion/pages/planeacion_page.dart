@@ -12,15 +12,18 @@ import '../services/viabilizacion_service.dart';
 import '../models/proyecto_mga.dart';
 import '../models/pdt.dart';
 import 'formulacion_mga_form_page.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 class PlaneacionPage extends StatefulWidget {
   final String entidadId;
   final String usuarioId;
+  final int tabInicial;
 
   const PlaneacionPage({
     super.key,
     required this.entidadId,
     required this.usuarioId,
+    this.tabInicial = 0,
   });
 
   @override
@@ -42,6 +45,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.tabInicial.clamp(0, 1).toInt();
     _inicializarServicios();
   }
 
@@ -100,10 +104,10 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Planeación Territorial & BPIN (DNP)'),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _cargarDatos,
           ),
         ],
@@ -141,8 +145,8 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogoAccion,
-        backgroundColor: const Color(0xFF006D77),
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Icon(Icons.add),
       ),
     );
   }
@@ -175,7 +179,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.account_tree, size: 64, color: Colors.grey),
+            Icon(Icons.account_tree, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'Banco de Proyectos MGA (BPIN)',
@@ -186,10 +190,10 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _registrarProyectoForm,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Registrar Proyecto MGA'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -206,18 +210,18 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
           margin: const EdgeInsets.only(bottom: 12.0),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: const Color(0xFF006D77),
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Text(
                 proyecto.codigoBPIN.length >= 4 ? proyecto.codigoBPIN.substring(0, 4) : 'BPIN',
-                style: const TextStyle(color: Colors.white, fontSize: 10),
+                style: TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
-            title: Text(proyecto.nombreProyecto, style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(proyecto.nombreProyecto, style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('BPIN: ${proyecto.codigoBPIN} | Sector: ${proyecto.sector}'),
-                Text('Valor Total: \$${proyecto.valorTotal.toStringAsFixed(2)} | Estado: ${proyecto.estado.toString().split('.').last}'),
+                Text('Valor Total: ${CurrencyFormatter.format(proyecto.valorTotal)} | Estado: ${proyecto.estado.toString().split('.').last}'),
               ],
             ),
             trailing: PopupMenuButton<String>(
@@ -260,7 +264,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.map, size: 64, color: Colors.grey),
+            Icon(Icons.map, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'Plan de Desarrollo Territorial',
@@ -271,10 +275,10 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _crearPDTDialog,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Crear PDT'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF006D77),
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -290,11 +294,11 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12.0),
           child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFF006D77),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.map, color: Colors.white),
             ),
-            title: Text(pdt.nombrePDT, style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(pdt.nombrePDT, style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -305,7 +309,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
             trailing: pdt.estado == EstadoPDT.borrador
                 ? ElevatedButton(
                     onPressed: () => _aprobarPDTConcejoDialog(pdt),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                     child: const Text('Aprobar Concejo', style: TextStyle(fontSize: 11)),
                   )
                 : const Chip(

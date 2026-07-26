@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../services/ica_service.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 class ICAFormPage extends StatefulWidget {
   final ICAService icaService;
@@ -276,7 +277,7 @@ class _ICAFormPageState extends State<ICAFormPage> with SingleTickerProviderStat
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text('Ingresos Anuales: \$${_ingresosAnuales.toStringAsFixed(2)}'),
+                    Text('Ingresos Anuales: ${CurrencyFormatter.format(_ingresosAnuales)}'),
                     Slider(
                       value: _ingresosAnuales,
                       min: 0,
@@ -356,7 +357,7 @@ class _ICAFormPageState extends State<ICAFormPage> with SingleTickerProviderStat
                       },
                     ),
                     const SizedBox(height: 16),
-                    Text('Base Gravable: \$${_baseGravable.toStringAsFixed(2)}'),
+                    Text('Base Gravable: ${CurrencyFormatter.format(_baseGravable)}'),
                     Slider(
                       value: _baseGravable,
                       min: 0,
@@ -370,7 +371,7 @@ class _ICAFormPageState extends State<ICAFormPage> with SingleTickerProviderStat
                       },
                     ),
                     const SizedBox(height: 16),
-                    Text('Ingresos No Gravables: \$${_ingresosNoGravables.toStringAsFixed(2)}'),
+                    Text('Ingresos No Gravables: ${CurrencyFormatter.format(_ingresosNoGravables)}'),
                     Slider(
                       value: _ingresosNoGravables,
                       min: 0,
@@ -384,7 +385,7 @@ class _ICAFormPageState extends State<ICAFormPage> with SingleTickerProviderStat
                       },
                     ),
                     const SizedBox(height: 16),
-                    Text('Ingresos Exentos: \$${_ingresosExentos.toStringAsFixed(2)}'),
+                    Text('Ingresos Exentos: ${CurrencyFormatter.format(_ingresosExentos)}'),
                     Slider(
                       value: _ingresosExentos,
                       min: 0,

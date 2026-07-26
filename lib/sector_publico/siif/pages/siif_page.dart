@@ -72,10 +72,10 @@ class _SIIFPageState extends State<SIIFPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('SIIF Nación (MinHacienda)'),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _cargarDatos,
           ),
         ],
@@ -92,18 +92,18 @@ class _SIIFPageState extends State<SIIFPage> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _generarReportePresupuestoDialog,
-                          icon: const Icon(Icons.account_balance),
+                          icon: Icon(Icons.account_balance),
                           label: const Text('Reporte Presupuesto'),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _generarReporteTesoreriaDialog,
-                          icon: const Icon(Icons.payments),
+                          icon: Icon(Icons.payments),
                           label: const Text('Reporte Tesorería'),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                     ],
@@ -115,7 +115,7 @@ class _SIIFPageState extends State<SIIFPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.cloud_upload, size: 64, color: Colors.grey),
+                              Icon(Icons.cloud_upload, size: 64, color: Colors.grey),
                               const SizedBox(height: 16),
                               Text('Reportes SIIF Nación', style: Theme.of(context).textTheme.headlineSmall),
                               const SizedBox(height: 8),
@@ -130,14 +130,14 @@ class _SIIFPageState extends State<SIIFPage> {
                             final r = _reportes[index];
                             return Card(
                               child: ListTile(
-                                leading: const CircleAvatar(
-                                  backgroundColor: Color(0xFF006D77),
+                                leading: CircleAvatar(
+                                  backgroundColor: Theme.of(context).colorScheme.primary,
                                   child: Icon(Icons.description, color: Colors.white),
                                 ),
-                                title: Text('${r.nombreReporte} - Mes: ${r.mes} / ${r.vigencia}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                title: Text('${r.nombreReporte} - Mes: ${r.mes} / ${r.vigencia}', style: TextStyle(fontWeight: FontWeight.bold)),
                                 subtitle: Text('Fecha: ${r.fechaGeneracion.toString().substring(0, 16)} | Estado: ${r.estado}'),
                                 trailing: IconButton(
-                                  icon: const Icon(Icons.file_download, color: Color(0xFF006D77)),
+                                  icon: Icon(Icons.file_download, color: Theme.of(context).colorScheme.primary),
                                   onPressed: () => _exportarPlano(r.id),
                                 ),
                               ),
@@ -154,11 +154,11 @@ class _SIIFPageState extends State<SIIFPage> {
     return Container(
       color: Colors.blue.shade100,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.info, color: Colors.blue),
-          SizedBox(width: 8),
-          Expanded(
+          Icon(Icons.info, color: Colors.blue.shade800),
+          const SizedBox(width: 8),
+          const Expanded(
             child: Text(
               'Módulo oficial de integración mensual SIIF Nación II (MHCP). '
               'Genera la estructura de intercambio de Presupuesto y Tesorería en formato plano .txt.',
