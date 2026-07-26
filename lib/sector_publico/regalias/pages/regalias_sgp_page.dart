@@ -15,6 +15,7 @@ import '../models/proyecto_ocad.dart';
 import '../models/bienio_sgr.dart';
 import '../models/reporte_spgr.dart';
 import '../models/reporte_sicodis.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 class RegaliasSGPPage extends StatefulWidget {
   final String entidadId;
@@ -101,24 +102,24 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Regalías (SGR) y SGP'),
-        backgroundColor: const Color(0xFF006D77),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
-            icon: const Icon(Icons.date_range),
+            icon: Icon(Icons.date_range),
             tooltip: 'Crear Bienio SGR',
             onPressed: _crearBienioSGRDialog,
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _cargarDatos,
           ),
           IconButton(
-            icon: const Icon(Icons.cloud_upload),
+            icon: Icon(Icons.cloud_upload),
             tooltip: 'Reporte SPGR (MinHacienda)',
             onPressed: _generarReporteSPGRDialog,
           ),
           IconButton(
-            icon: const Icon(Icons.verified_user),
+            icon: Icon(Icons.verified_user),
             tooltip: 'Certificación SICODIS (DNP)',
             onPressed: _generarReporteSICODISDialog,
           ),
@@ -155,8 +156,8 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogoAccion,
-        backgroundColor: const Color(0xFF006D77),
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Icon(Icons.add),
       ),
     );
   }
@@ -167,7 +168,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.monetization_on, size: 64, color: Colors.grey),
+            Icon(Icons.monetization_on, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('Regalías (SGR)', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
@@ -175,9 +176,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _estimarRegaliaDialog,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Estimar Regalía'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ],
         ),
@@ -192,12 +193,12 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFF006D77),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.monetization_on, color: Colors.white),
             ),
-            title: Text('${r.proyecto} (#${r.numeroRegalia})', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Tipo: ${r.tipoRegalia.name} | Vigencia: ${r.vigencia}\nEstimado: \$${r.valorEstimado.toStringAsFixed(2)} | Recibido: \$${r.valorRecibido.toStringAsFixed(2)}'),
+            title: Text('${r.proyecto} (#${r.numeroRegalia})', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Tipo: ${r.tipoRegalia.name} | Vigencia: ${r.vigencia}\nEstimado: ${CurrencyFormatter.format(r.valorEstimado)} | Recibido: ${CurrencyFormatter.format(r.valorRecibido)}'),
           ),
         );
       },
@@ -210,7 +211,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.account_balance, size: 64, color: Colors.grey),
+            Icon(Icons.account_balance, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('SGP', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
@@ -218,9 +219,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _asignarSGPDialog,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Asignar SGP'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ],
         ),
@@ -235,12 +236,12 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFF006D77),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.account_balance, color: Colors.white),
             ),
-            title: Text('${s.programa} (#${s.numeroSGP})', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Participación: ${s.tipoParticipacion.name} | Vigencia: ${s.vigencia}\nAsignado: \$${s.valorAsignado.toStringAsFixed(2)} | Saldo: \$${s.saldoDisponible.toStringAsFixed(2)}'),
+            title: Text('${s.programa} (#${s.numeroSGP})', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Participación: ${s.tipoParticipacion.name} | Vigencia: ${s.vigencia}\nAsignado: ${CurrencyFormatter.format(s.valorAsignado)} | Saldo: ${CurrencyFormatter.format(s.saldoDisponible)}'),
           ),
         );
       },
@@ -253,7 +254,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.gavel, size: 64, color: Colors.grey),
+            Icon(Icons.gavel, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('Proyectos OCAD SGR', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
@@ -261,9 +262,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _crearProyectoOCADDialog,
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
               label: const Text('Registrar Proyecto OCAD'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             ),
           ],
         ),
@@ -278,14 +279,14 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xFF006D77),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.gavel, color: Colors.white),
             ),
-            title: Text('${p.nombreProyecto} (BPIN: ${p.codigoBPIN})', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Bienalidad: ${p.bienalidad} | OCAD: ${p.tipoOCAD.name}\nAprobado: \$${p.montoAprobado.toStringAsFixed(2)} | Girado SPGR: \$${p.montoGiroSPGR.toStringAsFixed(2)}'),
+            title: Text('${p.nombreProyecto} (BPIN: ${p.codigoBPIN})', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Bienalidad: ${p.bienalidad} | OCAD: ${p.tipoOCAD.name}\nAprobado: ${CurrencyFormatter.format(p.montoAprobado)} | Girado SPGR: ${CurrencyFormatter.format(p.montoGiroSPGR)}'),
             trailing: IconButton(
-              icon: const Icon(Icons.payment, color: Colors.green),
+              icon: Icon(Icons.payment, color: Colors.green),
               tooltip: 'Registrar Giro SPGR',
               onPressed: () => _registrarGiroSPGRDialog(p),
             ),
@@ -360,13 +361,12 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
 
   void _estimarRegaliaDialog() {
     if (_regaliasService == null) return;
-    final numRegaliaCtrl = TextEditingController();
     final proyectoCtrl = TextEditingController();
     final municipioCtrl = TextEditingController();
     final departamentoCtrl = TextEditingController();
     final valorCtrl = TextEditingController();
     final vigenciaCtrl = TextEditingController(text: DateTime.now().year.toString());
-    TipoRegalia tipoSeleccionado = TipoRegalia.directa;
+    TipoRegalia tipoSeleccionado = TipoRegalia.hidrocarburos;
 
     showDialog(
       context: context,
@@ -377,7 +377,6 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: numRegaliaCtrl, decoration: const InputDecoration(labelText: 'Número Regalía', hintText: 'ej. REG-2026-001')),
                 TextField(controller: proyectoCtrl, decoration: const InputDecoration(labelText: 'Nombre Proyecto / Asignación', hintText: 'ej. Pavimentación Vía Principal')),
                 DropdownButtonFormField<TipoRegalia>(
                   value: tipoSeleccionado,
@@ -392,7 +391,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                 TextField(controller: municipioCtrl, decoration: const InputDecoration(labelText: 'Municipio', hintText: 'ej. Sopó')),
                 TextField(controller: departamentoCtrl, decoration: const InputDecoration(labelText: 'Departamento', hintText: 'ej. Cundinamarca')),
                 TextField(controller: valorCtrl, decoration: const InputDecoration(labelText: 'Valor Estimado', hintText: 'ej. 150000000'), keyboardType: TextInputType.number),
-                TextField(controller: vigenciaCtrl, decoration: const InputDecoration(labelText: 'Vigencia Fiscal', hintText: 'ej. 2026'), keyboardType: TextInputType.number),
+                TextField(controller: vigenciaCtrl, decoration: const InputDecoration(labelText: 'Vigencia Fiscal (año)', hintText: 'ej. 2026'), keyboardType: TextInputType.number),
               ],
             ),
           ),
@@ -400,18 +399,17 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (numRegaliaCtrl.text.isEmpty || proyectoCtrl.text.isEmpty || municipioCtrl.text.isEmpty || departamentoCtrl.text.isEmpty || valorCtrl.text.isEmpty || vigenciaCtrl.text.isEmpty) return;
+                if (proyectoCtrl.text.isEmpty || municipioCtrl.text.isEmpty || departamentoCtrl.text.isEmpty || valorCtrl.text.isEmpty || vigenciaCtrl.text.isEmpty) return;
                 try {
                   await _regaliasService!.estimarRegalia(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
-                    numeroRegalia: numRegaliaCtrl.text,
                     tipoRegalia: tipoSeleccionado,
                     proyecto: proyectoCtrl.text,
                     municipio: municipioCtrl.text,
                     departamento: departamentoCtrl.text,
                     valorEstimado: double.parse(valorCtrl.text),
-                    vigencia: vigenciaCtrl.text,
+                    vigencia: DateTime(int.parse(vigenciaCtrl.text), 1, 1),
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
@@ -434,13 +432,12 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
 
   void _asignarSGPDialog() {
     if (_sgpService == null) return;
-    final numSGPCtrl = TextEditingController();
     final programaCtrl = TextEditingController();
     final municipioCtrl = TextEditingController();
     final departamentoCtrl = TextEditingController();
     final valorCtrl = TextEditingController();
     final vigenciaCtrl = TextEditingController(text: DateTime.now().year.toString());
-    TipoParticipacionSGP tipoSeleccionado = TipoParticipacionSGP.educacion;
+    TipoParticipacion tipoSeleccionado = TipoParticipacion.educacion;
 
     showDialog(
       context: context,
@@ -451,12 +448,11 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: numSGPCtrl, decoration: const InputDecoration(labelText: 'Número SGP', hintText: 'ej. SGP-2026-001')),
                 TextField(controller: programaCtrl, decoration: const InputDecoration(labelText: 'Programa / Destinación', hintText: 'ej. Alimentación Escolar PAE')),
-                DropdownButtonFormField<TipoParticipacionSGP>(
+                DropdownButtonFormField<TipoParticipacion>(
                   value: tipoSeleccionado,
                   decoration: const InputDecoration(labelText: 'Tipo de Participación SGP'),
-                  items: TipoParticipacionSGP.values.map((t) {
+                  items: TipoParticipacion.values.map((t) {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
@@ -466,7 +462,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                 TextField(controller: municipioCtrl, decoration: const InputDecoration(labelText: 'Municipio', hintText: 'ej. Sopó')),
                 TextField(controller: departamentoCtrl, decoration: const InputDecoration(labelText: 'Departamento', hintText: 'ej. Cundinamarca')),
                 TextField(controller: valorCtrl, decoration: const InputDecoration(labelText: 'Valor Asignado', hintText: 'ej. 80000000'), keyboardType: TextInputType.number),
-                TextField(controller: vigenciaCtrl, decoration: const InputDecoration(labelText: 'Vigencia Fiscal', hintText: 'ej. 2026'), keyboardType: TextInputType.number),
+                TextField(controller: vigenciaCtrl, decoration: const InputDecoration(labelText: 'Vigencia Fiscal (año)', hintText: 'ej. 2026'), keyboardType: TextInputType.number),
               ],
             ),
           ),
@@ -474,18 +470,17 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (numSGPCtrl.text.isEmpty || programaCtrl.text.isEmpty || municipioCtrl.text.isEmpty || departamentoCtrl.text.isEmpty || valorCtrl.text.isEmpty || vigenciaCtrl.text.isEmpty) return;
+                if (programaCtrl.text.isEmpty || municipioCtrl.text.isEmpty || departamentoCtrl.text.isEmpty || valorCtrl.text.isEmpty || vigenciaCtrl.text.isEmpty) return;
                 try {
                   await _sgpService!.asignarSGP(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
-                    numeroSGP: numSGPCtrl.text,
                     tipoParticipacion: tipoSeleccionado,
                     programa: programaCtrl.text,
                     municipio: municipioCtrl.text,
                     departamento: departamentoCtrl.text,
                     valorAsignado: double.parse(valorCtrl.text),
-                    vigencia: vigenciaCtrl.text,
+                    vigencia: DateTime(int.parse(vigenciaCtrl.text), 1, 1),
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
