@@ -522,8 +522,10 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Programar'),
             ),
           ],
@@ -589,8 +591,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Aprobar'),
           ),
         ],
@@ -662,8 +666,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Modificar'),
           ),
         ],
@@ -787,8 +793,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Trasladar'),
             ),
           ],
@@ -865,8 +873,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Registrar'),
           ),
         ],

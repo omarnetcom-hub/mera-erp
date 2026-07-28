@@ -335,8 +335,10 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                 onPressed: _dialogoGenerarCHIP,
                 icon: Icon(Icons.add),
                 label: const Text('Generar Paquete CHIP'),
-                style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ),
@@ -1165,8 +1167,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Generar'),
             ),
           ],

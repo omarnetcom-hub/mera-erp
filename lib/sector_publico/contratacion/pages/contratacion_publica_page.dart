@@ -488,8 +488,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                           onPressed: () => _sincronizarContrato(contrato),
                           icon: Icon(Icons.sync, size: 16),
                           label: const Text('Sincronizar'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
                       ),
                     );
@@ -626,8 +628,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Crear'),
             ),
           ],
@@ -695,8 +699,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Asociar'),
             ),
           ],
@@ -754,8 +760,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Publicar'),
           ),
         ],
@@ -827,8 +835,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Adjudicar'),
           ),
         ],
@@ -1029,8 +1039,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Crear'),
             ),
           ],
@@ -1192,8 +1204,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Registrar'),
             ),
           ],

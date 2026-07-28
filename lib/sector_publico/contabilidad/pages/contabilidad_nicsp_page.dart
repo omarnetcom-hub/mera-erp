@@ -456,8 +456,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                   _generarEstadoSituacion(vigenciaController.text, fechaCorte);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Generar'),
             ),
           ],
@@ -595,8 +597,10 @@ foregroundColor: Colors.white,),
                   _generarEstadoResultado(vigenciaController.text, fechaInicio, fechaFin);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Generar'),
             ),
           ],
@@ -736,8 +740,10 @@ foregroundColor: Colors.white,),
                   _generarEstadoFlujos(vigenciaController.text, fechaInicio, fechaFin);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Generar'),
             ),
           ],
@@ -851,8 +857,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Ejecutar Cierre'),
           ),
         ],
@@ -1116,8 +1124,10 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
         ),
         ElevatedButton(
           onPressed: _guardar,
-          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Colors.white,
+          ),
           child: const Text('Guardar'),
         ),
       ],

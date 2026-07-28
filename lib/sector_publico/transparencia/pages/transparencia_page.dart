@@ -351,15 +351,19 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                     onPressed: _generarConsolidadoJerarquico,
                     icon: Icon(Icons.account_balance),
                     label: const Text('Consolidado Jerárquico'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.secondary
-foregroundColor: Colors.white,),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                   ElevatedButton.icon(
                     onPressed: _generarReporteNICSP40,
                     icon: Icon(Icons.assessment),
                     label: const Text('Reporte NICSP 40'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -612,8 +616,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Crear'),
             ),
           ],
@@ -664,8 +670,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Publicar'),
           ),
         ],
@@ -790,8 +798,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Iniciar'),
             ),
           ],
@@ -883,8 +893,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Registrar'),
             ),
           ],
@@ -1015,8 +1027,10 @@ foregroundColor: Colors.white,),
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Registrar'),
             ),
           ],
@@ -1081,8 +1095,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Actualizar'),
           ),
         ],
@@ -1132,8 +1148,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Generar'),
           ),
         ],
@@ -1183,8 +1201,10 @@ foregroundColor: Colors.white,),
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.secondary
-foregroundColor: Colors.white,),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Consolidar'),
           ),
         ],
