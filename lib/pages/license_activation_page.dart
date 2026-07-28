@@ -31,6 +31,9 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
   
   bool _loading = false;
   bool _hasInternet = true;
+  // Modo de activación seleccionado manualmente por el usuario.
+  // Se preselecciona según conectividad detectada pero el usuario puede cambiarlo.
+  bool _useOnlineMode = true;
   String? _hardwareFingerprint;
   String? _uuid;
   String? _errorMessage;
@@ -54,6 +57,8 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
     final connectivity = await Connectivity().checkConnectivity();
     setState(() {
       _hasInternet = connectivity != ConnectivityResult.none;
+      // Preseleccionar modo según conectividad, pero el usuario puede cambiarlo
+      _useOnlineMode = connectivity != ConnectivityResult.none;
     });
     
     // Verificar si ya hay una licencia activa
@@ -276,8 +281,10 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
               _buildHardwareInfo(),
               const SizedBox(height: 24),
               _buildConnectionStatus(),
+              const SizedBox(height: 16),
+              _buildModeSelector(),
               const SizedBox(height: 24),
-              if (_hasInternet) _buildOnlineActivation() else _buildOfflineActivation(),
+              if (_useOnlineMode) _buildOnlineActivation() else _buildOfflineActivation(),
               const SizedBox(height: 24),
               if (_errorMessage != null) _buildErrorMessage(),
             ],
@@ -297,9 +304,9 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          _hasInternet
+          _useOnlineMode
               ? 'Active su licencia conectándose con el Control Center'
-              : 'Modo Offline - Active su licencia manualmente',
+              : 'Modo Offline — Active su licencia con un token de soporte',
           style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
         ),
       ],
@@ -362,6 +369,36 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
     );
   }
   
+  Widget _buildModeSelector() {
+    return Center(
+      child: SegmentedButton<bool>(
+        segments: const [
+          ButtonSegment<bool>(
+            value: true,
+            label: Text('Con conexión'),
+            icon: Icon(Icons.cloud_outlined),
+          ),
+          ButtonSegment<bool>(
+            value: false,
+            label: Text('Sin conexión (token)'),
+            icon: Icon(Icons.offline_pin_outlined),
+          ),
+        ],
+        selected: {_useOnlineMode},
+        onSelectionChanged: (selection) {
+          setState(() {
+            _useOnlineMode = selection.first;
+            // Limpiar mensaje de error al cambiar modo
+            _errorMessage = null;
+          });
+        },
+        style: ButtonStyle(
+          visualDensity: VisualDensity.comfortable,
+        ),
+      ),
+    );
+  }
+
   Widget _buildConnectionStatus() {
     return Card(
       color: _hasInternet ? Colors.green.shade50 : Colors.orange.shade50,
