@@ -29,8 +29,8 @@ class ContratacionPublicaPage extends StatefulWidget {
 class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   int _selectedIndex = 0;
   bool _loading = true;
-  late ContratacionService _contratacionService;
-  late SECOPService _secopService;
+  ContratacionService? _contratacionService;
+  SECOPService? _secopService;
 
   List<ProcesoContratacion> _procesos = [];
   List<Contrato> _contratos = [];
@@ -80,6 +80,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   Future<void> _cargarDatos() async {
+    if (_contratacionService == null) return;
     try {
       final db = await DatabaseHelper.instance.database;
 
@@ -93,7 +94,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
       _procesos = procesosResult.map((r) => ProcesoContratacion.fromJson(r)).toList();
 
       // 2. Cargar Contratos
-      _contratos = await _contratacionService.consultarContratos(
+      _contratos = await _contratacionService!.consultarContratos(
         entidadId: widget.entidadId,
       );
 
@@ -125,12 +126,14 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _mostrarError(String mensaje) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
     );
   }
 
   void _mostrarExito(String mensaje) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensaje), backgroundColor: Colors.green),
     );
@@ -537,6 +540,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _crearProceso() {
+    if (_contratacionService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
     final formKey = GlobalKey<FormState>();
     final objetoController = TextEditingController();
     final valorEstimadoController = TextEditingController();
@@ -609,7 +616,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
-                    await _contratacionService.crearProceso(
+                    await _contratacionService!.crearProceso(
                       entidadId: widget.entidadId,
                       usuarioId: widget.usuarioId,
                       objetoContrato: objetoController.text,
@@ -641,6 +648,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _asociarCDP(ProcesoContratacion proceso) {
+    if (_contratacionService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
     if (_cdpsDisponibles.isEmpty) {
       _mostrarError('No hay CDPs registrados en el presupuesto para asociar.');
       return;
@@ -683,7 +694,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
-                    await _contratacionService.asociarCDP(
+                    await _contratacionService!.asociarCDP(
                       entidadId: widget.entidadId,
                       usuarioId: widget.usuarioId,
                       procesoId: proceso.id,
@@ -712,6 +723,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _publicarSECOP(ProcesoContratacion proceso) {
+    if (_secopService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
     final formKey = GlobalKey<FormState>();
     final nitController = TextEditingController();
 
@@ -745,7 +760,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 Navigator.pop(context);
                 setState(() => _loading = true);
                 try {
-                  await _secopService.publicarEnSECOP(
+                  await _secopService!.publicarEnSECOP(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
                     procesoId: proceso.id,
@@ -772,6 +787,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _adjudicarProceso(ProcesoContratacion proceso) {
+    if (_secopService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
     if (proceso.secopId == null || proceso.secopId!.isEmpty) {
       _mostrarError('Este proceso no tiene ID de SECOP II asociado, debe publicarlo primero.');
       return;
@@ -818,7 +837,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 Navigator.pop(context);
                 setState(() => _loading = true);
                 try {
-                  await _secopService.publicarAdjudicacionSECOP(
+                  await _secopService!.publicarAdjudicacionSECOP(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
                     procesoId: proceso.id,
@@ -851,6 +870,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _crearContrato() {
+    if (_contratacionService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
     final adjudicados = _procesos.where((p) => p.estado == EstadoProceso.adjudicado).toList();
     if (adjudicados.isEmpty) {
       _mostrarError('No hay procesos adjudicados disponibles para crear contratos.');
@@ -1015,7 +1038,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
-                    await _contratacionService.crearContrato(
+                    await _contratacionService!.crearContrato(
                       entidadId: widget.entidadId,
                       usuarioId: widget.usuarioId,
                       procesoId: procesoSeleccionado!.id,
@@ -1052,9 +1075,13 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _legalizarContrato(Contrato contrato) async {
+    if (_contratacionService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
     setState(() => _loading = true);
     try {
-      await _contratacionService.legalizarContrato(
+      await _contratacionService!.legalizarContrato(
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
         contratoId: contrato.id,
@@ -1069,6 +1096,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _registrarPoliza() {
+    if (_contratacionService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
     if (_contratos.isEmpty) {
       _mostrarError('No hay contratos registrados para asociar pólizas.');
       return;
@@ -1184,7 +1215,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
-                    await _contratacionService.registrarPoliza(
+                    await _contratacionService!.registrarPoliza(
                       entidadId: widget.entidadId,
                       usuarioId: widget.usuarioId,
                       contratoId: contratoSeleccionado!.id,
@@ -1217,9 +1248,13 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   void _sincronizarContrato(Contrato contrato) async {
+    if (_secopService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
     setState(() => _loading = true);
     try {
-      await _secopService.sincronizarContratoSECOP(
+      await _secopService!.sincronizarContratoSECOP(
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
         contratoId: contrato.id,

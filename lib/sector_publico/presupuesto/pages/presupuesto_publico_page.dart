@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:merka_erp/db_helper.dart';
+import '../../security/auditoria_service.dart';
 import '../models/apropiacion.dart';
 import '../models/cdp.dart';
 import '../models/rp.dart';
@@ -56,8 +57,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
 
   Future<void> _inicializarServicio() async {
     final db = await DatabaseHelper.instance.database;
-    // Nota: AuditoriaService requiere inicialización, usamos null por ahora
-    _presupuestoService = PresupuestoService(db: db, auditoriaService: null);
+    final auditoriaService = AuditoriaService(db);
+    _presupuestoService = PresupuestoService(db: db, auditoriaService: auditoriaService);
     await _cargarDatos();
   }
 
