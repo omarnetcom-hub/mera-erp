@@ -1,0 +1,176 @@
+# Matriz de Trazabilidad - Sector Publico
+
+## Control del documento
+
+- Fuente normativa: `MerkaERP_SectorPublico_Plan_v1.1.md`.
+- Alcance: los 11 macro-sistemas del plan v1.1.
+- Criterio de evidencia: **ejecutado** significa que el comando se corrio y termino bien en esta sesion; **inspeccion** significa que se verifico la existencia del codigo o del test, sin volver a ejecutarlo para este documento.
+- Actualizacion: al cerrar una funcionalidad, actualizar la fila afectada, el conteo del macro-sistema y la tabla resumen. No promover a **Completo** sin enlazar una prueba ejecutada.
+
+Estados permitidos: **Completo**, **Parcial**, **Pendiente**, **No verificable sin mas contexto**.
+
+## 1. Planeacion y Proyectos
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| PDT cuatrienal con ejes, programas, metas e indicadores | `lib/sector_publico/planeacion/database/schema_planeacion.dart`; `models/pdt.dart`; `services/pdt_service.dart` | `test/sector_publico/planeacion/planeacion_page_test.dart` (inspeccion) | Inspeccion: existen esquema, servicio y pagina. | Parcial - no se certifico importacion Excel/XML ni ejecucion de la prueba. |
+| Seguimiento fisico con alertas de cumplimiento | `services/pdt_service.dart`; `pages/planeacion_page.dart` | `planeacion_page_test.dart` (inspeccion) | Inspeccion de codigo. | Parcial - no hay evidencia ejecutada de semaforo por periodo. |
+| Seguimiento financiero vinculado a apropiaciones | `services/pdt_service.dart`; `services/presupuesto_service.dart` | No se identifico test de integracion PDT-presupuesto | Inspeccion: ambos servicios existen. | Parcial - falta el cruce automatico y prueba de integracion. |
+| Reporte SISMEG | No se identifico implementacion dedicada | Ninguno identificado | Inspeccion de archivos de planeacion. | Pendiente - el plan exige formato SISMEG y no hay generador identificado. |
+| Banco de proyectos MGA: BPIN, problema, objetivos, cadena de valor y presupuesto | `models/proyecto_mga.dart`; `services/banco_proyectos_service.dart`; `services/formulacion_mga_service.dart`; `pages/formulacion_mga_form_page.dart` | `planeacion_page_test.dart` (inspeccion) | Inspeccion de codigo. | Parcial - no se certificaron todos los campos MGA obligatorios. |
+| Trazabilidad plan-presupuesto-resultado y alerta >20% | `services/viabilizacion_service.dart`; `services/pdt_service.dart` | Ninguno identificado | Inspeccion: no se localizo integracion directa CDP/RP/obligacion con avance PDT. | Pendiente - falta motor de trazabilidad y alerta normativa. |
+
+Resumen M1: 0 Completos / 4 Parciales / 2 Pendientes.
+
+## 2. Sistema Financiero Integrado
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Flujo apropiacion -> CDP -> RP -> obligacion -> pago | `presupuesto/database/schema_presupuesto.dart`; `services/presupuesto_service.dart`; `pages/presupuesto_publico_page.dart` | `test/sector_publico/presupuesto/presupuesto_service_test.dart`; `presupuesto_publico_page_test.dart` (inspeccion) | Inspeccion: modelos y servicio existen. | Parcial - falta evidencia ejecutada del flujo completo y de todos los bloqueos. |
+| CDP bloqueado sin disponibilidad | `services/presupuesto_service.dart` | `presupuesto_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - no se ejecuto en esta auditoria. |
+| RP exige contrato y afecta CDP | `services/presupuesto_service.dart`; `models/rp.dart` | `presupuesto_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta prueba ejecutada de contrato y saldo CDP. |
+| Obligacion exige soporte valido y pago exige cupo PAC | `services/presupuesto_service.dart`; `services/pac_service.dart`; `pages/pac_tesoreria_page.dart` | `presupuesto_service_test.dart` (inspeccion) | Inspeccion de codigo. | Parcial - falta certificacion integral de soportes y PAC. |
+| PAC mensual, control en tiempo real y modificaciones | `models/pac.dart`; `services/pac_service.dart`; `pages/pac_tesoreria_page.dart` | No se identifico test dedicado a `pac_service.dart` | Inspeccion de codigo. | Parcial - falta prueba y cobertura de acto administrativo/embargos/estampillas. |
+| Cierre de vigencia y vigencias futuras | `contabilidad/services/cierre_vigencia_service.dart`; `presupuesto_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - falta prueba de reservas, cuentas por pagar y autorizacion plurianual. |
+| NICSP 1: estados financieros | `contabilidad/services/contabilidad_nicsp_service.dart`; `models/estado_financiero.dart`; `pages/contabilidad_nicsp_page.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - no hay evidencia de estados completos certificados. |
+| NICSP 2: flujo de efectivo | `contabilidad/services/flujo_efectivo_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - servicio sin prueba ejecutada ni integracion certificada. |
+| NICSP 12, 17, 19 y 40 | `activos/services/activos_service.dart`; `contabilidad/services/depreciacion_job_service.dart`; `contabilidad/services/provisiones_service.dart`; `transparencia/services/nicsp40_service.dart` | `activos_estado_page_test.dart` (inspeccion); no se identifico prueba especifica de NICSP 40 | Inspeccion de codigo; `consolidation_migration_test.dart` solo cubre migracion de esquema. | Parcial - falta validacion normativa y ejecucion programada de depreciacion/provisiones. |
+| CGC publico con clases 1,2,3,4,5,6,8,9 | `database/schema_multi_tenant.dart` | Ninguno identificado | Sin evidencia ejecutada directa — solo inspeccion de `schema_multi_tenant.dart`. | Parcial - el catalogo semilla existe, pero no se certifico cobertura completa CGC ni asientos NICSP. |
+
+Resumen M2: 0 Completos / 10 Parciales / 0 Pendientes.
+
+## 3. Rentas y Tributos
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Carga de catastro IGAC | `rentas/services/predial_service.dart`; `models/predio.dart` | `predial_ica_page_test.dart` (inspeccion) | Inspeccion de codigo. | Parcial - no se certifico importacion masiva en formato IGAC. |
+| Liquidacion masiva predial, tarifas y topes | `predial_service.dart`; `models/liquidacion_predial.dart` | `predial_ica_page_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta prueba normativa de topes y reglas por estrato/rural. |
+| Acuerdos de pago, descuentos y exenciones | `models/acuerdo_pago.dart`; `predial_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - no hay evidencia de los escenarios legales completos. |
+| Intereses moratorios diarios con tasa actualizable | `services/intereses_moratorios_service.dart` | `test/sector_publico/rentas/intereses_moratorios_service_test.dart` (inspeccion) | Inspeccion: hay servicio y prueba. | Parcial - no se ejecuto en esta auditoria ni se certifico fuente Superfinanciera. |
+| ICA, avisos y tableros, ReteICA y fiscalizacion | `services/ica_service.dart`; `pages/predial_ica_page.dart` | `predial_ica_page_test.dart` (inspeccion) | Inspeccion de codigo. | Parcial - falta integracion DIAN/exogena y pruebas de reglas locales. |
+| Cobro coactivo: mandamiento a extincion | `services/cobro_coactivo_service.dart`; `models/proceso_cobro_coactivo.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - faltan pruebas de plazos, cautelares, remate y cierre. |
+
+Resumen M3: 0 Completos / 6 Parciales / 0 Pendientes.
+
+## 4. Contratacion Publica
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Seis modalidades de seleccion | `contratacion/models/proceso_contratacion.dart`; `services/contratacion_service.dart` | `test/sector_publico/contratacion/contratacion_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta confirmar cobertura de las seis modalidades contra Ley 80/1150. |
+| Fase precontractual: estudios, CDP y proceso | `contratacion_service.dart`; `pages/contratacion_publica_page.dart` | `contratacion_service_test.dart` (inspeccion) | Inspeccion de codigo. | Parcial - falta evidencia de encadenamiento real con CDP. |
+| Fase contractual: contrato, polizas y ejecucion | `models/contrato.dart`; `models/poliza.dart`; `contratacion_service.dart` | `contratacion_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - no se certificaron polizas ni controles de ejecucion. |
+| Fase postcontractual: interventoria y liquidacion | `services/interventoria_liquidacion_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - servicio no conectado ni probado de extremo a extremo. |
+| Interoperabilidad SECOP II/X-Road | `services/secop_service.dart` | Ninguno identificado | Inspeccion: el servicio existe; no se hallo evidencia de backend/ruta real. | Pendiente - falta integracion SECOP II real, credenciales, contrato y prueba. |
+
+Resumen M4: 0 Completos / 4 Parciales / 1 Pendiente.
+
+## 5. Nomina y Recursos Humanos Publicos
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Liquidacion de nomina publica | `nomina/services/nomina_service.dart`; `pages/nomina_publica_page.dart` | `test/sector_publico/nomina/nomina_service_test.dart` (inspeccion) | Sin evidencia ejecutada directa — solo inspeccion de `nomina_service.dart`. | Parcial - falta certificacion funcional completa de la liquidacion. |
+| Seis regimenes salariales | `services/regimen_docente_service.dart`; modelos de nomina | Ninguno identificado para seis regimenes | Inspeccion de codigo. | Pendiente - solo se identifico servicio docente; faltan los demas regimenes y cobertura. |
+| Factores salariales, prestaciones y horas extra | `services/horas_extra_service.dart`; `pages/horas_extra_form_page.dart`; `services/auxilio_alimentacion_service.dart` | `test/sector_publico/nomina/horas_extra_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - horas extra existen; auxilio y factores no estan certificados en flujo completo. |
+| Retroactividad salarial | `services/retroactivos_service.dart`; `models/retroactivo.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - falta prueba de recalculo, aportes y trazabilidad. |
+| Archivo PILA sector publico | `services/pila_service.dart` | Ninguno identificado | Inspeccion de codigo. | Pendiente - falta prueba y validacion contra estructura PILA. |
+
+Resumen M5: 0 Completos / 3 Parciales / 2 Pendientes.
+
+## 6. Almacen, Inventarios y Activos del Estado
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Clasificacion de bienes del Estado | `activos/models/activo_estado.dart`; `services/activos_service.dart` | `test/sector_publico/activos/activos_estado_page_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta certificacion de todas las clasificaciones CGC. |
+| Depreciacion NICSP 17 por tipo de bien | `services/depreciacion_unidades_service.dart`; `contabilidad/services/depreciacion_job_service.dart` | Ninguno identificado para el job | Inspeccion de codigo. | Parcial - falta programacion operativa y pruebas de tasas. |
+| Actas de responsabilidad y trazabilidad | `models/acta_responsabilidad.dart`; `services/acta_responsabilidad_service.dart` | `test/sector_publico/activos/acta_responsabilidad_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - prueba existente no fue ejecutada en esta auditoria. |
+| FUT asociado a activos | `auditoria/services/fut_territorial_service.dart`; `models/reporte_fut_territorial.dart` | Ninguno identificado para datos de activos | Inspeccion de codigo; el test FUT existente cubre ingresos y exportacion, no activos. | Parcial - falta certificacion de formato FUT y datos de activos. |
+
+Resumen M6: 0 Completos / 4 Parciales / 0 Pendientes.
+
+## 7. Trazabilidad, Seguridad y Rendicion de Cuentas
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Auditoria append-only, hash encadenado e irreversibilidad | `security/auditoria_service.dart`; `database/schema_multi_tenant.dart` | `test/sector_publico/security/auditoria_registros_inmutabilidad_test.dart` | Ejecutado: `flutter test ...auditoria_registros_inmutabilidad_test.dart` -> DELETE bloqueado, archivado 0->1 permitido, UPDATE mixto bloqueado, `All tests passed!` | Completo - para la inmutabilidad SQLite y archivado permitido; el hash se inspecciono en codigo. |
+| Retencion diferenciada y archivado | `security/auditoria_service.dart` | `auditoria_registros_inmutabilidad_test.dart` | Ejecutado: el test invoca `archivarRegistrosAntiguos` con el trigger activo. | Parcial - se probo archivado, no la politica completa de 5/10/50 anos. |
+| Roles, RBAC y segregacion de funciones | `security/roles_permisos_service.dart` | `roles_permisos_service_test.dart`; `rbac_segregacion_test.dart` (inspeccion) | Inspeccion: existen pruebas; la segregacion CDP/RP fue ajustada en sesion previa. | Parcial - faltan ejecuciones documentadas de toda la matriz RBAC. |
+| Generador universal de archivos planos | `auditoria/services/chip_reporter_service.dart`; `fut_territorial_service.dart`; `sia_observa_service.dart` | `fut_territorial_service_test.dart`; `sia_observa_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - no se certificaron formatos contra receptores externos. |
+| CHIP: CGN2015_001 a 005 y CGN2016C01 | `auditoria/models/reporte_chip.dart`; `services/chip_reporter_service.dart` | Ninguno identificado para CHIP | Inspeccion de codigo. | Parcial - modelos/reportero presentes; falta prueba de archivos y validacion CGN. |
+
+Resumen M7: 1 Completo / 4 Parciales / 0 Pendientes.
+
+## 8. Facturacion y Gestion en Salud Publica
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| RIPS: seis archivos AF, AC, AP, AT, AU y AM | `salud/models/rips.dart`; `services/rips_service.dart` | Ninguno identificado para los seis archivos | Inspeccion de codigo; `salud_publica_page_test.dart` no valida los archivos RIPS. | Parcial - no se certificaron los seis archivos frente a Resolucion 2275/2023. |
+| Validacion CUPS/CUM/CIE-10 y vinculo factura-RIPS | `rips_service.dart`; `facturacion_salud_service.dart` | `test/sector_publico/salud/facturacion_salud_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta evidencia de reglas completas y relacion 1:1. |
+| Transmision ADRES/EPS | No se identifico cliente de interoperabilidad | Ninguno identificado | Inspeccion de archivos de salud. | Pendiente - falta integracion externa y trazabilidad de envios. |
+| Contratos EPS/ADRES: evento, capitacion y PGP | `models/contrato_eps.dart`; `facturacion_salud_service.dart` | `facturacion_salud_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta certificacion de manuales tarifarios y conciliacion de poblacion. |
+| Glosas, plazos y conciliacion | `models/glosa.dart`; `services/glosas_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - faltan pruebas de plazos legales y cartera. |
+
+Resumen M8: 0 Completos / 4 Parciales / 1 Pendiente.
+
+## 9. Sistema General de Regalias
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Proyectos OCAD, actas y ejecutor | `regalias/models/proyecto_ocad.dart`; `services/regalias_service.dart` | Ninguno identificado especifico de OCAD | Inspeccion de codigo. | Parcial - falta prueba de vinculacion MGA/OCAD y trazabilidad de ejecutor. |
+| Presupuesto bienal y ejecucion SGR separada | `models/bienio_sgr.dart`; `models/regalia.dart`; `services/regalias_service.dart` | `test/sector_publico/regalias/spgr_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta certificacion del flujo CDP-RP-Obligacion-Pago SGR. |
+| Rendimientos financieros reinvertidos | No se identifico validacion especifica | Ninguno identificado | Inspeccion de codigo. | Pendiente - falta control obligatorio de reinversion. |
+| Reporte de programacion, ejecucion y giro SPGR/SMSCE | `services/spgr_service.dart`; `models/reporte_spgr.dart` | `spgr_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - no hay evidencia de interoperabilidad DNP real. |
+
+Resumen M9: 0 Completos / 3 Parciales / 1 Pendiente.
+
+## 10. Sistema General de Participaciones
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Componentes SGP: educacion, salud, agua y proposito general | `regalias/models/sgp.dart`; `services/sgp_service.dart` | Ninguno identificado para componentes SGP | Inspeccion de codigo; `sicodis_service_test.dart` cubre certificacion/exportacion, no los cuatro componentes. | Parcial - falta verificar reglas completas por componente. |
+| Destinacion especifica: bloquear cruce de recursos | `services/validacion_distribucion_service.dart`; `sgp_service.dart` | Ninguno identificado para la validacion | Inspeccion de codigo. | Parcial - falta prueba de bloqueo presupuestal intersectorial. |
+| Nomina docente y escalafon | `nomina/services/regimen_docente_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - servicio aislado; falta integracion con SGP y prueba. |
+| FUT y reporte SICODIS | `services/sicodis_service.dart`; `models/reporte_sicodis.dart` | `sicodis_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta evidencia ejecutada y validacion contra SICODIS. |
+
+Resumen M10: 0 Completos / 4 Parciales / 0 Pendientes.
+
+## 11. Transparencia Proactiva y Control Disciplinario
+
+| Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
+|---|---|---|---|---|
+| Portal Ley 1712: presupuesto, contratos, PDT, planta y EEFF | `transparencia/services/transparencia_service.dart`; `portal_transparencia_service.dart`; `pages/transparencia_page.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - no se certifico publicacion real, periodicidad ni datos abiertos. |
+| Consolidacion NICSP 40 | `transparencia/services/nicsp40_service.dart`; `models/consolidacion_nicsp40.dart` | Ninguno identificado para consolidacion NICSP 40 | Inspeccion de codigo; `consolidation_migration_test.dart` cubre migracion de base, no consolidacion contable. | Parcial - falta certificacion contable y de consolidacion operativa. |
+| Expediente disciplinario y reserva por rol | `models/proceso_disciplinario.dart`; `services/disciplinario_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - falta prueba de etapas, reserva y controles de acceso. |
+| Alerta forense genera queja preliminar | No se identifico enlace automatico auditoria->disciplinario | Ninguno identificado | Inspeccion de servicios de auditoria y disciplinario. | Pendiente - falta integracion automatica exigida por el plan. |
+| Exportacion SID Procuraduria | No se identifico exportador SID | Ninguno identificado | Inspeccion de archivos de transparencia. | Pendiente - falta interoperabilidad y formato SID. |
+
+Resumen M11: 0 Completos / 3 Parciales / 2 Pendientes.
+
+## Resumen por Macro-Sistema
+
+| Macro-sistema | Completos | Parciales | Pendientes | Lectura operativa |
+|---|---:|---:|---:|---|
+| M1 Planeacion y Proyectos | 0 | 4 | 2 | Base funcional sin trazabilidad presupuesto-resultado certificada. |
+| M2 Financiero Integrado | 0 | 10 | 0 | Nucleo construido, pero sin certificacion integral normativa. |
+| M3 Rentas y Tributos | 0 | 6 | 0 | Servicios presentes; faltan reglas locales e integraciones externas. |
+| M4 Contratacion | 0 | 4 | 1 | SECOP II real es el bloqueo principal. |
+| M5 Nomina | 0 | 3 | 2 | Liquidacion base existe; faltan seis regimenes y PILA validada. |
+| M6 Activos | 0 | 4 | 0 | Base y pruebas aisladas; falta automatizacion/certificacion. |
+| M7 Seguridad y Rendicion | 1 | 4 | 0 | Inmutabilidad SQLite probada; reportes regulatorios aun parciales. |
+| M8 Salud | 0 | 4 | 1 | Falta interoperabilidad ADRES/EPS y validacion RIPS completa. |
+| M9 SGR | 0 | 3 | 1 | Falta control de reinversion e interoperabilidad DNP real. |
+| M10 SGP | 0 | 4 | 0 | Falta bloqueo certificado de destinacion y SICODIS validado. |
+| M11 Transparencia | 0 | 3 | 2 | Falta publicacion verificable y enlace disciplinario/SID. |
+| **Total** | **1** | **49** | **8** | **No hay macro-sistema completo como unidad operativa.** |
+
+## Brechas criticas priorizadas
+
+1. **Integracion SECOP II/X-Road real (M4).** Sin contrato de interoperabilidad, autenticacion, trazabilidad y pruebas contra SECOP II, el ciclo contractual no es apto para operacion publica.
+2. **Flujo financiero integral y controles normativos (M2).** Debe certificarse de punta a punta CDP-RP-obligacion-pago-PAC, incluidos soportes, cierres y segregacion de funciones en flujos reales.
+3. **Seis regimenes de nomina y archivo PILA validado (M5).** La liquidacion base no habilita operacion si faltan regimenes, retroactivos completos y el archivo regulatorio.
+4. **RIPS validado e interoperabilidad ADRES/EPS (M8).** Es bloqueante para facturacion hospitalaria y cobro de servicios de salud.
+5. **Trazabilidad PDT-presupuesto-resultado (M1).** Falta la regla de que no exista gasto sin plan, incluidos avances y alerta de desviacion financiera/fisica.
+6. **Rentas territoriales con reglas locales y ciclo coactivo completo (M3).** Sin catastro IGAC validado, tasas actualizadas, topes y plazos legales, no debe operarse recaudo masivo.
+7. **Reportes regulatorios externos (CHIP, FUT, SICODIS y SPGR).** Hay modelos/servicios parciales, pero falta validacion de formato y envio contra los receptores oficiales.
+8. **Transparencia publica, disciplinario y SID (M11).** Falta convertir hallazgos forenses en expedientes controlados y publicar informacion exigible de forma verificable.
+
+La inmutabilidad de auditoria no figura como brecha: el trigger SQLite y sus tres casos de prueba directa ya fueron ejecutados correctamente en esta sesion.
