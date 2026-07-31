@@ -393,6 +393,79 @@ class SchemaMultiTenant {
     await MatrizVisibilidadService.poblarMatrizInicial(db);
   }
 
+  /// Lleva el tipo público del onboarding comercial al esquema sectorial.
+  static Future<void> migrarOnboardingLegado(Database db) async {
+    final tablas = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'company_settings'",
+    );
+    if (tablas.isEmpty) return;
+
+    final configuraciones = await db.rawQuery('''
+      SELECT tipo.company_id, subtipo.setting_value AS subtipo
+      FROM company_settings tipo
+      LEFT JOIN company_settings subtipo
+        ON subtipo.company_id = tipo.company_id
+        AND subtipo.setting_key = 'subtipo_entidad_publica'
+      WHERE tipo.setting_key = 'tipo_entidad'
+        AND tipo.setting_value = 'publica'
+    ''');
+
+    final ahora = DateTime.now().toIso8601String();
+    for (final configuracion in configuraciones) {
+      final companyId = configuracion['company_id'] as int;
+      final tipo = _tipoEntidadDesdeOnboarding(
+        configuracion['subtipo'] as String?,
+      );
+      final entidadId = companyId.toString();
+      final existente = await db.query(
+        'configuracion_entidad',
+        where: 'entidad_id = ? AND parametro = ? AND vigente = 1',
+        whereArgs: [entidadId, 'tipo_entidad'],
+      );
+      final valores = {
+        'valor': tipo,
+        'tipo': tipo,
+        'subtipo': null,
+        'fecha_actualizacion': ahora,
+        'actualizado_por': 'migracion_onboarding_legado',
+        'configurado_por': 'migracion_onboarding_legado',
+        'estado': 'activo',
+        'vigente': 1,
+      };
+
+      if (existente.isEmpty) {
+        await db.insert('configuracion_entidad', {
+          'id': 'legacy-company-$companyId-tipo-entidad',
+          'entidad_id': entidadId,
+          'parametro': 'tipo_entidad',
+          ...valores,
+        });
+      } else if (existente.single['configurado_por'] ==
+          'migracion_onboarding_legado') {
+        await db.update(
+          'configuracion_entidad',
+          valores,
+          where: 'id = ?',
+          whereArgs: [existente.single['id']],
+        );
+      }
+    }
+  }
+
+  static String _tipoEntidadDesdeOnboarding(String? subtipo) {
+    switch (subtipo) {
+      case 'gobernacion':
+        return 'departamento';
+      case 'hospital':
+        return 'hospitalEse';
+      case 'otro':
+        return 'otroEnte';
+      case 'municipio':
+      default:
+        return 'municipio';
+    }
+  }
+
   static Future<void> insertarDatosSemillaCGC(Database db, String entidadId) async {
     // Clase 1 - Activo
     final cuentasClase1 = [

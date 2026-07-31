@@ -328,7 +328,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 65,
+      version: 66,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -764,6 +764,10 @@ class DatabaseHelper {
     if (oldVersion < 65) {
       await SchemaMultiTenant.migrarConfiguracionEntidadParaHistorial(db);
       await SchemaMultiTenant.crearTablaModulosPorTipoEntidad(db);
+    }
+
+    if (oldVersion < 66) {
+      await SchemaMultiTenant.migrarOnboardingLegado(db);
     }
   }
 
