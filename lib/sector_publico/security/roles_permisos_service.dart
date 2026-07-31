@@ -198,7 +198,7 @@ class RolesPermisosService {
   ///    el método retorna null explícitamente.
   /// 4. Castea usuarioId (dynamic/int/String) a String explícitamente para evitar mismatches.
   static Future<RolSectorPublico?> obtenerRolUsuarioEnEntidad({
-    required Database db,
+    required DatabaseExecutor db,
     required String entidadId,
     required dynamic usuarioId,
   }) async {

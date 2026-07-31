@@ -144,6 +144,7 @@ class SchemaPresupuesto {
         cuenta_destino TEXT NOT NULL,
         tipo_cuenta TEXT NOT NULL,
         valor_pago REAL NOT NULL,
+        mes_pac INTEGER NOT NULL DEFAULT 0,
         fecha_programacion TEXT NOT NULL,
         fecha_aprobacion TEXT,
         fecha_ejecucion TEXT,

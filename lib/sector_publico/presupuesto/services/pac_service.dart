@@ -10,7 +10,7 @@ import '../../security/roles_permisos_service.dart';
 import '../../models/registro_auditoria.dart';
 
 class PACService {
-  final Database db;
+  final DatabaseExecutor db;
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 

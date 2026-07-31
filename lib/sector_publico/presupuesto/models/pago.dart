@@ -34,6 +34,7 @@ class Pago {
   final String cuentaDestino;
   final String tipoCuenta; // Ahorros, Corriente
   final double valorPago;
+  final int mesPAC;
   final DateTime fechaProgramacion;
   final DateTime? fechaAprobacion;
   final DateTime? fechaEjecucion;
@@ -61,6 +62,7 @@ class Pago {
     required this.cuentaDestino,
     required this.tipoCuenta,
     required this.valorPago,
+    required this.mesPAC,
     required this.fechaProgramacion,
     this.fechaAprobacion,
     this.fechaEjecucion,
@@ -90,6 +92,7 @@ class Pago {
       cuentaDestino: json['cuenta_destino'] as String,
       tipoCuenta: json['tipo_cuenta'] as String,
       valorPago: (json['valor_pago'] as num).toDouble(),
+      mesPAC: (json['mes_pac'] as num?)?.toInt() ?? 0,
       fechaProgramacion: DateTime.parse(json['fecha_programacion'] as String),
       fechaAprobacion: json['fecha_aprobacion'] != null
           ? DateTime.parse(json['fecha_aprobacion'] as String)
@@ -128,6 +131,7 @@ class Pago {
       'cuenta_destino': cuentaDestino,
       'tipo_cuenta': tipoCuenta,
       'valor_pago': valorPago,
+      'mes_pac': mesPAC,
       'fecha_programacion': fechaProgramacion.toIso8601String(),
       'fecha_aprobacion': fechaAprobacion?.toIso8601String(),
       'fecha_ejecucion': fechaEjecucion?.toIso8601String(),
@@ -175,6 +179,7 @@ class Pago {
     String? cuentaDestino,
     String? tipoCuenta,
     double? valorPago,
+    int? mesPAC,
     DateTime? fechaProgramacion,
     DateTime? fechaAprobacion,
     DateTime? fechaEjecucion,
@@ -202,6 +207,7 @@ class Pago {
       cuentaDestino: cuentaDestino ?? this.cuentaDestino,
       tipoCuenta: tipoCuenta ?? this.tipoCuenta,
       valorPago: valorPago ?? this.valorPago,
+      mesPAC: mesPAC ?? this.mesPAC,
       fechaProgramacion: fechaProgramacion ?? this.fechaProgramacion,
       fechaAprobacion: fechaAprobacion ?? this.fechaAprobacion,
       fechaEjecucion: fechaEjecucion ?? this.fechaEjecucion,

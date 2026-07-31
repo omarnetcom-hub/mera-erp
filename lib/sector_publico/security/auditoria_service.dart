@@ -7,7 +7,7 @@ import '../models/registro_auditoria.dart';
 import 'package:sqflite/sqflite.dart';
 
 class AuditoriaService {
-  final Database? _db;
+  final DatabaseExecutor? _db;
   final Uuid _uuid = const Uuid();
 
   AuditoriaService(this._db);

@@ -328,7 +328,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 66,
+      version: 67,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -768,6 +768,15 @@ class DatabaseHelper {
 
     if (oldVersion < 66) {
       await SchemaMultiTenant.migrarOnboardingLegado(db);
+    }
+
+    if (oldVersion < 67) {
+      await _agregarColumnaSiNoExiste(
+        db,
+        'pagos',
+        'mes_pac',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
     }
   }
 

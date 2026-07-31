@@ -10,6 +10,8 @@ import '../models/cdp.dart';
 import '../models/rp.dart';
 import '../models/obligacion.dart';
 import '../models/pago.dart';
+import 'pac_service.dart';
+import '../../contabilidad/services/contabilidad_nicsp_service.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
 import '../../models/registro_auditoria.dart';
@@ -553,6 +555,7 @@ class PresupuestoService {
       cuentaDestino: cuentaDestino,
       tipoCuenta: tipoCuenta,
       valorPago: valorPago,
+      mesPAC: mesPAC,
       fechaProgramacion: fechaProgramacion,
       funcionarioAprobo: funcionarioProgramo, // Mismo que programa por defecto
       funcionarioProgramo: funcionarioProgramo,
@@ -617,9 +620,13 @@ class PresupuestoService {
     if (res.isEmpty) throw Exception('Pago no encontrado');
     final pago = Pago.fromJson(res.first);
 
+    final fechaAprobacion = DateTime.now();
     await db.update(
       'pagos',
-      {'estado': EstadoPago.aprobado.name},
+      {
+        'estado': EstadoPago.aprobado.name,
+        'fecha_aprobacion': fechaAprobacion.toIso8601String(),
+      },
       where: 'id = ?',
       whereArgs: [pagoId],
     );
@@ -639,7 +646,9 @@ class PresupuestoService {
       cuentaDestino: pago.cuentaDestino,
       tipoCuenta: pago.tipoCuenta,
       valorPago: pago.valorPago,
+      mesPAC: pago.mesPAC,
       fechaProgramacion: pago.fechaProgramacion,
+      fechaAprobacion: fechaAprobacion,
       funcionarioAprobo: usuarioId,
       funcionarioProgramo: pago.funcionarioProgramo,
       tipoPago: pago.tipoPago,
@@ -667,38 +676,116 @@ class PresupuestoService {
       rolQuienCrea: rolAprobador,
     );
 
-    final res = await db.query('pagos', where: 'id = ?', whereArgs: [pagoId]);
-    if (res.isEmpty) throw Exception('Pago no encontrado');
-    final pago = Pago.fromJson(res.first);
+    return db.transaction((txn) async {
+      final res = await txn.query('pagos', where: 'id = ?', whereArgs: [pagoId]);
+      if (res.isEmpty) throw Exception('Pago no encontrado');
+      final pago = Pago.fromJson(res.first);
 
-    await db.update(
-      'pagos',
-      {'estado': EstadoPago.pagado.name},
-      where: 'id = ?',
-      whereArgs: [pagoId],
-    );
+      if (pago.entidadId != entidadId) {
+        throw Exception('El pago no pertenece a la entidad indicada');
+      }
+      if (pago.estado != EstadoPago.aprobado) {
+        throw Exception('El pago debe estar aprobado antes de ejecutarse');
+      }
 
-    return Pago(
-      id: pago.id,
-      entidadId: pago.entidadId,
-      numeroPago: pago.numeroPago,
-      vigencia: pago.vigencia,
-      obligacionId: pago.obligacionId,
-      numeroObligacion: pago.numeroObligacion,
-      rpId: pago.rpId,
-      numeroRP: pago.numeroRP,
-      terceroId: pago.terceroId,
-      terceroNombre: pago.terceroNombre,
-      bancoDestino: pago.bancoDestino,
-      cuentaDestino: pago.cuentaDestino,
-      tipoCuenta: pago.tipoCuenta,
-      valorPago: pago.valorPago,
-      fechaProgramacion: pago.fechaProgramacion,
-      funcionarioAprobo: pago.funcionarioAprobo,
-      funcionarioProgramo: pago.funcionarioProgramo,
-      tipoPago: pago.tipoPago,
-      estado: EstadoPago.pagado,
-    );
+      final obligaciones = await txn.query(
+        'obligaciones',
+        where: 'id = ? AND entidad_id = ?',
+        whereArgs: [pago.obligacionId, entidadId],
+      );
+      if (obligaciones.isEmpty) throw Exception('Obligacion no encontrada');
+      final obligacion = Obligacion.fromJson(obligaciones.first);
+      if (obligacion.saldoPendiente < pago.valorPago) {
+        throw Exception('Saldo pendiente insuficiente en la obligacion');
+      }
+
+      final apropiaciones = await txn.query(
+        'apropiaciones',
+        where: 'entidad_id = ? AND vigencia = ? AND codigo_rubro = ?',
+        whereArgs: [entidadId, pago.vigencia, obligacion.codigoRubro],
+      );
+      if (apropiaciones.isEmpty) {
+        throw Exception('Apropiacion no encontrada para el rubro del pago');
+      }
+      final apropiacion = Apropiacion.fromJson(apropiaciones.first);
+
+      // All mutations and their audit entries share the SQLite transaction.
+      final auditoriaTransaccional = AuditoriaService(txn);
+      final pacService = PACService(
+        db: txn,
+        auditoriaService: auditoriaTransaccional,
+      );
+      final contabilidadService = ContabilidadNICSPService(
+        db: txn,
+        auditoriaService: auditoriaTransaccional,
+      );
+
+      await pacService.verificarCupoPAC(
+        entidadId: entidadId,
+        vigencia: pago.vigencia,
+        mes: pago.mesPAC,
+        codigoRubro: obligacion.codigoRubro,
+        montoPago: pago.valorPago,
+      );
+
+      final fechaEjecucion = DateTime.now();
+      final nuevoValorPagado = obligacion.valorPagado + pago.valorPago;
+      final nuevoSaldoPendiente = obligacion.saldoPendiente - pago.valorPago;
+      final nuevoEstadoObligacion = nuevoSaldoPendiente == 0
+          ? EstadoObligacion.pagadaTotalmente
+          : EstadoObligacion.pagadaParcialmente;
+
+      await txn.update(
+        'obligaciones',
+        {
+          'valor_pagado': nuevoValorPagado,
+          'saldo_pendiente': nuevoSaldoPendiente,
+          'estado': nuevoEstadoObligacion.name,
+        },
+        where: 'id = ?',
+        whereArgs: [obligacion.id],
+      );
+      await txn.update(
+        'apropiaciones',
+        {'valor_pagado': apropiacion.valorPagado + pago.valorPago},
+        where: 'id = ?',
+        whereArgs: [apropiacion.id],
+      );
+      await txn.update(
+        'pagos',
+        {
+          'estado': EstadoPago.pagado.name,
+          'fecha_ejecucion': fechaEjecucion.toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [pago.id],
+      );
+
+      await pacService.actualizarPagoPAC(
+        entidadId: entidadId,
+        usuarioId: usuarioId,
+        vigencia: pago.vigencia,
+        mes: pago.mesPAC,
+        codigoRubro: obligacion.codigoRubro,
+        montoPago: pago.valorPago,
+      );
+      await contabilidadService.generarAsientoPago(
+        entidadId: entidadId,
+        usuarioId: usuarioId,
+        fechaPago: fechaEjecucion,
+        pagoId: pago.id,
+        numeroPago: pago.numeroPago,
+        terceroNombre: pago.terceroNombre,
+        valorPago: pago.valorPago,
+        cuentaBanco: '1110',
+        nombreCuentaBanco: 'Efectivo y equivalentes de efectivo',
+      );
+
+      return pago.copyWith(
+        fechaEjecucion: fechaEjecucion,
+        estado: EstadoPago.pagado,
+      );
+    });
   }
 
   // ==================== UTILIDADES ====================

@@ -26,18 +26,18 @@ Resumen M1: 0 Completos / 4 Parciales / 2 Pendientes.
 
 | Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
 |---|---|---|---|---|
-| Flujo apropiacion -> CDP -> RP -> obligacion -> pago | `presupuesto/database/schema_presupuesto.dart`; `services/presupuesto_service.dart`; `pages/presupuesto_publico_page.dart` | `test/sector_publico/presupuesto/presupuesto_service_test.dart`; `presupuesto_publico_page_test.dart` (inspeccion) | Inspeccion: modelos y servicio existen. | Parcial - falta evidencia ejecutada del flujo completo y de todos los bloqueos. |
+| Flujo apropiacion -> CDP -> RP -> obligacion -> pago | `presupuesto/database/schema_presupuesto.dart`; `services/presupuesto_service.dart`; `services/pac_service.dart`; `contabilidad/services/contabilidad_nicsp_service.dart` | `test/sector_publico/presupuesto/presupuesto_pago_integracion_test.dart` | Ejecutado: `flutter test test\\sector_publico\\presupuesto\\presupuesto_pago_integracion_test.dart` - 2 pruebas pasaron; cubre cadena completa, aprobacion, ejecucion, cascada, PAC y asiento NICSP de pago. | Completo - evidencia de integracion ejecutada para el flujo presupuestal y de pago. |
 | CDP bloqueado sin disponibilidad | `services/presupuesto_service.dart` | `presupuesto_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - no se ejecuto en esta auditoria. |
 | RP exige contrato y afecta CDP | `services/presupuesto_service.dart`; `models/rp.dart` | `presupuesto_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta prueba ejecutada de contrato y saldo CDP. |
-| Obligacion exige soporte valido y pago exige cupo PAC | `services/presupuesto_service.dart`; `services/pac_service.dart`; `pages/pac_tesoreria_page.dart` | `presupuesto_service_test.dart` (inspeccion) | Inspeccion de codigo. | Parcial - falta certificacion integral de soportes y PAC. |
-| PAC mensual, control en tiempo real y modificaciones | `models/pac.dart`; `services/pac_service.dart`; `pages/pac_tesoreria_page.dart` | No se identifico test dedicado a `pac_service.dart` | Inspeccion de codigo. | Parcial - falta prueba y cobertura de acto administrativo/embargos/estampillas. |
+| Obligacion exige soporte valido y pago exige cupo PAC | `services/presupuesto_service.dart`; `services/pac_service.dart`; `pages/pac_tesoreria_page.dart` | `test/sector_publico/presupuesto/presupuesto_pago_integracion_test.dart` | Ejecutado: el test bloquea un pago que excede el PAC y valida el descuento tras el pago; la obligacion del flujo usa factura valida. | Parcial - falta prueba negativa ejecutada para obligacion sin acta ni factura. |
+| PAC mensual, control en tiempo real y modificaciones | `models/pac.dart`; `services/pac_service.dart`; `pages/pac_tesoreria_page.dart` | `test/sector_publico/presupuesto/presupuesto_pago_integracion_test.dart` | Ejecutado: el test verifica cupo aprobado mensual, bloqueo por exceso y descuento del cupo al ejecutar el pago. | Parcial - faltan pruebas de modificacion con acto administrativo, embargos y estampillas. |
 | Cierre de vigencia y vigencias futuras | `contabilidad/services/cierre_vigencia_service.dart`; `presupuesto_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - falta prueba de reservas, cuentas por pagar y autorizacion plurianual. |
 | NICSP 1: estados financieros | `contabilidad/services/contabilidad_nicsp_service.dart`; `models/estado_financiero.dart`; `pages/contabilidad_nicsp_page.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - no hay evidencia de estados completos certificados. |
 | NICSP 2: flujo de efectivo | `contabilidad/services/flujo_efectivo_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - servicio sin prueba ejecutada ni integracion certificada. |
 | NICSP 12, 17, 19 y 40 | `activos/services/activos_service.dart`; `contabilidad/services/depreciacion_job_service.dart`; `contabilidad/services/provisiones_service.dart`; `transparencia/services/nicsp40_service.dart` | `activos_estado_page_test.dart` (inspeccion); no se identifico prueba especifica de NICSP 40 | Inspeccion de codigo; `consolidation_migration_test.dart` solo cubre migracion de esquema. | Parcial - falta validacion normativa y ejecucion programada de depreciacion/provisiones. |
 | CGC publico con clases 1,2,3,4,5,6,8,9 | `database/schema_multi_tenant.dart` | Ninguno identificado | Sin evidencia ejecutada directa — solo inspeccion de `schema_multi_tenant.dart`. | Parcial - el catalogo semilla existe, pero no se certifico cobertura completa CGC ni asientos NICSP. |
 
-Resumen M2: 0 Completos / 10 Parciales / 0 Pendientes.
+Resumen M2: 1 Completo / 9 Parciales / 0 Pendientes.
 
 ## 3. Rentas y Tributos
 
@@ -150,7 +150,7 @@ Resumen M11: 0 Completos / 3 Parciales / 2 Pendientes.
 | Macro-sistema | Completos | Parciales | Pendientes | Lectura operativa |
 |---|---:|---:|---:|---|
 | M1 Planeacion y Proyectos | 0 | 4 | 2 | Base funcional sin trazabilidad presupuesto-resultado certificada. |
-| M2 Financiero Integrado | 0 | 10 | 0 | Nucleo construido, pero sin certificacion integral normativa. |
+| M2 Financiero Integrado | 1 | 9 | 0 | Flujo presupuestal-pago certificado; faltan coberturas normativas complementarias. |
 | M3 Rentas y Tributos | 0 | 6 | 0 | Servicios presentes; faltan reglas locales e integraciones externas. |
 | M4 Contratacion | 0 | 4 | 1 | SECOP II real es el bloqueo principal. |
 | M5 Nomina | 0 | 3 | 2 | Liquidacion base existe; faltan seis regimenes y PILA validada. |
@@ -165,7 +165,7 @@ Resumen M11: 0 Completos / 3 Parciales / 2 Pendientes.
 ## Brechas criticas priorizadas
 
 1. **Integracion SECOP II/X-Road real (M4).** Sin contrato de interoperabilidad, autenticacion, trazabilidad y pruebas contra SECOP II, el ciclo contractual no es apto para operacion publica.
-2. **Flujo financiero integral y controles normativos (M2).** Debe certificarse de punta a punta CDP-RP-obligacion-pago-PAC, incluidos soportes, cierres y segregacion de funciones en flujos reales.
+2. **Controles financieros normativos restantes (M2).** El flujo CDP-RP-obligacion-pago-PAC ya tiene prueba de integracion; faltan pruebas negativas de soportes, cierre de vigencia, vigencias futuras y controles complementarios.
 3. **Seis regimenes de nomina y archivo PILA validado (M5).** La liquidacion base no habilita operacion si faltan regimenes, retroactivos completos y el archivo regulatorio.
 4. **RIPS validado e interoperabilidad ADRES/EPS (M8).** Es bloqueante para facturacion hospitalaria y cobro de servicios de salud.
 5. **Trazabilidad PDT-presupuesto-resultado (M1).** Falta la regla de que no exista gasto sin plan, incluidos avances y alerta de desviacion financiera/fisica.
