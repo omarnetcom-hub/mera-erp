@@ -191,22 +191,56 @@ class MatrizVisibilidadService {
     required this.auditoriaService,
   });
 
+  static Future<void> poblarMatrizInicial(DatabaseExecutor db) async {
+    final existente = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM modulos_por_tipo_entidad'),
+    );
+    if ((existente ?? 0) > 0) return;
+
+    final batch = db.batch();
+    for (final entrada in _matrizDefinitiva.entries) {
+      final separador = entrada.key.indexOf('_');
+      final tipo = separador == -1 ? entrada.key : entrada.key.substring(0, separador);
+      final subtipo = separador == -1 ? '' : entrada.key.substring(separador + 1);
+      for (final modulo in entrada.value) {
+        batch.insert('modulos_por_tipo_entidad', {
+          'tipo': tipo,
+          'subtipo': subtipo,
+          'modulo': modulo.name,
+        });
+      }
+    }
+    await batch.commit(noResult: true);
+  }
+
   /// Obtiene los módulos visibles para un tipo/subtipo de entidad
-  Set<Modulo> obtenerModulosVisibles({
+  Future<Set<Modulo>> obtenerModulosVisibles({
     required String tipo,
     String? subtipo,
-  }) {
-    final clave = subtipo != null ? '${tipo}_$subtipo' : tipo;
-    return _matrizDefinitiva[clave] ?? _matrizDefinitiva[tipo] ?? {};
+  }) async {
+    var resultado = await db.query(
+      'modulos_por_tipo_entidad',
+      where: 'tipo = ? AND subtipo = ?',
+      whereArgs: [tipo, subtipo ?? ''],
+    );
+    if (resultado.isEmpty && subtipo != null) {
+      resultado = await db.query(
+        'modulos_por_tipo_entidad',
+        where: 'tipo = ? AND subtipo = ?',
+        whereArgs: [tipo, ''],
+      );
+    }
+    final nombres = resultado.map((fila) => fila['modulo'] as String).toSet();
+    return Modulo.values.where((modulo) => nombres.contains(modulo.name)).toSet();
   }
 
   /// Verifica si un módulo es visible para un tipo/subtipo
-  bool esModuloVisible({
+  Future<bool> esModuloVisible({
     required String tipo,
     String? subtipo,
     required Modulo modulo,
-  }) {
-    final modulosVisibles = obtenerModulosVisibles(tipo: tipo, subtipo: subtipo);
+  }) async {
+    final modulosVisibles = await obtenerModulosVisibles(tipo: tipo, subtipo: subtipo);
     return modulosVisibles.contains(modulo);
   }
 
@@ -264,8 +298,8 @@ class MatrizVisibilidadService {
   }) async {
     final resultado = await db.query(
       'configuracion_visibilidad',
-      where: 'entidad_id = ? AND estado = ?',
-      whereArgs: [entidadId, 'activo'],
+      where: 'entidad_id = ? AND parametro = ? AND vigente = 1 AND estado = ?',
+      whereArgs: [entidadId, 'tipo_entidad', 'activo'],
     );
 
     if (resultado.isEmpty) return null;
@@ -347,7 +381,10 @@ class MatrizVisibilidadService {
     String? tipo,
     String? subtipo,
   }) async {
-    final modulosVisibles = obtenerModulosVisibles(tipo: tipo ?? 'departamento', subtipo: subtipo);
+    final modulosVisibles = await obtenerModulosVisibles(
+      tipo: tipo ?? 'departamento',
+      subtipo: subtipo,
+    );
 
     return {
       'tipo': tipo,
@@ -358,10 +395,14 @@ class MatrizVisibilidadService {
   }
 
   /// Obtiene la matriz completa de visibilidad
-  Map<String, List<String>> obtenerMatrizCompleta() {
+  Future<Map<String, List<String>>> obtenerMatrizCompleta() async {
+    final filas = await db.query('modulos_por_tipo_entidad');
     final matriz = <String, List<String>>{};
-    for (final entry in _matrizDefinitiva.entries) {
-      matriz[entry.key] = entry.value.map((e) => e.toString().split('.').last).toList();
+    for (final fila in filas) {
+      final tipo = fila['tipo'] as String;
+      final subtipo = fila['subtipo'] as String;
+      final clave = subtipo.isEmpty ? tipo : '${tipo}_$subtipo';
+      matriz.putIfAbsent(clave, () => []).add(fila['modulo'] as String);
     }
     return matriz;
   }

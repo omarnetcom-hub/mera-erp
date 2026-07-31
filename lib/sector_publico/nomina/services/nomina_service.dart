@@ -45,8 +45,8 @@ class NominaService {
     // Recuperar configuración de la entidad (SMMLV y Auxilio de Transporte) para evitar hardcoding
     final configResult = await db.query(
       'configuracion_entidad',
-      where: 'entidad_id = ?',
-      whereArgs: [entidadId],
+      where: 'entidad_id = ? AND parametro = ? AND vigente = 1',
+      whereArgs: [entidadId, 'configuracion_legal'],
     );
 
     double smmlv = 1300000.0; // Default SMMLV

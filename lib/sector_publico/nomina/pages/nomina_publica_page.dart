@@ -91,8 +91,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
       final db = await DatabaseHelper.instance.database;
       final configResult = await db.query(
         'configuracion_entidad',
-        where: 'entidad_id = ?',
-        whereArgs: [widget.entidadId],
+        where: 'entidad_id = ? AND parametro = ? AND vigente = 1',
+        whereArgs: [widget.entidadId, 'configuracion_legal'],
       );
 
       if (configResult.isNotEmpty) {
@@ -639,8 +639,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
 
                     final existente = await db.query(
                       'configuracion_entidad',
-                      where: 'entidad_id = ?',
-                      whereArgs: [widget.entidadId],
+                      where: 'entidad_id = ? AND parametro = ? AND vigente = 1',
+                      whereArgs: [widget.entidadId, 'configuracion_legal'],
                     );
 
                     if (existente.isEmpty) {
@@ -660,8 +660,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                           'fecha_actualizacion': DateTime.now().toIso8601String(),
                           'actualizado_por': widget.usuarioId,
                         },
-                        where: 'entidad_id = ?',
-                        whereArgs: [widget.entidadId],
+                        where: 'entidad_id = ? AND parametro = ? AND vigente = 1',
+                        whereArgs: [widget.entidadId, 'configuracion_legal'],
                       );
                     }
 

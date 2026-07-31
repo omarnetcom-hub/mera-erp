@@ -252,6 +252,10 @@ class _OnboardingEntidadPageState extends State<OnboardingEntidadPage> {
         return 'Municipio';
       case TipoEntidad.distrito:
         return 'Distrito';
+      case TipoEntidad.hospitalEse:
+        return 'Hospital ESE';
+      case TipoEntidad.otroEnte:
+        return 'Otro ente';
       case TipoEntidad.regionMetropolitana:
         return 'Región Metropolitana';
     }

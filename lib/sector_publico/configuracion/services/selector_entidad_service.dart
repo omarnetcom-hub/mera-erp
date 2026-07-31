@@ -13,6 +13,27 @@ enum TipoEntidad {
   municipio,
   distrito,
   regionMetropolitana,
+  hospitalEse,
+  otroEnte,
+}
+
+extension TipoEntidadCompatibilidad on TipoEntidad {
+  /// Traduce las etiquetas del onboarding legado en el borde del selector.
+  static TipoEntidad desdeTipoOnboarding(String tipo) {
+    switch (tipo) {
+      case 'gobernacion':
+        return TipoEntidad.departamento;
+      case 'hospital':
+        return TipoEntidad.hospitalEse;
+      case 'otro':
+        return TipoEntidad.otroEnte;
+      default:
+        return TipoEntidad.values.firstWhere(
+          (valor) => valor.name == tipo,
+          orElse: () => TipoEntidad.otroEnte,
+        );
+    }
+  }
 }
 
 enum SubtipoMunicipio {
@@ -73,7 +94,11 @@ class SelectorEntidadService {
     await db.insert('configuracion_entidad', {
       'id': id,
       'entidad_id': entidadId,
-      'tipo': tipo.toString().split('.').last,
+      'parametro': 'tipo_entidad',
+      'valor': tipo.name,
+      'fecha_actualizacion': DateTime.now().toIso8601String(),
+      'actualizado_por': usuarioId,
+      'tipo': tipo.name,
       'subtipo': subtipo,
       'nombre_entidad': nombreEntidad,
       'codigo_dane': codigoDANE,
@@ -82,6 +107,7 @@ class SelectorEntidadService {
       'fecha_configuracion': DateTime.now().toIso8601String(),
       'configurado_por': usuarioId,
       'estado': 'activo',
+      'vigente': 1,
     });
 
     await auditoriaService.registrarEvento(
@@ -119,8 +145,8 @@ class SelectorEntidadService {
   }) async {
     final configuracion = await db.query(
       'configuracion_entidad',
-      where: 'entidad_id = ? AND estado = ?',
-      whereArgs: [entidadId, 'activo'],
+      where: 'entidad_id = ? AND parametro = ? AND vigente = 1 AND estado = ?',
+      whereArgs: [entidadId, 'tipo_entidad', 'activo'],
     );
 
     if (configuracion.isEmpty) {
@@ -134,10 +160,11 @@ class SelectorEntidadService {
     await db.update(
       'configuracion_entidad',
       {
-        'tipo': nuevoTipo.toString().split('.').last,
-        'subtipo': nuevoSubtipo,
         'estado': 'inactivo', // Marcar anterior como inactivo
+        'vigente': 0,
+        'fecha_fin': DateTime.now().toIso8601String(),
         'fecha_actualizacion': DateTime.now().toIso8601String(),
+        'actualizado_por': usuarioId,
       },
       where: 'id = ?',
       whereArgs: [configId],
@@ -148,7 +175,11 @@ class SelectorEntidadService {
     await db.insert('configuracion_entidad', {
       'id': nuevaConfigId,
       'entidad_id': entidadId,
-      'tipo': nuevoTipo.toString().split('.').last,
+      'parametro': 'tipo_entidad',
+      'valor': nuevoTipo.name,
+      'fecha_actualizacion': DateTime.now().toIso8601String(),
+      'actualizado_por': usuarioId,
+      'tipo': nuevoTipo.name,
       'subtipo': nuevoSubtipo,
       'nombre_entidad': configuracion.first['nombre_entidad'],
       'codigo_dane': configuracion.first['codigo_dane'],
@@ -158,6 +189,7 @@ class SelectorEntidadService {
       'configurado_por': usuarioId,
       'motivo_cambio': motivo,
       'estado': 'activo',
+      'vigente': 1,
     });
 
     await auditoriaService.registrarEvento(
@@ -192,8 +224,8 @@ class SelectorEntidadService {
   }) async {
     final resultado = await db.query(
       'configuracion_entidad',
-      where: 'entidad_id = ? AND estado = ?',
-      whereArgs: [entidadId, 'activo'],
+      where: 'entidad_id = ? AND parametro = ? AND vigente = 1 AND estado = ?',
+      whereArgs: [entidadId, 'tipo_entidad', 'activo'],
     );
 
     if (resultado.isEmpty) return null;
@@ -209,6 +241,8 @@ class SelectorEntidadService {
         return SubtipoDistrito.values.map((e) => e.toString().split('.').last).toList();
       case TipoEntidad.departamento:
       case TipoEntidad.regionMetropolitana:
+      case TipoEntidad.hospitalEse:
+      case TipoEntidad.otroEnte:
         return []; // No tienen subtipos
     }
   }
@@ -234,8 +268,8 @@ class SelectorEntidadService {
   }) async {
     final resultados = await db.query(
       'configuracion_entidad',
-      where: 'entidad_id = ?',
-      whereArgs: [entidadId],
+      where: 'entidad_id = ? AND parametro = ?',
+      whereArgs: [entidadId, 'tipo_entidad'],
       orderBy: 'fecha_configuracion DESC',
     );
 
@@ -246,12 +280,15 @@ class SelectorEntidadService {
   Future<Map<String, dynamic>> generarReporteConfiguraciones({
     TipoEntidad? tipo,
   }) async {
-    String query = 'SELECT * FROM configuracion_entidad WHERE estado = ?';
-    List<dynamic> args = ['activo'];
+    String query = '''
+      SELECT * FROM configuracion_entidad
+      WHERE parametro = ? AND vigente = 1 AND estado = ?
+    ''';
+    List<dynamic> args = ['tipo_entidad', 'activo'];
 
     if (tipo != null) {
       query += ' AND tipo = ?';
-      args.add(tipo.toString().split('.').last);
+      args.add(tipo.name);
     }
 
     final configuraciones = await db.rawQuery(query, args);

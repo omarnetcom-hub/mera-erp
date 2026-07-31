@@ -3,6 +3,7 @@
 library;
 
 import 'package:sqflite/sqflite.dart';
+import '../configuracion/services/matriz_visibilidad_service.dart';
 
 class SchemaMultiTenant {
   /// Crea todas las tablas necesarias para el módulo de Sector Público
@@ -91,7 +92,7 @@ class SchemaMultiTenant {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS configuracion_entidad (
         id TEXT PRIMARY KEY,
-        entidad_id TEXT NOT NULL UNIQUE,
+        entidad_id TEXT NOT NULL,
         parametro TEXT NOT NULL,
         valor TEXT NOT NULL,
         fecha_actualizacion TEXT NOT NULL,
@@ -106,9 +107,19 @@ class SchemaMultiTenant {
         configurado_por TEXT,
         motivo_cambio TEXT,
         estado TEXT NOT NULL DEFAULT 'activo',
+        vigente INTEGER NOT NULL DEFAULT 1,
+        fecha_fin TEXT,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
       )
     ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_configuracion_entidad_vigente
+      ON configuracion_entidad(entidad_id, parametro)
+      WHERE vigente = 1
+    ''');
+
+    await crearTablaModulosPorTipoEntidad(db);
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS configuracion_visibilidad (
@@ -271,7 +282,6 @@ class SchemaMultiTenant {
   }
 
   /// Inserta datos semilla del Catálogo General de Cuentas (CGC)
-  /// Impide alterar la cadena de auditoria desde SQL directo.
   static Future<void> crearTriggersAuditoriaInmutable(Database db) async {
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_auditoria_registros_no_delete
@@ -309,6 +319,78 @@ class SchemaMultiTenant {
         SELECT RAISE(ABORT, 'Los registros de auditoria solo se pueden archivar');
       END
     ''');
+  }
+
+  static Future<void> migrarConfiguracionEntidadParaHistorial(Database db) async {
+    final tablas = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'configuracion_entidad'",
+    );
+    if (tablas.isEmpty) return;
+
+    final columnas = await db.rawQuery('PRAGMA table_info(configuracion_entidad)');
+    final nombres = columnas.map((columna) => columna['name'] as String).toSet();
+    if (nombres.contains('vigente') && nombres.contains('fecha_fin')) return;
+
+    const columnasPreservadas = [
+      'id', 'entidad_id', 'parametro', 'valor', 'fecha_actualizacion',
+      'actualizado_por', 'tipo', 'subtipo', 'nombre_entidad', 'codigo_dane',
+      'departamento', 'municipio', 'fecha_configuracion', 'configurado_por',
+      'motivo_cambio', 'estado',
+    ];
+    final columnasExistentes = columnasPreservadas.where(nombres.contains).toList();
+    final listaColumnas = columnasExistentes.join(', ');
+
+    await db.transaction((txn) async {
+      await txn.execute(
+        'ALTER TABLE configuracion_entidad RENAME TO configuracion_entidad_legacy',
+      );
+      await txn.execute('''
+        CREATE TABLE configuracion_entidad (
+          id TEXT PRIMARY KEY,
+          entidad_id TEXT NOT NULL,
+          parametro TEXT NOT NULL,
+          valor TEXT NOT NULL,
+          fecha_actualizacion TEXT NOT NULL,
+          actualizado_por TEXT NOT NULL,
+          tipo TEXT,
+          subtipo TEXT,
+          nombre_entidad TEXT,
+          codigo_dane TEXT,
+          departamento TEXT,
+          municipio TEXT,
+          fecha_configuracion TEXT,
+          configurado_por TEXT,
+          motivo_cambio TEXT,
+          estado TEXT NOT NULL DEFAULT 'activo',
+          vigente INTEGER NOT NULL DEFAULT 1,
+          fecha_fin TEXT,
+          FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
+        )
+      ''');
+      await txn.execute('''
+        INSERT INTO configuracion_entidad ($listaColumnas, vigente, fecha_fin)
+        SELECT $listaColumnas, 1, NULL
+        FROM configuracion_entidad_legacy
+      ''');
+      await txn.execute('DROP TABLE configuracion_entidad_legacy');
+      await txn.execute('''
+        CREATE UNIQUE INDEX idx_configuracion_entidad_vigente
+        ON configuracion_entidad(entidad_id, parametro)
+        WHERE vigente = 1
+      ''');
+    });
+  }
+
+  static Future<void> crearTablaModulosPorTipoEntidad(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS modulos_por_tipo_entidad (
+        tipo TEXT NOT NULL,
+        subtipo TEXT NOT NULL DEFAULT '',
+        modulo TEXT NOT NULL,
+        PRIMARY KEY (tipo, subtipo, modulo)
+      )
+    ''');
+    await MatrizVisibilidadService.poblarMatrizInicial(db);
   }
 
   static Future<void> insertarDatosSemillaCGC(Database db, String entidadId) async {
