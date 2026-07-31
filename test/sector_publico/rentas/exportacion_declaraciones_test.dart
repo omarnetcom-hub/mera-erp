@@ -82,7 +82,7 @@ void main() {
     });
 
     auditoriaService = AuditoriaService(db);
-    interesesService = InteresesMoratoriosService(db: db, auditoriaService: auditoriaService);
+    interesesService = InteresesMoratoriosService();
     predialService = PredialService(db: db, interesesService: interesesService, auditoriaService: auditoriaService);
     icaService = ICAService(db: db, auditoriaService: auditoriaService);
   });
@@ -108,7 +108,7 @@ void main() {
       entidadId: 'entidad-001',
       usuarioId: 'usr-001',
       nit: '900999888-1',
-      razon_social: 'Comercializadora Test SAS',
+      razonSocial: 'Comercializadora Test SAS',
       direccion: 'Carrera 7 # 12-34',
       telefono: '3001234567',
       tipoActividad: TipoActividadICA.comercial,

@@ -14,7 +14,7 @@ void main() {
 
   setUp(() async {
     db = await databaseFactory.openDatabase(inMemoryDatabasePath);
-    DatabaseHelper.instance.setDatabaseForTesting(db);
+    DatabaseHelper.setTestDatabase(db);
     AppSession.cerrar();
 
     // Crear tablas necesarias
