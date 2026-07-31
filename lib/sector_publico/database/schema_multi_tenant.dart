@@ -71,6 +71,7 @@ class SchemaMultiTenant {
       CREATE INDEX IF NOT EXISTS idx_auditoria_referencia 
       ON auditoria_registros(referencia_id)
     ''');
+    await crearTriggersAuditoriaInmutable(db);
 
     // Tabla de usuarios del sector público
     await db.execute('''
@@ -270,6 +271,46 @@ class SchemaMultiTenant {
   }
 
   /// Inserta datos semilla del Catálogo General de Cuentas (CGC)
+  /// Impide alterar la cadena de auditoria desde SQL directo.
+  static Future<void> crearTriggersAuditoriaInmutable(Database db) async {
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_auditoria_registros_no_delete
+      BEFORE DELETE ON auditoria_registros
+      FOR EACH ROW
+      BEGIN
+        SELECT RAISE(ABORT, 'Los registros de auditoria no se pueden eliminar');
+      END
+    ''');
+
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_auditoria_registros_update_controlado
+      BEFORE UPDATE ON auditoria_registros
+      FOR EACH ROW
+      WHEN NOT (
+        OLD.archivado = 0
+        AND NEW.archivado = 1
+        AND OLD.id IS NEW.id
+        AND OLD.entidad_id IS NEW.entidad_id
+        AND OLD.usuario_id IS NEW.usuario_id
+        AND OLD.usuario_nombre IS NEW.usuario_nombre
+        AND OLD.ip_direccion IS NEW.ip_direccion
+        AND OLD.fecha_hora IS NEW.fecha_hora
+        AND OLD.tipo_evento IS NEW.tipo_evento
+        AND OLD.modulo IS NEW.modulo
+        AND OLD.accion IS NEW.accion
+        AND OLD.valor_anterior IS NEW.valor_anterior
+        AND OLD.valor_nuevo IS NEW.valor_nuevo
+        AND OLD.hash_anterior IS NEW.hash_anterior
+        AND OLD.hash_actual IS NEW.hash_actual
+        AND OLD.referencia_id IS NEW.referencia_id
+        AND OLD.observaciones IS NEW.observaciones
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Los registros de auditoria solo se pueden archivar');
+      END
+    ''');
+  }
+
   static Future<void> insertarDatosSemillaCGC(Database db, String entidadId) async {
     // Clase 1 - Activo
     final cuentasClase1 = [
