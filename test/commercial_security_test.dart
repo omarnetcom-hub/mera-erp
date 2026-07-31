@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:caja_simple/db_helper.dart';
-import 'package:caja_simple/app_session.dart';
-import 'package:caja_simple/core/security/action_permission.dart';
+import 'package:merka_erp/db_helper.dart';
+import 'package:merka_erp/app_session.dart';
+import 'package:merka_erp/core/security/action_permission.dart';
 
 void main() {
   sqfliteFfiInit();

@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:caja_simple/sector_publico/rentas/database/schema_rentas.dart';
-import 'package:caja_simple/sector_publico/rentas/services/predial_service.dart';
-import 'package:caja_simple/sector_publico/rentas/services/ica_service.dart';
-import 'package:caja_simple/sector_publico/rentas/services/intereses_moratorios_service.dart';
-import 'package:caja_simple/sector_publico/security/auditoria_service.dart';
+import 'package:merka_erp/sector_publico/rentas/database/schema_rentas.dart';
+import 'package:merka_erp/sector_publico/rentas/services/predial_service.dart';
+import 'package:merka_erp/sector_publico/rentas/services/ica_service.dart';
+import 'package:merka_erp/sector_publico/rentas/services/intereses_moratorios_service.dart';
+import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
 
 void main() {
   sqfliteFfiInit();

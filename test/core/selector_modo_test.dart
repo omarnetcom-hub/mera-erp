@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:caja_simple/db_helper.dart';
-import 'package:caja_simple/app_session.dart';
-import 'package:caja_simple/core/workspace/selector_modo_screen.dart';
-import 'package:caja_simple/sector_publico/security/roles_permisos_service.dart';
-import 'package:caja_simple/sector_publico/database/schema_multi_tenant.dart';
+import 'package:merka_erp/db_helper.dart';
+import 'package:merka_erp/app_session.dart';
+import 'package:merka_erp/core/workspace/selector_modo_screen.dart';
+import 'package:merka_erp/sector_publico/security/roles_permisos_service.dart';
+import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
 
 void main() {
   sqfliteFfiInit();

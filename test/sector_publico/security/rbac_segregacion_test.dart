@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:caja_simple/sector_publico/security/roles_permisos_service.dart';
-import 'package:caja_simple/sector_publico/presupuesto/services/presupuesto_service.dart';
-import 'package:caja_simple/sector_publico/presupuesto/database/schema_presupuesto.dart';
-import 'package:caja_simple/sector_publico/contabilidad/services/contabilidad_nicsp_service.dart';
-import 'package:caja_simple/sector_publico/contabilidad/database/schema_contabilidad.dart';
-import 'package:caja_simple/sector_publico/security/auditoria_service.dart';
-import 'package:caja_simple/sector_publico/database/schema_multi_tenant.dart';
+import 'package:merka_erp/sector_publico/security/roles_permisos_service.dart';
+import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
+import 'package:merka_erp/sector_publico/presupuesto/database/schema_presupuesto.dart';
+import 'package:merka_erp/sector_publico/contabilidad/services/contabilidad_nicsp_service.dart';
+import 'package:merka_erp/sector_publico/contabilidad/database/schema_contabilidad.dart';
+import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
+import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
 
 void main() {
   sqfliteFfiInit();

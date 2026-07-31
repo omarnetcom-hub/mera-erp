@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:caja_simple/sector_publico/salud/database/schema_salud.dart';
-import 'package:caja_simple/sector_publico/salud/services/facturacion_salud_service.dart';
-import 'package:caja_simple/sector_publico/salud/models/contrato_eps.dart';
-import 'package:caja_simple/sector_publico/security/auditoria_service.dart';
+import 'package:merka_erp/sector_publico/salud/database/schema_salud.dart';
+import 'package:merka_erp/sector_publico/salud/services/facturacion_salud_service.dart';
+import 'package:merka_erp/sector_publico/salud/models/contrato_eps.dart';
+import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
 
 void main() {
   sqfliteFfiInit();
