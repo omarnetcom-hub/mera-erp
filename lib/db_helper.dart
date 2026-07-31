@@ -328,7 +328,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 62,
+      version: 63,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -691,6 +691,70 @@ class DatabaseHelper {
 
     if (oldVersion < 62) {
       await SchemaNomina.crearTablas(db);
+    }
+
+    if (oldVersion < 63) {
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'tipo',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'subtipo',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'nombre_entidad',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'codigo_dane',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'departamento',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'municipio',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'fecha_configuracion',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'configurado_por',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'motivo_cambio',
+        'TEXT',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'configuracion_entidad',
+        'estado',
+        "TEXT NOT NULL DEFAULT 'activo'",
+      );
+      await SchemaMultiTenant.crearTablas(db);
     }
   }
 

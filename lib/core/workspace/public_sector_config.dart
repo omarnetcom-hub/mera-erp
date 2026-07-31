@@ -14,6 +14,7 @@ import '../../sector_publico/planeacion/pages/planeacion_page.dart';
 import '../../sector_publico/activos/pages/activos_estado_page.dart';
 import '../../sector_publico/auditoria/pages/auditoria_forense_page.dart';
 import '../../sector_publico/transparencia/pages/transparencia_page.dart';
+import '../../sector_publico/configuracion/pages/configuracion_general_page.dart';
 
 List<ModuleDefinition> modulosPresupuestoPublico() => [
   ModuleDefinition(
@@ -305,5 +306,19 @@ List<ModuleDefinition> modulosAuditoriaTransparencia() => [
       usuarioId: AppSession.usuarioId ?? '',
     ),
     featureKey: FeatureKey.transparencia,
+  ),
+];
+
+List<ModuleDefinition> modulosConfiguracionEntidad() => [
+  ModuleDefinition(
+    id: 'configuracion_entidad',
+    title: 'Configuración de la Entidad',
+    icon: Icons.settings,
+    color: Colors.blueGrey,
+    category: ModuleCategory.management,
+    builder: (context) => ConfiguracionGeneralPage(
+      entidadId: AppSession.entidadId,
+      usuarioId: AppSession.usuarioId ?? '',
+    ),
   ),
 ];

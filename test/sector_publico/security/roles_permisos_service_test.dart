@@ -54,5 +54,29 @@ void main() {
 
       expect(puedeAprobar, isFalse);
     });
+
+    test('Solo alcalde y secretario de hacienda pueden configurar entidad', () {
+      expect(
+        RolesPermisosService.tienePermiso(
+          RolSectorPublico.alcaldeRepresentanteLegal,
+          Permiso.configurarEntidad,
+        ),
+        isTrue,
+      );
+      expect(
+        RolesPermisosService.tienePermiso(
+          RolSectorPublico.secretarioHacienda,
+          Permiso.configurarEntidad,
+        ),
+        isTrue,
+      );
+      expect(
+        RolesPermisosService.tienePermiso(
+          RolSectorPublico.contador,
+          Permiso.configurarEntidad,
+        ),
+        isFalse,
+      );
+    });
   });
 }

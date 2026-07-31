@@ -168,6 +168,7 @@ class AppSession {
       'regalias_sgp',
       'siif',
       'salud_publica',
+      'configuracion_entidad',
     };
     return ids.contains(moduloId);
   }
@@ -177,6 +178,12 @@ class AppSession {
     if (userRol == 'administrador' || userRol == 'sistema') return true;
     final rolPublico = _rolSectorPublico;
     if (rolPublico == null) return false;
+    if (moduloId == 'configuracion_entidad') {
+      return RolesPermisosService.tienePermiso(
+        rolPublico,
+        Permiso.configurarEntidad,
+      );
+    }
     if (RolesPermisosService.tienePermiso(
       rolPublico,
       Permiso.consultarTodo,
@@ -239,6 +246,7 @@ class AppSession {
       Permiso.expedirRP,
       Permiso.registrarObligacion,
     },
+    'configuracion_entidad': {Permiso.configurarEntidad},
   };
 
   static String _normalizarModulo(String modulo) {

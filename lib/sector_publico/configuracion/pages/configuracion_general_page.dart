@@ -3,22 +3,18 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../../../db_helper.dart';
+import '../../security/auditoria_service.dart';
 import '../services/configuracion_general_service.dart';
 import '../services/selector_entidad_service.dart';
 import '../services/matriz_visibilidad_service.dart';
 
 class ConfiguracionGeneralPage extends StatefulWidget {
-  final ConfiguracionGeneralService configuracionGeneralService;
-  final SelectorEntidadService selectorEntidadService;
-  final MatrizVisibilidadService matrizVisibilidadService;
   final String entidadId;
   final String usuarioId;
 
   const ConfiguracionGeneralPage({
     super.key,
-    required this.configuracionGeneralService,
-    required this.selectorEntidadService,
-    required this.matrizVisibilidadService,
     required this.entidadId,
     required this.usuarioId,
   });
@@ -28,49 +24,83 @@ class ConfiguracionGeneralPage extends StatefulWidget {
 }
 
 class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
+  late ConfiguracionGeneralService _configuracionGeneralService;
+  late SelectorEntidadService _selectorEntidadService;
+  late MatrizVisibilidadService _matrizVisibilidadService;
   Map<String, dynamic>? _configuracionCompleta;
   bool _isLoading = true;
   bool _isValida = false;
+  bool _servicesInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _cargarConfiguracion();
+    _inicializarServicios();
+  }
+
+  Future<void> _inicializarServicios() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final auditoriaService = AuditoriaService(db);
+      _selectorEntidadService = SelectorEntidadService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
+      _matrizVisibilidadService = MatrizVisibilidadService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
+      _configuracionGeneralService = ConfiguracionGeneralService(
+        db: db,
+        auditoriaService: auditoriaService,
+        selectorEntidadService: _selectorEntidadService,
+        matrizVisibilidadService: _matrizVisibilidadService,
+      );
+      _servicesInitialized = true;
+      await _cargarConfiguracion();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al inicializar configuraciÃ³n: $e')),
+      );
+    }
   }
 
   Future<void> _cargarConfiguracion() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final config = await widget.configuracionGeneralService.obtenerConfiguracionCompleta(
+      final config = await _configuracionGeneralService.obtenerConfiguracionCompleta(
         entidadId: widget.entidadId,
       );
-      final validacion = await widget.configuracionGeneralService.validarConfiguracion(
+      final validacion = await _configuracionGeneralService.validarConfiguracion(
         entidadId: widget.entidadId,
       );
 
+      if (!mounted) return;
       setState(() {
         _configuracionCompleta = config;
         _isValida = validacion['es_valida'];
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
 
   Future<void> _marcarCompletada() async {
     try {
-      await widget.configuracionGeneralService.marcarConfiguracionCompletada(
+      await _configuracionGeneralService.marcarConfiguracionCompletada(
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
       );
@@ -111,7 +141,7 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
 
     if (confirmacion == true) {
       try {
-        await widget.configuracionGeneralService.restaurarConfiguracionesPorDefecto(
+        await _configuracionGeneralService.restaurarConfiguracionesPorDefecto(
           entidadId: widget.entidadId,
           usuarioId: widget.usuarioId,
         );
@@ -140,7 +170,7 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _cargarConfiguracion,
+            onPressed: _servicesInitialized ? _cargarConfiguracion : null,
           ),
         ],
       ),

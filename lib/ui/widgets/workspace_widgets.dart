@@ -54,6 +54,11 @@ List<_WorkspaceSection> _seccionesSectorPublico(_MenuPrincipalState state) {
       icon: Icons.security,
       modules: visible(modulosAuditoriaTransparencia()),
     ),
+    _WorkspaceSection(
+      label: 'Configuración',
+      icon: Icons.settings,
+      modules: visible(modulosConfiguracionEntidad()),
+    ),
   ];
 }
 

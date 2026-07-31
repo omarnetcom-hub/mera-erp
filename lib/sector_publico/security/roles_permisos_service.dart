@@ -65,6 +65,7 @@ enum Permiso {
   consultarAuditoria,
 
   // General
+  configurarEntidad,
   consultarTodo,
   exportarDatos,
 }
@@ -73,6 +74,7 @@ class RolesPermisosService {
   /// Define qué roles tienen qué permisos
   static Map<RolSectorPublico, Set<Permiso>> get permisosPorRol => {
     RolSectorPublico.alcaldeRepresentanteLegal: {
+      Permiso.configurarEntidad,
       Permiso.consultarTodo,
       Permiso.aprobarPago,
       Permiso.firmarContrato,
@@ -80,6 +82,7 @@ class RolesPermisosService {
       Permiso.aprobarProyecto,
     },
     RolSectorPublico.secretarioHacienda: {
+      Permiso.configurarEntidad,
       Permiso.expedirCDP,
       Permiso.modificarCDP,
       Permiso.expedirRP,
@@ -410,6 +413,8 @@ class RolesPermisosService {
         return 'Asignar Roles';
       case Permiso.consultarAuditoria:
         return 'Consultar Auditoría';
+      case Permiso.configurarEntidad:
+        return 'Configurar Entidad';
       case Permiso.consultarTodo:
         return 'Consultar Todo';
       case Permiso.exportarDatos:

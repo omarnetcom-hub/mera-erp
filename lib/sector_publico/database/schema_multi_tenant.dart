@@ -95,8 +95,56 @@ class SchemaMultiTenant {
         valor TEXT NOT NULL,
         fecha_actualizacion TEXT NOT NULL,
         actualizado_por TEXT NOT NULL,
+        tipo TEXT,
+        subtipo TEXT,
+        nombre_entidad TEXT,
+        codigo_dane TEXT,
+        departamento TEXT,
+        municipio TEXT,
+        fecha_configuracion TEXT,
+        configurado_por TEXT,
+        motivo_cambio TEXT,
+        estado TEXT NOT NULL DEFAULT 'activo',
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
       )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS configuracion_visibilidad (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        subtipo TEXT,
+        modulos_habilitados TEXT NOT NULL,
+        motivo TEXT NOT NULL,
+        fecha_configuracion TEXT NOT NULL,
+        configurado_por TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'activo',
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_configuracion_visibilidad_entidad
+      ON configuracion_visibilidad(entidad_id, estado)
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS configuraciones_generales (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        clave TEXT NOT NULL,
+        valor TEXT NOT NULL,
+        fecha_actualizacion TEXT NOT NULL,
+        actualizado_por TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'activo',
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_configuraciones_generales_entidad
+      ON configuraciones_generales(entidad_id, estado)
     ''');
 
     // Tabla de plan de cuentas CGC por entidad
