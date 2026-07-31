@@ -156,6 +156,7 @@ List<ModuleDefinition> modulosNominaPublica() => [
     builder: (context) => NominaPublicaPage(
       entidadId: AppSession.entidadId,
       usuarioId: AppSession.usuarioId ?? '',
+      tabInicial: 5,
     ),
     featureKey: FeatureKey.nomina_publica,
   ),

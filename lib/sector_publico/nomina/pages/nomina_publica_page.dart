@@ -6,9 +6,11 @@ import '../../security/auditoria_service.dart';
 import '../services/nomina_service.dart';
 import '../services/pila_service.dart';
 import '../services/retroactivos_service.dart';
+import '../services/horas_extra_service.dart';
 import '../models/empleado.dart';
 import '../models/liquidacion_nomina.dart';
 import '../models/retroactivo.dart';
+import 'horas_extra_form_page.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 
@@ -34,6 +36,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
   late NominaService _nominaService;
   late PILAService _pilaService;
   late RetroactivosService _retroactivosService;
+  late HorasExtraService _horasExtraService;
 
   List<Empleado> _empleados = [];
   List<LiquidacionNomina> _liquidaciones = [];
@@ -50,6 +53,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
     'Retroactivos',
     'Planilla PILA',
     'Configuración Legal',
+    'Horas Extra',
   ];
 
   @override
@@ -68,6 +72,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
       _nominaService = NominaService(db: db, auditoriaService: auditoriaService);
       _pilaService = PILAService(db: db, auditoriaService: auditoriaService);
       _retroactivosService = RetroactivosService(db: db, auditoriaService: auditoriaService);
+      _horasExtraService = HorasExtraService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
 
       await _cargarConfiguracion();
       await _cargarDatos();
@@ -159,6 +167,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 _buildRetroactivosTab(),
                 _buildPILATab(),
                 _buildConfiguracionTab(),
+                _buildHorasExtraTab(),
               ],
             ),
       bottomNavigationBar: BottomNavigationBar(
@@ -187,6 +196,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Config',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.schedule),
+            label: 'Extras',
           ),
         ],
       ),
@@ -443,6 +456,63 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildHorasExtraTab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Icon(
+                Icons.schedule,
+                size: 64,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Registro de Horas Extra',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Registre horas extra y recargos para los empleados de la entidad.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _abrirRegistroHorasExtra,
+                icon: const Icon(Icons.add),
+                label: const Text('Registrar Horas Extra'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _abrirRegistroHorasExtra() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => HorasExtraFormPage(
+          horasExtraService: _horasExtraService,
+          entidadId: widget.entidadId,
+          usuarioId: widget.usuarioId,
+        ),
+      ),
     );
   }
 

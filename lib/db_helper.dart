@@ -328,7 +328,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 61,
+      version: 62,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -687,6 +687,10 @@ class DatabaseHelper {
       await SchemaTransparencia.crearTablas(db);
       await SchemaSIIF.crearTablas(db);
       print('✓ Tablas del Sector Público migradas correctamente en v61.');
+    }
+
+    if (oldVersion < 62) {
+      await SchemaNomina.crearTablas(db);
     }
   }
 

@@ -96,12 +96,78 @@ class SchemaNomina {
       )
     ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_empleados_entidad ON empleados_sp(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_empleados_identificacion ON empleados_sp(numero_identificacion)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_liquidaciones_entidad ON liquidaciones_nomina(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_liquidaciones_periodo ON liquidaciones_nomina(periodo)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_liquidaciones_empleado ON liquidaciones_nomina(empleado_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_retroactivos_entidad ON retroactivos(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_retroactivos_empleado ON retroactivos(empleado_id)');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS horas_extra (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        empleado_id TEXT NOT NULL,
+        tipo_hora TEXT NOT NULL,
+        fecha TEXT NOT NULL,
+        cantidad_horas REAL NOT NULL,
+        salario_hora REAL NOT NULL,
+        porcentaje_recargo REAL NOT NULL,
+        valor_recargo REAL NOT NULL,
+        valor_total REAL NOT NULL,
+        motivo TEXT,
+        aprobado_por TEXT,
+        fecha_registro TEXT NOT NULL,
+        estado TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (empleado_id) REFERENCES empleados_sp(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS recargos (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        empleado_id TEXT NOT NULL,
+        tipo_recargo TEXT NOT NULL,
+        fecha TEXT NOT NULL,
+        cantidad_horas REAL NOT NULL,
+        salario_hora REAL NOT NULL,
+        porcentaje_recargo REAL NOT NULL,
+        valor_recargo REAL NOT NULL,
+        motivo TEXT,
+        fecha_registro TEXT NOT NULL,
+        estado TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (empleado_id) REFERENCES empleados_sp(id)
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_empleados_entidad ON empleados_sp(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_empleados_identificacion ON empleados_sp(numero_identificacion)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_liquidaciones_entidad ON liquidaciones_nomina(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_liquidaciones_periodo ON liquidaciones_nomina(periodo)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_liquidaciones_empleado ON liquidaciones_nomina(empleado_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_retroactivos_entidad ON retroactivos(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_retroactivos_empleado ON retroactivos(empleado_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_horas_extra_entidad ON horas_extra(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_horas_extra_empleado ON horas_extra(empleado_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_recargos_entidad ON recargos(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_recargos_empleado ON recargos(empleado_id)',
+    );
   }
 }
