@@ -3,6 +3,7 @@ import '../../../../db_helper.dart';
 import '../../security/auditoria_service.dart';
 import '../services/contabilidad_nicsp_service.dart';
 import '../services/cierre_vigencia_service.dart';
+import '../services/flujo_efectivo_service.dart';
 import '../models/asiento_contable.dart';
 import '../models/cuenta_contable.dart';
 import '../../../core/utils/currency_formatter.dart';
@@ -11,11 +12,13 @@ import '../../../core/utils/date_formatter.dart';
 class ContabilidadNICSPPage extends StatefulWidget {
   final String entidadId;
   final String usuarioId;
+  final int initialTabIndex;
 
   const ContabilidadNICSPPage({
     super.key,
     required this.entidadId,
     required this.usuarioId,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -27,6 +30,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
   bool _loading = true;
   late ContabilidadNICSPService _contabilidadService;
   late CierreVigenciaService _cierreService;
+  late FlujoEfectivoService _flujoEfectivoService;
   List<AsientoContable> _asientos = [];
   List<SaldoCuenta> _saldos = [];
   List<Map<String, dynamic>> _planCuentas = [];
@@ -36,11 +40,13 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
     'Saldos',
     'Estados Financieros',
     'Cierre Vigencia',
+    'Flujos de Efectivo',
   ];
 
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialTabIndex;
     _inicializarServicio();
   }
 
@@ -53,6 +59,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
       _cierreService = CierreVigenciaService(
         db: db,
         contabilidadService: _contabilidadService,
+        auditoriaService: auditoriaService,
+      );
+      _flujoEfectivoService = FlujoEfectivoService(
+        db: db,
         auditoriaService: auditoriaService,
       );
 
@@ -129,6 +139,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                 _buildSaldosTab(),
                 _buildEstadosFinancierosTab(),
                 _buildCierreVigenciaTab(),
+                _buildFlujosEfectivoTab(),
               ],
             ),
       bottomNavigationBar: BottomNavigationBar(
@@ -153,6 +164,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.lock_clock),
             label: 'Cierre',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.water),
+            label: 'Flujos',
           ),
         ],
       ),
@@ -377,6 +392,173 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildFlujosEfectivoTab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.water,
+              size: 72,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Estado de Flujos de Efectivo',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Genere el estado NICSP 2 para un periodo mensual y el metodo seleccionado.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _mostrarConfiguracionFlujoNICSP2,
+              icon: const Icon(Icons.assessment),
+              label: const Text('Seleccionar periodo y generar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _mostrarConfiguracionFlujoNICSP2() {
+    var anio = DateTime.now().year;
+    var mes = DateTime.now().month;
+    var metodo = MetodoFlujoEfectivo.directo;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Estado de Flujos de Efectivo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: mes,
+                decoration: const InputDecoration(labelText: 'Mes'),
+                items: List.generate(
+                  12,
+                  (index) => DropdownMenuItem(
+                    value: index + 1,
+                    child: Text('${index + 1}'.padLeft(2, '0')),
+                  ),
+                ),
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => mes = value);
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                initialValue: anio,
+                decoration: const InputDecoration(labelText: 'Vigencia'),
+                items: List.generate(
+                  11,
+                  (index) {
+                    final value = DateTime.now().year - 5 + index;
+                    return DropdownMenuItem(value: value, child: Text('$value'));
+                  },
+                ),
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => anio = value);
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<MetodoFlujoEfectivo>(
+                initialValue: metodo,
+                decoration: const InputDecoration(labelText: 'Metodo'),
+                items: const [
+                  DropdownMenuItem(
+                    value: MetodoFlujoEfectivo.directo,
+                    child: Text('Directo'),
+                  ),
+                  DropdownMenuItem(
+                    value: MetodoFlujoEfectivo.indirecto,
+                    child: Text('Indirecto'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => metodo = value);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _generarEstadoFlujoNICSP2(
+                  periodo: '$anio-${'$mes'.padLeft(2, '0')}',
+                  metodo: metodo,
+                );
+              },
+              child: const Text('Generar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _generarEstadoFlujoNICSP2({
+    required String periodo,
+    required MetodoFlujoEfectivo metodo,
+  }) async {
+    setState(() => _loading = true);
+    try {
+      final estado = await _flujoEfectivoService.generarEstadoFlujosEfectivo(
+        entidadId: widget.entidadId,
+        usuarioId: widget.usuarioId,
+        periodo: periodo,
+        metodo: metodo,
+      );
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Estado de Flujos de Efectivo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Periodo: ${estado['periodo']}'),
+              Text('Metodo: ${estado['metodo']}'),
+              const Divider(),
+              Text('Efectivo inicial: ${CurrencyFormatter.format((estado['efectivo_inicial'] as num).toDouble())}'),
+              Text('Operacion: ${CurrencyFormatter.format((estado['actividades_operacion'] as num).toDouble())}'),
+              Text('Inversion: ${CurrencyFormatter.format((estado['actividades_inversion'] as num).toDouble())}'),
+              Text('Financiacion: ${CurrencyFormatter.format((estado['actividades_financiacion'] as num).toDouble())}'),
+              const Divider(),
+              Text(
+                'Efectivo final: ${CurrencyFormatter.format((estado['efectivo_final'] as num).toDouble())}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      _mostrarError('Error al generar flujos de efectivo: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _crearAsientoManual() {

@@ -65,6 +65,7 @@ List<ModuleDefinition> modulosContabilidadNICSP() => [
     builder: (context) => ContabilidadNICSPPage(
       entidadId: AppSession.entidadId,
       usuarioId: AppSession.usuarioId ?? '',
+      initialTabIndex: 4,
     ),
     featureKey: FeatureKey.contabilidad_nicsp,
   ),
