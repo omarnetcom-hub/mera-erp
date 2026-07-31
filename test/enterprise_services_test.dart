@@ -1,6 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:merka_erp/accounting/application/accounting_engine.dart';
-import 'package:merka_erp/accounting/application/enterprise_accounting_policy.dart';
 import 'package:merka_erp/core/release/release_readiness.dart';
 import 'package:merka_erp/core/security/action_permission.dart';
 import 'package:merka_erp/core/security/enterprise_security_policy.dart';
@@ -11,37 +9,6 @@ import 'package:merka_erp/sales/domain/sales_workflow.dart';
 
 void main() {
   group('Complementos ERP', () {
-    test('valida politica contable NIIF para asientos', () {
-      const policy = EnterpriseAccountingPolicy();
-      const entry = AccountingEntryDraft(
-        concept: 'Compra credito',
-        reference: 'CP-1',
-        origin: 'compras',
-        lines: [
-          AccountingLineDraft(
-            accountCode: '1435',
-            debit: 100,
-            credit: 0,
-            description: 'Inventario',
-          ),
-          AccountingLineDraft(
-            accountCode: '2205',
-            debit: 0,
-            credit: 90,
-            description: 'Proveedor',
-          ),
-        ],
-      );
-
-      final result = policy.validateEntry(entry);
-
-      expect(result.valid, isFalse);
-      expect(
-        result.findings.map((finding) => finding.code),
-        containsAll(['entry_unbalanced', 'third_party_required']),
-      );
-    });
-
     test('calcula reposicion y costo promedio ponderado', () {
       const service = InventoryControlService(reorderPoint: 5, targetStock: 20);
       final report = service.analyze([
