@@ -46,6 +46,44 @@ void main() {
       expect(puedeAprobar, isTrue);
     });
 
+    test('Secretario de Hacienda NO puede expedir CDP ni RP', () {
+      for (final permiso in {Permiso.expedirCDP, Permiso.expedirRP}) {
+        expect(
+          RolesPermisosService.tienePermiso(
+            RolSectorPublico.secretarioHacienda,
+            permiso,
+          ),
+          isFalse,
+        );
+        expect(
+          RolesPermisosService.puedeRealizarAccion(
+            roles: {RolSectorPublico.secretarioHacienda},
+            permiso: permiso,
+          ),
+          isFalse,
+        );
+      }
+    });
+
+    test('Jefe de Presupuesto puede expedir CDP y RP', () {
+      for (final permiso in {Permiso.expedirCDP, Permiso.expedirRP}) {
+        expect(
+          RolesPermisosService.tienePermiso(
+            RolSectorPublico.jefePresupuesto,
+            permiso,
+          ),
+          isTrue,
+        );
+        expect(
+          RolesPermisosService.puedeRealizarAccion(
+            roles: {RolSectorPublico.jefePresupuesto},
+            permiso: permiso,
+          ),
+          isTrue,
+        );
+      }
+    });
+
     test('NO debe permitir acción si el rol no tiene permiso', () {
       final puedeAprobar = RolesPermisosService.puedeRealizarAccion(
         roles: {RolSectorPublico.jefePlaneacion},

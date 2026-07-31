@@ -11,6 +11,7 @@ enum RolSectorPublico {
   contador,
   jefeRentas,
   jefeControlInterno,
+  jefePresupuesto,
   ordenadorGasto,
   jefePlaneacion,
   secretarioSalud, // Para hospitales
@@ -83,15 +84,10 @@ class RolesPermisosService {
     },
     RolSectorPublico.secretarioHacienda: {
       Permiso.configurarEntidad,
-      Permiso.expedirCDP,
       Permiso.modificarCDP,
-      Permiso.expedirRP,
-      Permiso.modificarRP,
       Permiso.modificarPAC,
       Permiso.aprobarPago,
       Permiso.consultarEstadosFinancieros,
-      Permiso.gestionarUsuarios,
-      Permiso.asignarRoles,
       Permiso.consultarAuditoria,
       Permiso.consultarTodo,
     },
@@ -121,6 +117,12 @@ class RolesPermisosService {
       Permiso.consultarAuditoria,
       Permiso.consultarTodo,
       Permiso.exportarDatos,
+    },
+    // Decreto 568 de 1996, art. 19: expide CDP o quien haga sus veces.
+    RolSectorPublico.jefePresupuesto: {
+      Permiso.expedirCDP,
+      Permiso.expedirRP,
+      Permiso.consultarTodo,
     },
     RolSectorPublico.ordenadorGasto: {
       Permiso.registrarObligacion,
@@ -335,6 +337,8 @@ class RolesPermisosService {
         return 'Jefe de Rentas';
       case RolSectorPublico.jefeControlInterno:
         return 'Jefe de Control Interno';
+      case RolSectorPublico.jefePresupuesto:
+        return 'Jefe de Presupuesto';
       case RolSectorPublico.ordenadorGasto:
         return 'Ordenador del Gasto';
       case RolSectorPublico.jefePlaneacion:
