@@ -21,6 +21,8 @@ Módulo de Sector Público para MerkaERP, diseñado para alcaldías, gobernacion
 - Registro append-only con hash encadenado SHA-256
 - Tiempos de retención diferenciados (5, 10 o 50 años según tipo de evento)
 - Detección de manipulación de registros
+- Trigger SQLite de inmutabilidad: bloquea DELETE y solo permite archivar de 0 a 1
+- configuracion_entidad versionada por parámetro vigente, con historial y matriz de módulos persistida
 
 #### Roles y Permisos
 - Alcalde/Representante Legal
@@ -96,60 +98,69 @@ lib/sector_publico/
 - [x] Estrategia de migración de datos históricos
 - [x] Documentación de requisitos ISO 27001 y MinTIC
 
-### Fase 1: Presupuesto Público + PAC (Pendiente)
+### Fase 1: Presupuesto Público + PAC (Parcial)
 - Flujo APROPIACIÓN → CDP → RP → OBLIGACIÓN → PAGO
 - Programación Anual Mensualizada de Caja (PAC)
-- Validaciones normativas duras
+- Faltan certificación integral del flujo y cobertura completa de validaciones normativas.
 
-### Fase 2: Contabilidad NICSP (Pendiente)
+### Fase 2: Contabilidad NICSP (Parcial)
 - Catálogo General de Cuentas (CGC)
 - NICSP 1, 2, 12, 17, 19
-- Cierre de vigencia
+- Faltan certificación de cierre de vigencia y cobertura normativa integral.
 
-### Fase 3: Auditoría Forense + CHIP (Pendiente)
+### Fase 3: Auditoría Forense + CHIP (Parcial)
 - Eventos específicos de auditoría
 - Formularios CGN 2015_001 a 005
 - Formulario CGN 2016C01
+- Faltan validaciones de extremo a extremo de los reportes regulatorios.
 
-### Fase 4: Predial + ICA (Pendiente)
+### Fase 4: Predial + ICA (Parcial)
 - Carga de catastro IGAC
 - Liquidación masiva
 - Motor de intereses moratorios
 - Cobro coactivo
+- Faltan certificación de integración con catastro y del ciclo de cobro.
 
-### Fase 5: Contratación Pública (Pendiente)
+### Fase 5: Contratación Pública (Parcial)
 - 6 modalidades de selección
 - Integración SECOP II
 - Ciclo contractual completo
+- Faltan integración SECOP II certificada y cobertura funcional completa.
 
-### Fase 6: Nómina Pública (Pendiente)
+### Fase 6: Nómina Pública (Parcial)
 - 6 regímenes salariales
 - Retroactivos
 - PILA
+- Faltan cobertura de los seis regímenes y validación operativa de PILA.
 
-### Fase 7: Planeación + Banco de Proyectos (Pendiente)
+### Fase 7: Planeación + Banco de Proyectos (Parcial)
 - Plan de Desarrollo Territorial (PDT)
 - Metodología MGA
 - Trazabilidad plan-presupuesto-resultado
+- Falta certificar la trazabilidad completa entre planeación, presupuesto y resultados.
 
-### Fase 8: Activos del Estado (Pendiente)
+### Fase 8: Activos del Estado (Parcial)
 - Clasificación de bienes
 - Depreciación NICSP 17
 - Formulario Único Territorial (FUT)
+- Faltan ejecución programada de depreciación y validación de reporte FUT.
 
-### Fase 9: Salud Pública (Pendiente)
+### Fase 9: Salud Pública (Parcial)
 - RIPS (6 archivos)
 - Contratación EPS
 - Glosas y conciliación
+- Faltan integración y validación regulatoria completa de RIPS/EPS.
 
-### Fase 10: SGR + SGP (Pendiente)
+### Fase 10: SGR + SGP (Parcial)
 - Sistema General de Regalías
 - Sistema General de Participaciones
+- Faltan flujos integrados y certificación normativa de regalías y participaciones.
 
-### Fase 11: Transparencia + Control Disciplinario (Pendiente)
+### Fase 11: Transparencia + Control Disciplinario (Parcial)
 - Portal de transparencia
 - Control disciplinario (Ley 1952/2019)
 - Consolidación NICSP 40
+- Faltan publicación verificable, flujo disciplinario completo y consolidación certificada.
 
 ## Integración con MerkaERP Comercial
 
