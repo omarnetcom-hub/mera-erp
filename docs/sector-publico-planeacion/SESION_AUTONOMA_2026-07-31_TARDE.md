@@ -1346,6 +1346,18 @@ Building Windows application...                                    31.8s
 - Limite pendiente: construir un modulo publico de usuarios aislado por entidad; no se autorizo el modulo comercial global.
 - Commit y push: se registran en la evidencia Git de cierre de esta ronda; este mismo archivo no puede contener su propio hash final sin crear un commit adicional.
 
+## Subtarea I - Validaciones locales SECOP/contratacion
+
+- Hallazgo bloqueante: el flujo actual es circular. La UI crea contrato solo con un RP ya existente; endurecer RP para exigir contrato firmado y endurecer contrato para exigir RP valido deja cero camino feliz.
+- Evidencia: `crearContrato` crea estado `enFirma`; no hay ninguna transicion persistida a `firmado`; `legalizarContrato` solo acepta `firmado`.
+- Decision conservadora: no se insertaron contratos o RPs ficticios, no se aplicaron validaciones parciales y no se escribio una prueba que aparentara cubrir el flujo. Se documento el diseno requerido: contrato firmado -> RP asociado -> polizas vigentes -> legalizacion.
+- Matriz M4: sigue Parcial y registra el bloqueo explicito.
+
+## Cierre de la subtarea I
+
+- Estado: requiere decision humana sobre el nuevo flujo persistido y migracion de `rp_id`/`numero_rp` antes de implementar las tres validaciones.
+- No se ejecutaron tests de integracion ni se modifico codigo: hacerlo habria certificado un flujo imposible. La verificacion de codigo de la ronda anterior conserva 184 issues de linea base y 0 errores.
+
 ### Evidencia cruda - flutter test test/sector_publico/security/roles_permisos_service_test.dart
 
 ```text
