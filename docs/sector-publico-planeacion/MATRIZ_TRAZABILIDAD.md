@@ -18,9 +18,9 @@ Estados permitidos: **Completo**, **Parcial**, **Pendiente**, **No verificable s
 | Seguimiento financiero vinculado a apropiaciones | `services/pdt_service.dart`; `services/presupuesto_service.dart` | No se identifico test de integracion PDT-presupuesto | Inspeccion: ambos servicios existen. | Parcial - falta el cruce automatico y prueba de integracion. |
 | Reporte SISMEG | No se identifico implementacion dedicada | Ninguno identificado | Inspeccion de archivos de planeacion. | Pendiente - el plan exige formato SISMEG y no hay generador identificado. |
 | Banco de proyectos MGA: BPIN, problema, objetivos, cadena de valor y presupuesto | `models/proyecto_mga.dart`; `services/banco_proyectos_service.dart`; `services/formulacion_mga_service.dart`; `pages/formulacion_mga_form_page.dart` | `planeacion_page_test.dart` (inspeccion) | Inspeccion de codigo. | Parcial - no se certificaron todos los campos MGA obligatorios. |
-| Trazabilidad plan-presupuesto-resultado y alerta >20% | `planeacion/database/schema_planeacion.dart`; `services/banco_proyectos_service.dart`; `presupuesto/database/schema_presupuesto.dart` | `test/sector_publico/planeacion/planeacion_page_test.dart` | Ejecutado: `flutter test test\\sector_publico\\planeacion\\planeacion_page_test.dart` - 1 prueba pasa y confirma el banner pendiente. Inspeccion: `proyectos_mga` solo conserva `codigo_cdp`/`codigo_rp` libres y valores financieros; `apropiaciones` no tiene `proyecto_id`, y no existe una meta/avance fisico persistido. | Pendiente - no es posible calcular una desviacion financiera/fisica ni vincular cada rubro a una meta PDT sin un diseno de datos nuevo. |
+| Trazabilidad plan-presupuesto-resultado y alerta >20% | `planeacion/database/schema_planeacion.dart`; `services/trazabilidad_plan_presupuesto_service.dart`; `presupuesto/database/schema_presupuesto.dart` | `test/sector_publico/planeacion/trazabilidad_plan_presupuesto_test.dart` | Ejecutado: `flutter test test\\sector_publico\\planeacion\\trazabilidad_plan_presupuesto_test.dart` - 2 pruebas pasaron. Vincula proyecto, apropiacion y meta; calcula 70% financiero frente a 40% fisico y alerta por 30 puntos, sin alertar a 20 puntos exactos. | Parcial - el vinculo y la alerta estan probados; falta UI de reporte, vinculacion obligatoria en la creacion de apropiaciones y metas PDT completas. |
 
-Resumen M1: 0 Completos / 4 Parciales / 2 Pendientes.
+Resumen M1: 0 Completos / 5 Parciales / 1 Pendiente.
 
 ## 2. Sistema Financiero Integrado
 
@@ -149,7 +149,7 @@ Resumen M11: 0 Completos / 3 Parciales / 2 Pendientes.
 
 | Macro-sistema | Completos | Parciales | Pendientes | Lectura operativa |
 |---|---:|---:|---:|---|
-| M1 Planeacion y Proyectos | 0 | 4 | 2 | Base funcional sin trazabilidad presupuesto-resultado certificada. |
+| M1 Planeacion y Proyectos | 0 | 5 | 1 | Vinculo proyecto-rubro-meta y alerta probados; falta hacerlo obligatorio y exponer seguimiento. |
 | M2 Financiero Integrado | 1 | 9 | 0 | Flujo presupuestal-pago certificado; faltan coberturas normativas complementarias. |
 | M3 Rentas y Tributos | 0 | 6 | 0 | Servicios presentes; faltan reglas locales e integraciones externas. |
 | M4 Contratacion | 0 | 4 | 1 | SECOP II real es el bloqueo principal. |
@@ -160,7 +160,7 @@ Resumen M11: 0 Completos / 3 Parciales / 2 Pendientes.
 | M9 SGR | 0 | 3 | 1 | Falta control de reinversion e interoperabilidad DNP real. |
 | M10 SGP | 0 | 3 | 1 | Falta modelo de destinacion para bloqueo y SICODIS validado. |
 | M11 Transparencia | 0 | 3 | 2 | Falta publicacion verificable y enlace disciplinario/SID. |
-| **Total** | **1** | **48** | **9** | **No hay macro-sistema completo como unidad operativa.** |
+| **Total** | **1** | **49** | **8** | **No hay macro-sistema completo como unidad operativa.** |
 
 ## Brechas criticas priorizadas
 

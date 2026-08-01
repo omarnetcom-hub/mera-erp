@@ -66,11 +66,49 @@ class SchemaPlaneacion {
       )
     ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_proyectos_entidad ON proyectos_mga(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_proyectos_estado ON proyectos_mga(estado)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_proyectos_bpin ON proyectos_mga(codigo_bpin)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_pdt_entidad ON pdt(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_pdt_vigencia ON pdt(vigencia)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_flujos_viab_proyecto ON flujos_viabilizacion(proyecto_id)');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS proyecto_rubros_metas (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        proyecto_id TEXT NOT NULL,
+        apropiacion_id TEXT NOT NULL,
+        meta_codigo TEXT NOT NULL,
+        meta_descripcion TEXT NOT NULL,
+        avance_fisico_porcentaje REAL NOT NULL DEFAULT 0,
+        fecha_reporte TEXT NOT NULL,
+        UNIQUE(proyecto_id, apropiacion_id, meta_codigo),
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (proyecto_id) REFERENCES proyectos_mga(id),
+        FOREIGN KEY (apropiacion_id) REFERENCES apropiaciones(id)
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_proyectos_entidad ON proyectos_mga(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_proyectos_estado ON proyectos_mga(estado)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_proyectos_bpin ON proyectos_mga(codigo_bpin)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pdt_entidad ON pdt(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pdt_vigencia ON pdt(vigencia)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_flujos_viab_proyecto ON flujos_viabilizacion(proyecto_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_proyecto_rubros_meta_proyecto ON proyecto_rubros_metas(proyecto_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_proyecto_rubros_meta_apropiacion ON proyecto_rubros_metas(apropiacion_id)',
+    );
   }
+
+  static Future<void> migrarTrazabilidadPlanPresupuesto(Database db) =>
+      crearTablas(db);
 }
