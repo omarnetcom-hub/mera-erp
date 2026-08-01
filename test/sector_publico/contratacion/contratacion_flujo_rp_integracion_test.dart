@@ -105,82 +105,81 @@ void main() {
     },
   );
 
-  test(
-    'bloquea RP sin contrato firmado, RP ajeno y legalizacion sin poliza',
-    () async {
-      final sinFirmar = await _crearContratoFirmado('SIN-FIRMA');
-      await db.update(
-        'contratos',
-        {'estado': 'enFirma'},
-        where: 'id = ?',
-        whereArgs: [sinFirmar.contrato.id],
-      );
-      await expectLater(
-        contratacionService.asociarRPAContrato(
-          entidadId: _entidadId,
-          usuarioId: _usuarioPresupuesto,
-          contratoId: sinFirmar.contrato.id,
-          valorRP: 100,
-          funcionarioExpedidor: 'Jefe de Presupuesto',
-          funcionarioSolicitante: 'Solicitante',
-          objetoGasto: 'Servicio',
-        ),
-        throwsException,
-      );
-
-      await Future<void>.delayed(const Duration(milliseconds: 2));
-      final origenRP = await _crearContratoFirmado('RP-AJENO');
-      final conRP = await contratacionService.asociarRPAContrato(
+  test('bloquea asociar RP sin contrato firmado', () async {
+    final sinFirmar = await _crearContratoFirmado('SIN-FIRMA');
+    await db.update(
+      'contratos',
+      {'estado': 'enFirma'},
+      where: 'id = ?',
+      whereArgs: [sinFirmar.contrato.id],
+    );
+    await expectLater(
+      contratacionService.asociarRPAContrato(
         entidadId: _entidadId,
         usuarioId: _usuarioPresupuesto,
-        contratoId: origenRP.contrato.id,
+        contratoId: sinFirmar.contrato.id,
         valorRP: 100,
         funcionarioExpedidor: 'Jefe de Presupuesto',
         funcionarioSolicitante: 'Solicitante',
         objetoGasto: 'Servicio',
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 2));
-      final destino = await _crearContratoFirmado('OTRO-PROCESO');
-      await expectLater(
-        contratacionService.crearContrato(
-          entidadId: _entidadId,
-          usuarioId: _usuarioPresupuesto,
-          procesoId: destino.procesoId,
-          contratistaId: 'TERCERO-OTRO',
-          contratistaNombre: 'Proveedor Otro',
-          contratistaIdentificacion: '900000002',
-          cdpId: destino.cdpId,
-          numeroCDP: destino.numeroCDP,
-          rpId: conRP.rpId,
-          numeroRP: conRP.numeroRP,
-          fechaFirma: DateTime.now(),
-          fechaInicioEjecucion: DateTime.now(),
-          fechaFinEjecucion: DateTime.now().add(const Duration(days: 30)),
-        ),
-        throwsException,
-      );
+      ),
+      throwsException,
+    );
+  });
 
-      await Future<void>.delayed(const Duration(milliseconds: 2));
-      final sinPoliza = await _crearContratoFirmado('SIN-POLIZA');
-      final conRPSinPoliza = await contratacionService.asociarRPAContrato(
+  test('bloquea RP ajeno al proceso de contratacion', () async {
+    final origenRP = await _crearContratoFirmado('RP-AJENO');
+    final conRP = await contratacionService.asociarRPAContrato(
+      entidadId: _entidadId,
+      usuarioId: _usuarioPresupuesto,
+      contratoId: origenRP.contrato.id,
+      valorRP: 100,
+      funcionarioExpedidor: 'Jefe de Presupuesto',
+      funcionarioSolicitante: 'Solicitante',
+      objetoGasto: 'Servicio',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    final destino = await _crearContratoFirmado('OTRO-PROCESO');
+    await expectLater(
+      contratacionService.crearContrato(
         entidadId: _entidadId,
         usuarioId: _usuarioPresupuesto,
-        contratoId: sinPoliza.contrato.id,
-        valorRP: 100,
-        funcionarioExpedidor: 'Jefe de Presupuesto',
-        funcionarioSolicitante: 'Solicitante',
-        objetoGasto: 'Servicio',
-      );
-      await expectLater(
-        contratacionService.legalizarContrato(
-          entidadId: _entidadId,
-          usuarioId: _usuarioPresupuesto,
-          contratoId: conRPSinPoliza.id,
-        ),
-        throwsException,
-      );
-    },
-  );
+        procesoId: destino.procesoId,
+        contratistaId: 'TERCERO-OTRO',
+        contratistaNombre: 'Proveedor Otro',
+        contratistaIdentificacion: '900000002',
+        cdpId: destino.cdpId,
+        numeroCDP: destino.numeroCDP,
+        rpId: conRP.rpId,
+        numeroRP: conRP.numeroRP,
+        fechaFirma: DateTime.now(),
+        fechaInicioEjecucion: DateTime.now(),
+        fechaFinEjecucion: DateTime.now().add(const Duration(days: 30)),
+      ),
+      throwsException,
+    );
+  });
+
+  test('bloquea legalizacion sin poliza vigente', () async {
+    final sinPoliza = await _crearContratoFirmado('SIN-POLIZA');
+    final conRPSinPoliza = await contratacionService.asociarRPAContrato(
+      entidadId: _entidadId,
+      usuarioId: _usuarioPresupuesto,
+      contratoId: sinPoliza.contrato.id,
+      valorRP: 100,
+      funcionarioExpedidor: 'Jefe de Presupuesto',
+      funcionarioSolicitante: 'Solicitante',
+      objetoGasto: 'Servicio',
+    );
+    await expectLater(
+      contratacionService.legalizarContrato(
+        entidadId: _entidadId,
+        usuarioId: _usuarioPresupuesto,
+        contratoId: conRPSinPoliza.id,
+      ),
+      throwsException,
+    );
+  });
 }
 
 Future<_ContratoCreado> _crearContratoFirmado(String sufijo) async {
