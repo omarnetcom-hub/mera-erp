@@ -103,11 +103,11 @@ Resumen M7: 1 Completo / 4 Parciales / 0 Pendientes.
 
 | Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
 |---|---|---|---|---|
-| RIPS: seis archivos AF, AC, AP, AT, AU y AM | `salud/models/rips.dart`; `services/rips_service.dart` | Ninguno identificado para los seis archivos | Inspeccion de codigo; `salud_publica_page_test.dart` no valida los archivos RIPS. | Parcial - no se certificaron los seis archivos frente a Resolucion 2275/2023. |
-| Validacion CUPS/CUM/CIE-10 y vinculo factura-RIPS | `rips_service.dart`; `facturacion_salud_service.dart` | `test/sector_publico/salud/facturacion_salud_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta evidencia de reglas completas y relacion 1:1. |
+| RIPS: seis archivos AF, AC, AP, AT, AU y AM | `salud/models/rips.dart`; `services/rips_service.dart` | Ninguno identificado para los seis archivos | Inspeccion y contraste normativo: el enum conserva ocho tipos legacy (incluye AH/AN); el generador produce texto propio y sus validadores buscan claves que ese mismo generador no emite. La Resolucion 0948 de 2026 derogó la 2275/2023. | Pendiente - falta modelo y serializacion conforme al anexo tecnico vigente; no es seguro certificar ni reparar formatos legacy aislados. |
+| Validacion CUPS/CUM/CIE-10 y vinculo factura-RIPS | `rips_service.dart`; `facturacion_salud_service.dart` | `test/sector_publico/salud/facturacion_salud_service_test.dart` (inspeccion) | Inspeccion: `registrarRIPS` acepta codigos y diagnosticos como texto libre; no hay tablas ni consultas CUPS/CUM/CIE-10, y la factura no exige RIPS. | Pendiente - requiere catalogos oficiales versionados y reglas del anexo RIPS vigente; no se invento catalogo parcial. |
 | Transmision ADRES/EPS | No se identifico cliente de interoperabilidad | Ninguno identificado | Inspeccion de archivos de salud. | Pendiente - falta integracion externa y trazabilidad de envios. |
 | Contratos EPS/ADRES: evento, capitacion y PGP | `models/contrato_eps.dart`; `facturacion_salud_service.dart` | `facturacion_salud_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta certificacion de manuales tarifarios y conciliacion de poblacion. |
-| Glosas, plazos y conciliacion | `models/glosa.dart`; `services/glosas_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - faltan pruebas de plazos legales y cartera. |
+| Glosas, plazos y conciliacion | `models/glosa.dart`; `services/glosas_service.dart` | Ninguno identificado | Inspeccion: la tabla/modelo conserva `fecha_respuesta`; `registrarRespuestaGlosa` la escribe, pero no existe calculo de dias habiles, alerta, vencimiento ni `glosas_conciliacion`. | Parcial - es un campo de fecha, no una alerta verificable de cinco dias habiles. |
 
 Resumen M8: 0 Completos / 4 Parciales / 1 Pendiente.
 

@@ -40,6 +40,20 @@ Built build\windows\x64\runner\Release\MerkaERP.exe
 
 Estado: **Pendiente - REQUIERE DECISION HUMANA DE DISENO Y CARGA DE DATOS**. No se implemento codigo porque no existe una relacion persistida y auditable entre rubro, proyecto, meta y avance fisico. Commit: pendiente de crear al momento de esta anotacion.
 
+## Subtarea O - Salud publica: RIPS y facturacion EPS
+
+### Hallazgo y decision conservadora
+
+El modelo actual no implementa seis archivos reglamentarios: `TipoRIPS` conserva ocho etiquetas legacy (`af`, `ac`, `ap`, `at`, `au`, `am`, `ah`, `an`) y una fila generica contiene campos de todos los casos. `generarArchivoPlanoRIPS` emite un texto propio; por ejemplo no emite `FECHA_CONSULTA`, pero `_validarRIPSAC` la exige. `registrarRIPS` admite `codigoServicio` y diagnosticos libres y `FacturacionSaludService` no exige RIPS antes de facturar. No hay catalogos CUPS, CUM ni CIE-10 sembrados.
+
+La solicitud menciona Resolucion 2275/2023, pero la fuente oficial de MinSalud confirma que la Resolucion 0948 de 2026 la derogó y rige la reglamentacion/anexo tecnico actualizado. Se detiene la implementacion para no consolidar un formato ya sustituido ni inventar catalogos parciales.
+
+`GlosasService` registra `fecha_respuesta` al responder, pero no hay entidad `glosas_conciliacion`, calculo de dias habiles, tarea programada ni alerta de vencimiento. Por tanto los cinco dias no son una regla real hoy.
+
+### Cierre de la subtarea O
+
+Estado: **Pendiente - REQUIERE DECISION HUMANA DE FUENTE NORMATIVA Y CATALOGOS**. Diseno requerido: proveedor versionado de catalogos oficiales, modelo RIPS/FEV conforme al anexo vigente, enlace factura-RIPS y politica de dias habiles/calendario para glosas. No se modifico codigo ni se ejecutaron pruebas que pudieran aparentar certificacion. Commit: pendiente de crear al momento de esta anotacion.
+
 ## Subtarea N - Nomina publica: regimenes salariales y PILA
 
 ### Hallazgo y decision conservadora
