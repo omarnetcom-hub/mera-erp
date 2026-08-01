@@ -4171,3 +4171,83 @@ Estado: **Parcial implementado y verificado**. Sin conciliacion, el consolidado 
 Commit de implementacion: `0651851 feat(contabilidad): conciliar operaciones reciprocas NICSP 40`.
 
 Pendiente: sugerencia automatica de candidatos con confirmacion humana. El portal de transparencia conserva su brecha separada de configuracion y credenciales externas por entidad.
+
+## Subtarea X - Vigencias futuras y recibidos sin obligacion
+
+### Hallazgo y decision
+
+Se implemento el diseno aprobado en `VIGENCIAS_FUTURAS_HALLAZGOS_Y_DISENO.md` mediante la migracion v74. Las autorizaciones conservan versiones inmutables enlazadas; una nueva version revoca la anterior en la misma transaccion. Municipio exige actos separados de CONFIS y concejo, departamento exige CONFIS y asamblea, y ESE falla cerrado si faltan `estatuto_presupuestal_ese`, `autoridad_competente_ese` o `acto_delegacion_ese`.
+
+La distribucion anual registra monto autorizado, comprometido, obligado, pagado y saldo. Un RP de vigencia posterior no se expide sin autorizacion y su creacion/compromiso es atomica. Obligaciones y pagos se enlazan por IDs explicitos, sin inferencias por monto o fecha. Un recibido a satisfaccion sin obligacion se reconoce como pasivo por devengo, crea incidente auditable y bloquea el pago; no fabrica CDP, RP ni obligacion retroactiva.
+
+RBAC: `alcaldeRepresentanteLegal`, `secretarioHacienda` y `jefePresupuesto` reciben solo `registrarAutorizacionVigenciaFutura`. Los dos primeros registran los actos externos y la coordinacion fiscal; el tercero realiza el registro tecnico y conserva `expedirRP`. El cambio no concede a alcalde ni secretario la expedicion de RP, aprobacion adicional de pagos ni otra facultad operativa.
+
+### Evidencia cruda
+
+#### flutter test test/sector_publico/presupuesto/vigencias_futuras_integracion_test.dart
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/vigencias_futuras_integracion_test.dart
+00:00 +0: municipio autorizado recorre compromiso obligacion y pago por anualidad
+00:00 +1: ESE configurada autoriza y compromete; ESE incompleta se deniega fail-closed
+00:00 +2: bloquea falta/exceso de autorizacion, RBAC y pago de recibido irregular
+00:00 +3: All tests passed!
+```
+
+#### Regresion de presupuesto y RBAC
+
+Comando: `flutter test test/sector_publico/security/roles_permisos_service_test.dart test/sector_publico/security/rbac_segregacion_test.dart test/sector_publico/presupuesto/presupuesto_service_test.dart`
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart
+00:00 +0: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 NO debe permitir que tesorero apruebe pagos
+00:00 +1: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 NO debe permitir que tesorero se auto-apruebe en segregación de funciones
+00:00 +2: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 NO debe permitir que contador expida RP según negacionesPorRol
+00:00 +3: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 Debe permitir que secretario de hacienda apruebe pagos
+00:00 +4: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 Secretario de Hacienda NO puede expedir CDP ni RP
+00:00 +5: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 Jefe de Presupuesto puede expedir CDP y RP
+00:00 +6: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 Secretario General administra usuarios sin facultades fiscales
+00:00 +7: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 NO debe permitir acción si el rol no tiene permiso
+00:00 +8: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/roles_permisos_service_test.dart: Validaciones Normativas Duras - Fase 0 Solo alcalde y secretario de hacienda pueden configurar entidad
+00:00 +9: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/rbac_segregacion_test.dart
+00:01 +9: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/rbac_segregacion_test.dart: Segregación de Funciones y Reglas Fail-Closed RBAC por Módulo 1. Tesoreria/Presupuesto: Un Tesorero NO puede aprobar su propio pago (Segregación de Funciones)
+00:01 +10: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/rbac_segregacion_test.dart: Segregación de Funciones y Reglas Fail-Closed RBAC por Módulo 2. Presupuesto/Tesorería: Un Contador NO puede ejecutar pagos (Negación Explícita)
+00:01 +11: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/rbac_segregacion_test.dart: Segregación de Funciones y Reglas Fail-Closed RBAC por Módulo 3. Auditoría: El Jefe de Control Interno tiene acceso SOLO LECTURA y NO puede expedir CDP ni reversar asientos
+00:01 +12: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/security/rbac_segregacion_test.dart: Segregación de Funciones y Reglas Fail-Closed RBAC por Módulo 4. Seguridad Fail-Closed: Un usuario SIN funcionario vinculado es bloqueado inmediatamente
+00:01 +13: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart
+00:02 +13: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart: (setUpAll)
+00:02 +13: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart: Validaciones Normativas Duras - Fase 1 NO debe poder expedir CDP sin disponibilidad en rubro
+00:02 +14: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart: Validaciones Normativas Duras - Fase 1 NO debe poder expedir RP sin CDP previo
+00:02 +15: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart: Validaciones Normativas Duras - Fase 1 NO debe poder expedir RP si CDP está vencido
+00:02 +16: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart: Validaciones Normativas Duras - Fase 1 NO debe poder expedir RP si valor excede saldo CDP
+00:02 +17: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart: Validaciones Normativas Duras - Fase 1 NO debe poder crear obligación sin RP previo
+00:02 +18: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart: Validaciones Normativas Duras - Fase 1 NO debe poder crear pago sin obligación previa
+00:02 +19: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_service_test.dart: (tearDownAll)
+00:02 +19: All tests passed!
+```
+
+El test historico `presupuesto_pago_integracion_test.dart` no se usa como evidencia de esta subtarea: actualmente falla antes del flujo de pago porque su fixture no crea la tabla `contratos`, exigida por el cambio SECOP ya publicado. No es una regresion introducida por v74.
+
+#### flutter analyze
+
+```text
+Analyzing Caja_simple...
+flutter : 193 issues found. (ran in 6.3s)
+```
+
+Conteo verificado: 193 issues, 0 errores; no hay hallazgos en los archivos tocados.
+
+#### flutter build windows
+
+```text
+Building Windows application...
+flutter : Nuget.exe not found, trying to download or use cached version.
+Building Windows application...                                    69.9s
+√ Built build\windows\x64\runner\Release\MerkaERP.exe
+```
+
+### Cierre de la subtarea X
+
+Estado: **Parcial implementado y verificado**. El dominio de autorizaciones, distribucion anual, compromiso, obligacion, pago y recibido irregular queda probado. M2 permanece Parcial porque cierre anual/reservas, UI administrativa, revocacion de negocio y validaciones adicionales por estatuto territorial no estan certificadas.
+
+Commit de implementacion: `e7f44b3 feat(presupuesto): implementar vigencias futuras y recibidos excepcionales`.
