@@ -15,10 +15,7 @@ class SPGRService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  SPGRService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  SPGRService({required this.db, required this.auditoriaService});
 
   /// Crea o registra un Bienio Presupuestal SGR
   Future<BienioSGR> crearBienioSGR({
@@ -85,6 +82,9 @@ class SPGRService {
     required TipoOCAD tipoOCAD,
     required double montoAprobado,
     required DateTime fechaAprobacion,
+    required String actaAprobacion,
+    required String fuenteFinanciacion,
+    required String entidadEjecutora,
     String? observaciones,
   }) async {
     final id = _uuid.v4();
@@ -102,6 +102,9 @@ class SPGRService {
       montoGiroSPGR: 0.0,
       estadoOCAD: EstadoOCAD.aprobado,
       fechaAprobacion: fechaAprobacion,
+      actaAprobacion: actaAprobacion,
+      fuenteFinanciacion: fuenteFinanciacion,
+      entidadEjecutora: entidadEjecutora,
       observaciones: observaciones,
     );
 
@@ -121,6 +124,9 @@ class SPGRService {
         'bienio_id': bienioId,
         'monto_aprobado': montoAprobado,
         'bienalidad': bienalidad,
+        'acta_aprobacion': actaAprobacion,
+        'fuente_financiacion': fuenteFinanciacion,
+        'entidad_ejecutora': entidadEjecutora,
       },
       referenciaId: id,
     );
@@ -135,24 +141,29 @@ class SPGRService {
     required String proyectoId,
     required double montoGiro,
   }) async {
-    final res = await db.query('proyectos_ocad', where: 'id = ?', whereArgs: [proyectoId]);
+    final res = await db.query(
+      'proyectos_ocad',
+      where: 'id = ?',
+      whereArgs: [proyectoId],
+    );
     if (res.isEmpty) throw Exception('Proyecto OCAD no encontrado');
 
     final proy = ProyectoOCAD.fromJson(res.first);
 
     if (montoGiro > proy.saldoPendienteGiro) {
-      throw Exception('El monto del giro excede el saldo pendiente del proyecto');
+      throw Exception(
+        'El monto del giro excede el saldo pendiente del proyecto',
+      );
     }
 
     final nuevoGiroTotal = proy.montoGiroSPGR + montoGiro;
-    final nuevoEstado = nuevoGiroTotal >= proy.montoAprobado ? EstadoOCAD.ejecucion : proy.estadoOCAD;
+    final nuevoEstado = nuevoGiroTotal >= proy.montoAprobado
+        ? EstadoOCAD.ejecucion
+        : proy.estadoOCAD;
 
     await db.update(
       'proyectos_ocad',
-      {
-        'monto_giro_spgr': nuevoGiroTotal,
-        'estado_ocad': nuevoEstado.name,
-      },
+      {'monto_giro_spgr': nuevoGiroTotal, 'estado_ocad': nuevoEstado.name},
       where: 'id = ?',
       whereArgs: [proyectoId],
     );
@@ -184,6 +195,9 @@ class SPGRService {
       montoGiroSPGR: nuevoGiroTotal,
       estadoOCAD: nuevoEstado,
       fechaAprobacion: proy.fechaAprobacion,
+      actaAprobacion: proy.actaAprobacion,
+      fuenteFinanciacion: proy.fuenteFinanciacion,
+      entidadEjecutora: proy.entidadEjecutora,
       observaciones: proy.observaciones,
     );
   }
@@ -214,7 +228,10 @@ class SPGRService {
   }) async {
     final id = _uuid.v4();
 
-    final proyectos = await consultarProyectosOCAD(entidadId: entidadId, bienalidad: bienalidad);
+    final proyectos = await consultarProyectosOCAD(
+      entidadId: entidadId,
+      bienalidad: bienalidad,
+    );
 
     double totalAprobado = 0.0;
     double totalGirado = 0.0;
@@ -260,19 +277,29 @@ class SPGRService {
 
   /// Exporta reporte SPGR a formato plano .txt oficial para el MHCP
   Future<String> exportarAPlano(String reporteId) async {
-    final res = await db.query('reportes_spgr', where: 'id = ?', whereArgs: [reporteId]);
+    final res = await db.query(
+      'reportes_spgr',
+      where: 'id = ?',
+      whereArgs: [reporteId],
+    );
     if (res.isEmpty) throw Exception('Reporte SPGR no encontrado');
     final reporte = ReporteSPGR.fromJson(res.first);
 
     final buffer = StringBuffer();
-    buffer.writeln('SPGR_MHCP_HEADER|${reporte.entidadId}|${reporte.bienalidad}|${reporte.fechaGeneracion.toIso8601String()}');
+    buffer.writeln(
+      'SPGR_MHCP_HEADER|${reporte.entidadId}|${reporte.bienalidad}|${reporte.fechaGeneracion.toIso8601String()}',
+    );
 
     final mapDatos = reporte.datos;
-    buffer.writeln('SPGR_SUMMARY|TOTAL_PROYECTOS|${mapDatos['total_proyectos']}|APROBADO|${mapDatos['total_monto_aprobado']}|GIRADO|${mapDatos['total_monto_girado_spgr']}');
+    buffer.writeln(
+      'SPGR_SUMMARY|TOTAL_PROYECTOS|${mapDatos['total_proyectos']}|APROBADO|${mapDatos['total_monto_aprobado']}|GIRADO|${mapDatos['total_monto_girado_spgr']}',
+    );
 
     final listaProy = mapDatos['proyectos'] as List<dynamic>? ?? [];
     for (final p in listaProy) {
-      buffer.writeln('SPGR_PROJECT|${p['codigo_bpin']}|${p['nombre_proyecto']}|${p['tipo_ocad']}|${p['monto_aprobado']}|${p['monto_giro_spgr']}');
+      buffer.writeln(
+        'SPGR_PROJECT|${p['codigo_bpin']}|${p['nombre_proyecto']}|${p['tipo_ocad']}|${p['monto_aprobado']}|${p['monto_giro_spgr']}',
+      );
     }
 
     buffer.writeln('SPGR_MHCP_FOOTER|ESTADO|${reporte.estado}');

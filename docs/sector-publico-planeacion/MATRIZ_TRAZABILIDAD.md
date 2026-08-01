@@ -115,7 +115,7 @@ Resumen M8: 0 Completos / 4 Parciales / 1 Pendiente.
 
 | Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
 |---|---|---|---|---|
-| Proyectos OCAD, actas y ejecutor | `regalias/models/proyecto_ocad.dart`; `services/regalias_service.dart`; `regalias/database/schema_regalias.dart` | Ninguno identificado especifico de OCAD | Inspeccion: `proyectos_ocad` guarda MGA/BPIN, bienio y fecha/monto aprobados, pero no contiene acta aprobatoria, fuente de financiacion ni ejecutor. | Parcial - faltan esos datos trazables y prueba de vinculacion MGA/OCAD. |
+| Proyectos OCAD, actas y ejecutor | `regalias/models/proyecto_ocad.dart`; `services/spgr_service.dart`; `regalias/database/schema_regalias.dart` | `test/sector_publico/regalias/spgr_service_test.dart` | Ejecutado: `flutter test test\\sector_publico\\regalias\\spgr_service_test.dart` - registra proyecto OCAD con acta, fuente SGR y entidad ejecutora, giro y reporte SPGR. | Parcial - faltan validaciones contra fuente oficial/OCAD y enlace al flujo presupuestal SGR. |
 | Presupuesto bienal y ejecucion SGR separada | `models/bienio_sgr.dart`; `models/regalia.dart`; `services/regalias_service.dart`; `regalias/database/schema_regalias.dart` | `test/sector_publico/regalias/spgr_service_test.dart` (inspeccion) | Inspeccion: `bienios_sgr`, `regalias` y `proyectos_ocad` son tablas separadas de `apropiaciones`; no obstante no existe enlace al flujo SGR CDP-RP-obligacion-pago. | Parcial - existe separacion de almacenamiento, falta certificacion del flujo y controles presupuestales SGR. |
 | Rendimientos financieros reinvertidos | No se identifico validacion especifica | Ninguno identificado | Inspeccion de codigo. | Pendiente - falta control obligatorio de reinversion. |
 | Reporte de programacion, ejecucion y giro SPGR/SMSCE | `services/spgr_service.dart`; `models/reporte_spgr.dart` | `spgr_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - no hay evidencia de interoperabilidad DNP real. |
@@ -127,11 +127,11 @@ Resumen M9: 0 Completos / 3 Parciales / 1 Pendiente.
 | Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
 |---|---|---|---|---|
 | Componentes SGP: educacion, salud, agua y proposito general | `regalias/models/sgp.dart`; `services/sgp_service.dart` | Ninguno identificado para componentes SGP | Inspeccion: cada asignacion tiene `tipo_participacion`, pero no existe modelo de proposito general enlazado a gasto/rubro. | Parcial - falta verificar reglas completas por componente. |
-| Destinacion especifica: bloquear cruce de recursos | `services/validacion_distribucion_service.dart`; `sgp_service.dart` | Ninguno identificado para la validacion | Inspeccion: el servicio valida porcentajes declarados y `registrarEjecucion` solo descuenta el saldo del `sgpId`; no recibe destino, rubro o componente contra el cual bloquear cruces. | Pendiente - requiere relacion auditable entre recurso SGP, componente y rubro/compromiso antes de imponer un bloqueo duro. |
+| Destinacion especifica: bloquear cruce de recursos | `regalias/database/schema_regalias.dart`; `services/sgp_service.dart` | `test/sector_publico/regalias/sgp_destinacion_rubro_test.dart` | Ejecutado: `flutter test test\\sector_publico\\regalias\\sgp_destinacion_rubro_test.dart` - bloquea ejecutar SGP salud en rubro EDU-001 y permite SAL-001 solo tras autorizarlo para el componente salud. | Parcial - el bloqueo duro SGP componente-rubro esta probado; falta homologar rubros con el presupuesto ordinario y controles equivalentes de ejecucion SGR. |
 | Nomina docente y escalafon | `nomina/services/regimen_docente_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - servicio aislado; falta integracion con SGP y prueba. |
 | FUT y reporte SICODIS | `services/sicodis_service.dart`; `models/reporte_sicodis.dart` | `sicodis_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta evidencia ejecutada y validacion contra SICODIS. |
 
-Resumen M10: 0 Completos / 3 Parciales / 1 Pendiente.
+Resumen M10: 0 Completos / 4 Parciales / 0 Pendientes.
 
 ## 11. Transparencia Proactiva y Control Disciplinario
 
@@ -157,10 +157,10 @@ Resumen M11: 0 Completos / 3 Parciales / 2 Pendientes.
 | M6 Activos | 0 | 4 | 0 | Base y pruebas aisladas; falta automatizacion/certificacion. |
 | M7 Seguridad y Rendicion | 1 | 4 | 0 | Inmutabilidad SQLite probada; reportes regulatorios aun parciales. |
 | M8 Salud | 0 | 4 | 1 | Falta interoperabilidad ADRES/EPS y validacion RIPS completa. |
-| M9 SGR | 0 | 3 | 1 | Falta control de reinversion e interoperabilidad DNP real. |
-| M10 SGP | 0 | 3 | 1 | Falta modelo de destinacion para bloqueo y SICODIS validado. |
+| M9 SGR | 0 | 3 | 1 | OCAD guarda acta, fuente y ejecutor; faltan reinversion e interoperabilidad DNP real. |
+| M10 SGP | 0 | 4 | 0 | Bloqueo componente-rubro probado; falta homologacion con presupuesto y SICODIS validado. |
 | M11 Transparencia | 0 | 3 | 2 | Falta publicacion verificable y enlace disciplinario/SID. |
-| **Total** | **1** | **49** | **8** | **No hay macro-sistema completo como unidad operativa.** |
+| **Total** | **1** | **50** | **7** | **No hay macro-sistema completo como unidad operativa.** |
 
 ## Brechas criticas priorizadas
 

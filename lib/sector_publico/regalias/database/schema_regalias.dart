@@ -87,10 +87,26 @@ class SchemaRegalias {
         monto_giro_spgr REAL NOT NULL DEFAULT 0,
         estado_ocad TEXT NOT NULL,
         fecha_aprobacion TEXT NOT NULL,
+        acta_aprobacion TEXT,
+        fuente_financiacion TEXT,
+        entidad_ejecutora TEXT,
         observaciones TEXT,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
         FOREIGN KEY (proyecto_mga_id) REFERENCES proyectos_mga(id),
         FOREIGN KEY (bienio_id) REFERENCES bienios_sgr(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sgp_destinaciones_rubro (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        sgp_id TEXT NOT NULL,
+        codigo_rubro TEXT NOT NULL,
+        componente TEXT NOT NULL,
+        activo INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(sgp_id, codigo_rubro),
+        FOREIGN KEY (sgp_id) REFERENCES sgp(id)
       )
     ''');
 
@@ -128,17 +144,78 @@ class SchemaRegalias {
       )
     ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_regalias_entidad ON regalias(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_regalias_estado ON regalias(estado)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_regalias_vigencia ON regalias(vigencia)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_sgp_entidad ON sgp(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_sgp_estado ON sgp(estado)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_sgp_vigencia ON sgp(vigencia)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_bienios_entidad ON bienios_sgr(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_ocad_entidad ON proyectos_ocad(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_ocad_mga ON proyectos_ocad(proyecto_mga_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_ocad_bpin ON proyectos_ocad(codigo_bpin)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_spgr_entidad ON reportes_spgr(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_sicodis_entidad ON reportes_sicodis(entidad_id)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_regalias_entidad ON regalias(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_regalias_estado ON regalias(estado)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_regalias_vigencia ON regalias(vigencia)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sgp_entidad ON sgp(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sgp_estado ON sgp(estado)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sgp_vigencia ON sgp(vigencia)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_bienios_entidad ON bienios_sgr(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ocad_entidad ON proyectos_ocad(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ocad_mga ON proyectos_ocad(proyecto_mga_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ocad_bpin ON proyectos_ocad(codigo_bpin)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_spgr_entidad ON reportes_spgr(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sicodis_entidad ON reportes_sicodis(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sgp_destinaciones_sgp ON sgp_destinaciones_rubro(sgp_id)',
+    );
+  }
+
+  static Future<void> migrarDestinacionYOCAD(Database db) async {
+    await crearTablas(db);
+    await _agregarColumnaSiNoExiste(
+      db,
+      'proyectos_ocad',
+      'acta_aprobacion',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'proyectos_ocad',
+      'fuente_financiacion',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'proyectos_ocad',
+      'entidad_ejecutora',
+      'TEXT',
+    );
+  }
+
+  static Future<void> _agregarColumnaSiNoExiste(
+    Database db,
+    String tabla,
+    String columna,
+    String definicion,
+  ) async {
+    final columnas = await db.rawQuery('PRAGMA table_info($tabla)');
+    if (!columnas.any((fila) => fila['name'] == columna)) {
+      await db.execute('ALTER TABLE $tabla ADD COLUMN $columna $definicion');
+    }
   }
 }

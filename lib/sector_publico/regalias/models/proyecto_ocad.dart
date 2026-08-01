@@ -24,7 +24,8 @@ class ProyectoOCAD {
   final String entidadId;
   final String? proyectoMgaId; // FK opcional a proyectos_mga
   final String? bienioId; // FK opcional a bienios_sgr
-  final String codigoBPIN; // Código del Banco de Proyectos de Inversión Nacional DNP
+  final String
+  codigoBPIN; // Código del Banco de Proyectos de Inversión Nacional DNP
   final String nombreProyecto;
   final String bienalidad; // Formato bienal: 2025-2026
   final TipoOCAD tipoOCAD;
@@ -32,6 +33,9 @@ class ProyectoOCAD {
   final double montoGiroSPGR;
   final EstadoOCAD estadoOCAD;
   final DateTime fechaAprobacion;
+  final String? actaAprobacion;
+  final String? fuenteFinanciacion;
+  final String? entidadEjecutora;
   final String? observaciones;
 
   ProyectoOCAD({
@@ -47,6 +51,9 @@ class ProyectoOCAD {
     required this.montoGiroSPGR,
     required this.estadoOCAD,
     required this.fechaAprobacion,
+    this.actaAprobacion,
+    this.fuenteFinanciacion,
+    this.entidadEjecutora,
     this.observaciones,
   });
 
@@ -70,6 +77,9 @@ class ProyectoOCAD {
         orElse: () => EstadoOCAD.aprobado,
       ),
       fechaAprobacion: DateTime.parse(json['fecha_aprobacion'] as String),
+      actaAprobacion: json['acta_aprobacion'] as String?,
+      fuenteFinanciacion: json['fuente_financiacion'] as String?,
+      entidadEjecutora: json['entidad_ejecutora'] as String?,
       observaciones: json['observaciones'] as String?,
     );
   }
@@ -88,6 +98,9 @@ class ProyectoOCAD {
       'monto_giro_spgr': montoGiroSPGR,
       'estado_ocad': estadoOCAD.name,
       'fecha_aprobacion': fechaAprobacion.toIso8601String(),
+      'acta_aprobacion': actaAprobacion,
+      'fuente_financiacion': fuenteFinanciacion,
+      'entidad_ejecutora': entidadEjecutora,
       'observaciones': observaciones,
     };
   }

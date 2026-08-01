@@ -48,6 +48,26 @@ void main() {
             hash_integridad TEXT NOT NULL
           )
         ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS auditoria_registros (
+            id TEXT PRIMARY KEY,
+            entidad_id TEXT NOT NULL,
+            usuario_id TEXT NOT NULL,
+            usuario_nombre TEXT,
+            ip_direccion TEXT,
+            fecha_hora TEXT NOT NULL,
+            tipo_evento TEXT NOT NULL,
+            modulo TEXT NOT NULL,
+            accion TEXT NOT NULL,
+            valor_anterior TEXT NOT NULL,
+            valor_nuevo TEXT NOT NULL,
+            hash_anterior TEXT,
+            hash_actual TEXT NOT NULL,
+            referencia_id TEXT,
+            observaciones TEXT,
+            archivado INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
         await SchemaPlaneacion.crearTablas(db);
         await SchemaRegalias.crearTablas(db);
       },
@@ -60,53 +80,62 @@ void main() {
     await db.close();
   });
 
-  test('SPGRService crea Bienio SGR, proyecto OCAD vinculado a MGA y genera reporte SPGR', () async {
-    final bienio = await spgrService.crearBienioSGR(
-      entidadId: 'ENT-SPGR-TEST',
-      usuarioId: 'USR-SPGR-01',
-      codigoBienio: '2025-2026',
-      fechaInicio: DateTime(2025, 1, 1),
-      fechaFin: DateTime(2026, 12, 31),
-      montoPresupuestado: 1000000000.0,
-    );
+  test(
+    'SPGRService crea Bienio SGR, proyecto OCAD vinculado a MGA y genera reporte SPGR',
+    () async {
+      final bienio = await spgrService.crearBienioSGR(
+        entidadId: 'ENT-SPGR-TEST',
+        usuarioId: 'USR-SPGR-01',
+        codigoBienio: '2025-2026',
+        fechaInicio: DateTime(2025, 1, 1),
+        fechaFin: DateTime(2026, 12, 31),
+        montoPresupuestado: 1000000000.0,
+      );
 
-    expect(bienio.id, isNotEmpty);
-    expect(bienio.codigoBienio, equals('2025-2026'));
+      expect(bienio.id, isNotEmpty);
+      expect(bienio.codigoBienio, equals('2025-2026'));
 
-    final proy = await spgrService.crearProyectoOCAD(
-      entidadId: 'ENT-SPGR-TEST',
-      usuarioId: 'USR-SPGR-01',
-      bienioId: bienio.id,
-      codigoBPIN: 'BPIN-2025-0099',
-      nombreProyecto: 'Construcción Vía Rural SGR',
-      bienalidad: '2025-2026',
-      tipoOCAD: TipoOCAD.municipal,
-      montoAprobado: 300000000.0,
-      fechaAprobacion: DateTime.now(),
-    );
+      final proy = await spgrService.crearProyectoOCAD(
+        entidadId: 'ENT-SPGR-TEST',
+        usuarioId: 'USR-SPGR-01',
+        bienioId: bienio.id,
+        codigoBPIN: 'BPIN-2025-0099',
+        nombreProyecto: 'Construcción Vía Rural SGR',
+        bienalidad: '2025-2026',
+        tipoOCAD: TipoOCAD.municipal,
+        montoAprobado: 300000000.0,
+        fechaAprobacion: DateTime.now(),
+        actaAprobacion: 'Acta OCAD 001 de 2026',
+        fuenteFinanciacion: 'Asignacion para la inversion regional SGR',
+        entidadEjecutora: 'Municipio de prueba',
+      );
 
-    expect(proy.id, isNotEmpty);
-    expect(proy.bienioId, equals(bienio.id));
-    expect(proy.montoGiroSPGR, equals(0.0));
+      expect(proy.id, isNotEmpty);
+      expect(proy.bienioId, equals(bienio.id));
+      expect(proy.montoGiroSPGR, equals(0.0));
+      expect(proy.actaAprobacion, equals('Acta OCAD 001 de 2026'));
+      expect(proy.fuenteFinanciacion, contains('SGR'));
+      expect(proy.entidadEjecutora, equals('Municipio de prueba'));
 
-    final proyGirado = await spgrService.registrarGiroSPGR(
-      entidadId: 'ENT-SPGR-TEST',
-      usuarioId: 'USR-SPGR-01',
-      proyectoId: proy.id,
-      montoGiro: 100000000.0,
-    );
+      final proyGirado = await spgrService.registrarGiroSPGR(
+        entidadId: 'ENT-SPGR-TEST',
+        usuarioId: 'USR-SPGR-01',
+        proyectoId: proy.id,
+        montoGiro: 100000000.0,
+      );
 
-    expect(proyGirado.montoGiroSPGR, equals(100000000.0));
+      expect(proyGirado.montoGiroSPGR, equals(100000000.0));
 
-    final rep = await spgrService.generarReporteSPGR(
-      entidadId: 'ENT-SPGR-TEST',
-      usuarioId: 'USR-SPGR-01',
-      bienalidad: '2025-2026',
-    );
+      final rep = await spgrService.generarReporteSPGR(
+        entidadId: 'ENT-SPGR-TEST',
+        usuarioId: 'USR-SPGR-01',
+        bienalidad: '2025-2026',
+      );
 
-    expect(rep.id, isNotEmpty);
+      expect(rep.id, isNotEmpty);
 
-    final plano = await spgrService.exportarAPlano(rep.id);
-    expect(plano, contains('SPGR_MHCP_HEADER|ENT-SPGR-TEST|2025-2026'));
-  });
+      final plano = await spgrService.exportarAPlano(rep.id);
+      expect(plano, contains('SPGR_MHCP_HEADER|ENT-SPGR-TEST|2025-2026'));
+    },
+  );
 }

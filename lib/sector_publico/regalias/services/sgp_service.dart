@@ -13,10 +13,7 @@ class SGPService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  SGPService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  SGPService({required this.db, required this.auditoriaService});
 
   /// Asigna un SGP
   Future<SGP> asignarSGP({
@@ -30,7 +27,8 @@ class SGPService {
     required DateTime vigencia,
   }) async {
     final id = _uuid.v4();
-    final numeroSGP = 'SGP-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroSGP =
+        'SGP-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaAsignacion = DateTime.now();
 
     final sgp = SGP(
@@ -133,10 +131,34 @@ class SGPService {
   }
 
   /// Registra ejecución de SGP
+  Future<void> configurarDestinacionRubro({
+    required String id,
+    required String entidadId,
+    required String sgpId,
+    required String codigoRubro,
+  }) async {
+    final asignacion = await db.query(
+      'sgp',
+      where: 'id = ? AND entidad_id = ?',
+      whereArgs: [sgpId, entidadId],
+    );
+    if (asignacion.isEmpty) {
+      throw Exception('SGP no encontrado para la entidad');
+    }
+    await db.insert('sgp_destinaciones_rubro', {
+      'id': id,
+      'entidad_id': entidadId,
+      'sgp_id': sgpId,
+      'codigo_rubro': codigoRubro,
+      'componente': asignacion.first['tipo_participacion'],
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
   Future<SGP> registrarEjecucion({
     required String entidadId,
     required String usuarioId,
     required String sgpId,
+    required String codigoRubro,
     required double montoEjecucion,
   }) async {
     final sgpResult = await db.query(
@@ -150,6 +172,17 @@ class SGPService {
     }
 
     final sgp = SGP.fromJson(sgpResult.first);
+    final destino = await db.query(
+      'sgp_destinaciones_rubro',
+      where:
+          'sgp_id = ? AND codigo_rubro = ? AND componente = ? AND activo = 1',
+      whereArgs: [sgpId, codigoRubro, sgp.tipoParticipacion.name],
+    );
+    if (destino.isEmpty) {
+      throw Exception(
+        'Bloqueado: rubro no autorizado para el componente SGP ${sgp.tipoParticipacion.name}',
+      );
+    }
 
     if (!sgp.tieneSaldo()) {
       throw Exception('No hay saldo disponible');
@@ -185,6 +218,7 @@ class SGPService {
       },
       valorNuevo: {
         'monto_ejecucion': montoEjecucion,
+        'codigo_rubro': codigoRubro,
         'valor_ejecutado_nuevo': nuevoValorEjecutado,
         'saldo_nuevo': nuevoSaldo,
       },
@@ -220,4 +254,3 @@ class SGPService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-

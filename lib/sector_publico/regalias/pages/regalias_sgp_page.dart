@@ -66,7 +66,10 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al inicializar servicios de Regalías: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al inicializar servicios de Regalías: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -75,12 +78,19 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
   }
 
   Future<void> _cargarDatos() async {
-    if (_regaliasService == null || _sgpService == null || _spgrService == null) return;
+    if (_regaliasService == null || _sgpService == null || _spgrService == null)
+      return;
     try {
-      final regalias = await _regaliasService!.consultarRegalias(entidadId: widget.entidadId);
+      final regalias = await _regaliasService!.consultarRegalias(
+        entidadId: widget.entidadId,
+      );
       final sgps = await _sgpService!.consultarSGP(entidadId: widget.entidadId);
-      final ocads = await _spgrService!.consultarProyectosOCAD(entidadId: widget.entidadId);
-      final bienios = await _spgrService!.consultarBieniosSGR(entidadId: widget.entidadId);
+      final ocads = await _spgrService!.consultarProyectosOCAD(
+        entidadId: widget.entidadId,
+      );
+      final bienios = await _spgrService!.consultarBieniosSGR(
+        entidadId: widget.entidadId,
+      );
 
       setState(() {
         _regalias = regalias;
@@ -91,7 +101,10 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar datos de Regalías/SGP: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al cargar datos de Regalías/SGP: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -109,10 +122,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             tooltip: 'Crear Bienio SGR',
             onPressed: _crearBienioSGRDialog,
           ),
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _cargarDatos,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _cargarDatos),
           IconButton(
             icon: Icon(Icons.cloud_upload),
             tooltip: 'Reporte SPGR (MinHacienda)',
@@ -129,11 +139,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
           ? const Center(child: CircularProgressIndicator())
           : IndexedStack(
               index: _selectedIndex,
-              children: [
-                _buildRegaliasTab(),
-                _buildSGPTab(),
-                _buildOCADTab(),
-              ],
+              children: [_buildRegaliasTab(), _buildSGPTab(), _buildOCADTab()],
             ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -170,7 +176,10 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
           children: [
             Icon(Icons.monetization_on, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text('Regalías (SGR)', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Regalías (SGR)',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             const Text('Sistema General de Regalías - Ley 2056 de 2020'),
             const SizedBox(height: 24),
@@ -200,8 +209,13 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.monetization_on, color: Colors.white),
             ),
-            title: Text('${r.proyecto} (#${r.numeroRegalia})', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Tipo: ${r.tipoRegalia.name} | Vigencia: ${r.vigencia}\nEstimado: ${CurrencyFormatter.format(r.valorEstimado)} | Recibido: ${CurrencyFormatter.format(r.valorRecibido)}'),
+            title: Text(
+              '${r.proyecto} (#${r.numeroRegalia})',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Tipo: ${r.tipoRegalia.name} | Vigencia: ${r.vigencia}\nEstimado: ${CurrencyFormatter.format(r.valorEstimado)} | Recibido: ${CurrencyFormatter.format(r.valorRecibido)}',
+            ),
           ),
         );
       },
@@ -246,8 +260,13 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.account_balance, color: Colors.white),
             ),
-            title: Text('${s.programa} (#${s.numeroSGP})', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Participación: ${s.tipoParticipacion.name} | Vigencia: ${s.vigencia}\nAsignado: ${CurrencyFormatter.format(s.valorAsignado)} | Saldo: ${CurrencyFormatter.format(s.saldoDisponible)}'),
+            title: Text(
+              '${s.programa} (#${s.numeroSGP})',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Participación: ${s.tipoParticipacion.name} | Vigencia: ${s.vigencia}\nAsignado: ${CurrencyFormatter.format(s.valorAsignado)} | Saldo: ${CurrencyFormatter.format(s.saldoDisponible)}',
+            ),
           ),
         );
       },
@@ -262,9 +281,14 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
           children: [
             Icon(Icons.gavel, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text('Proyectos OCAD SGR', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Proyectos OCAD SGR',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
-            const Text('Órganos Colegiados de Administración y Decisión (Banco MGA DNP)'),
+            const Text(
+              'Órganos Colegiados de Administración y Decisión (Banco MGA DNP)',
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _crearProyectoOCADDialog,
@@ -292,8 +316,13 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.gavel, color: Colors.white),
             ),
-            title: Text('${p.nombreProyecto} (BPIN: ${p.codigoBPIN})', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Bienalidad: ${p.bienalidad} | OCAD: ${p.tipoOCAD.name}\nAprobado: ${CurrencyFormatter.format(p.montoAprobado)} | Girado SPGR: ${CurrencyFormatter.format(p.montoGiroSPGR)}'),
+            title: Text(
+              '${p.nombreProyecto} (BPIN: ${p.codigoBPIN})',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Bienalidad: ${p.bienalidad} | OCAD: ${p.tipoOCAD.name}\nAprobado: ${CurrencyFormatter.format(p.montoAprobado)} | Girado SPGR: ${CurrencyFormatter.format(p.montoGiroSPGR)}',
+            ),
             trailing: IconButton(
               icon: Icon(Icons.payment, color: Colors.green),
               tooltip: 'Registrar Giro SPGR',
@@ -331,12 +360,28 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: codigoCtrl, decoration: const InputDecoration(labelText: 'Código Bienalidad (ej. 2025-2026)', hintText: 'ej. 2025-2026')),
-            TextField(controller: montoCtrl, decoration: const InputDecoration(labelText: 'Monto Presupuestado Bienio', hintText: 'ej. 1000000000'), keyboardType: TextInputType.number),
+            TextField(
+              controller: codigoCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Código Bienalidad (ej. 2025-2026)',
+                hintText: 'ej. 2025-2026',
+              ),
+            ),
+            TextField(
+              controller: montoCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Monto Presupuestado Bienio',
+                hintText: 'ej. 1000000000',
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (codigoCtrl.text.isEmpty || montoCtrl.text.isEmpty) return;
@@ -352,12 +397,19 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bienio SGR registrado')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Bienio SGR registrado')),
+                  );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -374,7 +426,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
     final municipioCtrl = TextEditingController();
     final departamentoCtrl = TextEditingController();
     final valorCtrl = TextEditingController();
-    final vigenciaCtrl = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaCtrl = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     TipoRegalia tipoSeleccionado = TipoRegalia.hidrocarburos;
 
     showDialog(
@@ -386,29 +440,72 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: proyectoCtrl, decoration: const InputDecoration(labelText: 'Nombre Proyecto / Asignación', hintText: 'ej. Pavimentación Vía Principal')),
+                TextField(
+                  controller: proyectoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre Proyecto / Asignación',
+                    hintText: 'ej. Pavimentación Vía Principal',
+                  ),
+                ),
                 DropdownButtonFormField<TipoRegalia>(
                   value: tipoSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Tipo de Regalía'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo de Regalía',
+                  ),
                   items: TipoRegalia.values.map((t) {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => tipoSeleccionado = val);
+                    if (val != null)
+                      setDialogState(() => tipoSeleccionado = val);
                   },
                 ),
-                TextField(controller: municipioCtrl, decoration: const InputDecoration(labelText: 'Municipio', hintText: 'ej. Sopó')),
-                TextField(controller: departamentoCtrl, decoration: const InputDecoration(labelText: 'Departamento', hintText: 'ej. Cundinamarca')),
-                TextField(controller: valorCtrl, decoration: const InputDecoration(labelText: 'Valor Estimado', hintText: 'ej. 150000000'), keyboardType: TextInputType.number),
-                TextField(controller: vigenciaCtrl, decoration: const InputDecoration(labelText: 'Vigencia Fiscal (año)', hintText: 'ej. 2026'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: municipioCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Municipio',
+                    hintText: 'ej. Sopó',
+                  ),
+                ),
+                TextField(
+                  controller: departamentoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Departamento',
+                    hintText: 'ej. Cundinamarca',
+                  ),
+                ),
+                TextField(
+                  controller: valorCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Valor Estimado',
+                    hintText: 'ej. 150000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: vigenciaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Vigencia Fiscal (año)',
+                    hintText: 'ej. 2026',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (proyectoCtrl.text.isEmpty || municipioCtrl.text.isEmpty || departamentoCtrl.text.isEmpty || valorCtrl.text.isEmpty || vigenciaCtrl.text.isEmpty) return;
+                if (proyectoCtrl.text.isEmpty ||
+                    municipioCtrl.text.isEmpty ||
+                    departamentoCtrl.text.isEmpty ||
+                    valorCtrl.text.isEmpty ||
+                    vigenciaCtrl.text.isEmpty)
+                  return;
                 try {
                   await _regaliasService!.estimarRegalia(
                     entidadId: widget.entidadId,
@@ -422,12 +519,21 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Regalía estimada con éxito')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Regalía estimada con éxito'),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -445,7 +551,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
     final municipioCtrl = TextEditingController();
     final departamentoCtrl = TextEditingController();
     final valorCtrl = TextEditingController();
-    final vigenciaCtrl = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaCtrl = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     TipoParticipacion tipoSeleccionado = TipoParticipacion.educacion;
 
     showDialog(
@@ -457,29 +565,72 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: programaCtrl, decoration: const InputDecoration(labelText: 'Programa / Destinación', hintText: 'ej. Alimentación Escolar PAE')),
+                TextField(
+                  controller: programaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Programa / Destinación',
+                    hintText: 'ej. Alimentación Escolar PAE',
+                  ),
+                ),
                 DropdownButtonFormField<TipoParticipacion>(
                   value: tipoSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Tipo de Participación SGP'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo de Participación SGP',
+                  ),
                   items: TipoParticipacion.values.map((t) {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => tipoSeleccionado = val);
+                    if (val != null)
+                      setDialogState(() => tipoSeleccionado = val);
                   },
                 ),
-                TextField(controller: municipioCtrl, decoration: const InputDecoration(labelText: 'Municipio', hintText: 'ej. Sopó')),
-                TextField(controller: departamentoCtrl, decoration: const InputDecoration(labelText: 'Departamento', hintText: 'ej. Cundinamarca')),
-                TextField(controller: valorCtrl, decoration: const InputDecoration(labelText: 'Valor Asignado', hintText: 'ej. 80000000'), keyboardType: TextInputType.number),
-                TextField(controller: vigenciaCtrl, decoration: const InputDecoration(labelText: 'Vigencia Fiscal (año)', hintText: 'ej. 2026'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: municipioCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Municipio',
+                    hintText: 'ej. Sopó',
+                  ),
+                ),
+                TextField(
+                  controller: departamentoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Departamento',
+                    hintText: 'ej. Cundinamarca',
+                  ),
+                ),
+                TextField(
+                  controller: valorCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Valor Asignado',
+                    hintText: 'ej. 80000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: vigenciaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Vigencia Fiscal (año)',
+                    hintText: 'ej. 2026',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (programaCtrl.text.isEmpty || municipioCtrl.text.isEmpty || departamentoCtrl.text.isEmpty || valorCtrl.text.isEmpty || vigenciaCtrl.text.isEmpty) return;
+                if (programaCtrl.text.isEmpty ||
+                    municipioCtrl.text.isEmpty ||
+                    departamentoCtrl.text.isEmpty ||
+                    valorCtrl.text.isEmpty ||
+                    vigenciaCtrl.text.isEmpty)
+                  return;
                 try {
                   await _sgpService!.asignarSGP(
                     entidadId: widget.entidadId,
@@ -493,12 +644,21 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Asignación SGP registrada')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Asignación SGP registrada'),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -523,7 +683,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         where: 'entidad_id = ?',
         whereArgs: [widget.entidadId],
       );
-      bienios = await _spgrService!.consultarBieniosSGR(entidadId: widget.entidadId);
+      bienios = await _spgrService!.consultarBieniosSGR(
+        entidadId: widget.entidadId,
+      );
     } catch (e) {
       debugPrint('Error cargando MGA/Bienios: $e');
     }
@@ -534,6 +696,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
     final nombreProyCtrl = TextEditingController();
     final bienalidadCtrl = TextEditingController(text: '2025-2026');
     final montoAprobadoCtrl = TextEditingController();
+    final actaCtrl = TextEditingController();
+    final fuenteCtrl = TextEditingController();
+    final ejecutoraCtrl = TextEditingController();
     TipoOCAD tipoSeleccionado = TipoOCAD.municipal;
 
     if (!mounted) return;
@@ -548,25 +713,34 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
               children: [
                 if (proyectosMGA.isNotEmpty) ...[
                   DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'Seleccionar Proyecto Banco MGA DNP'),
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar Proyecto Banco MGA DNP',
+                    ),
                     items: proyectosMGA.map((mga) {
                       final bpin = mga['codigo_bpin'] as String;
                       final nombre = mga['nombre_proyecto'] as String;
                       final id = mga['id'] as String;
                       return DropdownMenuItem(
                         value: id,
-                        child: Text('$bpin - $nombre', overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          '$bpin - $nombre',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
-                        final sel = proyectosMGA.firstWhere((element) => element['id'] == val);
+                        final sel = proyectosMGA.firstWhere(
+                          (element) => element['id'] == val,
+                        );
                         setDialogState(() {
                           mgaSeleccionadoId = val;
                           bpinCtrl.text = sel['codigo_bpin'] as String;
-                          nombreProyCtrl.text = sel['nombre_proyecto'] as String;
+                          nombreProyCtrl.text =
+                              sel['nombre_proyecto'] as String;
                           if (sel['valor_total'] != null) {
-                            montoAprobadoCtrl.text = (sel['valor_total'] as num).toString();
+                            montoAprobadoCtrl.text = (sel['valor_total'] as num)
+                                .toString();
                           }
                         });
                       }
@@ -574,11 +748,25 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                TextField(controller: bpinCtrl, decoration: const InputDecoration(labelText: 'Código BPIN DNP', hintText: 'ej. BPIN-2025-25001')),
-                TextField(controller: nombreProyCtrl, decoration: const InputDecoration(labelText: 'Nombre del Proyecto', hintText: 'ej. Construcción Centro de Salud')),
+                TextField(
+                  controller: bpinCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Código BPIN DNP',
+                    hintText: 'ej. BPIN-2025-25001',
+                  ),
+                ),
+                TextField(
+                  controller: nombreProyCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre del Proyecto',
+                    hintText: 'ej. Construcción Centro de Salud',
+                  ),
+                ),
                 if (bienios.isNotEmpty) ...[
                   DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'Seleccionar Bienio Presupuestal SGR'),
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar Bienio Presupuestal SGR',
+                    ),
                     items: bienios.map((b) {
                       return DropdownMenuItem(
                         value: b.id,
@@ -597,26 +785,70 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                TextField(controller: bienalidadCtrl, decoration: const InputDecoration(labelText: 'Bienalidad SGR', hintText: 'ej. 2025-2026')),
+                TextField(
+                  controller: bienalidadCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Bienalidad SGR',
+                    hintText: 'ej. 2025-2026',
+                  ),
+                ),
                 DropdownButtonFormField<TipoOCAD>(
                   value: tipoSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Nivel / Tipo de OCAD'),
+                  decoration: const InputDecoration(
+                    labelText: 'Nivel / Tipo de OCAD',
+                  ),
                   items: TipoOCAD.values.map((t) {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => tipoSeleccionado = val);
+                    if (val != null)
+                      setDialogState(() => tipoSeleccionado = val);
                   },
                 ),
-                TextField(controller: montoAprobadoCtrl, decoration: const InputDecoration(labelText: 'Monto Aprobado OCAD', hintText: 'ej. 500000000'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: montoAprobadoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Monto Aprobado OCAD',
+                    hintText: 'ej. 500000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: actaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Acta de aprobacion OCAD',
+                  ),
+                ),
+                TextField(
+                  controller: fuenteCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Fuente de financiacion SGR',
+                  ),
+                ),
+                TextField(
+                  controller: ejecutoraCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Entidad ejecutora',
+                  ),
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (bpinCtrl.text.isEmpty || nombreProyCtrl.text.isEmpty || bienalidadCtrl.text.isEmpty || montoAprobadoCtrl.text.isEmpty) return;
+                if (bpinCtrl.text.isEmpty ||
+                    nombreProyCtrl.text.isEmpty ||
+                    bienalidadCtrl.text.isEmpty ||
+                    montoAprobadoCtrl.text.isEmpty ||
+                    actaCtrl.text.isEmpty ||
+                    fuenteCtrl.text.isEmpty ||
+                    ejecutoraCtrl.text.isEmpty)
+                  return;
                 try {
                   await _spgrService!.crearProyectoOCAD(
                     entidadId: widget.entidadId,
@@ -629,15 +861,25 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     tipoOCAD: tipoSeleccionado,
                     montoAprobado: double.parse(montoAprobadoCtrl.text),
                     fechaAprobacion: DateTime.now(),
+                    actaAprobacion: actaCtrl.text,
+                    fuenteFinanciacion: fuenteCtrl.text,
+                    entidadEjecutora: ejecutoraCtrl.text,
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Proyecto OCAD registrado')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Proyecto OCAD registrado')),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -666,7 +908,10 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
           keyboardType: TextInputType.number,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (montoGiroCtrl.text.isEmpty) return;
@@ -679,12 +924,21 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Giro SPGR aplicado al proyecto OCAD')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Giro SPGR aplicado al proyecto OCAD'),
+                    ),
+                  );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -705,10 +959,16 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
         title: const Text('Generar Reporte SPGR (MinHacienda / DNP)'),
         content: TextField(
           controller: bienalidadCtrl,
-          decoration: const InputDecoration(labelText: 'Bienalidad SGR', hintText: 'ej. 2025-2026'),
+          decoration: const InputDecoration(
+            labelText: 'Bienalidad SGR',
+            hintText: 'ej. 2025-2026',
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (bienalidadCtrl.text.isEmpty) return;
@@ -726,16 +986,26 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: const Text('Reporte SPGR Generado (.txt MHCP)'),
-                      content: SingleChildScrollView(child: SelectableText(plano)),
+                      content: SingleChildScrollView(
+                        child: SelectableText(plano),
+                      ),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cerrar'),
+                        ),
                       ],
                     ),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -748,7 +1018,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
 
   void _generarReporteSICODISDialog() {
     if (_sicodisService == null) return;
-    final vigenciaCtrl = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaCtrl = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     String sectorSeleccionado = 'Educación';
 
     showDialog(
@@ -761,37 +1033,56 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
             children: [
               TextField(
                 controller: vigenciaCtrl,
-                decoration: const InputDecoration(labelText: 'Vigencia Fiscal SGP', hintText: 'ej. 2026'),
+                decoration: const InputDecoration(
+                  labelText: 'Vigencia Fiscal SGP',
+                  hintText: 'ej. 2026',
+                ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: sectorSeleccionado,
-                decoration: const InputDecoration(labelText: 'Sector de Participación SGP'),
+                decoration: const InputDecoration(
+                  labelText: 'Sector de Participación SGP',
+                ),
                 items: const [
-                  DropdownMenuItem(value: 'Educación', child: Text('Educación (SGP)')),
+                  DropdownMenuItem(
+                    value: 'Educación',
+                    child: Text('Educación (SGP)'),
+                  ),
                   DropdownMenuItem(value: 'Salud', child: Text('Salud (SGP)')),
-                  DropdownMenuItem(value: 'Agua Potable', child: Text('Agua Potable y Saneamiento (APSB)')),
-                  DropdownMenuItem(value: 'Propósito General', child: Text('Propósito General')),
+                  DropdownMenuItem(
+                    value: 'Agua Potable',
+                    child: Text('Agua Potable y Saneamiento (APSB)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Propósito General',
+                    child: Text('Propósito General'),
+                  ),
                 ],
                 onChanged: (val) {
-                  if (val != null) setDialogState(() => sectorSeleccionado = val);
+                  if (val != null)
+                    setDialogState(() => sectorSeleccionado = val);
                 },
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
                 if (vigenciaCtrl.text.isEmpty) return;
                 try {
-                  final rep = await _sicodisService!.generarCertificacionSICODIS(
-                    entidadId: widget.entidadId,
-                    usuarioId: widget.usuarioId,
-                    vigencia: vigenciaCtrl.text,
-                    sectorParticipacion: sectorSeleccionado,
-                  );
+                  final rep = await _sicodisService!
+                      .generarCertificacionSICODIS(
+                        entidadId: widget.entidadId,
+                        usuarioId: widget.usuarioId,
+                        vigencia: vigenciaCtrl.text,
+                        sectorParticipacion: sectorSeleccionado,
+                      );
                   final plano = await _sicodisService!.exportarAPlano(rep.id);
 
                   if (context.mounted) {
@@ -799,17 +1090,29 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Certificación SICODIS Generada (.txt DNP)'),
-                        content: SingleChildScrollView(child: SelectableText(plano)),
+                        title: const Text(
+                          'Certificación SICODIS Generada (.txt DNP)',
+                        ),
+                        content: SingleChildScrollView(
+                          child: SelectableText(plano),
+                        ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cerrar'),
+                          ),
                         ],
                       ),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
