@@ -13,11 +13,13 @@ import '../../../core/utils/date_formatter.dart';
 class AuditoriaForensePage extends StatefulWidget {
   final String entidadId;
   final String usuarioId;
+  final int initialTabIndex;
 
   const AuditoriaForensePage({
     super.key,
     required this.entidadId,
     required this.usuarioId,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -50,6 +52,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialTabIndex;
     _inicializarServicios();
   }
 

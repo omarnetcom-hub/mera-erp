@@ -1310,3 +1310,12 @@ Building Windows application...                                    31.8s
 
 - Estado: parcial documentada; requiere mapeo de fuentes reales y alineacion con formularios CGN antes de una prueba funcional.
 - Commit: pendiente de registrar en el cierre siguiente por la regla de autorreferencia del log.
+## Subtarea F - Activos, depreciacion y FUT
+
+- El test `depreciacion_job_service_test.dart` paso: calcula 20.0, actualiza el activo y genera asiento 620101/160401.
+- FUT ya consulta fuentes reales y usa `consultarAuditoria`; el modulo existente `fut` ahora abre directamente la pestana Integridad donde se genera, manteniendo el RBAC de `AppSession.puedeAbrirModulo` y `_openModule`.
+- `flutter analyze`: 184 avisos base, sin errores nuevos. `flutter build windows`: correcto.
+
+## Cierre de la subtarea F
+
+- Estado: parcial; job y ruta FUT integrados, pero faltan validacion normativa completa de tasas/tipos y cobertura de todas las categorias FUT.

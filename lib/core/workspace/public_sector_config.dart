@@ -266,6 +266,7 @@ List<ModuleDefinition> modulosActivosEstado() => [
     builder: (context) => AuditoriaForensePage(
       entidadId: AppSession.entidadId,
       usuarioId: AppSession.usuarioId ?? '',
+      initialTabIndex: 2,
     ),
     featureKey: FeatureKey.auditoria_forense,
   ),
