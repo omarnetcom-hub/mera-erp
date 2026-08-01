@@ -18,7 +18,7 @@ El proceso tenia seis etapas pero el servicio aceptaba cualquier salto. Se restr
 
 ### Cierre de la subtarea W
 
-Estado: parcial implementado y verificado. La serie historica de tasas requiere importacion oficial completa; el commit queda pendiente de registrar aqui hasta que Git asigne el hash.
+Estado: parcial implementado y verificado. Commit de implementacion: `c2f00e3 fix(rentas): bloquear saltos en etapas de cobro coactivo`. La serie historica de tasas requiere importacion oficial completa.
 
 
 ## Subtarea V - Transparencia y consolidacion NICSP 40
