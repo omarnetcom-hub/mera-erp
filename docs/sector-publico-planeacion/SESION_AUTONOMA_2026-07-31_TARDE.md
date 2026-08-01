@@ -227,7 +227,7 @@ warning - The value of the local variable 'contabilidadService' isn't used - tes
 
 ### Cierre de la subtarea T
 
-Estado: parcial implementado y verificado. El commit de implementacion queda pendiente de registrar aqui hasta que Git asigne el hash.
+Estado: parcial implementado y verificado. Commit de implementacion: `af7f7d6 feat(planeacion): vincular proyecto MGA, rubro y meta de seguimiento`.
 
 
 +## Subtarea S - Nomina publica: aportes 2026 y seis regimenes
