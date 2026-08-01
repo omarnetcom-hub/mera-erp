@@ -280,12 +280,22 @@ class CierreVigenciaService {
       whereArgs: [entidadId, vigencia, '3%'],
     );
 
-    final totalActivo = activos.fold(
-0.0, (sum, r) => sum + (r['saldo_neto'] as num).toDouble());
-    final totalPasivo = pasivos.fold(
-0.0, (sum, r) => sum + (r['saldo_neto'] as num).toDouble());
-    final totalPatrimonio = patrimonio.fold(
-0.0, (sum, r) => sum + (r['saldo_neto'] as num).toDouble());
+    // saldos_cuentas almacena debito - credito. El CGC semilla define las
+    // clases 2, 3 y 4 como acreedoras, por lo que se invierten al presentar.
+    final totalActivo = _sumarSaldos(activos);
+    final totalPasivo = _sumarSaldos(pasivos, naturalezaAcreedora: true);
+    final patrimonioBase = _sumarSaldos(patrimonio, naturalezaAcreedora: true);
+    final resultadoPeriodo = await _calcularResultadoPeriodo(entidadId, vigencia);
+    final totalPatrimonio = patrimonioBase + resultadoPeriodo;
+    final renglonesPatrimonio = [
+      ..._renglonesEstado(patrimonio, naturalezaAcreedora: true),
+      RenglonEstado(
+        codigoCuenta: 'RESULTADO-PERIODO',
+        nombreCuenta: 'Resultado del periodo',
+        valor: resultadoPeriodo,
+        nivel: 1,
+      ),
+    ];
 
     return EstadoSituacionFinanciera(
       entidadId: entidadId,
@@ -295,24 +305,9 @@ class CierreVigenciaService {
       totalPasivo: totalPasivo,
       totalPatrimonio: totalPatrimonio,
       totalPasivoPatrimonio: totalPasivo + totalPatrimonio,
-      activos: activos.map((r) => RenglonEstado(
-        codigoCuenta: r['cuenta_codigo'] as String,
-        nombreCuenta: r['cuenta_nombre'] as String,
-        valor: (r['saldo_neto'] as num).toDouble(),
-        nivel: 1,
-      )).toList(),
-      pasivos: pasivos.map((r) => RenglonEstado(
-        codigoCuenta: r['cuenta_codigo'] as String,
-        nombreCuenta: r['cuenta_nombre'] as String,
-        valor: (r['saldo_neto'] as num).toDouble(),
-        nivel: 1,
-      )).toList(),
-      patrimonio: patrimonio.map((r) => RenglonEstado(
-        codigoCuenta: r['cuenta_codigo'] as String,
-        nombreCuenta: r['cuenta_nombre'] as String,
-        valor: (r['saldo_neto'] as num).toDouble(),
-        nivel: 1,
-      )).toList(),
+      activos: _renglonesEstado(activos),
+      pasivos: _renglonesEstado(pasivos, naturalezaAcreedora: true),
+      patrimonio: renglonesPatrimonio,
     );
   }
 
@@ -330,17 +325,16 @@ class CierreVigenciaService {
       whereArgs: [entidadId, vigencia, '4%'],
     );
 
-    // Gastos (Clase 5)
+    // Gastos y costos (Clases 5, 6 y 7)
     final gastos = await db.query(
       'saldos_cuentas',
-      where: 'entidad_id = ? AND vigencia = ? AND cuenta_codigo LIKE ?',
-      whereArgs: [entidadId, vigencia, '5%'],
+      where: '''entidad_id = ? AND vigencia = ? AND
+          (cuenta_codigo LIKE ? OR cuenta_codigo LIKE ? OR cuenta_codigo LIKE ?)''',
+      whereArgs: [entidadId, vigencia, '5%', '6%', '7%'],
     );
 
-    final totalIngresos = ingresos.fold(
-0.0, (sum, r) => sum + (r['saldo_neto'] as num).toDouble());
-    final totalGastos = gastos.fold(
-0.0, (sum, r) => sum + (r['saldo_neto'] as num).toDouble());
+    final totalIngresos = _sumarSaldos(ingresos, naturalezaAcreedora: true);
+    final totalGastos = _sumarSaldos(gastos);
     final resultadoOperacional = totalIngresos - totalGastos;
 
     return EstadoResultadoOperacional(
@@ -351,19 +345,56 @@ class CierreVigenciaService {
       totalIngresos: totalIngresos,
       totalGastos: totalGastos,
       resultadoOperacional: resultadoOperacional,
-      ingresos: ingresos.map((r) => RenglonEstado(
-        codigoCuenta: r['cuenta_codigo'] as String,
-        nombreCuenta: r['cuenta_nombre'] as String,
-        valor: (r['saldo_neto'] as num).toDouble(),
-        nivel: 1,
-      )).toList(),
-      gastos: gastos.map((r) => RenglonEstado(
-        codigoCuenta: r['cuenta_codigo'] as String,
-        nombreCuenta: r['cuenta_nombre'] as String,
-        valor: (r['saldo_neto'] as num).toDouble(),
-        nivel: 1,
-      )).toList(),
+      ingresos: _renglonesEstado(ingresos, naturalezaAcreedora: true),
+      gastos: _renglonesEstado(gastos),
     );
+  }
+
+  Future<double> _calcularResultadoPeriodo(
+    String entidadId,
+    String vigencia,
+  ) async {
+    final ingresos = await db.query(
+      'saldos_cuentas',
+      where: 'entidad_id = ? AND vigencia = ? AND cuenta_codigo LIKE ?',
+      whereArgs: [entidadId, vigencia, '4%'],
+    );
+    final gastosYCostos = await db.query(
+      'saldos_cuentas',
+      where: '''entidad_id = ? AND vigencia = ? AND
+          (cuenta_codigo LIKE ? OR cuenta_codigo LIKE ? OR cuenta_codigo LIKE ?)''',
+      whereArgs: [entidadId, vigencia, '5%', '6%', '7%'],
+    );
+    return _sumarSaldos(ingresos, naturalezaAcreedora: true) -
+        _sumarSaldos(gastosYCostos);
+  }
+
+  double _sumarSaldos(
+    List<Map<String, dynamic>> saldos, {
+    bool naturalezaAcreedora = false,
+  }) {
+    return saldos.fold(0.0, (sum, saldo) {
+      final valor = (saldo['saldo_neto'] as num).toDouble();
+      return sum + (naturalezaAcreedora ? -valor : valor);
+    });
+  }
+
+  List<RenglonEstado> _renglonesEstado(
+    List<Map<String, dynamic>> saldos, {
+    bool naturalezaAcreedora = false,
+  }) {
+    return saldos
+        .map(
+          (saldo) => RenglonEstado(
+            codigoCuenta: saldo['cuenta_codigo'] as String,
+            nombreCuenta: saldo['cuenta_nombre'] as String,
+            valor: naturalezaAcreedora
+                ? -(saldo['saldo_neto'] as num).toDouble()
+                : (saldo['saldo_neto'] as num).toDouble(),
+            nivel: 1,
+          ),
+        )
+        .toList();
   }
 
   /// Genera Estado de Flujos de Efectivo (NICSP 2)
