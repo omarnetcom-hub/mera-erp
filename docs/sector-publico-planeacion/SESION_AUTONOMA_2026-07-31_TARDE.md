@@ -1,5 +1,45 @@
 # Sesion autonoma - 2026-07-31 tarde
 
+## Subtarea L - Planeacion y Banco de Proyectos (MGA/PDT)
+
+### Hallazgo y decision conservadora
+
+La integracion solicitada no es segura con el modelo actual. `proyectos_mga` almacena el proyecto, `valor_ejecutado`, `codigo_cdp` y `codigo_rp` (`schema_planeacion.dart:10-31`); las asociaciones en `BancoProyectosService` solo escriben esos codigos libres (`banco_proyectos_service.dart:98-173`) y la ejecucion es un valor financiero manual agregado (`176-226`). La tabla `apropiaciones` no referencia `proyecto_id`, y no hay tabla ni campos de meta fisica, unidad, linea base, periodo o avance fisico. La pagina conserva el banner explicito de motor pendiente.
+
+**Decision:** no se agrega una alerta de 20% ni se infiere una relacion rubro-proyecto. Hacerlo con coincidencias por codigo/nombre fabricaria trazabilidad y podria bloquear ejecucion real incorrectamente.
+
+### Diseno requerido antes de implementar
+
+1. Crear una relacion versionada `proyecto_rubros_presupuestales` (`entidad_id`, `proyecto_id`, `codigo_rubro`, `vigencia`, `monto_programado`, `vigente`, auditoria), con unica activa por proyecto/rubro/vigencia.
+2. Crear metas PDT persistidas por proyecto (`meta_id`, indicador, unidad, linea_base, meta_total, periodo) y avances por corte (`avance_fisico`, fecha_corte, soporte, responsable), sin convertir importes financieros en porcentajes fisicos.
+3. Calcular ejecucion financiera desde obligaciones/pagos aprobados de los rubros asociados, y generar una alerta solo cuando ambos porcentajes tengan el mismo corte y `financiero - fisico > 20` puntos porcentuales.
+4. La migracion debe iniciar sin asociaciones ni metas inventadas; la carga/mapeo de datos existentes necesita decision humana del responsable de planeacion.
+
+### Evidencia cruda: flutter test
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/planeacion/planeacion_page_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: PlaneacionPage renders tabs, banner TODO and handles empty state
+00:01 +1: (tearDownAll)
+00:01 +1: All tests passed!
+```
+
+### Evidencia de verificacion
+
+`flutter analyze` completo: 184 issues, 0 errores. La salida cruda completa se guardo durante la subtarea como `subtarea_l_analyze_output.txt`. `flutter build windows` completo:
+
+```text
+Building Windows application...
+flutter : Nuget.exe not found, trying to download or use cached version.
+Building Windows application...                                    20.6s
+Built build\windows\x64\runner\Release\MerkaERP.exe
+```
+
+### Cierre de la subtarea L
+
+Estado: **Pendiente - REQUIERE DECISION HUMANA DE DISENO Y CARGA DE DATOS**. No se implemento codigo porque no existe una relacion persistida y auditable entre rubro, proyecto, meta y avance fisico. Commit: pendiente de crear al momento de esta anotacion.
+
 ## Alcance y criterio
 
 - Objetivo: cerrar en orden las subtareas A-D del Sistema Financiero Integrado y, solo si hay margen suficiente, evaluar E-F.
