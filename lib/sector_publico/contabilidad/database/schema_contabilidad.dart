@@ -143,6 +143,84 @@ class SchemaContabilidad {
       CREATE INDEX IF NOT EXISTS idx_cierres_entidad 
       ON cierres_vigencia(entidad_id)
     ''');
+
+    await crearTablasConciliacionesReciprocas(db);
+  }
+
+  /// Crea la capa de eliminacion NICSP 40 sin alterar los asientos fuente.
+  static Future<void> crearTablasConciliacionesReciprocas(
+    DatabaseExecutor db,
+  ) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS conciliaciones_reciprocas (
+        id TEXT PRIMARY KEY,
+        entidad_consolidadora_id TEXT NOT NULL,
+        vigencia TEXT NOT NULL,
+        monto_conciliado REAL NOT NULL CHECK (monto_conciliado > 0),
+        tolerancia_monto REAL NOT NULL DEFAULT 0 CHECK (tolerancia_monto >= 0),
+        tolerancia_dias INTEGER NOT NULL DEFAULT 0 CHECK (tolerancia_dias >= 0),
+        diferencia_monto_validada REAL NOT NULL,
+        diferencia_dias_validada INTEGER NOT NULL,
+        aprobado_por TEXT NOT NULL,
+        fecha_aprobacion TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'aprobada' CHECK (estado = 'aprobada'),
+        observaciones TEXT,
+        FOREIGN KEY (entidad_consolidadora_id) REFERENCES entidades_territoriales(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS conciliaciones_reciprocas_partidas (
+        id TEXT PRIMARY KEY,
+        conciliacion_id TEXT NOT NULL,
+        entidad_id TEXT NOT NULL,
+        asiento_id TEXT NOT NULL,
+        detalle_asiento_id TEXT NOT NULL,
+        lado TEXT NOT NULL CHECK (lado IN ('debito', 'credito')),
+        monto_eliminar REAL NOT NULL CHECK (monto_eliminar > 0),
+        FOREIGN KEY (conciliacion_id) REFERENCES conciliaciones_reciprocas(id),
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (asiento_id) REFERENCES asientos_contables_sp(id),
+        FOREIGN KEY (detalle_asiento_id) REFERENCES detalles_asientos(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_conciliaciones_reciprocas_consolidadora
+      ON conciliaciones_reciprocas(entidad_consolidadora_id, vigencia, estado)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_conciliaciones_reciprocas_partidas
+      ON conciliaciones_reciprocas_partidas(conciliacion_id, asiento_id)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_conciliaciones_reciprocas_detalle
+      ON conciliaciones_reciprocas_partidas(detalle_asiento_id)
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_conciliacion_reciproca_no_sobreeliminar
+      BEFORE INSERT ON conciliaciones_reciprocas_partidas
+      FOR EACH ROW
+      WHEN NEW.monto_eliminar + COALESCE((
+        SELECT SUM(p.monto_eliminar)
+        FROM conciliaciones_reciprocas_partidas p
+        INNER JOIN conciliaciones_reciprocas c ON c.id = p.conciliacion_id
+        WHERE p.detalle_asiento_id = NEW.detalle_asiento_id
+          AND c.estado = 'aprobada'
+      ), 0) > COALESCE((
+        SELECT CASE WHEN d.debito > 0 THEN d.debito ELSE d.credito END
+        FROM detalles_asientos d
+        WHERE d.id = NEW.detalle_asiento_id
+      ), 0)
+      BEGIN
+        SELECT RAISE(ABORT, 'La conciliacion excede el saldo de la partida');
+      END
+    ''');
+  }
+
+  /// Migracion incremental v73 para instalaciones existentes.
+  static Future<void> migrarConciliacionesReciprocas(Database db) async {
+    await crearTablasConciliacionesReciprocas(db);
   }
 
   /// Inserta configuración inicial de depreciación según tablas NICSP 17
@@ -162,7 +240,9 @@ class SchemaContabilidad {
     final batch = db.batch();
     for (final config in configuraciones) {
       batch.insert('configuracion_depreciacion', {
-        'id': DateTime.now().millisecondsSinceEpoch.toString() + (config[0] as String),
+        'id':
+            DateTime.now().millisecondsSinceEpoch.toString() +
+            (config[0] as String),
         'entidad_id': entidadId,
         'tipo_activo': config[0],
         'vida_util_anios': config[1],

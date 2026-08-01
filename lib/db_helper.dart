@@ -330,7 +330,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 72,
+      version: 73,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -923,6 +923,10 @@ class DatabaseHelper {
 
     if (oldVersion < 72) {
       await SchemaRegalias.migrarDestinacionYOCAD(db);
+    }
+
+    if (oldVersion < 73) {
+      await SchemaContabilidad.migrarConciliacionesReciprocas(db);
     }
   }
 

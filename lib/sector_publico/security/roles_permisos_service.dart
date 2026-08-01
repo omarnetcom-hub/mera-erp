@@ -37,6 +37,7 @@ enum Permiso {
   reversarAsiento,
   cerrarVigencia,
   consultarEstadosFinancieros,
+  aprobarConciliacionReciproca,
 
   // Nómina
   liquidarNomina,
@@ -110,6 +111,7 @@ class RolesPermisosService {
       Permiso.reversarAsiento,
       Permiso.cerrarVigencia,
       Permiso.consultarEstadosFinancieros,
+      Permiso.aprobarConciliacionReciproca,
       Permiso.liquidarNomina,
       Permiso.reliquidarNomina,
       Permiso.consultarTodo,
@@ -391,6 +393,8 @@ class RolesPermisosService {
         return 'Cerrar Vigencia';
       case Permiso.consultarEstadosFinancieros:
         return 'Consultar Estados Financieros';
+      case Permiso.aprobarConciliacionReciproca:
+        return 'Aprobar Conciliación Recíproca';
       case Permiso.liquidarNomina:
         return 'Liquidar Nómina';
       case Permiso.aprobarNomina:

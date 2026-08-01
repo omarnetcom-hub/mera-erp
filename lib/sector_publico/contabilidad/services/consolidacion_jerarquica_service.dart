@@ -7,10 +7,8 @@ import 'package:sqflite/sqflite.dart';
 /// Agrega los saldos de una Entidad Territorial Padre (Gobernación) y sus entidades hijas
 /// asociadas mediante `gobernacion_id`.
 ///
-/// ADVERTENCIA: Este servicio NO realiza la eliminación de operaciones recíprocas entre entidades
-/// (por ejemplo, transferencias inter-entidades entre la gobernación y un municipio pueden figurar
-/// duplicadas: como gasto en la entidad emisora y como ingreso en la receptora).
-/// La eliminación automatizada de partidas recíprocas queda pendiente para una fase futura.
+/// Las operaciones reciprocas solo se eliminan cuando un contador aprueba una
+/// conciliacion explicita entre partidas. Los asientos fuente no se modifican.
 class ConsolidacionJerarquicaService {
   final Database db;
 
@@ -76,12 +74,6 @@ class ConsolidacionJerarquicaService {
     ''', [...entidadIds, vigencia]);
 
     final clasesMap = <String, Map<String, dynamic>>{};
-    double totalActivos = 0;
-    double totalPasivos = 0;
-    double totalPatrimonio = 0;
-    double totalIngresos = 0;
-    double totalGastos = 0;
-
     for (final row in result) {
       final clase = row['clase']?.toString() ?? '0';
       final deudor = (row['total_deudor'] as num?)?.toDouble() ?? 0.0;
@@ -97,12 +89,67 @@ class ConsolidacionJerarquicaService {
         'total_cuentas': totalCuentas,
       };
 
-      if (clase == '1') totalActivos += neto;
-      if (clase == '2') totalPasivos += neto;
-      if (clase == '3') totalPatrimonio += neto;
-      if (clase == '4') totalIngresos += neto;
-      if (clase == '5') totalGastos += neto;
     }
+
+    // Solo se eliminan partidas que un contador concilio expresamente.
+    // Los saldos y asientos fuente permanecen intactos.
+    final eliminaciones = await db.rawQuery('''
+      SELECT SUBSTR(d.cuenta_codigo, 1, 1) AS clase, p.lado,
+             SUM(p.monto_eliminar) AS total_eliminado
+      FROM conciliaciones_reciprocas c
+      INNER JOIN conciliaciones_reciprocas_partidas p
+        ON p.conciliacion_id = c.id
+      INNER JOIN detalles_asientos d ON d.id = p.detalle_asiento_id
+      WHERE c.entidad_consolidadora_id = ?
+        AND c.vigencia = ?
+        AND c.estado = 'aprobada'
+        AND p.entidad_id IN ($placeholders)
+      GROUP BY SUBSTR(d.cuenta_codigo, 1, 1), p.lado
+    ''', [entidadIdPadre, vigencia, ...entidadIds]);
+
+    var totalEliminadoDebito = 0.0;
+    var totalEliminadoCredito = 0.0;
+    for (final eliminacion in eliminaciones) {
+      final clase = eliminacion['clase']?.toString() ?? '0';
+      final lado = eliminacion['lado']?.toString();
+      final monto =
+          (eliminacion['total_eliminado'] as num?)?.toDouble() ?? 0.0;
+      final claseActual = clasesMap.putIfAbsent(
+        clase,
+        () => {
+          'clase': clase,
+          'deudor': 0.0,
+          'acreedor': 0.0,
+          'neto': 0.0,
+          'total_cuentas': 0,
+        },
+      );
+      if (lado == 'debito') {
+        claseActual['deudor'] =
+            (claseActual['deudor'] as num).toDouble() - monto;
+        totalEliminadoDebito += monto;
+      } else {
+        claseActual['acreedor'] =
+            (claseActual['acreedor'] as num).toDouble() - monto;
+        totalEliminadoCredito += monto;
+      }
+      claseActual['neto'] =
+          (claseActual['deudor'] as num).toDouble() -
+          (claseActual['acreedor'] as num).toDouble();
+    }
+
+    double netoClase(String clase) =>
+        (clasesMap[clase]?['neto'] as num?)?.toDouble() ?? 0.0;
+    final totalActivos = netoClase('1');
+    final totalPasivos = netoClase('2');
+    final totalPatrimonio = netoClase('3');
+    final totalIngresos = netoClase('4');
+    final totalGastos = netoClase('5');
+    final conteoConciliaciones = await db.rawQuery('''
+      SELECT COUNT(*) AS total
+      FROM conciliaciones_reciprocas
+      WHERE entidad_consolidadora_id = ? AND vigencia = ? AND estado = 'aprobada'
+    ''', [entidadIdPadre, vigencia]);
 
     return {
       'entidad_padre_id': entidadIdPadre,
@@ -116,6 +163,12 @@ class ConsolidacionJerarquicaService {
         'tipo_entidad': e['tipo_entidad'],
       }).toList(),
       'clases': clasesMap,
+      'eliminaciones_reciprocas': {
+        'conciliaciones_aplicadas':
+            (conteoConciliaciones.first['total'] as num?)?.toInt() ?? 0,
+        'debito_eliminado': totalEliminadoDebito,
+        'credito_eliminado': totalEliminadoCredito,
+      },
       'resumen': {
         'activos': totalActivos,
         'pasivos': totalPasivos,

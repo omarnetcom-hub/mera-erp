@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../../db_helper.dart';
 import '../../security/auditoria_service.dart';
 import '../../contabilidad/services/consolidacion_jerarquica_service.dart';
+import '../../contabilidad/services/conciliacion_reciprocas_service.dart';
+import '../../contabilidad/pages/conciliacion_reciproca_dialog.dart';
+import '../../security/roles_permisos_service.dart';
 import '../services/transparencia_service.dart';
 import '../services/disciplinario_service.dart';
 import '../services/nicsp40_service.dart';
@@ -33,12 +36,15 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
   late TransparenciaService _transparenciaService;
   late DisciplinarioService _disciplinarioService;
   late ConsolidacionJerarquicaService _consolidacionJerarquicaService;
+  late ConciliacionReciprocasService _conciliacionReciprocasService;
+  bool _puedeAprobarReciprocas = false;
   Map<String, dynamic>? _consolidadoJerarquicoReporte;
   late NICSP40Service _nicsp40Service;
 
   List<ReporteTransparencia> _reportes = [];
   List<ProcesoDisciplinario> _procesos = [];
   List<ConsolidacionNICSP40> _consolidaciones = [];
+  List<Map<String, dynamic>> _conciliacionesReciprocas = [];
   List<Empleado> _empleados = [];
   Map<String, dynamic>? _nicsp40Reporte;
 
@@ -64,6 +70,17 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
       _disciplinarioService = DisciplinarioService(db: db, auditoriaService: auditoriaService);
       _nicsp40Service = NICSP40Service(db: db, auditoriaService: auditoriaService);
       _consolidacionJerarquicaService = ConsolidacionJerarquicaService(db: db);
+      _conciliacionReciprocasService = ConciliacionReciprocasService(db: db);
+      final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+        db: db,
+        entidadId: widget.entidadId,
+        usuarioId: widget.usuarioId,
+      );
+      _puedeAprobarReciprocas = rol != null &&
+          RolesPermisosService.tienePermiso(
+            rol,
+            Permiso.aprobarConciliacionReciproca,
+          );
 
       await _cargarDatos();
     } catch (e) {
@@ -90,6 +107,12 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
       // 3. Cargar Consolidaciones NICSP 40
       _consolidaciones = await _nicsp40Service.consultarConsolidaciones(
         entidadId: widget.entidadId,
+      );
+
+      _conciliacionesReciprocas =
+          await _conciliacionReciprocasService.listarConciliaciones(
+        entidadConsolidadoraId: widget.entidadId,
+        vigencia: DateTime.now().year.toString(),
       );
 
       // 4. Cargar Empleados (para autocompletado opcional en control disciplinario)
@@ -365,6 +388,12 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                       foregroundColor: Colors.white,
                     ),
                   ),
+                  if (_puedeAprobarReciprocas)
+                    OutlinedButton.icon(
+                      onPressed: _registrarConciliacionReciproca,
+                      icon: const Icon(Icons.rule),
+                      label: const Text('Conciliar recíproca'),
+                    ),
                 ],
               ),
             ],
@@ -393,12 +422,27 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                     Text('Gastos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['gastos'] as double))}'),
                     Text('Superávit/Déficit: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['superavit_deficit'] as double))}', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
-                    const Text('* NOTA: Consolidación de solo lectura sin eliminación de partidas recíprocas.', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey)),
+                    Text('Conciliaciones aplicadas: ${_consolidadoJerarquicoReporte!['eliminaciones_reciprocas']['conciliaciones_aplicadas']}'),
+                    const Text('* Solo se eliminan partidas recíprocas aprobadas; los asientos originales no cambian.', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey)),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
+          ],
+          if (_conciliacionesReciprocas.isNotEmpty) ...[
+            Text('Conciliaciones recíprocas aprobadas', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ..._conciliacionesReciprocas.map((conciliacion) => ListTile(
+              leading: const Icon(Icons.verified),
+              title: Text(CurrencyFormatter.format((conciliacion['monto_conciliado'] as num).toDouble())),
+              subtitle: Text(
+                '${conciliacion['total_partidas']} partidas | Aprobó ${conciliacion['aprobado_por']} | '
+                'Tolerancias: ${conciliacion['tolerancia_dias']} días / '
+                '${CurrencyFormatter.format((conciliacion['tolerancia_monto'] as num).toDouble())}',
+              ),
+            )),
+            const Divider(),
           ],
           if (_nicsp40Reporte != null) ...[
             Card(
@@ -1210,5 +1254,21 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _registrarConciliacionReciproca() async {
+    final registrada = await showDialog<bool>(
+      context: context,
+      builder: (context) => ConciliacionReciprocaDialog(
+        service: _conciliacionReciprocasService,
+        entidadConsolidadoraId: widget.entidadId,
+        usuarioId: widget.usuarioId,
+      ),
+    );
+    if (registrada != true || !mounted) return;
+    await _cargarDatos();
+    if (!mounted) return;
+    setState(() {});
+    _mostrarExito('Conciliación recíproca aprobada.');
   }
 }

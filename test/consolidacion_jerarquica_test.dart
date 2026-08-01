@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/sector_publico/contabilidad/services/consolidacion_jerarquica_service.dart';
+import 'package:merka_erp/sector_publico/contabilidad/database/schema_contabilidad.dart';
 
 void main() {
   sqfliteFfiInit();
@@ -39,6 +40,19 @@ void main() {
         vigencia TEXT NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE asientos_contables_sp (
+        id TEXT PRIMARY KEY
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE detalles_asientos (
+        id TEXT PRIMARY KEY,
+        cuenta_codigo TEXT NOT NULL
+      )
+    ''');
+    await SchemaContabilidad.crearTablasConciliacionesReciprocas(db);
 
     await db.execute('''
       CREATE TABLE apropiaciones (
