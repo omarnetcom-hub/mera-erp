@@ -330,7 +330,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 69,
+      version: 70,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -911,6 +911,10 @@ class DatabaseHelper {
 
     if (oldVersion < 69) {
       await SchemaSalud.migrarRipsFevYGlosas(db);
+    }
+
+    if (oldVersion < 70) {
+      await SchemaNomina.migrarRegimenesYAportes(db);
     }
   }
 

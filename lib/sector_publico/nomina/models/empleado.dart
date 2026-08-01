@@ -2,7 +2,6 @@
 /// Para nómina pública con cálculo de aportes parafiscales
 library;
 
-
 enum TipoContrato {
   indefinido,
   fijo,
@@ -12,11 +11,18 @@ enum TipoContrato {
   misional,
 }
 
-enum TipoVinculacion {
-  carrera,
-  libreNombramiento,
-  provision,
-  contrato,
+enum TipoVinculacion { carrera, libreNombramiento, provision, contrato }
+
+/// Regimenes de vinculacion que requieren tratamiento salarial diferenciado.
+/// Las escalas y componentes propios de cada entidad se cargan en sus actos
+/// administrativos; el sistema no infiere primas o convenciones inexistentes.
+enum RegimenNominaPublica {
+  carreraAdministrativa,
+  libreNombramientoRemocion,
+  trabajadorOficial,
+  docenteTerritorial,
+  saludEse,
+  judicialFiscalia,
 }
 
 class Empleado {
@@ -28,6 +34,8 @@ class Empleado {
   final String dependencia;
   final TipoContrato tipoContrato;
   final TipoVinculacion tipoVinculacion;
+  final RegimenNominaPublica regimenNomina;
+  final int claseRiesgoArl;
   final double salarioBasico;
   final DateTime fechaIngreso;
   final DateTime? fechaRetiro;
@@ -49,6 +57,8 @@ class Empleado {
     required this.dependencia,
     required this.tipoContrato,
     required this.tipoVinculacion,
+    required this.regimenNomina,
+    required this.claseRiesgoArl,
     required this.salarioBasico,
     required this.fechaIngreso,
     this.fechaRetiro,
@@ -76,6 +86,12 @@ class Empleado {
       tipoVinculacion: TipoVinculacion.values.firstWhere(
         (e) => e.toString() == 'TipoVinculacion.${json['tipo_vinculacion']}',
       ),
+      regimenNomina: RegimenNominaPublica.values.firstWhere(
+        (e) => e.name == json['regimen_nomina'],
+        orElse: () =>
+            _regimenPorVinculacion(json['tipo_vinculacion'] as String),
+      ),
+      claseRiesgoArl: (json['clase_riesgo_arl'] as num?)?.toInt() ?? 1,
       salarioBasico: (json['salario_basico'] as num).toDouble(),
       fechaIngreso: DateTime.parse(json['fecha_ingreso'] as String),
       fechaRetiro: json['fecha_retiro'] != null
@@ -102,6 +118,8 @@ class Empleado {
       'dependencia': dependencia,
       'tipo_contrato': tipoContrato.toString().split('.').last,
       'tipo_vinculacion': tipoVinculacion.toString().split('.').last,
+      'regimen_nomina': regimenNomina.name,
+      'clase_riesgo_arl': claseRiesgoArl,
       'salario_basico': salarioBasico,
       'fecha_ingreso': fechaIngreso.toIso8601String(),
       'fecha_retiro': fechaRetiro?.toIso8601String(),
@@ -138,6 +156,8 @@ class Empleado {
     String? dependencia,
     TipoContrato? tipoContrato,
     TipoVinculacion? tipoVinculacion,
+    RegimenNominaPublica? regimenNomina,
+    int? claseRiesgoArl,
     double? salarioBasico,
     DateTime? fechaIngreso,
     DateTime? fechaRetiro,
@@ -159,6 +179,8 @@ class Empleado {
       dependencia: dependencia ?? this.dependencia,
       tipoContrato: tipoContrato ?? this.tipoContrato,
       tipoVinculacion: tipoVinculacion ?? this.tipoVinculacion,
+      regimenNomina: regimenNomina ?? this.regimenNomina,
+      claseRiesgoArl: claseRiesgoArl ?? this.claseRiesgoArl,
       salarioBasico: salarioBasico ?? this.salarioBasico,
       fechaIngreso: fechaIngreso ?? this.fechaIngreso,
       fechaRetiro: fechaRetiro ?? this.fechaRetiro,
@@ -171,5 +193,11 @@ class Empleado {
       fondoCesantias: fondoCesantias ?? this.fondoCesantias,
       observaciones: observaciones ?? this.observaciones,
     );
+  }
+
+  static RegimenNominaPublica _regimenPorVinculacion(String vinculacion) {
+    return vinculacion == TipoVinculacion.libreNombramiento.name
+        ? RegimenNominaPublica.libreNombramientoRemocion
+        : RegimenNominaPublica.carreraAdministrativa;
   }
 }

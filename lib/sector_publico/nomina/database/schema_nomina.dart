@@ -16,6 +16,8 @@ class SchemaNomina {
         dependencia TEXT NOT NULL,
         tipo_contrato TEXT NOT NULL,
         tipo_vinculacion TEXT NOT NULL,
+        regimen_nomina TEXT NOT NULL DEFAULT 'carreraAdministrativa',
+        clase_riesgo_arl INTEGER NOT NULL DEFAULT 1,
         salario_basico REAL NOT NULL,
         fecha_ingreso TEXT NOT NULL,
         fecha_retiro TEXT,
@@ -169,5 +171,31 @@ class SchemaNomina {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_recargos_empleado ON recargos(empleado_id)',
     );
+  }
+
+  static Future<void> migrarRegimenesYAportes(Database db) async {
+    await _agregarColumnaSiNoExiste(
+      db,
+      'empleados_sp',
+      'regimen_nomina',
+      "TEXT NOT NULL DEFAULT 'carreraAdministrativa'",
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'empleados_sp',
+      'clase_riesgo_arl',
+      'INTEGER NOT NULL DEFAULT 1',
+    );
+  }
+
+  static Future<void> _agregarColumnaSiNoExiste(
+    Database db,
+    String tabla,
+    String columna,
+    String definicion,
+  ) async {
+    final columnas = await db.rawQuery('PRAGMA table_info($tabla)');
+    if (columnas.any((fila) => fila['name'] == columna)) return;
+    await db.execute('ALTER TABLE $tabla ADD COLUMN $columna $definicion');
   }
 }

@@ -68,13 +68,13 @@ Resumen M4: 0 Completos / 4 Parciales / 1 Pendiente.
 
 | Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
 |---|---|---|---|---|
-| Liquidacion de nomina publica | `nomina/services/nomina_service.dart`; `pages/nomina_publica_page.dart` | `test/sector_publico/nomina/nomina_service_test.dart` | Ejecutado: el fixture legado falla inicialmente por `empleados_sp` y `configuracion_entidad` ausentes. Con el fixture completo alcanza las aserciones, pero 3 de 4 casos fallan: salud esperada 170.000/actual 183.770; solidaridad 45.426,30/0; solidaridad alta 327.069,36/163.534,68. | Parcial - la liquidacion generica existe, pero sus pruebas no certifican factores ni aportes. Requiere validacion normativa/versionada antes de ajustar valores. |
-| Seis regimenes salariales | `services/regimen_docente_service.dart`; `models/empleado.dart`; `services/nomina_service.dart` | Ninguno identificado para seis regimenes | Inspeccion: solo docente tiene servicio dedicado; carrera/libre nombramiento son valores de vinculacion y no hay logica diferenciada para trabajadores oficiales, salud o Fiscalia/Rama Judicial. | Pendiente - faltan cinco regimenes diferenciados y pruebas. |
+| Liquidacion de nomina publica | `nomina/services/nomina_service.dart`; `pages/nomina_publica_page.dart`; `database/schema_nomina.dart` | `test/sector_publico/nomina/nomina_service_test.dart` | Ejecutado: `flutter test test\\sector_publico\\nomina\\nomina_service_test.dart` - 3 pruebas pasaron. Certifica SMMLV/auxilio 2026, IBC sin auxilio, salud/pension trabajador-patronal, ARL por clase y fondo de solidaridad. | Parcial - la liquidacion comun esta verificada; faltan escalas, primas y convenciones propias de cada entidad. |
+| Seis regimenes salariales | `models/empleado.dart`; `services/nomina_service.dart`; `database/schema_nomina.dart` | `test/sector_publico/nomina/nomina_service_test.dart` | Ejecutado: la tercera prueba crea y liquida carrera administrativa, libre nombramiento, trabajador oficial, docente territorial, salud ESE y judicial/Fiscalia. | Parcial - se modelan y trazan los seis regimenes, pero los factores/escalas particulares requieren los actos y convenciones de cada entidad. |
 | Factores salariales, prestaciones y horas extra | `services/horas_extra_service.dart`; `pages/horas_extra_form_page.dart`; `services/auxilio_alimentacion_service.dart` | `test/sector_publico/nomina/horas_extra_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - horas extra existen; auxilio y factores no estan certificados en flujo completo. |
 | Retroactividad salarial | `services/retroactivos_service.dart`; `models/retroactivo.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - falta prueba de recalculo, aportes y trazabilidad. |
-| Archivo PILA sector publico | `services/pila_service.dart`; `services/nomina_service.dart` | Ninguno identificado | Inspeccion: PILA suma valores ya liquidados y exporta texto propio; las tasas de salud, pension, ARL, caja, ICBF y SENA estan hardcodeadas en `nomina_service.dart`. | Pendiente - no hay versionado de tarifas, estructura certificada por operador ni prueba de archivo oficial. |
+| Archivo PILA sector publico | `services/pila_service.dart`; `services/nomina_service.dart` | Ninguno identificado | Inspeccion: PILA suma valores ya liquidados; las bases y tasas comunes 2026 fueron corregidas y se probaron en la liquidacion, pero no se ejecuto una certificacion de archivo con operador. | Pendiente - falta estructura/versionado certificado por operador y prueba del archivo oficial. |
 
-Resumen M5: 0 Completos / 3 Parciales / 2 Pendientes.
+Resumen M5: 0 Completos / 4 Parciales / 1 Pendiente.
 
 ## 6. Almacen, Inventarios y Activos del Estado
 
@@ -153,7 +153,7 @@ Resumen M11: 0 Completos / 3 Parciales / 2 Pendientes.
 | M2 Financiero Integrado | 1 | 9 | 0 | Flujo presupuestal-pago certificado; faltan coberturas normativas complementarias. |
 | M3 Rentas y Tributos | 0 | 6 | 0 | Servicios presentes; faltan reglas locales e integraciones externas. |
 | M4 Contratacion | 0 | 4 | 1 | SECOP II real es el bloqueo principal. |
-| M5 Nomina | 0 | 3 | 2 | Liquidacion base existe; faltan seis regimenes y PILA validada. |
+| M5 Nomina | 0 | 4 | 1 | Aportes y seis regimenes trazables con prueba; faltan escalas propias y PILA certificada. |
 | M6 Activos | 0 | 4 | 0 | Base y pruebas aisladas; falta automatizacion/certificacion. |
 | M7 Seguridad y Rendicion | 1 | 4 | 0 | Inmutabilidad SQLite probada; reportes regulatorios aun parciales. |
 | M8 Salud | 0 | 4 | 1 | Falta interoperabilidad ADRES/EPS y validacion RIPS completa. |

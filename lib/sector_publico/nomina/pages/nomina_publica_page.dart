@@ -69,9 +69,15 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
       final db = await DatabaseHelper.instance.database;
       final auditoriaService = AuditoriaService(db);
 
-      _nominaService = NominaService(db: db, auditoriaService: auditoriaService);
+      _nominaService = NominaService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
       _pilaService = PILAService(db: db, auditoriaService: auditoriaService);
-      _retroactivosService = RetroactivosService(db: db, auditoriaService: auditoriaService);
+      _retroactivosService = RetroactivosService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
       _horasExtraService = HorasExtraService(
         db: db,
         auditoriaService: auditoriaService,
@@ -96,13 +102,16 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
       );
 
       if (configResult.isNotEmpty) {
-        final Map<String, dynamic> config = jsonDecode(configResult.first['valor'] as String);
+        final Map<String, dynamic> config = jsonDecode(
+          configResult.first['valor'] as String,
+        );
         setState(() {
           if (config.containsKey('smmlv')) {
             _smmlvConfig = (config['smmlv'] as num).toDouble();
           }
           if (config.containsKey('auxilio_transporte')) {
-            _auxilioTransporteConfig = (config['auxilio_transporte'] as num).toDouble();
+            _auxilioTransporteConfig = (config['auxilio_transporte'] as num)
+                .toDouble();
           }
         });
       }
@@ -177,10 +186,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Empleados',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Empleados'),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long),
             label: 'Nómina',
@@ -189,18 +195,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             icon: Icon(Icons.history),
             label: 'Retroactivos',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description),
-            label: 'PILA',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Config',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.schedule),
-            label: 'Extras',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.description), label: 'PILA'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Config'),
+          BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Extras'),
         ],
       ),
       floatingActionButton: _selectedIndex == 0
@@ -210,18 +207,18 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
               child: Icon(Icons.person_add),
             )
           : _selectedIndex == 1
-              ? FloatingActionButton(
-                  onPressed: _liquidarNomina,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Icon(Icons.calculate),
-                )
-              : _selectedIndex == 2
-                  ? FloatingActionButton(
-                      onPressed: _calcularRetroactivo,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Icon(Icons.add),
-                    )
-                  : null,
+          ? FloatingActionButton(
+              onPressed: _liquidarNomina,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.calculate),
+            )
+          : _selectedIndex == 2
+          ? FloatingActionButton(
+              onPressed: _calcularRetroactivo,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -319,7 +316,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             subtitle: Text('${liq.empleadoNombre} | Periodo: ${liq.periodo}'),
             trailing: Text(
               '${CurrencyFormatter.format(liq.netoPagar)}',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
             ),
             children: [
               Padding(
@@ -327,24 +327,48 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Salario Básico: ${CurrencyFormatter.format(liq.salarioBasico)}'),
-                    Text('Salario Devengado: ${CurrencyFormatter.format(liq.salarioDevengado)}'),
-                    Text('Auxilio Transporte: ${CurrencyFormatter.format(liq.auxilioTransporte)}'),
-                    Text('Horas Extra / Recargo Nocturno: ${CurrencyFormatter.format((liq.horasExtra + liq.recargoNocturno))}'),
+                    Text(
+                      'Salario Básico: ${CurrencyFormatter.format(liq.salarioBasico)}',
+                    ),
+                    Text(
+                      'Salario Devengado: ${CurrencyFormatter.format(liq.salarioDevengado)}',
+                    ),
+                    Text(
+                      'Auxilio Transporte: ${CurrencyFormatter.format(liq.auxilioTransporte)}',
+                    ),
+                    Text(
+                      'Horas Extra / Recargo Nocturno: ${CurrencyFormatter.format((liq.horasExtra + liq.recargoNocturno))}',
+                    ),
                     const Divider(),
-                    Text('Deducción Salud (8.5%): ${CurrencyFormatter.format(liq.salud)}'),
-                    Text('Deducción Pensión (12%): ${CurrencyFormatter.format(liq.pension)}'),
-                    Text('Deducción Solidaridad: ${CurrencyFormatter.format(liq.fondoSolidaridad)}'),
-                    Text('Riesgos Laborales: ${CurrencyFormatter.format(liq.riesgosLaborales)}'),
+                    Text(
+                      'Deducción Salud (8.5%): ${CurrencyFormatter.format(liq.salud)}',
+                    ),
+                    Text(
+                      'Deducción Pensión (12%): ${CurrencyFormatter.format(liq.pension)}',
+                    ),
+                    Text(
+                      'Deducción Solidaridad: ${CurrencyFormatter.format(liq.fondoSolidaridad)}',
+                    ),
+                    Text(
+                      'Riesgos Laborales: ${CurrencyFormatter.format(liq.riesgosLaborales)}',
+                    ),
                     const Divider(),
-                    Text('Aporte Caja Compensación: ${CurrencyFormatter.format(liq.cajaCompensacion)}'),
-                    Text('Aporte SENA / ICBF: ${CurrencyFormatter.format((liq.sena + liq.icbf))}'),
+                    Text(
+                      'Aporte Caja Compensación: ${CurrencyFormatter.format(liq.cajaCompensacion)}',
+                    ),
+                    Text(
+                      'Aporte SENA / ICBF: ${CurrencyFormatter.format((liq.sena + liq.icbf))}',
+                    ),
                     const Divider(),
                     Text(
                       'Neto a Pagar: ${CurrencyFormatter.format(liq.netoPagar)}',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
                     ),
-                    if (liq.observaciones != null && liq.observaciones!.isNotEmpty) ...[
+                    if (liq.observaciones != null &&
+                        liq.observaciones!.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(8),
@@ -360,7 +384,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                             Expanded(
                               child: Text(
                                 liq.observaciones!,
-                                style: TextStyle(fontSize: 11, color: Colors.brown),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.brown,
+                                ),
                               ),
                             ),
                           ],
@@ -369,7 +396,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                     ],
                   ],
                 ),
-              )
+              ),
             ],
           ),
         );
@@ -413,10 +440,14 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             title: Text(ret.numeroRetroactivo),
-            subtitle: Text('${ret.empleadoNombre} | Total: ${CurrencyFormatter.format(ret.valorTotal)}'),
+            subtitle: Text(
+              '${ret.empleadoNombre} | Total: ${CurrencyFormatter.format(ret.valorTotal)}',
+            ),
             trailing: Chip(
               label: Text(ret.estado.toString().split('.').last.toUpperCase()),
-              backgroundColor: ret.estado == EstadoRetroactivo.pagado ? Colors.green : Colors.orange,
+              backgroundColor: ret.estado == EstadoRetroactivo.pagado
+                  ? Colors.green
+                  : Colors.orange,
               labelStyle: const TextStyle(color: Colors.white, fontSize: 10),
             ),
             children: [
@@ -426,9 +457,15 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Motivo: ${ret.motivo}'),
-                    Text('Rango: ${DateFormatter.format(ret.fechaInicio)} a ${DateFormatter.format(ret.fechaFin)} (${ret.meses} meses)'),
-                    Text('Salario Anterior: ${CurrencyFormatter.format(ret.salarioAnterior)} | Nuevo: ${CurrencyFormatter.format(ret.salarioNuevo)}'),
-                    Text('Diferencia Mensual: ${CurrencyFormatter.format(ret.diferenciaMensual)}'),
+                    Text(
+                      'Rango: ${DateFormatter.format(ret.fechaInicio)} a ${DateFormatter.format(ret.fechaFin)} (${ret.meses} meses)',
+                    ),
+                    Text(
+                      'Salario Anterior: ${CurrencyFormatter.format(ret.salarioAnterior)} | Nuevo: ${CurrencyFormatter.format(ret.salarioNuevo)}',
+                    ),
+                    Text(
+                      'Diferencia Mensual: ${CurrencyFormatter.format(ret.diferenciaMensual)}',
+                    ),
                     if (ret.actoAdministrativo != null)
                       Text('Acto Administrativo: ${ret.actoAdministrativo}'),
                     const SizedBox(height: 12),
@@ -451,7 +488,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         );
@@ -524,7 +561,11 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
         children: [
           Text(
             'Planilla Integrada de Liquidación de Aportes (PILA)',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -553,16 +594,32 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             Text('Periodo: ${_pilaReporte!['periodo']}'),
             Text('Total Empleados: ${_pilaReporte!['total_empleados']}'),
             const SizedBox(height: 8),
-            Text('Aporte Salud: ${CurrencyFormatter.format((_pilaReporte!['total_salud'] as double))}'),
-            Text('Aporte Pensión: ${CurrencyFormatter.format((_pilaReporte!['total_pension'] as double))}'),
-            Text('Fondo Solidaridad: ${CurrencyFormatter.format((_pilaReporte!['total_fondo_solidaridad'] as double))}'),
-            Text('Riesgos Laborales: ${CurrencyFormatter.format((_pilaReporte!['total_riesgos_laborales'] as double))}'),
-            Text('Caja Compensación: ${CurrencyFormatter.format((_pilaReporte!['total_caja_compensacion'] as double))}'),
-            Text('SENA: ${CurrencyFormatter.format((_pilaReporte!['total_sena'] as double))} | ICBF: ${CurrencyFormatter.format((_pilaReporte!['total_icbf'] as double))}'),
+            Text(
+              'Aporte Salud: ${CurrencyFormatter.format((_pilaReporte!['total_salud'] as double))}',
+            ),
+            Text(
+              'Aporte Pensión: ${CurrencyFormatter.format((_pilaReporte!['total_pension'] as double))}',
+            ),
+            Text(
+              'Fondo Solidaridad: ${CurrencyFormatter.format((_pilaReporte!['total_fondo_solidaridad'] as double))}',
+            ),
+            Text(
+              'Riesgos Laborales: ${CurrencyFormatter.format((_pilaReporte!['total_riesgos_laborales'] as double))}',
+            ),
+            Text(
+              'Caja Compensación: ${CurrencyFormatter.format((_pilaReporte!['total_caja_compensacion'] as double))}',
+            ),
+            Text(
+              'SENA: ${CurrencyFormatter.format((_pilaReporte!['total_sena'] as double))} | ICBF: ${CurrencyFormatter.format((_pilaReporte!['total_icbf'] as double))}',
+            ),
             const Divider(),
             Text(
               'Gran Total Planilla: ${CurrencyFormatter.format((_pilaReporte!['gran_total'] as double))}',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+                fontSize: 16,
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -583,8 +640,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   label: const Text('Exportar Formato Plano'),
                 ),
               ],
-            )
-          ]
+            ),
+          ],
         ],
       ),
     );
@@ -592,8 +649,12 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
 
   Widget _buildConfiguracionTab() {
     final formKey = GlobalKey<FormState>();
-    final smmlvController = TextEditingController(text: _smmlvConfig.toString());
-    final auxilioController = TextEditingController(text: _auxilioTransporteConfig.toString());
+    final smmlvController = TextEditingController(
+      text: _smmlvConfig.toString(),
+    );
+    final auxilioController = TextEditingController(
+      text: _auxilioTransporteConfig.toString(),
+    );
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -604,7 +665,11 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           children: [
             Text(
               'Parámetros Legales de Nómina',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -614,16 +679,26 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             const Divider(height: 32),
             TextFormField(
               controller: smmlvController,
-              decoration: const InputDecoration(labelText: 'Salario Mínimo Legal Vigente (SMMLV)'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+              decoration: const InputDecoration(
+                labelText: 'Salario Mínimo Legal Vigente (SMMLV)',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Requerido' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: auxilioController,
-              decoration: const InputDecoration(labelText: 'Valor Mensual Auxilio de Transporte'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+              decoration: const InputDecoration(
+                labelText: 'Valor Mensual Auxilio de Transporte',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Requerido' : null,
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
@@ -634,7 +709,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                     final db = await DatabaseHelper.instance.database;
                     final valorJson = jsonEncode({
                       'smmlv': double.parse(smmlvController.text),
-                      'auxilio_transporte': double.parse(auxilioController.text),
+                      'auxilio_transporte': double.parse(
+                        auxilioController.text,
+                      ),
                     });
 
                     final existente = await db.query(
@@ -657,15 +734,19 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                         'configuracion_entidad',
                         {
                           'valor': valorJson,
-                          'fecha_actualizacion': DateTime.now().toIso8601String(),
+                          'fecha_actualizacion': DateTime.now()
+                              .toIso8601String(),
                           'actualizado_por': widget.usuarioId,
                         },
-                        where: 'entidad_id = ? AND parametro = ? AND vigente = 1',
+                        where:
+                            'entidad_id = ? AND parametro = ? AND vigente = 1',
                         whereArgs: [widget.entidadId, 'configuracion_legal'],
                       );
                     }
 
-                    _mostrarExito('Parámetros guardados y sincronizados correctamente');
+                    _mostrarExito(
+                      'Parámetros guardados y sincronizados correctamente',
+                    );
                     await _cargarConfiguracion();
                   } catch (e) {
                     _mostrarError('Error al guardar configuración: $e');
@@ -679,7 +760,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -702,6 +786,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
 
     TipoContrato contratoSeleccionado = TipoContrato.indefinido;
     TipoVinculacion vinculacionSeleccionada = TipoVinculacion.carrera;
+    RegimenNominaPublica regimenSeleccionado =
+        RegimenNominaPublica.carreraAdministrativa;
+    int claseRiesgoArl = 1;
     DateTime fechaIngreso = DateTime.now();
 
     showDialog(
@@ -717,29 +804,42 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                 children: [
                   TextFormField(
                     controller: identificacionController,
-                    decoration: const InputDecoration(labelText: 'Identificación NIT/CC'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Identificación NIT/CC',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: nombreController,
-                    decoration: const InputDecoration(labelText: 'Nombre Completo'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre Completo',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: cargoController,
                     decoration: const InputDecoration(labelText: 'Cargo'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: dependenciaController,
                     decoration: const InputDecoration(labelText: 'Dependencia'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   DropdownButtonFormField<TipoContrato>(
                     initialValue: contratoSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Tipo de Contrato'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de Contrato',
+                    ),
                     items: TipoContrato.values.map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t.toString().split('.').last));
+                      return DropdownMenuItem(
+                        value: t,
+                        child: Text(t.toString().split('.').last),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -749,9 +849,14 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   ),
                   DropdownButtonFormField<TipoVinculacion>(
                     initialValue: vinculacionSeleccionada,
-                    decoration: const InputDecoration(labelText: 'Tipo de Vinculación'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de Vinculación',
+                    ),
                     items: TipoVinculacion.values.map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t.toString().split('.').last));
+                      return DropdownMenuItem(
+                        value: t,
+                        child: Text(t.toString().split('.').last),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -759,17 +864,60 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                       }
                     },
                   ),
+                  DropdownButtonFormField<RegimenNominaPublica>(
+                    initialValue: regimenSeleccionado,
+                    decoration: const InputDecoration(
+                      labelText: 'Régimen de Nómina',
+                    ),
+                    items: RegimenNominaPublica.values.map((regimen) {
+                      return DropdownMenuItem(
+                        value: regimen,
+                        child: Text(regimen.toString().split('.').last),
+                      );
+                    }).toList(),
+                    onChanged: (valor) {
+                      if (valor != null) {
+                        setDialogState(() => regimenSeleccionado = valor);
+                      }
+                    },
+                  ),
+                  DropdownButtonFormField<int>(
+                    initialValue: claseRiesgoArl,
+                    decoration: const InputDecoration(
+                      labelText: 'Clase de Riesgo ARL',
+                    ),
+                    items: List.generate(5, (indice) => indice + 1)
+                        .map(
+                          (clase) => DropdownMenuItem(
+                            value: clase,
+                            child: Text('Clase $clase'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (valor) {
+                      if (valor != null) {
+                        setDialogState(() => claseRiesgoArl = valor);
+                      }
+                    },
+                  ),
                   TextFormField(
                     controller: salarioController,
-                    decoration: const InputDecoration(labelText: 'Salario Básico Mensual'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Salario Básico Mensual',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Fecha Ingreso: ${fechaIngreso.toString().split(' ')[0]}'),
+                      Text(
+                        'Fecha Ingreso: ${fechaIngreso.toString().split(' ')[0]}',
+                      ),
                       TextButton(
                         onPressed: () async {
                           final selected = await showDatePicker(
@@ -788,11 +936,15 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   ),
                   TextFormField(
                     controller: bancoController,
-                    decoration: const InputDecoration(labelText: 'Banco (Para Transferencia)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Banco (Para Transferencia)',
+                    ),
                   ),
                   TextFormField(
                     controller: cuentaController,
-                    decoration: const InputDecoration(labelText: 'Cuenta Bancaria'),
+                    decoration: const InputDecoration(
+                      labelText: 'Cuenta Bancaria',
+                    ),
                   ),
                   TextFormField(
                     controller: epsController,
@@ -800,7 +952,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   ),
                   TextFormField(
                     controller: pensionController,
-                    decoration: const InputDecoration(labelText: 'Fondo de Pensión'),
+                    decoration: const InputDecoration(
+                      labelText: 'Fondo de Pensión',
+                    ),
                   ),
                 ],
               ),
@@ -829,13 +983,23 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                       dependencia: dependenciaController.text,
                       tipoContrato: contratoSeleccionado,
                       tipoVinculacion: vinculacionSeleccionada,
+                      regimenNomina: regimenSeleccionado,
+                      claseRiesgoArl: claseRiesgoArl,
                       salarioBasico: double.parse(salarioController.text),
                       fechaIngreso: fechaIngreso,
                       activo: true,
-                      banco: bancoController.text.isEmpty ? null : bancoController.text,
-                      cuentaBancaria: cuentaController.text.isEmpty ? null : cuentaController.text,
-                      eps: epsController.text.isEmpty ? null : epsController.text,
-                      fondoPension: pensionController.text.isEmpty ? null : pensionController.text,
+                      banco: bancoController.text.isEmpty
+                          ? null
+                          : bancoController.text,
+                      cuentaBancaria: cuentaController.text.isEmpty
+                          ? null
+                          : cuentaController.text,
+                      eps: epsController.text.isEmpty
+                          ? null
+                          : epsController.text,
+                      fondoPension: pensionController.text.isEmpty
+                          ? null
+                          : pensionController.text,
                     );
 
                     await db.insert('empleados_sp', emp.toJson());
@@ -868,7 +1032,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
     }
 
     final formKey = GlobalKey<FormState>();
-    final periodoController = TextEditingController(text: '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}');
+    final periodoController = TextEditingController(
+      text:
+          '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}',
+    );
     final diasController = TextEditingController(text: '30');
     final horasExtraController = TextEditingController(text: '0.0');
     final recargoController = TextEditingController(text: '0.0');
@@ -889,7 +1056,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                     initialValue: empleadoSeleccionado,
                     decoration: const InputDecoration(labelText: 'Empleado'),
                     items: _empleados.where((e) => e.activo).map((e) {
-                      return DropdownMenuItem(value: e, child: Text(e.nombreCompleto));
+                      return DropdownMenuItem(
+                        value: e,
+                        child: Text(e.nombreCompleto),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       setDialogState(() => empleadoSeleccionado = val);
@@ -898,24 +1068,38 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   ),
                   TextFormField(
                     controller: periodoController,
-                    decoration: const InputDecoration(labelText: 'Periodo (YYYY-MM)'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Periodo (YYYY-MM)',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: diasController,
-                    decoration: const InputDecoration(labelText: 'Días Trabajados (1-30)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Días Trabajados (1-30)',
+                    ),
                     keyboardType: TextInputType.number,
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: horasExtraController,
-                    decoration: const InputDecoration(labelText: 'Horas Extra (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Horas Extra (\$)',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                   ),
                   TextFormField(
                     controller: recargoController,
-                    decoration: const InputDecoration(labelText: 'Recargo Nocturno (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Recargo Nocturno (\$)',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                   ),
                 ],
               ),
@@ -928,7 +1112,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (formKey.currentState!.validate() && empleadoSeleccionado != null) {
+                if (formKey.currentState!.validate() &&
+                    empleadoSeleccionado != null) {
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
@@ -993,13 +1178,17 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                     initialValue: empleadoSeleccionado,
                     decoration: const InputDecoration(labelText: 'Empleado'),
                     items: _empleados.map((e) {
-                      return DropdownMenuItem(value: e, child: Text(e.nombreCompleto));
+                      return DropdownMenuItem(
+                        value: e,
+                        child: Text(e.nombreCompleto),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       setDialogState(() {
                         empleadoSeleccionado = val;
                         if (val != null) {
-                          anteriorSalarioController.text = val.salarioBasico.toString();
+                          anteriorSalarioController.text = val.salarioBasico
+                              .toString();
                         }
                       });
                     },
@@ -1007,9 +1196,14 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   ),
                   DropdownButtonFormField<TipoRetroactivo>(
                     initialValue: tipoSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Tipo de Retroactivo'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de Retroactivo',
+                    ),
                     items: TipoRetroactivo.values.map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t.toString().split('.').last));
+                      return DropdownMenuItem(
+                        value: t,
+                        child: Text(t.toString().split('.').last),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -1019,20 +1213,33 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   ),
                   TextFormField(
                     controller: motivoController,
-                    decoration: const InputDecoration(labelText: 'Motivo / Justificación del Ajuste'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Motivo / Justificación del Ajuste',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: anteriorSalarioController,
-                    decoration: const InputDecoration(labelText: 'Salario Anterior Mensual'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Salario Anterior Mensual',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: nuevoSalarioController,
-                    decoration: const InputDecoration(labelText: 'Nuevo Salario Mensual'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Nuevo Salario Mensual',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1086,7 +1293,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (formKey.currentState!.validate() && empleadoSeleccionado != null) {
+                if (formKey.currentState!.validate() &&
+                    empleadoSeleccionado != null) {
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
@@ -1097,7 +1305,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                       motivo: motivoController.text,
                       fechaInicio: fechaInicio,
                       fechaFin: fechaFin,
-                      salarioAnterior: double.parse(anteriorSalarioController.text),
+                      salarioAnterior: double.parse(
+                        anteriorSalarioController.text,
+                      ),
                       salarioNuevo: double.parse(nuevoSalarioController.text),
                       tipoRetroactivo: tipoSeleccionado,
                     );
@@ -1136,12 +1346,17 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Empleado: ${ret.empleadoNombre}'),
-              Text('Total a Pagar: ${CurrencyFormatter.format(ret.valorTotal)}'),
+              Text(
+                'Total a Pagar: ${CurrencyFormatter.format(ret.valorTotal)}',
+              ),
               const Divider(),
               TextFormField(
                 controller: actoController,
-                decoration: const InputDecoration(labelText: 'Acto Administrativo (Decreto / Resolución #)'),
-                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Acto Administrativo (Decreto / Resolución #)',
+                ),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
               ),
             ],
           ),
@@ -1185,7 +1400,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
 
   void _registrarPagoRetroactivo(Retroactivo ret) {
     final formKey = GlobalKey<FormState>();
-    final montoController = TextEditingController(text: ret.saldoPendiente.toString());
+    final montoController = TextEditingController(
+      text: ret.saldoPendiente.toString(),
+    );
 
     showDialog(
       context: context,
@@ -1197,13 +1414,18 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Empleado: ${ret.empleadoNombre}'),
-              Text('Saldo Pendiente: ${CurrencyFormatter.format(ret.saldoPendiente)}'),
+              Text(
+                'Saldo Pendiente: ${CurrencyFormatter.format(ret.saldoPendiente)}',
+              ),
               const Divider(),
               TextFormField(
                 controller: montoController,
                 decoration: const InputDecoration(labelText: 'Monto de Pago'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
               ),
             ],
           ),
@@ -1247,7 +1469,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
 
   void _generarReportePILA() {
     final formKey = GlobalKey<FormState>();
-    final periodoController = TextEditingController(text: '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}');
+    final periodoController = TextEditingController(
+      text:
+          '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}',
+    );
 
     showDialog(
       context: context,
@@ -1258,7 +1483,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           child: TextFormField(
             controller: periodoController,
             decoration: const InputDecoration(labelText: 'Periodo (YYYY-MM)'),
-            validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+            validator: (value) =>
+                value == null || value.isEmpty ? 'Requerido' : null,
           ),
         ),
         actions: [
@@ -1301,7 +1527,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
 
   void _enviarOperadorPILA() {
     if (_pilaReporte == null) return;
-    
+
     final formKey = GlobalKey<FormState>();
     final nitController = TextEditingController();
 
@@ -1314,12 +1540,17 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Se transmitirá la planilla al operador de información gubernamental.'),
+              const Text(
+                'Se transmitirá la planilla al operador de información gubernamental.',
+              ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: nitController,
-                decoration: const InputDecoration(labelText: 'NIT de la Entidad'),
-                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'NIT de la Entidad',
+                ),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
               ),
             ],
           ),
@@ -1341,7 +1572,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                     periodo: _pilaReporte!['periodo'] as String,
                     nitEntidad: nitController.text,
                   );
-                  _mostrarExito('Planilla PILA enviada y radicada con el operador exitosamente');
+                  _mostrarExito(
+                    'Planilla PILA enviada y radicada con el operador exitosamente',
+                  );
                 } catch (e) {
                   _mostrarError('Error al enviar: $e');
                 } finally {

@@ -15,10 +15,26 @@ class NominaService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  NominaService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  NominaService({required this.db, required this.auditoriaService});
+
+  // Fuentes vigentes al 01-08-2026: MinSalud, aseguramiento al SGSSS
+  // (12.5% salud: 8.5% empleador/4% trabajador; 16% pension:
+  // 12%/4%); Decreto 1772/1994, art. 13 (ARL por clase); Ley 21/1982
+  // y Ley 89/1988 (caja 4%, SENA 2%, ICBF 3%).
+  static const double _saludPatronal = 0.085;
+  static const double _saludTrabajador = 0.04;
+  static const double _pensionPatronal = 0.12;
+  static const double _pensionTrabajador = 0.04;
+  static const double _cajaCompensacion = 0.04;
+  static const double _sena = 0.02;
+  static const double _icbf = 0.03;
+  static const Map<int, double> _tarifasArl = {
+    1: 0.00522,
+    2: 0.01044,
+    3: 0.02436,
+    4: 0.0435,
+    5: 0.0696,
+  };
 
   /// Liquida nómina para un empleado
   Future<LiquidacionNomina> liquidarNomina({
@@ -49,20 +65,24 @@ class NominaService {
       whereArgs: [entidadId, 'configuracion_legal'],
     );
 
-    double smmlv = 1300000.0; // Default SMMLV
-    double auxilioTransporteConfig = 162000.0; // Default Auxilio de Transporte
+    // Decreto 1469/2025 y Decreto 1470/2025, vigencia 2026.
+    double smmlv = 1750905.0;
+    double auxilioTransporteConfig = 249095.0;
     bool configPorDefecto = true;
 
     if (configResult.isNotEmpty) {
       try {
-        final Map<String, dynamic> config = jsonDecode(configResult.first['valor'] as String);
+        final Map<String, dynamic> config = jsonDecode(
+          configResult.first['valor'] as String,
+        );
         bool hasSmmlv = config.containsKey('smmlv');
         bool hasAux = config.containsKey('auxilio_transporte');
         if (hasSmmlv) {
           smmlv = (config['smmlv'] as num).toDouble();
         }
         if (hasAux) {
-          auxilioTransporteConfig = (config['auxilio_transporte'] as num).toDouble();
+          auxilioTransporteConfig = (config['auxilio_transporte'] as num)
+              .toDouble();
         }
         if (hasSmmlv && hasAux) {
           configPorDefecto = false;
@@ -88,30 +108,55 @@ class NominaService {
       recNoct: recargoNocturno ?? 0.0,
     );
 
-    final baseAportes = totalDevengado;
-    final salud = baseAportes * 0.085; // 8.5%
-    final pension = baseAportes * 0.12; // 12%
+    // El auxilio de transporte no integra el IBC. Horas extra y recargos si
+    // constituyen salario; los componentes no salariales deben venir ya
+    // identificados por el acto o convencion aplicable a cada regimen.
+    final baseAportes =
+        salarioDevengado + (horasExtra ?? 0) + (recargoNocturno ?? 0);
+    final salud = baseAportes * _saludPatronal;
+    final pension = baseAportes * _pensionPatronal;
     final fondoSolidaridad = _calcularFondoSolidaridad(baseAportes, smmlv);
-    
-    // Riesgos Laborales (ARL): Clase V (6.96%) como default conservador por falta de clase_riesgo en Empleado.
-    final riesgosLaborales = baseAportes * 0.0696; 
-    
-    final cajaCompensacion = baseAportes * 0.04; // 4%
-    final sena = baseAportes * 0.02; // 2%
-    final icbf = baseAportes * 0.03; // 3%
+    final tarifaArl = _tarifasArl[empleado.claseRiesgoArl];
+    if (tarifaArl == null) {
+      throw ArgumentError.value(
+        empleado.claseRiesgoArl,
+        'claseRiesgoArl',
+        'Debe estar entre I y V',
+      );
+    }
+    final riesgosLaborales = baseAportes * tarifaArl;
 
-    final totalAportes = salud + pension + fondoSolidaridad + riesgosLaborales + 
-                         cajaCompensacion + sena + icbf;
-    final netoPagar = totalDevengado - salud - pension - fondoSolidaridad - riesgosLaborales;
+    final cajaCompensacion = baseAportes * _cajaCompensacion;
+    final sena = baseAportes * _sena;
+    final icbf = baseAportes * _icbf;
+
+    final totalAportes =
+        salud +
+        pension +
+        fondoSolidaridad +
+        riesgosLaborales +
+        cajaCompensacion +
+        sena +
+        icbf;
+    final descuentosTrabajador =
+        (baseAportes * _saludTrabajador) +
+        (baseAportes * _pensionTrabajador) +
+        fondoSolidaridad;
+    final netoPagar = totalDevengado - descuentosTrabajador;
 
     final id = _uuid.v4();
     final numeroLiquidacion = 'LN-$periodo-${_generarNumeroSecuencial()}';
     final fechaLiquidacion = DateTime.now();
 
     final warnings = <String>[];
-    warnings.add('Advertencia: Tarifa ARL calculada al 6.96% (Clase V) por defecto. Falta clase de riesgo en registro del empleado.');
+    warnings.add(
+      'ARL clase ${empleado.claseRiesgoArl}: ${(tarifaArl * 100).toStringAsFixed(3)}% (Decreto 1772/1994).',
+    );
+    warnings.add(_descripcionRegimen(empleado.regimenNomina));
     if (configPorDefecto) {
-      warnings.add('Advertencia: SMMLV/auxilio de transporte por defecto. Falta configuración real de la entidad.');
+      warnings.add(
+        'Advertencia: SMMLV/auxilio de transporte por defecto. Falta configuración real de la entidad.',
+      );
     }
     final observacionesStr = warnings.join(' | ');
 
@@ -193,10 +238,29 @@ class NominaService {
       return base * 0.0; // 0%
     } else if (base <= (smmlv * 16)) {
       return base * 0.01; // 1%
-    } else if (base <= (smmlv * 17)) {
-      return base * 0.015; // 1.5%
-    } else {
-      return base * 0.02; // 2%
+    }
+    // Ley 797/2003, art. 7: 1% base mas aporte adicional gradual desde 16 SMMLV.
+    if (base <= (smmlv * 17)) return base * 0.012;
+    if (base <= (smmlv * 18)) return base * 0.014;
+    if (base <= (smmlv * 19)) return base * 0.016;
+    if (base <= (smmlv * 20)) return base * 0.018;
+    return base * 0.02;
+  }
+
+  String _descripcionRegimen(RegimenNominaPublica regimen) {
+    switch (regimen) {
+      case RegimenNominaPublica.carreraAdministrativa:
+        return 'Regimen de carrera administrativa (Ley 909/2004): IBC ordinario.';
+      case RegimenNominaPublica.libreNombramientoRemocion:
+        return 'Regimen de libre nombramiento y remocion (Ley 909/2004): IBC ordinario.';
+      case RegimenNominaPublica.trabajadorOficial:
+        return 'Trabajador oficial: factores adicionales deben provenir de contrato o convencion colectiva.';
+      case RegimenNominaPublica.docenteTerritorial:
+        return 'Docente territorial: escalafon y prestaciones se gestionan por Decreto 1278/2002.';
+      case RegimenNominaPublica.saludEse:
+        return 'ESE salud: clasificacion de empleo conforme a Ley 10/1990; IBC ordinario.';
+      case RegimenNominaPublica.judicialFiscalia:
+        return 'Rama Judicial/Fiscalia: escala y factores se cargan segun decreto salarial anual aplicable.';
     }
   }
 
