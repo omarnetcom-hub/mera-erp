@@ -2,6 +2,8 @@
 /// Formularios CGN 2015_001 a 005 y CGN 2016C01
 library;
 
+import 'dart:convert';
+
 enum TipoFormularioCHIP {
   cgn2015_001, // Información de la entidad
   cgn2015_002, // Ingresos y gastos
@@ -44,7 +46,11 @@ class ReporteCHIP {
       vigencia: json['vigencia'] as String,
       fechaGeneracion: DateTime.parse(json['fecha_generacion'] as String),
       usuarioGenero: json['usuario_genero'] as String,
-      datos: json['datos'] as Map<String, dynamic>,
+      datos: json['datos'] is String
+          ? Map<String, dynamic>.from(
+              jsonDecode(json['datos'] as String) as Map,
+            )
+          : Map<String, dynamic>.from(json['datos'] as Map),
       estado: json['estado'] as String,
       observaciones: json['observaciones'] as String?,
     );
@@ -58,7 +64,7 @@ class ReporteCHIP {
       'vigencia': vigencia,
       'fecha_generacion': fechaGeneracion.toIso8601String(),
       'usuario_genero': usuarioGenero,
-      'datos': datos,
+      'datos': jsonEncode(datos),
       'estado': estado,
       'observaciones': observaciones,
     };

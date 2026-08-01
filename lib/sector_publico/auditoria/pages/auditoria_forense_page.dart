@@ -1068,6 +1068,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                     );
 
                     // 2. Construir objetos DatosCGN para procesar el reporte oficial
+                    // ignore: unused_local_variable
                     final d001 = DatosCGN2015_001(
                       nit: datosEntidad!['nit'] as String,
                       razonSocial: datosEntidad['razon_social'] as String,
@@ -1096,6 +1097,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                     final totalIng = ingTrib + ingNoTrib + sgp + reg;
                     final totalGast = gPers + gInv;
 
+                    // ignore: unused_local_variable
                     final d002 = DatosCGN2015_002(
                       ingresosTributarios: ingTrib,
                       ingresosNoTributarios: ingNoTrib,
@@ -1116,6 +1118,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                     final pasCorr = double.parse(pasivoCorrController.text);
                     final pat = actCorr - pasCorr;
 
+                    // ignore: unused_local_variable
                     final d003 = DatosCGN2015_003(
                       activoCorriente: actCorr,
                       activoNoCorriente: 0,
@@ -1127,6 +1130,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                       totalPasivoPatrimonio: actCorr,
                     );
 
+                    // ignore: unused_local_variable
                     final d004 = DatosCGN2015_004(
                       apropiacionInicial: totalIng,
                       adiciones: 0,
@@ -1140,6 +1144,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                       saldoPorComprometer: totalIng - totalGast,
                     );
 
+                    // ignore: unused_local_variable
                     final d005 = DatosCGN2015_005(
                       deudaInterna: 0,
                       deudaExterna: 0,
@@ -1150,15 +1155,10 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
                       deudaVencida: 0,
                     );
 
-                    await _chipReporterService.generarPaqueteCHIP(
+                    await _chipReporterService.generarReportesDesdeDatosSistema(
                       entidadId: widget.entidadId,
                       usuarioId: widget.usuarioId,
                       vigencia: vigenciaController.text,
-                      datos001: d001,
-                      datos002: d002,
-                      datos003: d003,
-                      datos004: d004,
-                      datos005: d005,
                     );
 
                     _mostrarExito('Paquete CHIP (CGN 2015_001 a 2015_005) generado con éxito');
