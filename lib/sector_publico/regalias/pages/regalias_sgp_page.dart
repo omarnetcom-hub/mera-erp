@@ -78,8 +78,11 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
   }
 
   Future<void> _cargarDatos() async {
-    if (_regaliasService == null || _sgpService == null || _spgrService == null)
+    if (_regaliasService == null ||
+        _sgpService == null ||
+        _spgrService == null) {
       return;
+    }
     try {
       final regalias = await _regaliasService!.consultarRegalias(
         entidadId: widget.entidadId,
@@ -456,8 +459,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null)
+                    if (val != null) {
                       setDialogState(() => tipoSeleccionado = val);
+                    }
                   },
                 ),
                 TextField(
@@ -504,8 +508,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     municipioCtrl.text.isEmpty ||
                     departamentoCtrl.text.isEmpty ||
                     valorCtrl.text.isEmpty ||
-                    vigenciaCtrl.text.isEmpty)
+                    vigenciaCtrl.text.isEmpty) {
                   return;
+                }
                 try {
                   await _regaliasService!.estimarRegalia(
                     entidadId: widget.entidadId,
@@ -581,8 +586,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null)
+                    if (val != null) {
                       setDialogState(() => tipoSeleccionado = val);
+                    }
                   },
                 ),
                 TextField(
@@ -629,8 +635,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     municipioCtrl.text.isEmpty ||
                     departamentoCtrl.text.isEmpty ||
                     valorCtrl.text.isEmpty ||
-                    vigenciaCtrl.text.isEmpty)
+                    vigenciaCtrl.text.isEmpty) {
                   return;
+                }
                 try {
                   await _sgpService!.asignarSGP(
                     entidadId: widget.entidadId,
@@ -801,8 +808,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null)
+                    if (val != null) {
                       setDialogState(() => tipoSeleccionado = val);
+                    }
                   },
                 ),
                 TextField(
@@ -847,8 +855,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     montoAprobadoCtrl.text.isEmpty ||
                     actaCtrl.text.isEmpty ||
                     fuenteCtrl.text.isEmpty ||
-                    ejecutoraCtrl.text.isEmpty)
+                    ejecutoraCtrl.text.isEmpty) {
                   return;
+                }
                 try {
                   await _spgrService!.crearProyectoOCAD(
                     entidadId: widget.entidadId,
@@ -1061,8 +1070,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                   ),
                 ],
                 onChanged: (val) {
-                  if (val != null)
+                  if (val != null) {
                     setDialogState(() => sectorSeleccionado = val);
+                  }
                 },
               ),
             ],
