@@ -245,7 +245,7 @@ warning - The value of the local variable 'contabilidadService' isn't used - tes
 
 ### Cierre de la subtarea R
 
-Estado: **Parcial implementado**. RIPS cambia a JSON estructurado y valida contra un subconjunto oficial local; queda pendiente solamente la ampliacion de catalogos, el modelado exhaustivo de los seis tipos y la validacion/transmision MUV que depende de credenciales de cada entidad. Commit: pendiente de crear al momento de esta anotacion.
+Estado: **Parcial implementado**. RIPS cambia a JSON estructurado y valida contra un subconjunto oficial local; queda pendiente solamente la ampliacion de catalogos, el modelado exhaustivo de los seis tipos y la validacion/transmision MUV que depende de credenciales de cada entidad. Commit: `b330362` (enmendado a continuacion para fijar este hash en el log).
 
 ## Subtarea L - Planeacion y Banco de Proyectos (MGA/PDT)
 
