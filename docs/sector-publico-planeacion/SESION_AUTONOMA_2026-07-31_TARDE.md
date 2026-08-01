@@ -40,6 +40,22 @@ Built build\windows\x64\runner\Release\MerkaERP.exe
 
 Estado: **Pendiente - REQUIERE DECISION HUMANA DE DISENO Y CARGA DE DATOS**. No se implemento codigo porque no existe una relacion persistida y auditable entre rubro, proyecto, meta y avance fisico. Commit: pendiente de crear al momento de esta anotacion.
 
+## Subtarea P - SGR y SGP: bloqueos duros entre componentes
+
+### Hallazgo y decision conservadora
+
+El modelo SGP conserva `tipo_participacion` por asignacion y saldo por `sgpId`; `registrarEjecucion` solo recibe ese identificador y monto. `ValidacionDistribucionService.validarDistribucionSGP` valida porcentajes de entrada y no se conecta a compromisos, rubros ni pagos. En consecuencia, no existe la informacion necesaria para distinguir ni bloquear una ejecucion de educacion pagada con salud: imponerlo ahora bloquearia por una etiqueta sin trazabilidad financiera.
+
+El almacenamiento SGR si esta separado del presupuesto ordinario: `bienios_sgr`, `regalias` y `proyectos_ocad` son tablas propias. Pero `proyectos_ocad` no guarda acta de aprobacion, fuente de financiacion ni entidad ejecutora, y no hay enlace al flujo SGR CDP-RP-obligacion-pago.
+
+### Diseno requerido
+
+Agregar una asignacion fuente-componente-rubro vigente por bienio y propagar su identificador al CDP/RP/obligacion/pago SGR; el bloqueo se aplicaria al comparar componente de la fuente con el del rubro. Para OCAD se requieren acto/acta, fecha, fuente(s), ejecutor y soporte, sin completar datos existentes de forma inventada.
+
+### Cierre de la subtarea P
+
+Estado: **Pendiente - REQUIERE DECISION HUMANA DE CLASIFICACION Y MIGRACION**. No se implemento bloqueo duro sin una relacion fuente-rubro verificable. Commit: pendiente de crear al momento de esta anotacion.
+
 ## Subtarea O - Salud publica: RIPS y facturacion EPS
 
 ### Hallazgo y decision conservadora

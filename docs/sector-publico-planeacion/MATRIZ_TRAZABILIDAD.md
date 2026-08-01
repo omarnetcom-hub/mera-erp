@@ -115,8 +115,8 @@ Resumen M8: 0 Completos / 4 Parciales / 1 Pendiente.
 
 | Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
 |---|---|---|---|---|
-| Proyectos OCAD, actas y ejecutor | `regalias/models/proyecto_ocad.dart`; `services/regalias_service.dart` | Ninguno identificado especifico de OCAD | Inspeccion de codigo. | Parcial - falta prueba de vinculacion MGA/OCAD y trazabilidad de ejecutor. |
-| Presupuesto bienal y ejecucion SGR separada | `models/bienio_sgr.dart`; `models/regalia.dart`; `services/regalias_service.dart` | `test/sector_publico/regalias/spgr_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta certificacion del flujo CDP-RP-Obligacion-Pago SGR. |
+| Proyectos OCAD, actas y ejecutor | `regalias/models/proyecto_ocad.dart`; `services/regalias_service.dart`; `regalias/database/schema_regalias.dart` | Ninguno identificado especifico de OCAD | Inspeccion: `proyectos_ocad` guarda MGA/BPIN, bienio y fecha/monto aprobados, pero no contiene acta aprobatoria, fuente de financiacion ni ejecutor. | Parcial - faltan esos datos trazables y prueba de vinculacion MGA/OCAD. |
+| Presupuesto bienal y ejecucion SGR separada | `models/bienio_sgr.dart`; `models/regalia.dart`; `services/regalias_service.dart`; `regalias/database/schema_regalias.dart` | `test/sector_publico/regalias/spgr_service_test.dart` (inspeccion) | Inspeccion: `bienios_sgr`, `regalias` y `proyectos_ocad` son tablas separadas de `apropiaciones`; no obstante no existe enlace al flujo SGR CDP-RP-obligacion-pago. | Parcial - existe separacion de almacenamiento, falta certificacion del flujo y controles presupuestales SGR. |
 | Rendimientos financieros reinvertidos | No se identifico validacion especifica | Ninguno identificado | Inspeccion de codigo. | Pendiente - falta control obligatorio de reinversion. |
 | Reporte de programacion, ejecucion y giro SPGR/SMSCE | `services/spgr_service.dart`; `models/reporte_spgr.dart` | `spgr_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - no hay evidencia de interoperabilidad DNP real. |
 
@@ -126,12 +126,12 @@ Resumen M9: 0 Completos / 3 Parciales / 1 Pendiente.
 
 | Requisito (del plan v1.1) | Archivo(s) que lo implementan | Test que lo cubre | Evidencia (comando + resultado, si lo corriste) | Estado |
 |---|---|---|---|---|
-| Componentes SGP: educacion, salud, agua y proposito general | `regalias/models/sgp.dart`; `services/sgp_service.dart` | Ninguno identificado para componentes SGP | Inspeccion de codigo; `sicodis_service_test.dart` cubre certificacion/exportacion, no los cuatro componentes. | Parcial - falta verificar reglas completas por componente. |
-| Destinacion especifica: bloquear cruce de recursos | `services/validacion_distribucion_service.dart`; `sgp_service.dart` | Ninguno identificado para la validacion | Inspeccion de codigo. | Parcial - falta prueba de bloqueo presupuestal intersectorial. |
+| Componentes SGP: educacion, salud, agua y proposito general | `regalias/models/sgp.dart`; `services/sgp_service.dart` | Ninguno identificado para componentes SGP | Inspeccion: cada asignacion tiene `tipo_participacion`, pero no existe modelo de proposito general enlazado a gasto/rubro. | Parcial - falta verificar reglas completas por componente. |
+| Destinacion especifica: bloquear cruce de recursos | `services/validacion_distribucion_service.dart`; `sgp_service.dart` | Ninguno identificado para la validacion | Inspeccion: el servicio valida porcentajes declarados y `registrarEjecucion` solo descuenta el saldo del `sgpId`; no recibe destino, rubro o componente contra el cual bloquear cruces. | Pendiente - requiere relacion auditable entre recurso SGP, componente y rubro/compromiso antes de imponer un bloqueo duro. |
 | Nomina docente y escalafon | `nomina/services/regimen_docente_service.dart` | Ninguno identificado | Inspeccion de codigo. | Parcial - servicio aislado; falta integracion con SGP y prueba. |
 | FUT y reporte SICODIS | `services/sicodis_service.dart`; `models/reporte_sicodis.dart` | `sicodis_service_test.dart` (inspeccion) | Inspeccion de codigo/test. | Parcial - falta evidencia ejecutada y validacion contra SICODIS. |
 
-Resumen M10: 0 Completos / 4 Parciales / 0 Pendientes.
+Resumen M10: 0 Completos / 3 Parciales / 1 Pendiente.
 
 ## 11. Transparencia Proactiva y Control Disciplinario
 
@@ -158,9 +158,9 @@ Resumen M11: 0 Completos / 3 Parciales / 2 Pendientes.
 | M7 Seguridad y Rendicion | 1 | 4 | 0 | Inmutabilidad SQLite probada; reportes regulatorios aun parciales. |
 | M8 Salud | 0 | 4 | 1 | Falta interoperabilidad ADRES/EPS y validacion RIPS completa. |
 | M9 SGR | 0 | 3 | 1 | Falta control de reinversion e interoperabilidad DNP real. |
-| M10 SGP | 0 | 4 | 0 | Falta bloqueo certificado de destinacion y SICODIS validado. |
+| M10 SGP | 0 | 3 | 1 | Falta modelo de destinacion para bloqueo y SICODIS validado. |
 | M11 Transparencia | 0 | 3 | 2 | Falta publicacion verificable y enlace disciplinario/SID. |
-| **Total** | **1** | **49** | **8** | **No hay macro-sistema completo como unidad operativa.** |
+| **Total** | **1** | **48** | **9** | **No hay macro-sistema completo como unidad operativa.** |
 
 ## Brechas criticas priorizadas
 
