@@ -234,7 +234,7 @@ warning - The value of the local variable 'contabilidadService' isn't used - tes
 
 ### Cierre de la subtarea S
 
-Estado: parcial implementado y verificado. El commit de implementacion queda pendiente de registrar aqui hasta que Git asigne el hash; ninguna tarifa o escala propia de entidad fue inventada.
+Estado: parcial implementado y verificado. Commit de implementacion: `312c872 feat(nomina): corregir aportes 2026 y modelar seis regimenes publicos`. Ninguna tarifa o escala propia de entidad fue inventada.
 
 
 
