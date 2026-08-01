@@ -95,7 +95,9 @@ class DatabaseHelper {
     return _database!;
   }
 
-  Future<void> _crearTablasYTriggersDeSincronizacion(DatabaseExecutor db) async {
+  Future<void> _crearTablasYTriggersDeSincronizacion(
+    DatabaseExecutor db,
+  ) async {
     // 1. Crear tabla local_changes si no existe
     await db.execute('''
       CREATE TABLE IF NOT EXISTS local_changes (
@@ -328,7 +330,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 68,
+      version: 69,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -338,10 +340,15 @@ class DatabaseHelper {
   }
 
   @visibleForTesting
-  Future<void> crearDBForTesting(Database db, int version) => _crearDB(db, version);
+  Future<void> crearDBForTesting(Database db, int version) =>
+      _crearDB(db, version);
 
   @visibleForTesting
-  Future<void> migrarDBForTesting(Database db, int oldVersion, int newVersion) => _migrarDB(db, oldVersion, newVersion);
+  Future<void> migrarDBForTesting(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) => _migrarDB(db, oldVersion, newVersion);
 
   Future<void> _migrarDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 49) {
@@ -364,7 +371,7 @@ class DatabaseHelper {
         'ip_address',
         'TEXT',
       );
-      
+
       // Crear tabla control_center_sync_queue
       await db.execute('''
         CREATE TABLE IF NOT EXISTS control_center_sync_queue(
@@ -378,21 +385,21 @@ class DatabaseHelper {
         )
       ''');
     }
-    
+
     if (oldVersion < 50) {
       // Configurar endpoint del Control Center por defecto
       await db.insert('app_config', {
         'clave': 'control_center_endpoint',
         'valor': 'http://localhost:3000',
       }, conflictAlgorithm: ConflictAlgorithm.replace);
-      
+
       // Configurar installation_id por defecto
       await db.insert('app_config', {
         'clave': 'control_center_installation_id',
         'valor': 'MERKA-LOCAL-001',
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    
+
     if (oldVersion < 51) {
       // Crear tabla warranties si no existe
       await db.execute('''
@@ -414,7 +421,7 @@ class DatabaseHelper {
           customer_name TEXT
         )
       ''');
-      
+
       // Crear tabla commissions
       await db.execute('''
         CREATE TABLE IF NOT EXISTS commissions(
@@ -433,7 +440,7 @@ class DatabaseHelper {
           FOREIGN KEY (venta_id) REFERENCES ventas(id)
         )
       ''');
-      
+
       // Crear tabla document_templates
       await db.execute('''
         CREATE TABLE IF NOT EXISTS document_templates(
@@ -448,7 +455,7 @@ class DatabaseHelper {
           updated_at TEXT
         )
       ''');
-      
+
       // Crear tabla webhooks si no existe
       await db.execute('''
         CREATE TABLE IF NOT EXISTS webhooks(
@@ -460,7 +467,7 @@ class DatabaseHelper {
           created_at TEXT NOT NULL
         )
       ''');
-      
+
       // Crear tabla currencies si no existe
       await db.execute('''
         CREATE TABLE IF NOT EXISTS currencies(
@@ -472,7 +479,7 @@ class DatabaseHelper {
         )
       ''');
     }
-    
+
     if (oldVersion < 52) {
       // Crear tabla warranty_claims
       await db.execute('''
@@ -487,7 +494,7 @@ class DatabaseHelper {
           FOREIGN KEY (warranty_id) REFERENCES warranties(id)
         )
       ''');
-      
+
       // Crear tabla commission_rules
       await db.execute('''
         CREATE TABLE IF NOT EXISTS commission_rules(
@@ -500,7 +507,7 @@ class DatabaseHelper {
           updated_at TEXT
         )
       ''');
-      
+
       // Agregar columna is_default a currencies si no existe
       await _agregarColumnaSiNoExiste(
         db,
@@ -509,22 +516,17 @@ class DatabaseHelper {
         'INTEGER NOT NULL DEFAULT 0',
       );
     }
-    
+
     if (oldVersion < 53) {
       // Agregar columnas faltantes a warranties
-      await _agregarColumnaSiNoExiste(
-        db,
-        'warranties',
-        'product_name',
-        'TEXT',
-      );
+      await _agregarColumnaSiNoExiste(db, 'warranties', 'product_name', 'TEXT');
       await _agregarColumnaSiNoExiste(
         db,
         'warranties',
         'customer_name',
         'TEXT',
       );
-      
+
       // Agregar columna faltante a commissions
       await _agregarColumnaSiNoExiste(
         db,
@@ -533,7 +535,7 @@ class DatabaseHelper {
         'REAL NOT NULL DEFAULT 0',
       );
     }
-    
+
     if (oldVersion < 54) {
       // Crear tabla tax_parameters
       await db.execute('''
@@ -552,7 +554,7 @@ class DatabaseHelper {
         )
       ''');
     }
-    
+
     if (oldVersion < 55) {
       // Agregar columna status a lotes si no existe
       await _agregarColumnaSiNoExiste(
@@ -562,7 +564,7 @@ class DatabaseHelper {
         'TEXT NOT NULL DEFAULT "active"',
       );
     }
-    
+
     if (oldVersion < 56) {
       // Agregar columnas costo_anterior y costo_nuevo a movimientos_inventario
       await _agregarColumnaSiNoExiste(
@@ -578,32 +580,122 @@ class DatabaseHelper {
         'REAL',
       );
     }
-    
+
     if (oldVersion < 57) {
       // Actualizar catálogo de cuentas del PUC con datos completos
       // Incluir la cuenta 135518 y otras cuentas faltantes
       final cuentasPUC = [
         // Cuentas de Impuestos descontables (clase 1 - Activo)
-        {'codigo': '135518', 'nombre': 'Impuesto de Industria y comercio y retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '135520', 'nombre': 'Impuesto de Industria y comercio descontable', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '135525', 'nombre': 'Impuesto de Avisos y Tableros retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '135530', 'nombre': 'Impuesto de Avisos y Tableros descontable', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {
+          'codigo': '135518',
+          'nombre': 'Impuesto de Industria y comercio y retenido',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '135520',
+          'nombre': 'Impuesto de Industria y comercio descontable',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '135525',
+          'nombre': 'Impuesto de Avisos y Tableros retenido',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '135530',
+          'nombre': 'Impuesto de Avisos y Tableros descontable',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
         // Cuentas de Impuestos por pagar (clase 2 - Pasivo)
-        {'codigo': '240801', 'nombre': 'IVA generados', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
-        {'codigo': '240805', 'nombre': 'IVA descontable', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
-        {'codigo': '2365', 'nombre': 'Retenciones en la fuente por pagar', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
-        {'codigo': '236505', 'nombre': 'Retención en la fuente por pagar a terceros', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
-        {'codigo': '236510', 'nombre': 'Retención en la fuente a cargo de terceros', 'tipo': 'pasivo', 'naturaleza': 'credito', 'activa': 1},
+        {
+          'codigo': '240801',
+          'nombre': 'IVA generados',
+          'tipo': 'pasivo',
+          'naturaleza': 'credito',
+          'activa': 1,
+        },
+        {
+          'codigo': '240805',
+          'nombre': 'IVA descontable',
+          'tipo': 'pasivo',
+          'naturaleza': 'credito',
+          'activa': 1,
+        },
+        {
+          'codigo': '2365',
+          'nombre': 'Retenciones en la fuente por pagar',
+          'tipo': 'pasivo',
+          'naturaleza': 'credito',
+          'activa': 1,
+        },
+        {
+          'codigo': '236505',
+          'nombre': 'Retención en la fuente por pagar a terceros',
+          'tipo': 'pasivo',
+          'naturaleza': 'credito',
+          'activa': 1,
+        },
+        {
+          'codigo': '236510',
+          'nombre': 'Retención en la fuente a cargo de terceros',
+          'tipo': 'pasivo',
+          'naturaleza': 'credito',
+          'activa': 1,
+        },
         // Cuentas de Ingresos (clase 4)
-        {'codigo': '4135', 'nombre': 'Comercio al por mayor y al por menor', 'tipo': 'ingreso', 'naturaleza': 'credito', 'activa': 1},
-        {'codigo': '413505', 'nombre': 'Ventas de mercancías', 'tipo': 'ingreso', 'naturaleza': 'credito', 'activa': 1},
-        {'codigo': '413510', 'nombre': 'Servicios', 'tipo': 'ingreso', 'naturaleza': 'credito', 'activa': 1},
+        {
+          'codigo': '4135',
+          'nombre': 'Comercio al por mayor y al por menor',
+          'tipo': 'ingreso',
+          'naturaleza': 'credito',
+          'activa': 1,
+        },
+        {
+          'codigo': '413505',
+          'nombre': 'Ventas de mercancías',
+          'tipo': 'ingreso',
+          'naturaleza': 'credito',
+          'activa': 1,
+        },
+        {
+          'codigo': '413510',
+          'nombre': 'Servicios',
+          'tipo': 'ingreso',
+          'naturaleza': 'credito',
+          'activa': 1,
+        },
         // Cuentas de Costos (clase 6)
-        {'codigo': '6135', 'nombre': 'Costo de ventas', 'tipo': 'costo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '613505', 'nombre': 'Compras', 'tipo': 'costo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '613510', 'nombre': 'Devoluciones en ventas', 'tipo': 'costo', 'naturaleza': 'debito', 'activa': 1},
+        {
+          'codigo': '6135',
+          'nombre': 'Costo de ventas',
+          'tipo': 'costo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '613505',
+          'nombre': 'Compras',
+          'tipo': 'costo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '613510',
+          'nombre': 'Devoluciones en ventas',
+          'tipo': 'costo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
       ];
-      
+
       for (final cuenta in cuentasPUC) {
         await db.insert(
           'cuentas_contables',
@@ -612,7 +704,7 @@ class DatabaseHelper {
         );
       }
     }
-    
+
     if (oldVersion < 58) {
       // Importar todas las cuentas del PUC del archivo procesado
       // Leer el archivo de cuentas procesadas
@@ -626,23 +718,19 @@ class DatabaseHelper {
             final nombre = parts[1].trim();
             final tipo = parts[2].trim();
             final naturaleza = parts[3].trim();
-            
-            await db.insert(
-              'cuentas_contables',
-              {
-                'codigo': codigo,
-                'nombre': nombre,
-                'tipo': tipo,
-                'naturaleza': naturaleza,
-                'activa': 1,
-              },
-              conflictAlgorithm: ConflictAlgorithm.ignore,
-            );
+
+            await db.insert('cuentas_contables', {
+              'codigo': codigo,
+              'nombre': nombre,
+              'tipo': tipo,
+              'naturaleza': naturaleza,
+              'activa': 1,
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
           }
         }
       }
     }
-    
+
     if (oldVersion < 59) {
       // Actualizar endpoint del Control Center al puerto correcto (3000)
       await db.update(
@@ -655,12 +743,48 @@ class DatabaseHelper {
 
     if (oldVersion < 60) {
       final cuentasNuevas = [
-        {'codigo': '135515', 'nombre': 'Retencion en la fuente', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '135517', 'nombre': 'Impuesto a las ventas y retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '135518', 'nombre': 'Impuesto de Industria y comercio y retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '135520', 'nombre': 'Impuesto de Industria y comercio descontable', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '135525', 'nombre': 'Impuesto de Avisos y Tableros retenido', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
-        {'codigo': '135530', 'nombre': 'Impuesto de Avisos y Tableros descontable', 'tipo': 'activo', 'naturaleza': 'debito', 'activa': 1},
+        {
+          'codigo': '135515',
+          'nombre': 'Retencion en la fuente',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '135517',
+          'nombre': 'Impuesto a las ventas y retenido',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '135518',
+          'nombre': 'Impuesto de Industria y comercio y retenido',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '135520',
+          'nombre': 'Impuesto de Industria y comercio descontable',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '135525',
+          'nombre': 'Impuesto de Avisos y Tableros retenido',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
+        {
+          'codigo': '135530',
+          'nombre': 'Impuesto de Avisos y Tableros descontable',
+          'tipo': 'activo',
+          'naturaleza': 'debito',
+          'activa': 1,
+        },
       ];
       for (final cuenta in cuentasNuevas) {
         await db.insert(
@@ -672,7 +796,9 @@ class DatabaseHelper {
     }
 
     if (oldVersion < 61) {
-      print('Ejecutando migración v61: Inicializando tablas del Sector Público...');
+      print(
+        'Ejecutando migración v61: Inicializando tablas del Sector Público...',
+      );
       await SchemaMultiTenant.crearTablas(db);
       await SchemaPresupuesto.crearTablas(db);
       await SchemaContabilidad.crearTablas(db);
@@ -781,6 +907,10 @@ class DatabaseHelper {
 
     if (oldVersion < 68) {
       await SchemaContratacion.migrarContratosConRPOpcional(db);
+    }
+
+    if (oldVersion < 69) {
+      await SchemaSalud.migrarRipsFevYGlosas(db);
     }
   }
 
@@ -1482,7 +1612,9 @@ class DatabaseHelper {
           return companies.first['id'] as int;
         }
       } catch (_) {}
-      throw StateError('No se encontró una empresa activa para la transacción contable.');
+      throw StateError(
+        'No se encontró una empresa activa para la transacción contable.',
+      );
     }
     final db = await instance.database;
     return await _sincronizarEmpresaLegacy(db);
@@ -1499,32 +1631,28 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     if (dianTechKey != null) {
-      await db.insert(
-        'app_config',
-        {'clave': 'dian_tech_key', 'valor': dianTechKey},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('app_config', {
+        'clave': 'dian_tech_key',
+        'valor': dianTechKey,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     if (dianPin != null) {
-      await db.insert(
-        'app_config',
-        {'clave': 'dian_pin', 'valor': dianPin},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('app_config', {
+        'clave': 'dian_pin',
+        'valor': dianPin,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     if (dianResolution != null) {
-      await db.insert(
-        'app_config',
-        {'clave': 'dian_resolution', 'valor': dianResolution},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('app_config', {
+        'clave': 'dian_resolution',
+        'valor': dianResolution,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     if (dianSoftwareId != null) {
-      await db.insert(
-        'app_config',
-        {'clave': 'dian_software_id', 'valor': dianSoftwareId},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('app_config', {
+        'clave': 'dian_software_id',
+        'valor': dianSoftwareId,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
@@ -1566,7 +1694,12 @@ class DatabaseHelper {
     final rows = await executor.query(
       'app_config',
       where: 'clave IN (?,?,?,?)',
-      whereArgs: ['dian_tech_key', 'dian_pin', 'dian_resolution', 'dian_software_id'],
+      whereArgs: [
+        'dian_tech_key',
+        'dian_pin',
+        'dian_resolution',
+        'dian_software_id',
+      ],
     );
     final Map<String, String> result = {};
     for (final r in rows) {
@@ -3425,7 +3558,12 @@ class DatabaseHelper {
 
     final syncTablas = ['sync_outbox', 'sync_inbox', 'sync_conflicts'];
     for (final st in syncTablas) {
-      await _agregarColumnaSiNoExiste(db, st, 'tenant_type', "TEXT DEFAULT 'commercial'");
+      await _agregarColumnaSiNoExiste(
+        db,
+        st,
+        'tenant_type',
+        "TEXT DEFAULT 'commercial'",
+      );
       await _agregarColumnaSiNoExiste(db, st, 'entidad_id', 'TEXT');
       await _agregarColumnaSiNoExiste(db, st, 'user_id', 'TEXT');
     }
@@ -3885,107 +4023,562 @@ class DatabaseHelper {
   Future<void> _sembrarPlanCuentas(Database db) async {
     final cuentas = [
       // Clase 1: Activos
-      {'codigo': '1', 'nombre': 'Activo', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '11', 'nombre': 'Disponible', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1105', 'nombre': 'Caja', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '110505', 'nombre': 'Caja General', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '110510', 'nombre': 'Cajas Menores', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1110', 'nombre': 'Bancos', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '111005', 'nombre': 'Bancos Nacionales', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1120', 'nombre': 'Cuentas de Ahorro', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '12', 'nombre': 'Inversiones', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1205', 'nombre': 'Inversiones corrientes', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '13', 'nombre': 'Deudores / Cartera', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1305', 'nombre': 'Cuentas por cobrar (Clientes)', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '130505', 'nombre': 'Clientes Nacionales', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1325', 'nombre': 'Anticipos y avances', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1355', 'nombre': 'Impuestos descontables (Anticipos)', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '135515', 'nombre': 'Retencion en la fuente', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '135517', 'nombre': 'Impuesto a las ventas y retenido', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '135518', 'nombre': 'Impuesto de Industria y comercio y retenido', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '135520', 'nombre': 'Impuesto de Industria y comercio descontable', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '135525', 'nombre': 'Impuesto de Avisos y Tableros retenido', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '135530', 'nombre': 'Impuesto de Avisos y Tableros descontable', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1365', 'nombre': 'Cuentas por cobrar a trabajadores', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '14', 'nombre': 'Inventarios', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1435', 'nombre': 'Inventario (Mercancias no fab. por la empresa)', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '15', 'nombre': 'Propiedades, Planta y Equipo', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1504', 'nombre': 'Terrenos', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1516', 'nombre': 'Construcciones y Edificaciones', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1520', 'nombre': 'Maquinaria y Equipo', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1524', 'nombre': 'Equipo de Oficina', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1528', 'nombre': 'Equipo de Computacion y Comunicacion', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1592', 'nombre': 'Depreciacion Acumulada', 'tipo': 'activo', 'naturaleza': 'credito'},
-      {'codigo': '17', 'nombre': 'Diferidos', 'tipo': 'activo', 'naturaleza': 'debito'},
-      {'codigo': '1705', 'nombre': 'Gastos Pagados por Anticipado', 'tipo': 'activo', 'naturaleza': 'debito'},
+      {
+        'codigo': '1',
+        'nombre': 'Activo',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '11',
+        'nombre': 'Disponible',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1105',
+        'nombre': 'Caja',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '110505',
+        'nombre': 'Caja General',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '110510',
+        'nombre': 'Cajas Menores',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1110',
+        'nombre': 'Bancos',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '111005',
+        'nombre': 'Bancos Nacionales',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1120',
+        'nombre': 'Cuentas de Ahorro',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '12',
+        'nombre': 'Inversiones',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1205',
+        'nombre': 'Inversiones corrientes',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '13',
+        'nombre': 'Deudores / Cartera',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1305',
+        'nombre': 'Cuentas por cobrar (Clientes)',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '130505',
+        'nombre': 'Clientes Nacionales',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1325',
+        'nombre': 'Anticipos y avances',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1355',
+        'nombre': 'Impuestos descontables (Anticipos)',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '135515',
+        'nombre': 'Retencion en la fuente',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '135517',
+        'nombre': 'Impuesto a las ventas y retenido',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '135518',
+        'nombre': 'Impuesto de Industria y comercio y retenido',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '135520',
+        'nombre': 'Impuesto de Industria y comercio descontable',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '135525',
+        'nombre': 'Impuesto de Avisos y Tableros retenido',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '135530',
+        'nombre': 'Impuesto de Avisos y Tableros descontable',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1365',
+        'nombre': 'Cuentas por cobrar a trabajadores',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '14',
+        'nombre': 'Inventarios',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1435',
+        'nombre': 'Inventario (Mercancias no fab. por la empresa)',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '15',
+        'nombre': 'Propiedades, Planta y Equipo',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1504',
+        'nombre': 'Terrenos',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1516',
+        'nombre': 'Construcciones y Edificaciones',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1520',
+        'nombre': 'Maquinaria y Equipo',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1524',
+        'nombre': 'Equipo de Oficina',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1528',
+        'nombre': 'Equipo de Computacion y Comunicacion',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1592',
+        'nombre': 'Depreciacion Acumulada',
+        'tipo': 'activo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '17',
+        'nombre': 'Diferidos',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '1705',
+        'nombre': 'Gastos Pagados por Anticipado',
+        'tipo': 'activo',
+        'naturaleza': 'debito',
+      },
 
       // Clase 2: Pasivos
-      {'codigo': '2', 'nombre': 'Pasivo', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '21', 'nombre': 'Obligaciones Financieras', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2105', 'nombre': 'Obligaciones financieras (Bancos)', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '22', 'nombre': 'Proveedores', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2205', 'nombre': 'Proveedores Nacionales', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '23', 'nombre': 'Cuentas por Pagar', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2335', 'nombre': 'Costos y gastos por pagar', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2365', 'nombre': 'Retencion en la fuente por pagar', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2367', 'nombre': 'Impuesto de industria y comercial retenido (ReteICA)', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2368', 'nombre': 'Retencion de IVA (ReteIVA) por pagar', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2370', 'nombre': 'Retenciones y aportes de nomina', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2380', 'nombre': 'Acreedores varios', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '24', 'nombre': 'Impuestos, Gravamenes y Tasas', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2408', 'nombre': 'Impuestos por pagar (IVA)', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '25', 'nombre': 'Obligaciones Laborales', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2505', 'nombre': 'Salarios por pagar', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2510', 'nombre': 'Cesantias consolidadas', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2515', 'nombre': 'Intereses sobre cesantias', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2520', 'nombre': 'Prima de servicios por pagar', 'tipo': 'pasivo', 'naturaleza': 'credito'},
-      {'codigo': '2525', 'nombre': 'Vacaciones consolidadas', 'tipo': 'pasivo', 'naturaleza': 'credito'},
+      {
+        'codigo': '2',
+        'nombre': 'Pasivo',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '21',
+        'nombre': 'Obligaciones Financieras',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2105',
+        'nombre': 'Obligaciones financieras (Bancos)',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '22',
+        'nombre': 'Proveedores',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2205',
+        'nombre': 'Proveedores Nacionales',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '23',
+        'nombre': 'Cuentas por Pagar',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2335',
+        'nombre': 'Costos y gastos por pagar',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2365',
+        'nombre': 'Retencion en la fuente por pagar',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2367',
+        'nombre': 'Impuesto de industria y comercial retenido (ReteICA)',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2368',
+        'nombre': 'Retencion de IVA (ReteIVA) por pagar',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2370',
+        'nombre': 'Retenciones y aportes de nomina',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2380',
+        'nombre': 'Acreedores varios',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '24',
+        'nombre': 'Impuestos, Gravamenes y Tasas',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2408',
+        'nombre': 'Impuestos por pagar (IVA)',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '25',
+        'nombre': 'Obligaciones Laborales',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2505',
+        'nombre': 'Salarios por pagar',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2510',
+        'nombre': 'Cesantias consolidadas',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2515',
+        'nombre': 'Intereses sobre cesantias',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2520',
+        'nombre': 'Prima de servicios por pagar',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '2525',
+        'nombre': 'Vacaciones consolidadas',
+        'tipo': 'pasivo',
+        'naturaleza': 'credito',
+      },
 
       // Clase 3: Patrimonio
-      {'codigo': '3', 'nombre': 'Patrimonio', 'tipo': 'patrimonio', 'naturaleza': 'credito'},
-      {'codigo': '31', 'nombre': 'Capital Social', 'tipo': 'patrimonio', 'naturaleza': 'credito'},
-      {'codigo': '3105', 'nombre': 'Capital suscrito y pagado', 'tipo': 'patrimonio', 'naturaleza': 'credito'},
-      {'codigo': '3115', 'nombre': 'Capital Social (Aportes)', 'tipo': 'patrimonio', 'naturaleza': 'credito'},
-      {'codigo': '33', 'nombre': 'Reservas', 'tipo': 'patrimonio', 'naturaleza': 'credito'},
-      {'codigo': '3305', 'nombre': 'Reservas obligatorias', 'tipo': 'patrimonio', 'naturaleza': 'credito'},
-      {'codigo': '36', 'nombre': 'Resultados del Ejercicio', 'tipo': 'patrimonio', 'naturaleza': 'credito'},
-      {'codigo': '3605', 'nombre': 'Utilidad del ejercicio', 'tipo': 'patrimonio', 'naturaleza': 'credito'},
-      {'codigo': '3610', 'nombre': 'Perdida del ejercicio', 'tipo': 'patrimonio', 'naturaleza': 'debito'},
+      {
+        'codigo': '3',
+        'nombre': 'Patrimonio',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '31',
+        'nombre': 'Capital Social',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '3105',
+        'nombre': 'Capital suscrito y pagado',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '3115',
+        'nombre': 'Capital Social (Aportes)',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '33',
+        'nombre': 'Reservas',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '3305',
+        'nombre': 'Reservas obligatorias',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '36',
+        'nombre': 'Resultados del Ejercicio',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '3605',
+        'nombre': 'Utilidad del ejercicio',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '3610',
+        'nombre': 'Perdida del ejercicio',
+        'tipo': 'patrimonio',
+        'naturaleza': 'debito',
+      },
 
       // Clase 4: Ingresos
-      {'codigo': '4', 'nombre': 'Ingresos', 'tipo': 'ingreso', 'naturaleza': 'credito'},
-      {'codigo': '41', 'nombre': 'Ingresos Operacionales', 'tipo': 'ingreso', 'naturaleza': 'credito'},
-      {'codigo': '4135', 'nombre': 'Ingresos por ventas (Comercio al por mayor/menor)', 'tipo': 'ingreso', 'naturaleza': 'credito'},
-      {'codigo': '4175', 'nombre': 'Devoluciones en ventas', 'tipo': 'ingreso', 'naturaleza': 'debito'},
-      {'codigo': '42', 'nombre': 'Ingresos No Operacionales', 'tipo': 'ingreso', 'naturaleza': 'credito'},
-      {'codigo': '4210', 'nombre': 'Ingresos financieros', 'tipo': 'ingreso', 'naturaleza': 'credito'},
-      {'codigo': '4295', 'nombre': 'Ingresos diversos', 'tipo': 'ingreso', 'naturaleza': 'credito'},
+      {
+        'codigo': '4',
+        'nombre': 'Ingresos',
+        'tipo': 'ingreso',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '41',
+        'nombre': 'Ingresos Operacionales',
+        'tipo': 'ingreso',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '4135',
+        'nombre': 'Ingresos por ventas (Comercio al por mayor/menor)',
+        'tipo': 'ingreso',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '4175',
+        'nombre': 'Devoluciones en ventas',
+        'tipo': 'ingreso',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '42',
+        'nombre': 'Ingresos No Operacionales',
+        'tipo': 'ingreso',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '4210',
+        'nombre': 'Ingresos financieros',
+        'tipo': 'ingreso',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '4295',
+        'nombre': 'Ingresos diversos',
+        'tipo': 'ingreso',
+        'naturaleza': 'credito',
+      },
 
       // Clase 5: Gastos
-      {'codigo': '5', 'nombre': 'Gastos', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '51', 'nombre': 'Gastos Operacionales de Administracion', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5105', 'nombre': 'Gastos de personal (Nomina)', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5110', 'nombre': 'Honorarios', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5115', 'nombre': 'Impuestos operacionales', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5120', 'nombre': 'Arrendamientos', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5125', 'nombre': 'Seguros', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5130', 'nombre': 'Servicios publicos/comerciales', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5135', 'nombre': 'Gastos operacionales / Diversos', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5140', 'nombre': 'Servicios directos', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5160', 'nombre': 'Depreciaciones', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '52', 'nombre': 'Gastos Operacionales de Ventas', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5205', 'nombre': 'Gastos de personal (Ventas)', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5220', 'nombre': 'Arrendamientos (Ventas)', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5235', 'nombre': 'Servicios (Ventas)', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '53', 'nombre': 'Gastos No Operacionales', 'tipo': 'gasto', 'naturaleza': 'debito'},
-      {'codigo': '5305', 'nombre': 'Gastos financieros (Comisiones/Intereses)', 'tipo': 'gasto', 'naturaleza': 'debito'},
+      {
+        'codigo': '5',
+        'nombre': 'Gastos',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '51',
+        'nombre': 'Gastos Operacionales de Administracion',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5105',
+        'nombre': 'Gastos de personal (Nomina)',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5110',
+        'nombre': 'Honorarios',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5115',
+        'nombre': 'Impuestos operacionales',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5120',
+        'nombre': 'Arrendamientos',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5125',
+        'nombre': 'Seguros',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5130',
+        'nombre': 'Servicios publicos/comerciales',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5135',
+        'nombre': 'Gastos operacionales / Diversos',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5140',
+        'nombre': 'Servicios directos',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5160',
+        'nombre': 'Depreciaciones',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '52',
+        'nombre': 'Gastos Operacionales de Ventas',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5205',
+        'nombre': 'Gastos de personal (Ventas)',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5220',
+        'nombre': 'Arrendamientos (Ventas)',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5235',
+        'nombre': 'Servicios (Ventas)',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '53',
+        'nombre': 'Gastos No Operacionales',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '5305',
+        'nombre': 'Gastos financieros (Comisiones/Intereses)',
+        'tipo': 'gasto',
+        'naturaleza': 'debito',
+      },
 
       // Clase 6: Costo de Ventas
-      {'codigo': '6', 'nombre': 'Costos', 'tipo': 'costo', 'naturaleza': 'debito'},
-      {'codigo': '61', 'nombre': 'Costo de Ventas', 'tipo': 'costo', 'naturaleza': 'debito'},
-      {'codigo': '6135', 'nombre': 'Costo de ventas (Comercio)', 'tipo': 'costo', 'naturaleza': 'debito'},
-      {'codigo': '62', 'nombre': 'Compras', 'tipo': 'costo', 'naturaleza': 'debito'},
-      {'codigo': '6205', 'nombre': 'Compras de mercancias', 'tipo': 'costo', 'naturaleza': 'debito'},
+      {
+        'codigo': '6',
+        'nombre': 'Costos',
+        'tipo': 'costo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '61',
+        'nombre': 'Costo de Ventas',
+        'tipo': 'costo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '6135',
+        'nombre': 'Costo de ventas (Comercio)',
+        'tipo': 'costo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '62',
+        'nombre': 'Compras',
+        'tipo': 'costo',
+        'naturaleza': 'debito',
+      },
+      {
+        'codigo': '6205',
+        'nombre': 'Compras de mercancias',
+        'tipo': 'costo',
+        'naturaleza': 'debito',
+      },
     ];
 
     for (final cuenta in cuentas) {
@@ -4066,7 +4659,9 @@ class DatabaseHelper {
   }
 
   /// Obtiene todos los lotes de un producto.
-  Future<List<Map<String, dynamic>>> obtenerLotesPorProducto(int productoId) async {
+  Future<List<Map<String, dynamic>>> obtenerLotesPorProducto(
+    int productoId,
+  ) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
     return await db.query(
@@ -4350,7 +4945,8 @@ class DatabaseHelper {
 
         final total = (compra['total'] as num).toDouble();
         final efectivo = (compra['efectivo'] as num?)?.toDouble() ?? 0;
-        final transferencia = (compra['transferencia'] as num?)?.toDouble() ?? 0;
+        final transferencia =
+            (compra['transferencia'] as num?)?.toDouble() ?? 0;
         final credito = (compra['credito'] as num?)?.toDouble() ?? 0;
         final metodoPagoId = compra['metodo_pago_id'];
 
@@ -4386,7 +4982,8 @@ class DatabaseHelper {
           );
           if (productos.isEmpty) continue;
 
-          final stockActual = (productos.first['stock'] as num?)?.toDouble() ?? 0;
+          final stockActual =
+              (productos.first['stock'] as num?)?.toDouble() ?? 0;
           if (stockActual < cantidad) {
             throw Exception(
               'No se puede anular la compra #$compraId porque ${item['producto']} ya fue vendido o consumido. Stock actual: $stockActual, requerido: $cantidad.',
@@ -4562,7 +5159,8 @@ class DatabaseHelper {
     final companyId = await obtenerEmpresaActivaId();
     final inicio = desde.toIso8601String();
     final fin = hasta.add(const Duration(days: 1)).toIso8601String();
-    var where = 'company_id = ? AND COALESCE(activo, 1) = 1 AND fecha >= ? AND fecha < ?';
+    var where =
+        'company_id = ? AND COALESCE(activo, 1) = 1 AND fecha >= ? AND fecha < ?';
     final args = <Object>[companyId, inicio, fin];
     if (origen != null && origen.isNotEmpty && origen != 'todas') {
       where += ' AND origen = ?';
@@ -4926,7 +5524,9 @@ class DatabaseHelper {
         limit: 1,
       );
       if (cuentasBancarias.isNotEmpty) {
-        final saldoActual = (cuentasBancarias.first['current_balance'] as num?)?.toDouble() ?? 0;
+        final saldoActual =
+            (cuentasBancarias.first['current_balance'] as num?)?.toDouble() ??
+            0;
         await db.update(
           'treasury_bank_accounts',
           {'current_balance': saldoActual + monto},
@@ -4969,7 +5569,7 @@ class DatabaseHelper {
       orderBy: 'id DESC',
       limit: 1,
     );
-    
+
     if (abonoId.isNotEmpty) {
       final idAbono = abonoId.first['id'] as int;
       Future.microtask(() async {
@@ -5016,7 +5616,8 @@ class DatabaseHelper {
       retiroBanco = excedente;
       await insertarMovimiento({
         'tipo': 'transferencia',
-        'concepto': 'Retiro cierre caja → Bancos (base \$${baseAperturaSiguiente.toStringAsFixed(0)})',
+        'concepto':
+            'Retiro cierre caja → Bancos (base \$${baseAperturaSiguiente.toStringAsFixed(0)})',
         'monto': retiroBanco,
         'fecha': DateTime.now().toIso8601String(),
         'origen': 'caja',
@@ -5262,7 +5863,9 @@ class DatabaseHelper {
     bool activo = true,
   }) async {
     if (rol.trim().toLowerCase() == 'sistema') {
-      throw ArgumentError('El rol "sistema" es reservado y no puede asignarse a usuarios.');
+      throw ArgumentError(
+        'El rol "sistema" es reservado y no puede asignarse a usuarios.',
+      );
     }
     final db = await instance.database;
     final id = await db.insert('usuarios', {
@@ -5292,7 +5895,9 @@ class DatabaseHelper {
     bool activo = true,
   }) async {
     if (rol.trim().toLowerCase() == 'sistema') {
-      throw ArgumentError('El rol "sistema" es reservado y no puede asignarse a usuarios.');
+      throw ArgumentError(
+        'El rol "sistema" es reservado y no puede asignarse a usuarios.',
+      );
     }
     final db = await instance.database;
     await db.update(
@@ -5506,22 +6111,27 @@ class DatabaseHelper {
     String frecuenciaPago = 'mensual',
   }) async {
     final db = await instance.database;
-    return await db.update('empleados', {
-      'nombre': nombre,
-      'documento': documento,
-      'tipo_documento': tipoDocumento,
-      'cargo': cargo,
-      'salario_base': salarioBase,
-      'auxilio_transporte': auxilioTransporte,
-      'cuenta_bancaria': cuentaBancaria,
-      'codigo_banco': codigoBanco,
-      'nombre_banco': nombreBanco,
-      'nivel_arl': nivelArl,
-      'fondo_pension': fondoPension,
-      'eps': eps,
-      'tipo_contrato': tipoContrato,
-      'frecuencia_pago': frecuenciaPago,
-    }, where: 'id = ?', whereArgs: [id]);
+    return await db.update(
+      'empleados',
+      {
+        'nombre': nombre,
+        'documento': documento,
+        'tipo_documento': tipoDocumento,
+        'cargo': cargo,
+        'salario_base': salarioBase,
+        'auxilio_transporte': auxilioTransporte,
+        'cuenta_bancaria': cuentaBancaria,
+        'codigo_banco': codigoBanco,
+        'nombre_banco': nombreBanco,
+        'nivel_arl': nivelArl,
+        'fondo_pension': fondoPension,
+        'eps': eps,
+        'tipo_contrato': tipoContrato,
+        'frecuencia_pago': frecuenciaPago,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> liquidarNomina({
@@ -5534,7 +6144,7 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     // Obtener parámetros de nómina del año
     final params = await db.query(
       'payroll_parameters',
@@ -5542,17 +6152,23 @@ class DatabaseHelper {
       whereArgs: [anio, companyId],
       limit: 1,
     );
-    
+
     if (params.isEmpty) {
-      throw Exception('No hay parámetros de nómina configurados para el año $anio');
+      throw Exception(
+        'No hay parámetros de nómina configurados para el año $anio',
+      );
     }
-    
+
     final param = params.first;
     final smmlv = (param['smmlv'] as num).toDouble();
-    final healthEmployeeRate = (param['health_employee_rate'] as num).toDouble();
-    final healthEmployerRate = (param['health_employer_rate'] as num).toDouble();
-    final pensionEmployeeRate = (param['pension_employee_rate'] as num).toDouble();
-    final pensionEmployerRate = (param['pension_employer_rate'] as num).toDouble();
+    final healthEmployeeRate = (param['health_employee_rate'] as num)
+        .toDouble();
+    final healthEmployerRate = (param['health_employer_rate'] as num)
+        .toDouble();
+    final pensionEmployeeRate = (param['pension_employee_rate'] as num)
+        .toDouble();
+    final pensionEmployerRate = (param['pension_employer_rate'] as num)
+        .toDouble();
     final fspTrigger = (param['fsp_trigger_smmlv'] as num).toDouble();
     final arlLevel1 = (param['arl_level_1_rate'] as num).toDouble();
     final arlLevel2 = (param['arl_level_2_rate'] as num).toDouble();
@@ -5564,9 +6180,10 @@ class DatabaseHelper {
     final cajaRate = (param['parafiscal_caja_rate'] as num).toDouble();
     final severanceRate = (param['severance_rate'] as num).toDouble();
     final serviceBonusRate = (param['service_bonus_rate'] as num).toDouble();
-    final severanceInterestRate = (param['severance_interest_rate'] as num).toDouble();
+    final severanceInterestRate = (param['severance_interest_rate'] as num)
+        .toDouble();
     final vacationRate = (param['vacation_rate'] as num).toDouble();
-    
+
     final empleados = await db.query(
       'empleados',
       where: 'id = ?',
@@ -5578,16 +6195,16 @@ class DatabaseHelper {
     final salario = (empleado['salario_base'] as num).toDouble();
     final auxilioFlag = (empleado['auxilio_transporte'] as int) == 1;
     final nivelArl = empleado['nivel_arl']?.toString() ?? 'I';
-    
+
     // Calcular auxilio de transporte si aplica
-    final auxilio = auxilioFlag && salario < (smmlv * 2) 
-        ? (param['transportation_allowance'] as num).toDouble() 
+    final auxilio = auxilioFlag && salario < (smmlv * 2)
+        ? (param['transportation_allowance'] as num).toDouble()
         : 0;
-    
+
     // Cálculos de aportes del empleado
     final saludEmpleado = salario * healthEmployeeRate;
     final pensionEmpleado = salario * pensionEmployeeRate;
-    
+
     // Cálculo de FSP (Fondo de Solidaridad Pensional)
     final baseFsp = salario + horasExtra + bonificaciones;
     double fsp = 0;
@@ -5607,42 +6224,55 @@ class DatabaseHelper {
         fsp = baseFsp * (param['fsp_rate_6'] as num).toDouble();
       }
     }
-    
+
     // Cálculos de aportes del empleador
     final saludEmpleador = salario * healthEmployerRate;
     final pensionEmpleador = salario * pensionEmployerRate;
-    
+
     // ARL según nivel
     double arl = 0;
     switch (nivelArl.toUpperCase()) {
-      case 'I': arl = salario * arlLevel1; break;
-      case 'II': arl = salario * arlLevel2; break;
-      case 'III': arl = salario * arlLevel3; break;
-      case 'IV': arl = salario * arlLevel4; break;
-      case 'V': arl = salario * arlLevel5; break;
+      case 'I':
+        arl = salario * arlLevel1;
+        break;
+      case 'II':
+        arl = salario * arlLevel2;
+        break;
+      case 'III':
+        arl = salario * arlLevel3;
+        break;
+      case 'IV':
+        arl = salario * arlLevel4;
+        break;
+      case 'V':
+        arl = salario * arlLevel5;
+        break;
     }
-    
+
     // Parafiscales
     final parafiscalSena = salario * senaRate;
     final parafiscalIcbf = salario * icbfRate;
     final parafiscalCaja = salario * cajaRate;
-    
+
     // Provisiones mensuales
     final cesantias = salario * severanceRate;
     final primaServicios = salario * serviceBonusRate;
     final interesesCesantias = cesantias * severanceInterestRate;
     final vacaciones = salario * vacationRate;
-    
+
     // Total aportes empleador
     final parafiscales = parafiscalSena + parafiscalIcbf + parafiscalCaja;
-    final provisiones = cesantias + primaServicios + interesesCesantias + vacaciones;
-    final aportesEmpleador = saludEmpleador + pensionEmpleador + arl + parafiscales + provisiones;
-    
+    final provisiones =
+        cesantias + primaServicios + interesesCesantias + vacaciones;
+    final aportesEmpleador =
+        saludEmpleador + pensionEmpleador + arl + parafiscales + provisiones;
+
     // Totales
     final totalDevengado = salario + auxilio + horasExtra + bonificaciones;
-    final totalDeducciones = saludEmpleado + pensionEmpleado + fsp + otrasDeducciones;
+    final totalDeducciones =
+        saludEmpleado + pensionEmpleado + fsp + otrasDeducciones;
     final netoPagar = totalDevengado - totalDeducciones;
-    
+
     // Retefuente (simplificado - debería usar tabla UVT)
     final retefuente = 0; // Pendiente implementación con tabla UVT
 
@@ -5660,7 +6290,7 @@ class DatabaseHelper {
       'fecha': DateTime.now().toIso8601String(),
       'origen': origenCaja,
     });
- 
+
     await _registrarAsientoConCodigos(
       concepto: 'Liquidación Nómina $mes/$anio - ${empleado['nombre']}',
       referencia: 'NOM-$empleadoId',
@@ -5697,13 +6327,15 @@ class DatabaseHelper {
           'codigo': '237005',
           'debito': 0,
           'credito': saludEmpleado,
-          'descripcion': 'Retención Salud ${healthEmployeeRate * 100}%: ${empleado['nombre']}',
+          'descripcion':
+              'Retención Salud ${healthEmployeeRate * 100}%: ${empleado['nombre']}',
         },
         {
           'codigo': '238030',
           'debito': 0,
           'credito': pensionEmpleado,
-          'descripcion': 'Retención Pensión ${pensionEmployeeRate * 100}%: ${empleado['nombre']}',
+          'descripcion':
+              'Retención Pensión ${pensionEmployeeRate * 100}%: ${empleado['nombre']}',
         },
         if (fsp > 0)
           {
@@ -5824,12 +6456,16 @@ class DatabaseHelper {
         where: 'asiento_id = ?',
         whereArgs: [asientoId],
       );
-      final lineasReversion = lineas.map((l) => {
-        'codigo': l['codigo'].toString(),
-        'debito': (l['credito'] as num).toDouble(),
-        'credito': (l['debito'] as num).toDouble(),
-        'descripcion': 'Reversión: ${l['descripcion']}',
-      }).toList();
+      final lineasReversion = lineas
+          .map(
+            (l) => {
+              'codigo': l['codigo'].toString(),
+              'debito': (l['credito'] as num).toDouble(),
+              'credito': (l['debito'] as num).toDouble(),
+              'descripcion': 'Reversión: ${l['descripcion']}',
+            },
+          )
+          .toList();
 
       await _registrarAsientoConCodigos(
         concepto: 'Reversión liquidación nómina #${liq['id']}',
@@ -6041,31 +6677,34 @@ class DatabaseHelper {
   Future<bool> licenciaEstaSuspendida() async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     final tenants = await db.query(
       'tenants',
       where: 'id = ?',
       whereArgs: [companyId],
       limit: 1,
     );
-    
+
     if (tenants.isEmpty) return false;
-    
+
     final status = tenants.first['license_status']?.toString() ?? 'active';
     return status == 'suspended';
   }
 
   /// Actualiza el estado de la licencia (webhook de pasarela de pagos)
-  Future<void> actualizarEstadoLicencia(int tenantId, String nuevoEstado) async {
+  Future<void> actualizarEstadoLicencia(
+    int tenantId,
+    String nuevoEstado,
+  ) async {
     final db = await instance.database;
-    
+
     await db.update(
       'tenants',
       {'license_status': nuevoEstado},
       where: 'id = ?',
       whereArgs: [tenantId],
     );
-    
+
     if (nuevoEstado == 'suspended') {
       await cambiarBloqueoOperativo(true);
       await registrarEventoAuditoria(
@@ -6096,41 +6735,42 @@ class DatabaseHelper {
   Future<Map<String, dynamic>> conciliarBancosAutomaticamente() async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     // Obtener extractos bancarios no conciliados
     final extractos = await db.query(
       'extractos_bancarios',
       where: 'company_id = ? AND conciliado = 0',
       whereArgs: [companyId],
     );
-    
+
     // Obtener abonos CxC no conciliados
     final abonos = await db.query(
       'abonos_cxc',
       where: 'company_id = ?',
       whereArgs: [companyId],
     );
-    
+
     int conciliados = 0;
     int noConciliados = 0;
     double totalConciliado = 0;
-    
+
     for (final extracto in extractos) {
       final extractoFecha = extracto['fecha']?.toString() ?? '';
       final extractoValor = (extracto['valor'] as num).toDouble();
       final extractoTipo = extracto['tipo']?.toString() ?? '';
-      
+
       // Solo conciliar ingresos (abonos)
       if (extractoTipo.toLowerCase() != 'ingreso') continue;
-      
+
       bool encontrado = false;
-      
+
       for (final abono in abonos) {
         final abonoFecha = abono['fecha']?.toString() ?? '';
         final abonoMonto = (abono['monto'] as num).toDouble();
-        
+
         // Emparejamiento exacto: fecha y monto
-        if (abonoFecha == extractoFecha && (abonoMonto - extractoValor).abs() < 0.01) {
+        if (abonoFecha == extractoFecha &&
+            (abonoMonto - extractoValor).abs() < 0.01) {
           // Conciliar
           await db.update(
             'extractos_bancarios',
@@ -6138,32 +6778,33 @@ class DatabaseHelper {
             where: 'id = ?',
             whereArgs: [extracto['id']],
           );
-          
+
           await db.update(
             'abonos_cxc',
             {'conciliado': 1},
             where: 'id = ?',
             whereArgs: [abono['id']],
           );
-          
+
           conciliados++;
           totalConciliado += extractoValor;
           encontrado = true;
           break;
         }
       }
-      
+
       if (!encontrado) {
         noConciliados++;
       }
     }
-    
+
     await registrarEventoAuditoria(
       accion: 'CONCILIACION_BANCARIA_AUTOMATICA',
       entidad: 'extractos_bancarios',
-      detalle: 'Conciliados: $conciliados, No conciliados: $noConciliados, Total: $totalConciliado',
+      detalle:
+          'Conciliados: $conciliados, No conciliados: $noConciliados, Total: $totalConciliado',
     );
-    
+
     return {
       'conciliados': conciliados,
       'no_conciliados': noConciliados,
@@ -6176,14 +6817,14 @@ class DatabaseHelper {
   Future<void> actualizarComisionesPorRecaudo(int ventaId) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     // Verificar si la factura está totalmente pagada
     final cuentas = await db.query(
       'cuentas_por_cobrar',
       where: 'venta_id = ? AND company_id = ?',
       whereArgs: [ventaId, companyId],
     );
-    
+
     bool facturaPagada = true;
     for (final cuenta in cuentas) {
       final saldo = (cuenta['saldo'] as num?)?.toDouble() ?? 0;
@@ -6192,21 +6833,23 @@ class DatabaseHelper {
         break;
       }
     }
-    
+
     if (facturaPagada) {
       // Actualizar comisiones de recaudo a "Pagada"
       await db.update(
         'comisiones_liquidadas',
         {'status': 'Pagada'},
-        where: 'venta_id = ? AND company_id = ? AND commission_type = ? AND status = ?',
+        where:
+            'venta_id = ? AND company_id = ? AND commission_type = ? AND status = ?',
         whereArgs: [ventaId, companyId, 'Recaudo', 'Pendiente'],
       );
-      
+
       await registrarEventoAuditoria(
         accion: 'ACTUALIZAR_COMISIONES_RECAUDO',
         entidad: 'comisiones_liquidadas',
         entidadId: ventaId,
-        detalle: 'Comisiones de recaudo actualizadas a Pagada por factura totalmente pagada',
+        detalle:
+            'Comisiones de recaudo actualizadas a Pagada por factura totalmente pagada',
       );
     }
   }
@@ -6221,7 +6864,7 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     // Validar que la venta existe
     final ventas = await db.query(
       'ventas',
@@ -6229,21 +6872,23 @@ class DatabaseHelper {
       whereArgs: [ventaId, companyId],
       limit: 1,
     );
-    
+
     if (ventas.isEmpty) {
       throw Exception('La venta #$ventaId no existe');
     }
-    
+
     final venta = ventas.first;
     final ventaFecha = DateTime.parse(venta['fecha'] as String);
     final hoy = DateTime.now();
     final diasDesdeVenta = hoy.difference(ventaFecha).inDays;
-    
+
     // Validar que no supere el tiempo de garantía
     if (diasDesdeVenta > diasGarantia) {
-      throw Exception('La garantía ha expirado. Han pasado $diasDesdeVenta días desde la compra (garantía: $diasGarantia días)');
+      throw Exception(
+        'La garantía ha expirado. Han pasado $diasDesdeVenta días desde la compra (garantía: $diasGarantia días)',
+      );
     }
-    
+
     final id = await db.insert('warranties', {
       'company_id': companyId,
       'venta_id': ventaId,
@@ -6254,14 +6899,15 @@ class DatabaseHelper {
       'fecha_recepcion': hoy.toIso8601String(),
       'dias_garantia': diasGarantia,
     });
-    
+
     await registrarEventoAuditoria(
       accion: 'REGISTRAR_GARANTIA',
       entidad: 'warranties',
       entidadId: id,
-      detalle: 'Garantía registrada para venta #$ventaId, producto #$productoId',
+      detalle:
+          'Garantía registrada para venta #$ventaId, producto #$productoId',
     );
-    
+
     return id;
   }
 
@@ -6271,7 +6917,7 @@ class DatabaseHelper {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
     final hoy = DateTime.now().toIso8601String().split('T').first;
-    
+
     // Verificar si ya se actualizó hoy
     final existente = await db.query(
       'exchange_rates',
@@ -6279,11 +6925,11 @@ class DatabaseHelper {
       whereArgs: [hoy, companyId],
       limit: 1,
     );
-    
+
     if (existente.isNotEmpty) {
       return; // Ya actualizado hoy
     }
-    
+
     // Aquí se debería llamar a la API externa (Superfinanciera/Fixer.io)
     // Por ahora, usamos un valor por defecto para COP
     await db.insert('exchange_rates', {
@@ -6292,7 +6938,7 @@ class DatabaseHelper {
       'rate_to_base': 1.0, // Valor por defecto, debería venir de API
       'company_id': companyId,
     });
-    
+
     await registrarEventoAuditoria(
       accion: 'ACTUALIZAR_TRM',
       entidad: 'exchange_rates',
@@ -6305,7 +6951,7 @@ class DatabaseHelper {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
     final hoy = DateTime.now().toIso8601String().split('T').first;
-    
+
     // Verificar si es la moneda base
     final monedas = await db.query(
       'currencies',
@@ -6313,11 +6959,11 @@ class DatabaseHelper {
       whereArgs: [currencyCode],
       limit: 1,
     );
-    
+
     if (monedas.isNotEmpty) {
       return monto; // Ya está en moneda base
     }
-    
+
     // Obtener tasa de cambio del día
     final tasas = await db.query(
       'exchange_rates',
@@ -6325,31 +6971,36 @@ class DatabaseHelper {
       whereArgs: [currencyCode, hoy, companyId],
       limit: 1,
     );
-    
+
     if (tasas.isEmpty) {
-      throw Exception('No hay tasa de cambio disponible para $currencyCode el día $hoy');
+      throw Exception(
+        'No hay tasa de cambio disponible para $currencyCode el día $hoy',
+      );
     }
-    
+
     final tasa = (tasas.first['rate_to_base'] as num).toDouble();
     return monto * tasa;
   }
 
   /// Dispara webhooks suscritos a un evento específico
-  Future<void> dispararWebhooks(String evento, Map<String, dynamic> payload) async {
+  Future<void> dispararWebhooks(
+    String evento,
+    Map<String, dynamic> payload,
+  ) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     // Buscar webhooks activos para este evento
     final webhooks = await db.query(
       'webhooks',
       where: 'event = ? AND company_id = ? AND is_active = 1',
       whereArgs: [evento, companyId],
     );
-    
+
     for (final webhook in webhooks) {
       final targetUrl = webhook['target_url']?.toString();
       if (targetUrl == null || targetUrl.isEmpty) continue;
-      
+
       try {
         // Aquí se debería hacer un POST asíncrono a la URL
         // Por ahora, solo registramos el intento
@@ -6374,24 +7025,20 @@ class DatabaseHelper {
   Future<void> marcarPasoOnboardingCompletado(String stepName) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
-    await db.insert(
-      'onboarding_steps',
-      {
-        'company_id': companyId,
-        'step_name': stepName,
-        'is_completed': 1,
-        'completed_at': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+
+    await db.insert('onboarding_steps', {
+      'company_id': companyId,
+      'step_name': stepName,
+      'is_completed': 1,
+      'completed_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// Obtiene el progreso de onboarding (porcentaje completado)
   Future<Map<String, dynamic>> obtenerProgresoOnboarding() async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     final pasosEsperados = [
       'create_company',
       'add_taxes',
@@ -6399,10 +7046,10 @@ class DatabaseHelper {
       'upload_rut',
       'upload_signature',
     ];
-    
+
     int completados = 0;
     final pasosActuales = <String, bool>{};
-    
+
     for (final paso in pasosEsperados) {
       final pasos = await db.query(
         'onboarding_steps',
@@ -6410,14 +7057,14 @@ class DatabaseHelper {
         whereArgs: [companyId, paso],
         limit: 1,
       );
-      
+
       final completado = pasos.isNotEmpty;
       if (completado) completados++;
       pasosActuales[paso] = completado;
     }
-    
+
     final porcentaje = (completados / pasosEsperados.length) * 100;
-    
+
     return {
       'pasos_completados': completados,
       'total_pasos': pasosEsperados.length,
@@ -6430,14 +7077,14 @@ class DatabaseHelper {
   Future<bool> pasoCriticoCompletado(String stepName) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     final pasos = await db.query(
       'onboarding_steps',
       where: 'company_id = ? AND step_name = ? AND is_completed = 1',
       whereArgs: [companyId, stepName],
       limit: 1,
     );
-    
+
     return pasos.isNotEmpty;
   }
 
@@ -6453,18 +7100,18 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     // Construir query base
     String query = 'SELECT * FROM $tabla WHERE company_id = ?';
     List<dynamic> whereArgs = [companyId];
-    
+
     // Agregar filtro de rango de fechas si existe
     if (fechaDesde != null && fechaHasta != null) {
       query += ' AND fecha >= ? AND fecha < ?';
       whereArgs.add(fechaDesde.toIso8601String());
       whereArgs.add(fechaHasta.add(const Duration(days: 1)).toIso8601String());
     }
-    
+
     // Agregar filtros adicionales
     if (filters != null) {
       filters.forEach((key, value) {
@@ -6472,31 +7119,34 @@ class DatabaseHelper {
         whereArgs.add(value);
       });
     }
-    
+
     // Agregar agrupación si existe
     if (groupBy != null) {
       query += ' GROUP BY $groupBy';
     }
-    
+
     // Ejecutar query
     final resultados = await db.rawQuery(query, whereArgs);
-    
+
     // Generar auditoría
     await registrarEventoAuditoria(
       accion: 'REPORTE_GENERADO',
       entidad: tabla,
       detalle: 'Reporte dinámico generado: $tabla, formato: $exportFormat',
     );
-    
+
     return resultados;
   }
 
   /// Motor de renderizado de templates
   /// Reemplaza tags dinámicos como {{client_name}} con datos reales
-  Future<String> renderizarTemplate(String tipo, Map<String, dynamic> datos) async {
+  Future<String> renderizarTemplate(
+    String tipo,
+    Map<String, dynamic> datos,
+  ) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     // Obtener template activo del tipo especificado
     final templates = await db.query(
       'templates',
@@ -6504,19 +7154,19 @@ class DatabaseHelper {
       whereArgs: [tipo, companyId],
       limit: 1,
     );
-    
+
     if (templates.isEmpty) {
       throw Exception('No hay template activo para el tipo $tipo');
     }
-    
+
     String htmlContent = templates.first['html_content']?.toString() ?? '';
-    
+
     // Reemplazar tags dinámicos
     datos.forEach((key, value) {
       final tag = '{{$key}}';
       htmlContent = htmlContent.replaceAll(tag, value.toString());
     });
-    
+
     return htmlContent;
   }
 
@@ -6612,10 +7262,7 @@ class DatabaseHelper {
     final db = await instance.database;
     await db.update(
       'empresas',
-      {
-        ...datos,
-        'fecha': DateTime.now().toIso8601String(),
-      },
+      {...datos, 'fecha': DateTime.now().toIso8601String()},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -6866,7 +7513,9 @@ class DatabaseHelper {
     );
   }
 
-  Future<Map<String, String>> obtenerReglasContablesEmpresa([DatabaseExecutor? txn]) async {
+  Future<Map<String, String>> obtenerReglasContablesEmpresa([
+    DatabaseExecutor? txn,
+  ]) async {
     final executor = txn ?? await instance.database;
     final companyId = await obtenerEmpresaActivaId(executor);
     if (txn == null) {
@@ -7139,7 +7788,10 @@ class DatabaseHelper {
     );
   }
 
-  Future<bool> periodoEstaCerrado(DateTime fecha, [DatabaseExecutor? txn]) async {
+  Future<bool> periodoEstaCerrado(
+    DateTime fecha, [
+    DatabaseExecutor? txn,
+  ]) async {
     final executor = txn ?? await instance.database;
     final res = await executor.query(
       'periodos_contables',
@@ -7150,7 +7802,10 @@ class DatabaseHelper {
     return res.isNotEmpty;
   }
 
-  Future<void> _validarPeriodoAbierto(DateTime fecha, [DatabaseExecutor? txn]) async {
+  Future<void> _validarPeriodoAbierto(
+    DateTime fecha, [
+    DatabaseExecutor? txn,
+  ]) async {
     if (await periodoEstaCerrado(fecha, txn)) {
       throw Exception(
         'El periodo ${fecha.year}-${fecha.month.toString().padLeft(2, '0')} está cerrado.',
@@ -7304,16 +7959,21 @@ class DatabaseHelper {
           where: 'id = ? AND company_id = ?',
           whereArgs: [cuentaId, companyId],
         );
-        
+
         if (cuentas.isNotEmpty) {
           final codigo = cuentas.first['codigo']?.toString() ?? '';
-          final requiereTercero = codigo.startsWith('1305') || 
-                                codigo.startsWith('2205') || 
-                                codigo.startsWith('2408') || 
-                                codigo.startsWith('2365');
-          
-          if (requiereTercero && (linea['tercero'] == null || linea['tercero'].toString().isEmpty)) {
-            throw Exception('La cuenta $codigo requiere obligatoriamente un tercero (NIT) para generar exógena/medios magnéticos.');
+          final requiereTercero =
+              codigo.startsWith('1305') ||
+              codigo.startsWith('2205') ||
+              codigo.startsWith('2408') ||
+              codigo.startsWith('2365');
+
+          if (requiereTercero &&
+              (linea['tercero'] == null ||
+                  linea['tercero'].toString().isEmpty)) {
+            throw Exception(
+              'La cuenta $codigo requiere obligatoriamente un tercero (NIT) para generar exógena/medios magnéticos.',
+            );
           }
         }
 
@@ -7450,10 +8110,7 @@ class DatabaseHelper {
       for (final linea in lineas) {
         lineasConCuenta.add({
           ...linea,
-          'cuenta_id': await _cuentaIdPorCodigo(
-            t,
-            linea['codigo'].toString(),
-          ),
+          'cuenta_id': await _cuentaIdPorCodigo(t, linea['codigo'].toString()),
         });
       }
 
@@ -7536,7 +8193,7 @@ class DatabaseHelper {
   }) async {
     final companyId = await obtenerEmpresaActivaId(txn);
     List<Map<String, dynamic>> saleRows;
-    
+
     if (txn != null) {
       saleRows = await txn.query(
         'ventas',
@@ -7577,7 +8234,10 @@ class DatabaseHelper {
       final normalized = metodoPago.toUpperCase().trim();
       if (normalized == 'CREDITO') {
         credit = total;
-      } else if (normalized == 'TRANSFERENCIA' || normalized == 'TARJETA' || normalized == 'NEQUI' || normalized == 'DAVIPLATA') {
+      } else if (normalized == 'TRANSFERENCIA' ||
+          normalized == 'TARJETA' ||
+          normalized == 'NEQUI' ||
+          normalized == 'DAVIPLATA') {
         bankPayment = total;
       } else {
         cashPayment = total;
@@ -7638,7 +8298,9 @@ class DatabaseHelper {
     );
   }
 
-  Future<AccountingRuleSet> _reglasContablesActivas([DatabaseExecutor? txn]) async {
+  Future<AccountingRuleSet> _reglasContablesActivas([
+    DatabaseExecutor? txn,
+  ]) async {
     final rules = await obtenerReglasContablesEmpresa(txn);
     return AccountingRuleSet(
       cashAccount: rules['cash'] ?? '1105',
@@ -7773,7 +8435,12 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> obtenerBancos() async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    return await db.query('bancos', where: 'company_id = ?', whereArgs: [companyId], orderBy: 'nombre ASC');
+    return await db.query(
+      'bancos',
+      where: 'company_id = ?',
+      whereArgs: [companyId],
+      orderBy: 'nombre ASC',
+    );
   }
 
   Future<int> guardarBanco({
@@ -7806,27 +8473,39 @@ class DatabaseHelper {
   Future<double> obtenerSaldoDisponible(String metodo) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    final codigoPuc = metodo.toUpperCase().trim() == 'EFECTIVO' ? '1105%' : '1110%';
-    final List<Map<String, dynamic>> res = await db.rawQuery('''
+    final codigoPuc = metodo.toUpperCase().trim() == 'EFECTIVO'
+        ? '1105%'
+        : '1110%';
+    final List<Map<String, dynamic>> res = await db.rawQuery(
+      '''
       SELECT SUM(debito) - SUM(credito) as saldo 
       FROM asiento_lineas 
       WHERE company_id = ? AND codigo LIKE ?
-    ''', [companyId, codigoPuc]);
+    ''',
+      [companyId, codigoPuc],
+    );
     return (res.first['saldo'] as num?)?.toDouble() ?? 0.0;
   }
 
   Future<double> obtenerSaldoBanco(int bancoId) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    final bancos = await db.query('bancos', where: 'id = ?', whereArgs: [bancoId]);
+    final bancos = await db.query(
+      'bancos',
+      where: 'id = ?',
+      whereArgs: [bancoId],
+    );
     if (bancos.isEmpty) return 0.0;
     final banco = bancos.first;
     final cuentaPuc = banco['cuenta_puc']?.toString() ?? '111005';
-    final List<Map<String, dynamic>> res = await db.rawQuery('''
+    final List<Map<String, dynamic>> res = await db.rawQuery(
+      '''
       SELECT SUM(debito) - SUM(credito) as saldo 
       FROM asiento_lineas 
       WHERE company_id = ? AND codigo LIKE ?
-    ''', [companyId, '$cuentaPuc%']);
+    ''',
+      [companyId, '$cuentaPuc%'],
+    );
     final saldoInicial = (banco['saldo_inicial'] as num?)?.toDouble() ?? 0.0;
     return saldoInicial + ((res.first['saldo'] as num?)?.toDouble() ?? 0.0);
   }
@@ -7835,11 +8514,20 @@ class DatabaseHelper {
 
   Future<void> anularMovimientoCaja(int id) async {
     final db = await instance.database;
-    final movs = await db.query('movimientos_caja', where: 'id = ?', whereArgs: [id]);
+    final movs = await db.query(
+      'movimientos_caja',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
     if (movs.isEmpty) return;
     final mov = movs.first;
 
-    await db.update('movimientos_caja', {'activo': 0}, where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'movimientos_caja',
+      {'activo': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
 
     final concepto = 'Reversión: ${mov['concepto']}';
     final monto = (mov['monto'] as num).toDouble();
@@ -7848,7 +8536,11 @@ class DatabaseHelper {
     final bancoId = mov['banco_id'] as int?;
     String cuentaDinero = '110505';
     if (bancoId != null) {
-      final bancos = await db.query('bancos', where: 'id = ?', whereArgs: [bancoId]);
+      final bancos = await db.query(
+        'bancos',
+        where: 'id = ?',
+        whereArgs: [bancoId],
+      );
       if (bancos.isNotEmpty) {
         cuentaDinero = bancos.first['cuenta_puc']?.toString() ?? '111005';
       }
@@ -7896,20 +8588,33 @@ class DatabaseHelper {
     });
   }
 
-  Future<List<Map<String, dynamic>>> obtenerExtractosPorBanco(int bancoId) async {
+  Future<List<Map<String, dynamic>>> obtenerExtractosPorBanco(
+    int bancoId,
+  ) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    return await db.query('extractos_bancarios', where: 'company_id = ? AND banco_id = ?', whereArgs: [companyId, bancoId], orderBy: 'fecha DESC');
+    return await db.query(
+      'extractos_bancarios',
+      where: 'company_id = ? AND banco_id = ?',
+      whereArgs: [companyId, bancoId],
+      orderBy: 'fecha DESC',
+    );
   }
 
-  Future<List<Map<String, dynamic>>> obtenerLineasContablesBancariasNoConciliadas(int bancoId) async {
+  Future<List<Map<String, dynamic>>>
+  obtenerLineasContablesBancariasNoConciliadas(int bancoId) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    final bancos = await db.query('bancos', where: 'id = ? AND company_id = ?', whereArgs: [bancoId, companyId]);
+    final bancos = await db.query(
+      'bancos',
+      where: 'id = ? AND company_id = ?',
+      whereArgs: [bancoId, companyId],
+    );
     if (bancos.isEmpty) return [];
     final cuentaPuc = bancos.first['cuenta_puc']?.toString() ?? '111005';
 
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
       SELECT al.*, ac.fecha as fecha_asiento, ac.concepto as concepto_asiento
       FROM asiento_lineas al
       JOIN asientos_contables ac ON al.asiento_id = ac.id
@@ -7918,23 +8623,32 @@ class DatabaseHelper {
         SELECT IFNULL(asiento_linea_id, 0) FROM extractos_bancarios WHERE company_id = ? AND conciliado = 1
       )
       ORDER BY ac.fecha DESC
-    ''', [companyId, '$cuentaPuc%', companyId]);
+    ''',
+      [companyId, '$cuentaPuc%', companyId],
+    );
   }
 
-  Future<void> conciliarTransacciones(int extractoId, int asientoLineaId) async {
+  Future<void> conciliarTransacciones(
+    int extractoId,
+    int asientoLineaId,
+  ) async {
     final db = await instance.database;
-    await db.update('extractos_bancarios', {
-      'conciliado': 1,
-      'asiento_linea_id': asientoLineaId,
-    }, where: 'id = ?', whereArgs: [extractoId]);
+    await db.update(
+      'extractos_bancarios',
+      {'conciliado': 1, 'asiento_linea_id': asientoLineaId},
+      where: 'id = ?',
+      whereArgs: [extractoId],
+    );
   }
 
   Future<void> desconciliarTransaccion(int extractoId) async {
     final db = await instance.database;
-    await db.update('extractos_bancarios', {
-      'conciliado': 0,
-      'asiento_linea_id': null,
-    }, where: 'id = ?', whereArgs: [extractoId]);
+    await db.update(
+      'extractos_bancarios',
+      {'conciliado': 0, 'asiento_linea_id': null},
+      where: 'id = ?',
+      whereArgs: [extractoId],
+    );
   }
 
   // ── ACTIVOS FIJOS Y DEPRECIACIÓN AUTOMÁTICA ─────────────────
@@ -7942,7 +8656,11 @@ class DatabaseHelper {
   Future<void> procesarDepreciacionMensual() async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    final activos = await db.query('activos_fijos', where: 'company_id = ? AND estado = ?', whereArgs: [companyId, 'activo']);
+    final activos = await db.query(
+      'activos_fijos',
+      where: 'company_id = ? AND estado = ?',
+      whereArgs: [companyId, 'activo'],
+    );
     final ahoraStr = DateTime.now().toIso8601String().split('T').first;
 
     for (final act in activos) {
@@ -7950,32 +8668,35 @@ class DatabaseHelper {
       final costo = (act['costo'] as num).toDouble();
       final valorResidual = (act['valor_residual'] as num?)?.toDouble() ?? 0;
       final vidaUtilMeses = (act['vida_util_meses'] as num).toInt();
-      final depreciacionAcumulada = (act['depreciacion_acumulada'] as num?)?.toDouble() ?? 0;
+      final depreciacionAcumulada =
+          (act['depreciacion_acumulada'] as num?)?.toDouble() ?? 0;
       final valorLibros = (act['valor_libros'] as num?)?.toDouble() ?? costo;
-      
+
       if (vidaUtilMeses <= 0 || valorLibros <= valorResidual) continue;
 
       final ultDep = act['fecha_depreciacion']?.toString();
- 
-      if (ultDep != null && ultDep.substring(0, 7) == ahoraStr.substring(0, 7)) {
+
+      if (ultDep != null &&
+          ultDep.substring(0, 7) == ahoraStr.substring(0, 7)) {
         continue;
       }
 
       // Fórmula de Depreciación (Línea Recta)
       // Cuota Mensual = (purchase_value - salvage_value) / useful_life_months
       final cuotaMensual = (costo - valorResidual) / vidaUtilMeses;
-      
+
       // Verificar que no exceda el valor residual
       final nuevaDepreciacionAcumulada = depreciacionAcumulada + cuotaMensual;
       final nuevoValorLibros = costo - nuevaDepreciacionAcumulada;
-      
+
       if (nuevoValorLibros < valorResidual) {
         // No depreciar más allá del valor residual
         continue;
       }
 
       final codigoPucActivo = act['codigo_puc']?.toString() ?? '1524';
-      final codigoPucGasto = act['codigo_puc_depreciacion']?.toString() ?? '5160';
+      final codigoPucGasto =
+          act['codigo_puc_depreciacion']?.toString() ?? '5160';
 
       await _registrarAsientoConCodigos(
         concepto: 'Depreciación Mensual Activo #$id - ${act['nombre']}',
@@ -7997,11 +8718,16 @@ class DatabaseHelper {
         ],
       );
 
-      await db.update('activos_fijos', {
-        'depreciacion_acumulada': nuevaDepreciacionAcumulada,
-        'valor_libros': nuevoValorLibros,
-        'fecha_depreciacion': ahoraStr,
-      }, where: 'id = ?', whereArgs: [id]);
+      await db.update(
+        'activos_fijos',
+        {
+          'depreciacion_acumulada': nuevaDepreciacionAcumulada,
+          'valor_libros': nuevoValorLibros,
+          'fecha_depreciacion': ahoraStr,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     }
   }
 
@@ -8109,7 +8835,9 @@ class DatabaseHelper {
   }
 
   /// Borrador Formulario 110 (Renta Personas Jurídicas) - resumen anual.
-  Future<Map<String, double>> obtenerBorradorFormulario110({required int anio}) async {
+  Future<Map<String, double>> obtenerBorradorFormulario110({
+    required int anio,
+  }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
     final inicio = DateTime(anio, 1, 1).toIso8601String();
@@ -8183,40 +8911,41 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
-    
+
     await db.transaction((txn) async {
       final traslados = await txn.query(
         'traslados_bodega',
         where: 'id = ? AND company_id = ? AND estado = ?',
         whereArgs: [trasladoId, companyId, 'registrado'],
       );
-      
+
       if (traslados.isEmpty) {
         throw Exception('Traslado no encontrado o ya procesado');
       }
-      
+
       final traslado = traslados.first;
       final productoId = traslado['producto_id'] as int;
       final bodegaOrigenId = traslado['bodega_origen_id'] as int;
       final bodegaDestinoId = traslado['bodega_destino_id'] as int;
       final cantidad = (traslado['cantidad'] as num).toDouble();
-      
+
       // Obtener stock en bodega origen
       final stockOrigen = await txn.query(
         'stock_bodega',
         where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
         whereArgs: [productoId, bodegaOrigenId, companyId],
       );
-      
+
       if (stockOrigen.isEmpty) {
         throw Exception('No existe stock en bodega origen');
       }
-      
-      final stockActualOrigen = (stockOrigen.first['cantidad'] as num).toDouble();
+
+      final stockActualOrigen = (stockOrigen.first['cantidad'] as num)
+          .toDouble();
       if (stockActualOrigen < cantidad) {
         throw Exception('Stock insuficiente en bodega origen');
       }
-      
+
       // Obtener costo actual del producto
       final productos = await txn.query(
         'productos',
@@ -8224,7 +8953,7 @@ class DatabaseHelper {
         whereArgs: [productoId, companyId],
       );
       final costoActual = (productos.first['costo'] as num?)?.toDouble() ?? 0;
-      
+
       // Generar OUT en bodega origen
       final nuevoStockOrigen = stockActualOrigen - cantidad;
       await txn.update(
@@ -8233,7 +8962,7 @@ class DatabaseHelper {
         where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
         whereArgs: [productoId, bodegaOrigenId, companyId],
       );
-      
+
       await txn.insert('movimientos_inventario', {
         'company_id': companyId,
         'producto_id': productoId,
@@ -8246,14 +8975,14 @@ class DatabaseHelper {
         'motivo': 'TRASLADO #$trasladoId (BODEGA ORIGEN)',
         'fecha': DateTime.now().toIso8601String(),
       });
-      
+
       // Generar IN en bodega destino
       final stockDestino = await txn.query(
         'stock_bodega',
         where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
         whereArgs: [productoId, bodegaDestinoId, companyId],
       );
-      
+
       if (stockDestino.isEmpty) {
         // Crear registro si no existe
         await txn.insert('stock_bodega', {
@@ -8263,7 +8992,8 @@ class DatabaseHelper {
           'cantidad': cantidad,
         });
       } else {
-        final stockActualDestino = (stockDestino.first['cantidad'] as num).toDouble();
+        final stockActualDestino = (stockDestino.first['cantidad'] as num)
+            .toDouble();
         final nuevoStockDestino = stockActualDestino + cantidad;
         await txn.update(
           'stock_bodega',
@@ -8271,7 +9001,7 @@ class DatabaseHelper {
           where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
           whereArgs: [productoId, bodegaDestinoId, companyId],
         );
-        
+
         await txn.insert('movimientos_inventario', {
           'company_id': companyId,
           'producto_id': productoId,
@@ -8285,7 +9015,7 @@ class DatabaseHelper {
           'fecha': DateTime.now().toIso8601String(),
         });
       }
-      
+
       // Actualizar estado del traslado
       await txn.update(
         'traslados_bodega',
@@ -8293,7 +9023,7 @@ class DatabaseHelper {
         where: 'id = ?',
         whereArgs: [trasladoId],
       );
-      
+
       await registrarEventoAuditoria(
         accion: 'PROCESAR_TRASLADO_BODEGA',
         entidad: 'traslados_bodega',
@@ -8301,7 +9031,7 @@ class DatabaseHelper {
         detalle: 'Traslado #$trasladoId procesado por $usuario',
       );
     });
-    
+
     return trasladoId;
   }
 
@@ -8311,14 +9041,14 @@ class DatabaseHelper {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
     final hoy = DateTime.now().toIso8601String().split('T').first;
-    
+
     final result = await db.update(
       'lotes',
       {'status': 'blocked'},
       where: 'company_id = ? AND status = ? AND fecha_vencimiento < ?',
       whereArgs: [companyId, 'active', hoy],
     );
-    
+
     if (result > 0) {
       await registrarEventoAuditoria(
         accion: 'BLOQUEAR_LOTES_VENCIDOS',
@@ -8327,7 +9057,7 @@ class DatabaseHelper {
         detalle: '$result lotes vencidos bloqueados',
       );
     }
-    
+
     return result;
   }
 
@@ -8337,24 +9067,24 @@ class DatabaseHelper {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
     final hoy = DateTime.now();
-    
+
     final cuentas = await db.query(
       'cuentas_por_cobrar',
       where: 'company_id = ? AND estado = ?',
       whereArgs: [companyId, 'pendiente'],
     );
-    
+
     double alDia = 0;
     double vencido30 = 0;
     double vencido60 = 0;
     double vencido90 = 0;
     double vencidoMas90 = 0;
-    
+
     for (final cuenta in cuentas) {
       final fechaVencimiento = DateTime.parse(cuenta['fecha'] as String);
       final saldo = (cuenta['saldo'] as num).toDouble();
       final diasVencidos = hoy.difference(fechaVencimiento).inDays;
-      
+
       if (diasVencidos <= 0) {
         alDia += saldo;
       } else if (diasVencidos <= 30) {
@@ -8367,7 +9097,7 @@ class DatabaseHelper {
         vencidoMas90 += saldo;
       }
     }
-    
+
     return {
       'al_dia': alDia,
       'vencido_30': vencido30,

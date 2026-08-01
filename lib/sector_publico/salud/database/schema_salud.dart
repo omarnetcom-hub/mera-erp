@@ -49,6 +49,7 @@ class SchemaSalud {
         valor_rechazado REAL NOT NULL,
         fecha_generacion TEXT NOT NULL,
         fecha_envio TEXT NOT NULL,
+        fecha_limite_respuesta TEXT,
         fecha_respuesta TEXT,
         estado TEXT NOT NULL,
         justificacion_respuesta TEXT,
@@ -57,6 +58,8 @@ class SchemaSalud {
         FOREIGN KEY (rips_id) REFERENCES rips(id)
       )
     ''');
+
+    await _crearEstructuraRipsFev(db);
 
     // Tabla de Contratos EPS / ADRES
     // FK: entidad_id -> entidades_territoriales(id)
@@ -99,13 +102,128 @@ class SchemaSalud {
       )
     ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_rips_entidad ON rips(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_rips_fecha ON rips(fecha_factura)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_rips_paciente ON rips(numero_identificacion)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_glosas_entidad ON glosas(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_glosas_estado ON glosas(estado)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_glosas_rips ON glosas(rips_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_contratos_eps_entidad ON contratos_eps_adres(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_facturas_salud_contrato ON facturas_salud(contrato_id)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_rips_entidad ON rips(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_rips_fecha ON rips(fecha_factura)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_rips_paciente ON rips(numero_identificacion)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_glosas_entidad ON glosas(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_glosas_estado ON glosas(estado)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_glosas_rips ON glosas(rips_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_glosas_limite_respuesta ON glosas(fecha_limite_respuesta)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_contratos_eps_entidad ON contratos_eps_adres(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_facturas_salud_contrato ON facturas_salud(contrato_id)',
+    );
+  }
+
+  /// Migracion v69: conserva las filas RIPS legadas y agrega el formato FEV.
+  static Future<void> migrarRipsFevYGlosas(Database db) async {
+    await _agregarColumnaSiNoExiste(
+      db,
+      'glosas',
+      'fecha_limite_respuesta',
+      'TEXT',
+    );
+    await _crearEstructuraRipsFev(db);
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_glosas_limite_respuesta ON glosas(fecha_limite_respuesta)',
+    );
+  }
+
+  static Future<void> _crearEstructuraRipsFev(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS rips_fev_documentos (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        numero_factura TEXT NOT NULL,
+        num_documento_id_obligado TEXT NOT NULL,
+        cucon TEXT,
+        contenido_json TEXT NOT NULL,
+        version_tecnica TEXT NOT NULL DEFAULT '003-2026-07-15',
+        estado_validacion_local TEXT NOT NULL,
+        fecha_generacion TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS catalogo_cups (
+        codigo TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        tipo_servicio TEXT NOT NULL,
+        fuente TEXT NOT NULL,
+        version_fuente TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS catalogo_cie10 (
+        codigo TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        fuente TEXT NOT NULL,
+        version_fuente TEXT NOT NULL
+      )
+    ''');
+
+    // Subconjunto de referencia, no catalogo exhaustivo. Fuente: Resolucion
+    // 2706/2025 (CUPS) y referencias CIE-10 publicadas por SISPRO/MinSalud.
+    const cups = [
+      {
+        'codigo': '890201',
+        'nombre': 'Consulta de primera vez por medicina general',
+        'tipo_servicio': 'consulta',
+      },
+      {
+        'codigo': '890301',
+        'nombre': 'Consulta de control o seguimiento por medicina general',
+        'tipo_servicio': 'consulta',
+      },
+    ];
+    for (final item in cups) {
+      await db.insert('catalogo_cups', {
+        ...item,
+        'fuente': 'Resolucion 2706 de 2025',
+        'version_fuente': '2025',
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    const cie10 = [
+      {
+        'codigo': 'A09',
+        'nombre': 'Diarrea y gastroenteritis de presunto origen infeccioso',
+      },
+      {'codigo': 'J00', 'nombre': 'Rinofaringitis aguda [resfriado comun]'},
+    ];
+    for (final item in cie10) {
+      await db.insert('catalogo_cie10', {
+        ...item,
+        'fuente': 'Referencia CIE-10 SISPRO/MinSalud',
+        'version_fuente': 'CIE-10 vigente',
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+  }
+
+  static Future<void> _agregarColumnaSiNoExiste(
+    Database db,
+    String tabla,
+    String columna,
+    String definicion,
+  ) async {
+    final columnas = await db.rawQuery('PRAGMA table_info($tabla)');
+    if (columnas.any((columnaDb) => columnaDb['name'] == columna)) return;
+    await db.execute('ALTER TABLE $tabla ADD COLUMN $columna $definicion');
   }
 }

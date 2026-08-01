@@ -55,13 +55,21 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
 
       _ripsService = RIPSService(db: db, auditoriaService: auditoria);
       _glosasService = GlosasService(db: db, auditoriaService: auditoria);
-      _facturacionService = FacturacionSaludService(db: db, auditoriaService: auditoria);
+      _facturacionService = FacturacionSaludService(
+        db: db,
+        auditoriaService: auditoria,
+      );
 
       await _cargarDatos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al inicializar servicios de Salud Pública: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              'Error al inicializar servicios de Salud Pública: $e',
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -70,12 +78,23 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
   }
 
   Future<void> _cargarDatos() async {
-    if (_ripsService == null || _glosasService == null || _facturacionService == null) return;
+    if (_ripsService == null ||
+        _glosasService == null ||
+        _facturacionService == null)
+      return;
     try {
-      final ripsList = await _ripsService!.consultarRIPS(entidadId: widget.entidadId);
-      final glosasList = await _glosasService!.consultarGlosas(entidadId: widget.entidadId);
-      final contratosList = await _facturacionService!.consultarContratos(entidadId: widget.entidadId);
-      final facturasList = await _facturacionService!.consultarFacturas(entidadId: widget.entidadId);
+      final ripsList = await _ripsService!.consultarRIPS(
+        entidadId: widget.entidadId,
+      );
+      final glosasList = await _glosasService!.consultarGlosas(
+        entidadId: widget.entidadId,
+      );
+      final contratosList = await _facturacionService!.consultarContratos(
+        entidadId: widget.entidadId,
+      );
+      final facturasList = await _facturacionService!.consultarFacturas(
+        entidadId: widget.entidadId,
+      );
 
       setState(() {
         _rips = ripsList;
@@ -86,7 +105,10 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar datos de Salud Pública: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al cargar datos de Salud Pública: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -99,10 +121,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
         title: const Text('Salud Pública (RIPS / EPS / ADRES)'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _cargarDatos,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _cargarDatos),
         ],
       ),
       body: _cargando
@@ -128,10 +147,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description),
-            label: 'RIPS',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.description), label: 'RIPS'),
           BottomNavigationBarItem(
             icon: Icon(Icons.handshake),
             label: 'Contratos EPS',
@@ -140,10 +156,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
             icon: Icon(Icons.receipt),
             label: 'Facturación',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.warning),
-            label: 'Glosas',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.warning), label: 'Glosas'),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -160,12 +173,19 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          const Icon(Icons.verified, color: Color(0xFF00695C)), // teal.shade800 — contraste suficiente sobre teal.shade100
+          const Icon(
+            Icons.verified,
+            color: Color(0xFF00695C),
+          ), // teal.shade800 — contraste suficiente sobre teal.shade100
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Gestión integral ESE / Salud: ${_contratos.length} contratos EPS/ADRES activos, ${_facturas.length} facturas emitidas y RIPS/Glosas consolidados.',
-              style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black87,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -196,7 +216,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                 child: ElevatedButton.icon(
                   onPressed: _generarArchivoPlanoDialog,
                   icon: Icon(Icons.file_download),
-                  label: const Text('Generar Archivo Plano'),
+                  label: const Text('Consultar RIPS JSON FEV'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
@@ -214,9 +234,14 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     children: [
                       Icon(Icons.description, size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
-                      Text('Registros RIPS', style: Theme.of(context).textTheme.headlineSmall),
+                      Text(
+                        'Registros RIPS',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 8),
-                      const Text('Registros Individuales de Prestación de Servicios de Salud'),
+                      const Text(
+                        'Registros Individuales de Prestación de Servicios de Salud',
+                      ),
                     ],
                   ),
                 )
@@ -228,11 +253,21 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     return Card(
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          child: Icon(Icons.local_hospital, color: Colors.white),
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          child: Icon(
+                            Icons.local_hospital,
+                            color: Colors.white,
+                          ),
                         ),
-                        title: Text('${item.nombrePaciente} (${item.tipoIdentificacion}: ${item.numeroIdentificacion})', style: TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Factura #${item.numeroFactura} | Servicio: ${item.nombreServicio} | Neto: ${CurrencyFormatter.format(item.valorNeto)}'),
+                        title: Text(
+                          '${item.nombrePaciente} (${item.tipoIdentificacion}: ${item.numeroIdentificacion})',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          'Factura #${item.numeroFactura} | Servicio: ${item.nombreServicio} | Neto: ${CurrencyFormatter.format(item.valorNeto)}',
+                        ),
                       ),
                     );
                   },
@@ -268,9 +303,14 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     children: [
                       Icon(Icons.handshake, size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
-                      Text('Contratos EPS / ADRES', style: Theme.of(context).textTheme.headlineSmall),
+                      Text(
+                        'Contratos EPS / ADRES',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 8),
-                      const Text('Contratación por Capitación y Evento para ESE Hospital'),
+                      const Text(
+                        'Contratación por Capitación y Evento para ESE Hospital',
+                      ),
                     ],
                   ),
                 )
@@ -282,11 +322,18 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     return Card(
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
                           child: Icon(Icons.business, color: Colors.white),
                         ),
-                        title: Text('Contrato #${c.numeroContrato} - ${c.epsAdresNombre}', style: TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Régimen: ${c.regimen.name} | Contratado: ${CurrencyFormatter.format(c.montoContrato)} | Facturado: ${CurrencyFormatter.format(c.montoFacturado)}'),
+                        title: Text(
+                          'Contrato #${c.numeroContrato} - ${c.epsAdresNombre}',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          'Régimen: ${c.regimen.name} | Contratado: ${CurrencyFormatter.format(c.montoContrato)} | Facturado: ${CurrencyFormatter.format(c.montoFacturado)}',
+                        ),
                       ),
                     );
                   },
@@ -322,7 +369,10 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     children: [
                       Icon(Icons.receipt, size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
-                      Text('Facturación de Servicios de Salud', style: Theme.of(context).textTheme.headlineSmall),
+                      Text(
+                        'Facturación de Servicios de Salud',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 8),
                       const Text('Venta de servicios de salud a EPS y ADRES'),
                     ],
@@ -336,13 +386,23 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     return Card(
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
                           child: Icon(Icons.receipt, color: Colors.white),
                         ),
-                        title: Text('Factura #${f.numeroFactura} - Periodo: ${f.periodo}', style: TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Total: ${CurrencyFormatter.format(f.montoTotal)} | Glosado: ${CurrencyFormatter.format(f.montoGlosado)} | Estado: ${f.estado}'),
+                        title: Text(
+                          'Factura #${f.numeroFactura} - Periodo: ${f.periodo}',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          'Total: ${CurrencyFormatter.format(f.montoTotal)} | Glosado: ${CurrencyFormatter.format(f.montoGlosado)} | Estado: ${f.estado}',
+                        ),
                         trailing: IconButton(
-                          icon: Icon(Icons.picture_as_pdf, color: Theme.of(context).colorScheme.primary),
+                          icon: Icon(
+                            Icons.picture_as_pdf,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                           tooltip: 'Exportar Factura Plano',
                           onPressed: () => _exportarFacturaPlano(f),
                         ),
@@ -381,9 +441,14 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     children: [
                       Icon(Icons.warning, size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
-                      Text('Gestión de Glosas EPS', style: Theme.of(context).textTheme.headlineSmall),
+                      Text(
+                        'Gestión de Glosas EPS',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 8),
-                      const Text('Auditaje y respuesta de glosas de facturas de salud'),
+                      const Text(
+                        'Auditaje y respuesta de glosas de facturas de salud',
+                      ),
                     ],
                   ),
                 )
@@ -395,11 +460,18 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     return Card(
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: glosa.estado == EstadoGlosa.aceptada ? Colors.green : Colors.orange,
+                          backgroundColor: glosa.estado == EstadoGlosa.aceptada
+                              ? Colors.green
+                              : Colors.orange,
                           child: Icon(Icons.rule, color: Colors.white),
                         ),
-                        title: Text('Glosa #${glosa.numeroGlosa} - EPS: ${glosa.eps}', style: TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Factura #${glosa.numeroFactura} | Glosado: ${CurrencyFormatter.format(glosa.valorGlosado)} | Estado: ${glosa.estado.name}'),
+                        title: Text(
+                          'Glosa #${glosa.numeroGlosa} - EPS: ${glosa.eps}',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          'Factura #${glosa.numeroFactura} | Glosado: ${CurrencyFormatter.format(glosa.valorGlosado)} | Estado: ${glosa.estado.name}',
+                        ),
                       ),
                     );
                   },
@@ -443,28 +515,66 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: numContratoCtrl, decoration: const InputDecoration(labelText: 'Número de Contrato', hintText: 'ej. CNT-EPS-2026-001')),
-                TextField(controller: epsNombreCtrl, decoration: const InputDecoration(labelText: 'Nombre EPS / ADRES', hintText: 'ej. Nueva EPS S.A.')),
-                TextField(controller: epsNitCtrl, decoration: const InputDecoration(labelText: 'NIT EPS', hintText: 'ej. 900156877-1')),
+                TextField(
+                  controller: numContratoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de Contrato',
+                    hintText: 'ej. CNT-EPS-2026-001',
+                  ),
+                ),
+                TextField(
+                  controller: epsNombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre EPS / ADRES',
+                    hintText: 'ej. Nueva EPS S.A.',
+                  ),
+                ),
+                TextField(
+                  controller: epsNitCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'NIT EPS',
+                    hintText: 'ej. 900156877-1',
+                  ),
+                ),
                 DropdownButtonFormField<RegimenSalud>(
                   value: regimenSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Régimen de Salud'),
+                  decoration: const InputDecoration(
+                    labelText: 'Régimen de Salud',
+                  ),
                   items: RegimenSalud.values.map((r) {
-                    return DropdownMenuItem(value: r, child: Text(r.name.toUpperCase()));
+                    return DropdownMenuItem(
+                      value: r,
+                      child: Text(r.name.toUpperCase()),
+                    );
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => regimenSeleccionado = val);
+                    if (val != null)
+                      setDialogState(() => regimenSeleccionado = val);
                   },
                 ),
-                TextField(controller: montoCtrl, decoration: const InputDecoration(labelText: 'Monto Total Contratado', hintText: 'ej. 500000000'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: montoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Monto Total Contratado',
+                    hintText: 'ej. 500000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (numContratoCtrl.text.isEmpty || epsNombreCtrl.text.isEmpty || epsNitCtrl.text.isEmpty || montoCtrl.text.isEmpty) return;
+                if (numContratoCtrl.text.isEmpty ||
+                    epsNombreCtrl.text.isEmpty ||
+                    epsNitCtrl.text.isEmpty ||
+                    montoCtrl.text.isEmpty)
+                  return;
                 try {
                   await _facturacionService!.registrarContratoEPS(
                     entidadId: widget.entidadId,
@@ -479,12 +589,19 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contrato EPS registrado')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Contrato EPS registrado')),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -499,14 +616,24 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
   void _generarFacturaSaludDialog() {
     if (_facturacionService == null || _contratos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Se requiere al menos un contrato EPS para expedir facturas de salud.')),
+        const SnackBar(
+          content: Text(
+            'Se requiere al menos un contrato EPS para expedir facturas de salud.',
+          ),
+        ),
       );
       return;
     }
 
     String contratoSeleccionadoId = _contratos.first.id;
-    final numFacCtrl = TextEditingController(text: 'FAC-SALUD-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}');
-    final periodoCtrl = TextEditingController(text: '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}');
+    final numFacCtrl = TextEditingController(
+      text:
+          'FAC-SALUD-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+    );
+    final periodoCtrl = TextEditingController(
+      text:
+          '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}',
+    );
     final montoCtrl = TextEditingController();
 
     showDialog(
@@ -520,25 +647,56 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
               children: [
                 DropdownButtonFormField<String>(
                   value: contratoSeleccionadoId,
-                  decoration: const InputDecoration(labelText: 'Seleccionar Contrato EPS / ADRES'),
+                  decoration: const InputDecoration(
+                    labelText: 'Seleccionar Contrato EPS / ADRES',
+                  ),
                   items: _contratos.map((c) {
-                    return DropdownMenuItem(value: c.id, child: Text('${c.numeroContrato} - ${c.epsAdresNombre}'));
+                    return DropdownMenuItem(
+                      value: c.id,
+                      child: Text('${c.numeroContrato} - ${c.epsAdresNombre}'),
+                    );
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => contratoSeleccionadoId = val);
+                    if (val != null)
+                      setDialogState(() => contratoSeleccionadoId = val);
                   },
                 ),
-                TextField(controller: numFacCtrl, decoration: const InputDecoration(labelText: 'Número de Factura', hintText: 'ej. FAC-2026-001')),
-                TextField(controller: periodoCtrl, decoration: const InputDecoration(labelText: 'Periodo de Facturación', hintText: 'ej. 2026-03')),
-                TextField(controller: montoCtrl, decoration: const InputDecoration(labelText: 'Monto Total Facturado', hintText: 'ej. 25000000'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: numFacCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de Factura',
+                    hintText: 'ej. FAC-2026-001',
+                  ),
+                ),
+                TextField(
+                  controller: periodoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Periodo de Facturación',
+                    hintText: 'ej. 2026-03',
+                  ),
+                ),
+                TextField(
+                  controller: montoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Monto Total Facturado',
+                    hintText: 'ej. 25000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (numFacCtrl.text.isEmpty || periodoCtrl.text.isEmpty || montoCtrl.text.isEmpty) return;
+                if (numFacCtrl.text.isEmpty ||
+                    periodoCtrl.text.isEmpty ||
+                    montoCtrl.text.isEmpty)
+                  return;
                 try {
                   await _facturacionService!.generarFacturaSalud(
                     entidadId: widget.entidadId,
@@ -550,12 +708,21 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Factura de Salud expedida')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Factura de Salud expedida'),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -570,7 +737,9 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
   void _exportarFacturaPlano(FacturaSalud factura) async {
     if (_facturacionService == null) return;
     try {
-      final plano = await _facturacionService!.exportarFacturaAPlano(factura.id);
+      final plano = await _facturacionService!.exportarFacturaAPlano(
+        factura.id,
+      );
       if (mounted) {
         showDialog(
           context: context,
@@ -578,14 +747,19 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
             title: Text('Factura Salud #${factura.numeroFactura} (.txt Plano)'),
             content: SingleChildScrollView(child: SelectableText(plano)),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
             ],
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -615,35 +789,117 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
               children: [
                 DropdownButtonFormField<TipoRIPS>(
                   value: tipoRIPSSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Tipo de Registro RIPS'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo de Registro RIPS',
+                  ),
                   items: TipoRIPS.values.map((t) {
-                    return DropdownMenuItem(value: t, child: Text(t.name.toUpperCase()));
+                    return DropdownMenuItem(
+                      value: t,
+                      child: Text(t.name.toUpperCase()),
+                    );
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => tipoRIPSSeleccionado = val);
+                    if (val != null)
+                      setDialogState(() => tipoRIPSSeleccionado = val);
                   },
                 ),
-                TextField(controller: prestadorCodigoCtrl, decoration: const InputDecoration(labelText: 'Código Prestador (REPS)', hintText: 'ej. 11001001')),
-                TextField(controller: prestadorNombreCtrl, decoration: const InputDecoration(labelText: 'Nombre Prestador / ESE', hintText: 'ej. ESE Hospital Municipal')),
-                TextField(controller: facturaCtrl, decoration: const InputDecoration(labelText: 'Número de Factura', hintText: 'ej. FAC-SALUD-001')),
-                TextField(controller: tipoIdCtrl, decoration: const InputDecoration(labelText: 'Tipo Identificación (CC/TI/CE)', hintText: 'ej. CC')),
-                TextField(controller: pacienteIdCtrl, decoration: const InputDecoration(labelText: 'Identificación Paciente', hintText: 'ej. 1018222333')),
-                TextField(controller: pacienteNombreCtrl, decoration: const InputDecoration(labelText: 'Nombre Completo Paciente', hintText: 'ej. Juan Pérez')),
-                TextField(controller: codigoServicioCtrl, decoration: const InputDecoration(labelText: 'Código Servicio CUPS', hintText: 'ej. 890201')),
-                TextField(controller: servicioNombreCtrl, decoration: const InputDecoration(labelText: 'Nombre Servicio / Consulta', hintText: 'ej. Consulta Medicina General')),
-                TextField(controller: valorCtrl, decoration: const InputDecoration(labelText: 'Valor Servicio', hintText: 'ej. 60000'), keyboardType: TextInputType.number),
-                TextField(controller: copagoCtrl, decoration: const InputDecoration(labelText: 'Valor Copago / Cuota Moderadora', hintText: 'ej. 5000'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: prestadorCodigoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Código Prestador (REPS)',
+                    hintText: 'ej. 11001001',
+                  ),
+                ),
+                TextField(
+                  controller: prestadorNombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre Prestador / ESE',
+                    hintText: 'ej. ESE Hospital Municipal',
+                  ),
+                ),
+                TextField(
+                  controller: facturaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de Factura',
+                    hintText: 'ej. FAC-SALUD-001',
+                  ),
+                ),
+                TextField(
+                  controller: tipoIdCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo Identificación (CC/TI/CE)',
+                    hintText: 'ej. CC',
+                  ),
+                ),
+                TextField(
+                  controller: pacienteIdCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Identificación Paciente',
+                    hintText: 'ej. 1018222333',
+                  ),
+                ),
+                TextField(
+                  controller: pacienteNombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre Completo Paciente',
+                    hintText: 'ej. Juan Pérez',
+                  ),
+                ),
+                TextField(
+                  controller: codigoServicioCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Código Servicio CUPS',
+                    hintText: 'ej. 890201',
+                  ),
+                ),
+                TextField(
+                  controller: servicioNombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre Servicio / Consulta',
+                    hintText: 'ej. Consulta Medicina General',
+                  ),
+                ),
+                TextField(
+                  controller: valorCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Valor Servicio',
+                    hintText: 'ej. 60000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: copagoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Valor Copago / Cuota Moderadora',
+                    hintText: 'ej. 5000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (facturaCtrl.text.isEmpty || pacienteIdCtrl.text.isEmpty || valorCtrl.text.isEmpty || prestadorCodigoCtrl.text.isEmpty || servicioNombreCtrl.text.isEmpty || prestadorNombreCtrl.text.isEmpty || tipoIdCtrl.text.isEmpty || pacienteNombreCtrl.text.isEmpty || codigoServicioCtrl.text.isEmpty) return;
+                if (facturaCtrl.text.isEmpty ||
+                    pacienteIdCtrl.text.isEmpty ||
+                    valorCtrl.text.isEmpty ||
+                    prestadorCodigoCtrl.text.isEmpty ||
+                    servicioNombreCtrl.text.isEmpty ||
+                    prestadorNombreCtrl.text.isEmpty ||
+                    tipoIdCtrl.text.isEmpty ||
+                    pacienteNombreCtrl.text.isEmpty ||
+                    codigoServicioCtrl.text.isEmpty)
+                  return;
                 try {
                   final valor = double.parse(valorCtrl.text);
-                  final copago = copagoCtrl.text.isNotEmpty ? double.parse(copagoCtrl.text) : 0.0;
+                  final copago = copagoCtrl.text.isNotEmpty
+                      ? double.parse(copagoCtrl.text)
+                      : 0.0;
                   await _ripsService!.registrarRIPS(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
@@ -666,12 +922,21 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('RIPS registrado exitosamente')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('RIPS registrado exitosamente'),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -688,38 +953,51 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Generar Archivo Plano RIPS'),
-        content: const Text('Se consolidará el archivo plano de registros RIPS en formato oficial Ministerio de Salud para envío a la EPS.'),
+        title: const Text('Consultar RIPS JSON FEV'),
+        content: const Text(
+          'Se consolidará el archivo plano de registros RIPS en formato oficial Ministerio de Salud para envío a la EPS.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               try {
-                final plano = await _ripsService!.generarArchivoPlanoRIPS(
+                final plano = await _ripsService!.obtenerUltimoRipsJson(
                   entidadId: widget.entidadId,
-                  fechaInicio: DateTime.now().subtract(const Duration(days: 30)),
-                  fechaFin: DateTime.now(),
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('Archivo Plano RIPS Generado'),
-                      content: SingleChildScrollView(child: SelectableText(plano)),
+                      title: const Text('RIPS JSON FEV'),
+                      content: SingleChildScrollView(
+                        child: SelectableText(plano),
+                      ),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cerrar'),
+                        ),
                       ],
                     ),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al generar plano: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error al generar plano: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
-            child: const Text('Generar Plano'),
+            child: const Text('Ver JSON'),
           ),
         ],
       ),
@@ -729,7 +1007,11 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
   void _generarGlosaDialog() {
     if (_glosasService == null || _rips.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Se requiere al menos un RIPS registrado para generar glosa.')),
+        const SnackBar(
+          content: Text(
+            'Se requiere al menos un RIPS registrado para generar glosa.',
+          ),
+        ),
       );
       return;
     }
@@ -749,27 +1031,55 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: epsCtrl, decoration: const InputDecoration(labelText: 'Nombre EPS', hintText: 'ej. Nueva EPS')),
+                TextField(
+                  controller: epsCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre EPS',
+                    hintText: 'ej. Nueva EPS',
+                  ),
+                ),
                 DropdownButtonFormField<TipoGlosa>(
                   value: tipoGlosaSeleccionada,
-                  decoration: const InputDecoration(labelText: 'Tipo / Causal de Glosa'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo / Causal de Glosa',
+                  ),
                   items: TipoGlosa.values.map((g) {
                     return DropdownMenuItem(value: g, child: Text(g.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => tipoGlosaSeleccionada = val);
+                    if (val != null)
+                      setDialogState(() => tipoGlosaSeleccionada = val);
                   },
                 ),
-                TextField(controller: motivoCtrl, decoration: const InputDecoration(labelText: 'Motivo de Glosa', hintText: 'ej. Inconsistencia en código CUPS')),
-                TextField(controller: valorGlosadoCtrl, decoration: const InputDecoration(labelText: 'Valor Glosado', hintText: 'ej. 20000'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: motivoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo de Glosa',
+                    hintText: 'ej. Inconsistencia en código CUPS',
+                  ),
+                ),
+                TextField(
+                  controller: valorGlosadoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Valor Glosado',
+                    hintText: 'ej. 20000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (epsCtrl.text.isEmpty || valorGlosadoCtrl.text.isEmpty || motivoCtrl.text.isEmpty) return;
+                if (epsCtrl.text.isEmpty ||
+                    valorGlosadoCtrl.text.isEmpty ||
+                    motivoCtrl.text.isEmpty)
+                  return;
                 try {
                   final valorGlosado = double.parse(valorGlosadoCtrl.text);
                   await _glosasService!.generarGlosa(
@@ -786,12 +1096,21 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Glosa radicada exitosamente')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Glosa radicada exitosamente'),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },

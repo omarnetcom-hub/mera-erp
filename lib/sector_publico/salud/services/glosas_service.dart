@@ -13,10 +13,7 @@ class GlosasService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  GlosasService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  GlosasService({required this.db, required this.auditoriaService});
 
   /// Genera una glosa
   Future<Glosa> generarGlosa({
@@ -30,11 +27,14 @@ class GlosasService {
     required double valorGlosado,
     required double valorAceptado,
     required double valorRechazado,
+    DateTime? fechaEnvio,
   }) async {
     final id = _uuid.v4();
-    final numeroGlosa = 'GL-${DateTime.now().year}-${_generarNumeroSecuencial()}';
-    final fechaGeneracion = DateTime.now();
-    final fechaEnvio = DateTime.now();
+    final numeroGlosa =
+        'GL-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final fechaGeneracion = fechaEnvio ?? DateTime.now();
+    final fechaEnvioReal = fechaEnvio ?? DateTime.now();
+    final fechaLimite = calcularFechaLimiteRespuesta(fechaEnvioReal);
 
     final glosa = Glosa(
       id: id,
@@ -49,11 +49,14 @@ class GlosasService {
       valorAceptado: valorAceptado,
       valorRechazado: valorRechazado,
       fechaGeneracion: fechaGeneracion,
-      fechaEnvio: fechaEnvio,
+      fechaEnvio: fechaEnvioReal,
       estado: EstadoGlosa.generada,
     );
 
-    await db.insert('glosas', glosa.toJson());
+    await db.insert('glosas', {
+      ...glosa.toJson(),
+      'fecha_limite_respuesta': fechaLimite.toIso8601String(),
+    });
 
     await auditoriaService.registrarEvento(
       entidadId: entidadId,
@@ -149,8 +152,39 @@ class GlosasService {
     return resultados.map((r) => Glosa.fromJson(r)).toList();
   }
 
+  /// Cinco dias laborales de lunes a viernes. Los festivos nacionales deben
+  /// incorporarse mediante un calendario oficial por entidad antes de usarse
+  /// para una decision juridica definitiva.
+  DateTime calcularFechaLimiteRespuesta(DateTime fechaEnvio) {
+    var fecha = DateTime(fechaEnvio.year, fechaEnvio.month, fechaEnvio.day);
+    var diasHabiles = 0;
+    while (diasHabiles < 5) {
+      fecha = fecha.add(const Duration(days: 1));
+      if (fecha.weekday != DateTime.saturday &&
+          fecha.weekday != DateTime.sunday) {
+        diasHabiles++;
+      }
+    }
+    return fecha;
+  }
+
+  Future<List<Map<String, dynamic>>> consultarAlertasRespuestaGlosa({
+    required String entidadId,
+    DateTime? fechaReferencia,
+  }) async {
+    final referencia = fechaReferencia ?? DateTime.now();
+    return db.query(
+      'glosas',
+      where: '''entidad_id = ?
+        AND fecha_respuesta IS NULL
+        AND fecha_limite_respuesta IS NOT NULL
+        AND fecha_limite_respuesta <= ?''',
+      whereArgs: [entidadId, referencia.toIso8601String()],
+      orderBy: 'fecha_limite_respuesta ASC',
+    );
+  }
+
   String _generarNumeroSecuencial() {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-
