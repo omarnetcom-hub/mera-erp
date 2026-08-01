@@ -7,6 +7,9 @@ import 'package:sqflite/sqflite.dart';
 enum RolSectorPublico {
   alcaldeRepresentanteLegal,
   secretarioHacienda,
+  // Ley 909 de 2004, art. 15: la gestion de personal recae en la unidad
+  // competente; su asignacion concreta se sujeta al manual de cada entidad.
+  secretarioGeneral,
   tesorero,
   contador,
   jefeRentas,
@@ -90,6 +93,11 @@ class RolesPermisosService {
       Permiso.consultarEstadosFinancieros,
       Permiso.consultarAuditoria,
       Permiso.consultarTodo,
+    },
+    // Rol administrativo transversal. No recibe facultades fiscales u operativas.
+    RolSectorPublico.secretarioGeneral: {
+      Permiso.gestionarUsuarios,
+      Permiso.asignarRoles,
     },
     RolSectorPublico.tesorero: {
       Permiso.ejecutarPago,
@@ -190,7 +198,7 @@ class RolesPermisosService {
   };
 
   /// Resuelve el RolSectorPublico de un usuario en la entidad territorial especificada.
-  /// 
+  ///
   /// REGLAS DE SEGURIDAD OBLIGATORIAS (FAIL-CLOSED):
   /// 1. La búsqueda se realiza EXCLUSIVAMENTE por usuario_id = ? (filtrado estricto por la clave del usuario).
   /// 2. null = sin rol resuelto = acceso denegado, NUNCA asumir un rol por defecto.
@@ -204,7 +212,9 @@ class RolesPermisosService {
   }) async {
     if (usuarioId == null) return null;
     final usuarioIdStr = usuarioId.toString().trim();
-    if (usuarioIdStr.isEmpty || usuarioIdStr == 'null' || usuarioIdStr == 'sin_sesion') {
+    if (usuarioIdStr.isEmpty ||
+        usuarioIdStr == 'null' ||
+        usuarioIdStr == 'sin_sesion') {
       return null;
     }
     final res = await db.query(
@@ -260,14 +270,16 @@ class RolesPermisosService {
 
     // Verificar segregación de funciones específica por acción
     // Ejemplo: un tesorero no puede aprobar un pago que él mismo inició
-    if (permiso == Permiso.aprobarPago && roles.contains(RolSectorPublico.tesorero)) {
+    if (permiso == Permiso.aprobarPago &&
+        roles.contains(RolSectorPublico.tesorero)) {
       // Aquí se debería verificar si el usuario es quien inició el pago
       // Esta lógica se implementará con datos adicionales
       return false; // Por defecto, tesorero no aprueba pagos
     }
 
     // Ejemplo: un contador no puede reversar sus propios asientos del mismo día
-    if (permiso == Permiso.reversarAsiento && roles.contains(RolSectorPublico.contador)) {
+    if (permiso == Permiso.reversarAsiento &&
+        roles.contains(RolSectorPublico.contador)) {
       // Verificar si el asiento fue creado por el mismo usuario
       // Esta lógica se implementará con datos adicionales
     }
@@ -300,7 +312,7 @@ class RolesPermisosService {
     required Permiso accion,
   }) {
     // Un tesorero no puede aprobar su propio pago
-    if (accion == Permiso.aprobarPago && 
+    if (accion == Permiso.aprobarPago &&
         rolQuienEjecuta == RolSectorPublico.tesorero &&
         rolQuienAprobo == RolSectorPublico.tesorero) {
       return false;
@@ -329,6 +341,8 @@ class RolesPermisosService {
         return 'Alcalde / Representante Legal';
       case RolSectorPublico.secretarioHacienda:
         return 'Secretario de Hacienda';
+      case RolSectorPublico.secretarioGeneral:
+        return 'Secretario General';
       case RolSectorPublico.tesorero:
         return 'Tesorero';
       case RolSectorPublico.contador:

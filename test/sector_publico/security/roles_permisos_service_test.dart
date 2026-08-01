@@ -16,18 +16,25 @@ void main() {
       expect(puedeAprobar, isFalse);
     });
 
-    test('NO debe permitir que tesorero se auto-apruebe en segregación de funciones', () {
-      final cumpleSegregacion = RolesPermisosService.validarSegregacionFunciones(
-        rolQuienEjecuta: RolSectorPublico.tesorero,
-        rolQuienAprobo: RolSectorPublico.tesorero,
-        accion: Permiso.aprobarPago,
-      );
+    test(
+      'NO debe permitir que tesorero se auto-apruebe en segregación de funciones',
+      () {
+        final cumpleSegregacion =
+            RolesPermisosService.validarSegregacionFunciones(
+              rolQuienEjecuta: RolSectorPublico.tesorero,
+              rolQuienAprobo: RolSectorPublico.tesorero,
+              accion: Permiso.aprobarPago,
+            );
 
-      expect(cumpleSegregacion, isFalse);
-    });
+        expect(cumpleSegregacion, isFalse);
+      },
+    );
 
     test('NO debe permitir que contador expida RP según negacionesPorRol', () {
-      final tieneNegacion = RolesPermisosService.negacionesPorRol[RolSectorPublico.contador]?.contains(Permiso.expedirRP) ?? false;
+      final tieneNegacion =
+          RolesPermisosService.negacionesPorRol[RolSectorPublico.contador]
+              ?.contains(Permiso.expedirRP) ??
+          false;
       final puedeExpedir = RolesPermisosService.puedeRealizarAccion(
         roles: {RolSectorPublico.contador},
         permiso: Permiso.expedirRP,
@@ -80,6 +87,32 @@ void main() {
             permiso: permiso,
           ),
           isTrue,
+        );
+      }
+    });
+
+    test('Secretario General administra usuarios sin facultades fiscales', () {
+      const rol = RolSectorPublico.secretarioGeneral;
+
+      expect(
+        RolesPermisosService.obtenerPermisosEfectivos(rol),
+        equals({Permiso.gestionarUsuarios, Permiso.asignarRoles}),
+      );
+
+      for (final permisoFiscal in {
+        Permiso.expedirCDP,
+        Permiso.expedirRP,
+        Permiso.modificarCDP,
+        Permiso.modificarRP,
+        Permiso.registrarObligacion,
+        Permiso.modificarPAC,
+        Permiso.aprobarPago,
+        Permiso.ejecutarPago,
+      }) {
+        expect(
+          RolesPermisosService.tienePermiso(rol, permisoFiscal),
+          isFalse,
+          reason: 'Secretario General no puede ${permisoFiscal.name}',
         );
       }
     });
