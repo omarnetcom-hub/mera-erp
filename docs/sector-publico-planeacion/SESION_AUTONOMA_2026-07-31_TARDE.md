@@ -964,3 +964,123 @@ Building Windows application...                                    20.8s
 - E - CHIP: no iniciada para evitar dejar una subtarea de prueba/evidencia sin cerrar.
 - F - depreciacion/FUT: no iniciada por la misma razon.
 - Decision autonoma principal para revisar: distinguir reservas presupuestales, cuentas por pagar reconocidas y recibidos sin obligacion mediante datos separados; no usar la suma actual de saldos clase 24 como sustituto.
+
+## Evidencia final de la ronda retomada
+
+### Salida cruda: git log origin/main -10
+
+```text
+commit 286f0ddbf2b65b8f702cf499357486994c895696
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 19:04:45 2026 -0500
+
+    docs(presupuesto): proponer diseno de reservas y vigencias futuras
+    
+    - Separa cuentas por pagar reconocidas de recibidos sin obligacion.
+    - Documenta tablas, migracion y radio de cambio necesarios.
+    - Cierra la ronda retomada con el estado real de C a F.
+
+commit 967bb5a6e22d2bedf081ad26c352222c6b4702e7
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 19:03:18 2026 -0500
+
+    docs(contabilidad): documentar brecha de estados NICSP 1
+    
+    - Registra que los generadores existen sobre saldos de asientos.
+    - Documenta el signo acreedor y resultado no integrado que impiden cuadrar.
+    - Mantiene M2 parcial con evidencia de inspeccion, analisis y build.
+
+commit 6a8612f8cae525bd2d66700622e722112d8be527
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 19:00:26 2026 -0500
+
+    test(contabilidad): certificar catalogo CGC publico
+    
+    - Verifica las cuentas clave de las clases 1, 2, 3, 4, 5, 6, 8 y 9.
+    - Confirma que los asientos NICSP de obligacion y pago usan cuentas del CGC.
+    - Actualiza matriz y bitacora con evidencia ejecutada.
+
+commit 0500265c89fe9f5e01ba5d743db37ff6904325d4
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 14:13:24 2026 -0500
+
+    feat(contabilidad): conectar estado NICSP 2 a la interfaz
+    
+    - Abre el modulo protegido estado_flujos_efectivo en su pestana dedicada.
+    - Agrega selector de periodo y metodo para FlujoEfectivoService.
+    - Cubre el calculo directo y la auditoria con una prueba de integracion.
+    - Actualiza la matriz y el log de la sesion autonoma con evidencia cruda.
+
+commit 47f2e3e962680277419fed5dcdc17a07730db2f3
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 14:02:17 2026 -0500
+
+    docs(financiero): documentar brecha de cierre de vigencia
+    
+    - confirmar que el calculo actual no cubre reservas presupuestales
+    - registrar ausencia de recibidos sin obligacion y vigencias futuras
+    - mantener M2 parcial con evidencia de inspeccion y build
+
+commit db755353dd3f74dc5c8ff9c719114636ee25866d
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 13:46:28 2026 -0500
+
+    fix(presupuesto): integrar ejecucion de pago con PAC y NICSP
+    
+    - agregar migracion v67 y persistir mes_pac en pagos
+    - exigir pago aprobado y ejecutar cascada atomica de pago, obligacion,
+      apropiacion, PAC, auditoria y asiento NICSP
+    - permitir DatabaseExecutor en servicios transaccionales sin romper
+      consumidores existentes basados en Database
+    - cubrir flujo feliz y cinco bloqueos con pruebas de integracion
+    - actualizar la matriz M2 con evidencia ejecutada del flujo completo
+
+commit e8b6a27c72bdf51655e8a4909c0c090a2d7bd28d
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 13:14:02 2026 -0500
+
+    docs(sector-publico): agregar matriz de trazabilidad verificable
+    
+    - mapear requisitos del plan v1.1 a codigo, pruebas y evidencia
+    - distinguir evidencia ejecutada de inspeccion de codigo
+    - corregir referencias de pruebas que no cubren el requisito citado
+
+commit d7fd19f2f40681dded5668f7cb51b7d0f41d4c3f
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 12:54:18 2026 -0500
+
+    docs(sector-publico): actualizar estado real de las fases
+    
+    - documentar avances parciales de las fases 1 a 11
+    - registrar auditoria inmutable y configuracion de entidad versionada
+
+commit 68ffaa0a5fcb3d5fc2f47290f0ef85c231bc0a45
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 12:54:18 2026 -0500
+
+    feat(configuracion): migrar onboarding publico legado
+    
+    - migrar company_settings publico al esquema configuracion_entidad
+    - conservar company_settings como fuente de solo lectura
+    - agregar prueba de municipio legado y matriz sectorial
+
+commit ad10a3e0018aaaaf1ab3bf3f5722c5b4e92a5a03
+Author: MerkaERP <merkaerp@example.com>
+Date:   Fri Jul 31 07:38:02 2026 -0500
+
+    feat(configuracion): versionar entidad y persistir matriz de modulos
+    
+    - agregar historial vigente para configuracion_entidad
+    - conservar configuracion_legal de Nomina por parametro
+    - sembrar y consultar modulos_por_tipo_entidad desde SQLite
+    - extender tipos compatibles hospital ESE y otro ente
+```
+
+### Salida cruda: git status
+
+```text
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+```
