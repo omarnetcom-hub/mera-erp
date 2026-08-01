@@ -1,5 +1,17 @@
 # Sesion autonoma - 2026-07-31 tarde
 
+## Resumen ejecutivo de la ronda R-W
+
+- R Salud: parcial implementado. RIPS-JSON FEV, validacion local CUPS/CIE-10 parcial y alerta de glosas; faltan catalogos completos, CUM/MUV y conciliacion.
+- S Nomina: parcial implementado. Aportes comunes 2026 y seis regimenes trazables; faltan escalas, primas, convenciones institucionales y PILA certificada.
+- T Planeacion: parcial implementado. Vinculo proyecto-rubro-meta y alerta financiera/fisica; faltan UI, metas PDT completas y obligacion de vinculo.
+- U SGR/SGP: parcial implementado. OCAD captura acta/fuente/ejecutor y SGP bloquea rubros no autorizados; falta homologacion con presupuesto y controles de ejecucion SGR.
+- V NICSP 40/Transparencia: requiere decision humana. No hay contraparte/identificador reciproco para eliminar sin riesgo; el portal requiere contrato/API/credenciales de entidad.
+- W Rentas: parcial implementado. Ruta ordinaria de cobro sin saltos; falta tabla e importacion completa del historico oficial de tasas y pruebas de expediente extremo a extremo.
+
+Decisiones humanas prioritarias: definir el mecanismo de conciliacion de reciprocas NICSP 40 y entregar contrato/configuracion de portal; decidir el proceso de carga y custodia del historico oficial de tasas para liquidaciones retroactivas.
+
+
 ## Subtarea W - Rentas: transiciones de cobro y tasas historicas
 
 ### Hallazgo, implementacion y decision
