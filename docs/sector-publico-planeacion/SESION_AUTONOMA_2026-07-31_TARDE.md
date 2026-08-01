@@ -244,7 +244,7 @@ En línea: 2 Carácter: 68
 
 ### Cierre de la subtarea U
 
-Estado: parcial implementado y verificado. El commit de implementacion queda pendiente de registrar aqui hasta que Git asigne el hash.
+Estado: parcial implementado y verificado. Commit de implementacion: `a97f659 feat(sgr-sgp): bloquear destinacion por componente y completar datos OCAD`.
 
 
 +## Subtarea T - Planeacion: trazabilidad proyecto-rubro-meta
