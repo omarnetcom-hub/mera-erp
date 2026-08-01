@@ -2,7 +2,6 @@
 /// Las 6 etapas del cobro coactivo con sus plazos legales
 library;
 
-
 enum EtapaCobroCoactivo {
   mandamientoPago, // Etapa 1: Mandamiento de pago
   embargoSecuestro, // Etapa 2: Embargo y secuestro
@@ -12,13 +11,7 @@ enum EtapaCobroCoactivo {
   prescripcion, // Etapa 6: Prescripción (si aplica)
 }
 
-enum EstadoProceso {
-  iniciado,
-  enTramite,
-  suspendido,
-  terminado,
-  prescrito,
-}
+enum EstadoProceso { iniciado, enTramite, suspendido, terminado, prescrito }
 
 class ProcesoCobroCoactivo {
   final String id;
@@ -125,7 +118,28 @@ class ProcesoCobroCoactivo {
 
   /// Avanza a la siguiente etapa del cobro coactivo
   ProcesoCobroCoactivo avanzarEtapa(EtapaCobroCoactivo nuevaEtapa) {
+    if (!puedeAvanzarA(nuevaEtapa)) {
+      throw StateError(
+        'Transicion no permitida de ${etapaActual.name} a ${nuevaEtapa.name}',
+      );
+    }
     return copyWith(etapaActual: nuevaEtapa);
+  }
+
+  /// El cierre por prescripcion es excepcional; la ruta ordinaria no admite saltos.
+  bool puedeAvanzarA(EtapaCobroCoactivo nuevaEtapa) {
+    if (nuevaEtapa == EtapaCobroCoactivo.prescripcion) {
+      return saldoPendiente > 0;
+    }
+    return switch (etapaActual) {
+      EtapaCobroCoactivo.mandamientoPago =>
+        nuevaEtapa == EtapaCobroCoactivo.embargoSecuestro,
+      EtapaCobroCoactivo.embargoSecuestro =>
+        nuevaEtapa == EtapaCobroCoactivo.remate,
+      EtapaCobroCoactivo.remate => nuevaEtapa == EtapaCobroCoactivo.devolucion,
+      EtapaCobroCoactivo.devolucion => nuevaEtapa == EtapaCobroCoactivo.archivo,
+      EtapaCobroCoactivo.archivo || EtapaCobroCoactivo.prescripcion => false,
+    };
   }
 
   /// Verifica si el proceso está prescrito (5 años)

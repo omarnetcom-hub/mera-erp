@@ -44,7 +44,9 @@ class CobroCoactivoService {
     final liquidacion = LiquidacionPredial.fromJson(liquidacionData);
 
     if (liquidacion.estado != EstadoLiquidacion.vencida) {
-      throw Exception('Solo se puede iniciar cobro coactivo para liquidaciones vencidas');
+      throw Exception(
+        'Solo se puede iniciar cobro coactivo para liquidaciones vencidas',
+      );
     }
 
     // Calcular intereses de mora
@@ -57,7 +59,8 @@ class CobroCoactivoService {
     final valorDeuda = liquidacion.totalPagar + interesesMora;
 
     final id = _uuid.v4();
-    final numeroProceso = 'CC-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroProceso =
+        'CC-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaInicio = DateTime.now();
 
     final proceso = ProcesoCobroCoactivo(
@@ -131,7 +134,14 @@ class CobroCoactivoService {
     final procesoData = procesoResult.first;
     final proceso = ProcesoCobroCoactivo.fromJson(procesoData);
 
-    if (proceso.estado == EstadoProceso.terminado || proceso.estado == EstadoProceso.prescrito) {
+    if (!proceso.puedeAvanzarA(nuevaEtapa)) {
+      throw Exception(
+        'Transicion de cobro coactivo no permitida: ${proceso.etapaActual.name} a ${nuevaEtapa.name}',
+      );
+    }
+
+    if (proceso.estado == EstadoProceso.terminado ||
+        proceso.estado == EstadoProceso.prescrito) {
       throw Exception('El proceso ya está terminado o prescrito');
     }
 
@@ -142,7 +152,8 @@ class CobroCoactivoService {
 
     switch (nuevaEtapa) {
       case EtapaCobroCoactivo.mandamientoPago:
-        actualizaciones['fecha_mandamiento_pago'] = DateTime.now().toIso8601String();
+        actualizaciones['fecha_mandamiento_pago'] = DateTime.now()
+            .toIso8601String();
         break;
       case EtapaCobroCoactivo.embargoSecuestro:
         actualizaciones['fecha_embargo'] = DateTime.now().toIso8601String();
@@ -152,11 +163,17 @@ class CobroCoactivoService {
         break;
       case EtapaCobroCoactivo.archivo:
         actualizaciones['fecha_terminacion'] = DateTime.now().toIso8601String();
-        actualizaciones['estado'] = EstadoProceso.terminado.toString().split('.').last;
+        actualizaciones['estado'] = EstadoProceso.terminado
+            .toString()
+            .split('.')
+            .last;
         break;
       case EtapaCobroCoactivo.prescripcion:
         actualizaciones['fecha_terminacion'] = DateTime.now().toIso8601String();
-        actualizaciones['estado'] = EstadoProceso.prescrito.toString().split('.').last;
+        actualizaciones['estado'] = EstadoProceso.prescrito
+            .toString()
+            .split('.')
+            .last;
         break;
       case EtapaCobroCoactivo.devolucion:
         actualizaciones['fecha_terminacion'] = DateTime.now().toIso8601String();
@@ -304,4 +321,3 @@ class CobroCoactivoService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-

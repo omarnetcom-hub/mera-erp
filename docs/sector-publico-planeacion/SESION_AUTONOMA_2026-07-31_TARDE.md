@@ -1,5 +1,26 @@
 # Sesion autonoma - 2026-07-31 tarde
 
+## Subtarea W - Rentas: transiciones de cobro y tasas historicas
+
+### Hallazgo, implementacion y decision
+
+El proceso tenia seis etapas pero el servicio aceptaba cualquier salto. Se restringio la ruta ordinaria a mandamiento -> embargo/secuestro -> remate -> devolucion -> archivo; prescripcion queda como cierre excepcional cuando hay saldo. No se implanto una tabla con tasas historicas: existe fuente oficial de Superfinanciera, pero no una serie completa cargada y verificable. El diseno y la fuente quedaron en `TASAS_MORATORIAS_HISTORICAS_PENDIENTE.md`.
+
+### Evidencia cruda: flutter test
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/rentas/proceso_cobro_coactivo_transiciones_test.dart
+00:00 +0: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/rentas/proceso_cobro_coactivo_transiciones_test.dart: la ruta ordinaria de cobro coactivo no permite saltar etapas
+00:00 +1: C:/Users/PC/Desktop/Caja_simple/test/sector_publico/rentas/proceso_cobro_coactivo_transiciones_test.dart: la prescripcion es un cierre excepcional con saldo pendiente
+00:00 +2: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/rentas/intereses_moratorios_service_test.dart
+00:01 +5: All tests passed!
+```
+
+### Cierre de la subtarea W
+
+Estado: parcial implementado y verificado. La serie historica de tasas requiere importacion oficial completa; el commit queda pendiente de registrar aqui hasta que Git asigne el hash.
+
+
 ## Subtarea V - Transparencia y consolidacion NICSP 40
 
 ### Hallazgo, decision y limite
