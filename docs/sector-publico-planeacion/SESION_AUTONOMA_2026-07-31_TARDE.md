@@ -942,3 +942,25 @@ Building Windows application...                                    20.8s
 - Commit de la subtarea C publicado: `6a8612f test(contabilidad): certificar catalogo CGC publico`.
 - Estado D: parcial documentada; no se introdujo codigo ni test para ocultar la brecha de signo y resultado acumulado.
 - Commit D: pendiente de registrar en el resumen ejecutivo por la regla de autorreferencia del log.
+## Pausa de diseno - reservas, cuentas por pagar y vigencias futuras
+
+### Propuesta conservadora
+
+- Obligaciones sin pagar al 31-dic: pueden derivarse de `obligaciones` con `fecha_reconocimiento <= corte` y `saldo_pendiente > 0`, separando el saldo pendiente por RP/apropiacion. Esa consulta no debe confundirse con una reserva presupuestal: es una cuenta por pagar ya reconocida.
+- Bienes/servicios recibidos sin obligacion: no puede derivarse de forma confiable. `acta_recibo_numero` y `factura_numero` se guardan solo al crear la obligacion. Se requiere una tabla nueva, por ejemplo `recepciones_satisfaccion`, con entidad, contrato/RP, tercero, acta, fecha de recibido, valor recibido, valor reconocido, estado y auditoria; la obligacion debe vincularla de forma opcional y consumir su saldo.
+- Vigencias futuras: requiere tablas nuevas de autorizacion plurianual y compromisos anuales, con autoridad autorizadora, acto, vigencias, cupo autorizado/comprometido, fuente, proyecto y estado. No se implementa sin definir autoridad y reglas de disponibilidad.
+
+### Radio de cambio estimado
+
+- Migracion versionada para `recepciones_satisfaccion`, autorizaciones y compromisos de vigencias futuras; indices por entidad, RP y vigencia.
+- Cambios en `schema_presupuesto.dart`, `db_helper.dart`, modelos/servicios/paginas de presupuesto, cierre de vigencia, auditoria y pruebas de integracion. El flujo de obligacion debe validar y actualizar el recibido; el cierre debe separar reserva, cuenta por pagar y recibido pendiente.
+- Estado: requiere decision humana antes de abrirlo como proyecto aparte. No se modificaron datos ni esquemas en esta pausa.
+
+## Resumen ejecutivo de la ronda retomada
+
+- C - CGC: completada y publicada en `6a8612f`. La prueba cubre las cuentas clave del plan por clases y los asientos NICSP de obligacion/pago contra el catalogo.
+- D - NICSP 1: parcial y publicada en `967bb5a`. Existen generadores, pero los signos acreedores y el resultado corriente impiden cuadrar estados derivados de asientos normales; no se certifico ni se oculto con pruebas.
+- Pausa de diseno: completada como documentacion; requiere decision humana para crear el dominio de recibido sin obligacion y vigencias futuras.
+- E - CHIP: no iniciada para evitar dejar una subtarea de prueba/evidencia sin cerrar.
+- F - depreciacion/FUT: no iniciada por la misma razon.
+- Decision autonoma principal para revisar: distinguir reservas presupuestales, cuentas por pagar reconocidas y recibidos sin obligacion mediante datos separados; no usar la suma actual de saldos clase 24 como sustituto.
