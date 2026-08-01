@@ -830,354 +830,71 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
 
   void _dialogoGenerarCHIP() async {
     final formKey = GlobalKey<FormState>();
-    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaController = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
 
-    // Controladores institucionales y de oficiales responsables
-    final representanteController = TextEditingController();
-    final identificacionRepController = TextEditingController();
-    final ordenadorController = TextEditingController();
-    final identificacionOrdController = TextEditingController();
-    final contadorController = TextEditingController();
-    final identificacionContController = TextEditingController();
-    final tarjetaContController = TextEditingController();
-    final direccionController = TextEditingController();
-    final telefonoController = TextEditingController();
-    final emailController = TextEditingController();
-
-    // Controladores financieros / presupuestales vacíos por defecto
-    final tributariosController = TextEditingController();
-    final noTributariosController = TextEditingController();
-    final sgpController = TextEditingController();
-    final regaliasController = TextEditingController();
-    final personalController = TextEditingController();
-    final inversionController = TextEditingController();
-
-    final activoCorrController = TextEditingController();
-    final pasivoCorrController = TextEditingController();
-
-    setState(() => _loading = true);
-    Map<String, dynamic>? datosEntidad;
-    List<Map<String, dynamic>> funcionariosResult = [];
-    try {
-      final db = await DatabaseHelper.instance.database;
-      final entResult = await db.query(
-        'entidades_territoriales',
-        where: 'id = ?',
-        whereArgs: [widget.entidadId],
-      );
-      if (entResult.isNotEmpty) {
-        datosEntidad = entResult.first;
-      }
-      funcionariosResult = await db.query(
-        'funcionarios_entidad',
-        where: 'entidad_id = ?',
-        whereArgs: [widget.entidadId],
-        orderBy: 'cargo_clave ASC',
-      );
-    } catch (e) {
-      debugPrint('Error cargando datos de la entidad: $e');
-    } finally {
-      setState(() => _loading = false);
-    }
-
-    if (datosEntidad == null) {
-      _mostrarError('No se encontró la configuración de la entidad territorial para el formulario CGN 2015_001');
-      return;
-    }
-
-    // Poblar controladores con datos persistidos de funcionarios si existen
-    for (final row in funcionariosResult) {
-      final cargo = row['cargo_clave'] as String;
-      if (cargo == 'representante_legal') {
-        representanteController.text = row['nombre_completo'] as String;
-        identificacionRepController.text = row['identificacion'] as String;
-      } else if (cargo == 'ordenador_gasto') {
-        ordenadorController.text = row['nombre_completo'] as String;
-        identificacionOrdController.text = row['identificacion'] as String;
-      } else if (cargo == 'contador') {
-        contadorController.text = row['nombre_completo'] as String;
-        identificacionContController.text = row['identificacion'] as String;
-        tarjetaContController.text = row['tarjeta_profesional'] as String? ?? '';
-      } else if (cargo == 'contacto_entidad') {
-        direccionController.text = row['direccion'] as String;
-        telefonoController.text = row['telefono'] as String;
-        emailController.text = row['email'] as String;
-      }
-    }
-
-    if (!mounted) return;
-    showDialog(
+    await showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Generar Paquete CHIP CGN'),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('CGN 2015_001 (Datos de la Entidad):', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
-                  const SizedBox(height: 6),
-                  Text('NIT: ${datosEntidad!['nit']}'),
-                  Text('Razón Social: ${datosEntidad['razon_social']}'),
-                  Text('Tipo: ${datosEntidad['tipo_entity'] ?? datosEntidad['tipo_entidad']}'),
-                  const Divider(),
-                  TextFormField(
-                    controller: vigenciaController,
-                    decoration: const InputDecoration(labelText: 'Vigencia Fiscal (Año)'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: direccionController,
-                    decoration: const InputDecoration(labelText: 'Dirección Oficial de la Entidad'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: telefonoController,
-                    decoration: const InputDecoration(labelText: 'Teléfono de Contacto'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: const InputDecoration(labelText: 'Email Institucional'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Funcionarios Responsables (Firmas CHIP):', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: representanteController,
-                    decoration: const InputDecoration(labelText: 'Nombre Representante Legal'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: identificacionRepController,
-                    decoration: const InputDecoration(labelText: 'Identificación Representante'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: ordenadorController,
-                    decoration: const InputDecoration(labelText: 'Nombre Ordenador del Gasto'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: identificacionOrdController,
-                    decoration: const InputDecoration(labelText: 'Identificación Ordenador del Gasto'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: contadorController,
-                    decoration: const InputDecoration(labelText: 'Nombre Contador General'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: identificacionContController,
-                    decoration: const InputDecoration(labelText: 'Identificación Contador'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: tarjetaContController,
-                    decoration: const InputDecoration(labelText: 'Tarjeta Profesional Contador'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Text('CGN 2015_002 (Ingresos y Gastos):', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: tributariosController,
-                    decoration: const InputDecoration(labelText: 'Ingresos Tributarios (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: noTributariosController,
-                    decoration: const InputDecoration(labelText: 'Ingresos No Tributarios (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: sgpController,
-                    decoration: const InputDecoration(labelText: 'Transferencias SGP (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: regaliasController,
-                    decoration: const InputDecoration(labelText: 'Regalías (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: personalController,
-                    decoration: const InputDecoration(labelText: 'Gastos de Personal (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: inversionController,
-                    decoration: const InputDecoration(labelText: 'Gastos de Inversión (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Text('CGN 2015_003 (Balance / Situación Financiera):', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: activoCorrController,
-                    decoration: const InputDecoration(labelText: 'Activo Corriente (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                  TextFormField(
-                    controller: pasivoCorrController,
-                    decoration: const InputDecoration(labelText: 'Pasivo Corriente (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
-                  ),
-                ],
+      builder: (context) => AlertDialog(
+        title: const Text('Generar reportes CHIP desde datos del sistema'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'CGN 2015_001 usa entidad y funcionarios; CGN 2015_002 usa saldos contables; CGN 2015_003 usa el Estado de Situacion Financiera.',
               ),
-            ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: vigenciaController,
+                decoration: const InputDecoration(labelText: 'Vigencia fiscal'),
+                keyboardType: TextInputType.number,
+                validator: (value) =>
+                    value == null || int.tryParse(value) == null
+                        ? 'Ingrese una vigencia valida'
+                        : null,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'CGN 2015_004, CGN 2015_005 y CGN 2016C01 no se emiten: faltan fuentes persistidas para sus campos obligatorios.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  final navigator = Navigator.of(context);
-                  navigator.pop();
-                  setState(() => _loading = true);
-                  try {
-                    // 1. Persistir los funcionarios y datos de contacto oficiales de la entidad
-                    await _chipReporterService.guardarFuncionariosResponsables(
-                      entidadId: widget.entidadId,
-                      representanteNombre: representanteController.text,
-                      representanteId: identificacionRepController.text,
-                      ordenadorNombre: ordenadorController.text,
-                      ordenadorId: identificacionOrdController.text,
-                      contadorNombre: contadorController.text,
-                      contadorId: identificacionContController.text,
-                      contadorTarjeta: tarjetaContController.text,
-                      direccion: direccionController.text,
-                      telefono: telefonoController.text,
-                      email: emailController.text,
-                    );
-
-                    // 2. Construir objetos DatosCGN para procesar el reporte oficial
-                    // ignore: unused_local_variable
-                    final d001 = DatosCGN2015_001(
-                      nit: datosEntidad!['nit'] as String,
-                      razonSocial: datosEntidad['razon_social'] as String,
-                      tipoEntidad: (datosEntidad['tipo_entity'] ?? datosEntidad['tipo_entidad']) as String,
-                      departamento: (datosEntidad['departamento'] ?? 'N/A') as String,
-                      municipio: (datosEntidad['municipio'] ?? 'N/A') as String,
-                      direccion: direccionController.text,
-                      telefono: telefonoController.text,
-                      email: emailController.text,
-                      representanteLegal: representanteController.text,
-                      identificacionRepresentante: identificacionRepController.text,
-                      ordenadorGasto: ordenadorController.text,
-                      identificacionOrdenador: identificacionOrdController.text,
-                      contador: contadorController.text,
-                      identificacionContador: identificacionContController.text,
-                      tarjetaProfesionalContador: tarjetaContController.text,
-                    );
-
-                    final ingTrib = double.parse(tributariosController.text);
-                    final ingNoTrib = double.parse(noTributariosController.text);
-                    final sgp = double.parse(sgpController.text);
-                    final reg = double.parse(regaliasController.text);
-                    final gPers = double.parse(personalController.text);
-                    final gInv = double.parse(inversionController.text);
-
-                    final totalIng = ingTrib + ingNoTrib + sgp + reg;
-                    final totalGast = gPers + gInv;
-
-                    // ignore: unused_local_variable
-                    final d002 = DatosCGN2015_002(
-                      ingresosTributarios: ingTrib,
-                      ingresosNoTributarios: ingNoTrib,
-                      transferenciasSGP: sgp,
-                      regalias: reg,
-                      otrosIngresos: 0,
-                      totalIngresos: totalIng,
-                      gastosPersonal: gPers,
-                      gastosGenerales: 0,
-                      transferencias: 0,
-                      gastosInversion: gInv,
-                      otrosGastos: 0,
-                      totalGastos: totalGast,
-                      resultadoOperacional: totalIng - totalGast,
-                    );
-
-                    final actCorr = double.parse(activoCorrController.text);
-                    final pasCorr = double.parse(pasivoCorrController.text);
-                    final pat = actCorr - pasCorr;
-
-                    // ignore: unused_local_variable
-                    final d003 = DatosCGN2015_003(
-                      activoCorriente: actCorr,
-                      activoNoCorriente: 0,
-                      totalActivo: actCorr,
-                      pasivoCorriente: pasCorr,
-                      pasivoNoCorriente: 0,
-                      totalPasivo: pasCorr,
-                      patrimonio: pat,
-                      totalPasivoPatrimonio: actCorr,
-                    );
-
-                    // ignore: unused_local_variable
-                    final d004 = DatosCGN2015_004(
-                      apropiacionInicial: totalIng,
-                      adiciones: 0,
-                      reducciones: 0,
-                      credito: 0,
-                      contraCredito: 0,
-                      apropiacionDefinitiva: totalIng,
-                      compromisos: totalGast,
-                      obligaciones: totalGast,
-                      pagos: totalGast,
-                      saldoPorComprometer: totalIng - totalGast,
-                    );
-
-                    // ignore: unused_local_variable
-                    final d005 = DatosCGN2015_005(
-                      deudaInterna: 0,
-                      deudaExterna: 0,
-                      deudaTotal: 0,
-                      servicioDeuda: 0,
-                      cuotaAmortizacion: 0,
-                      intereses: 0,
-                      deudaVencida: 0,
-                    );
-
-                    await _chipReporterService.generarReportesDesdeDatosSistema(
-                      entidadId: widget.entidadId,
-                      usuarioId: widget.usuarioId,
-                      vigencia: vigenciaController.text,
-                    );
-
-                    _mostrarExito('Paquete CHIP (CGN 2015_001 a 2015_005) generado con éxito');
-                    await _cargarDatos();
-                  } catch (e) {
-                    _mostrarError('Error al generar CHIP: $e');
-                  } finally {
-                    setState(() => _loading = false);
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Generar'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              setState(() => _loading = true);
+              try {
+                await _chipReporterService.generarReportesDesdeDatosSistema(
+                  entidadId: widget.entidadId,
+                  usuarioId: widget.usuarioId,
+                  vigencia: vigenciaController.text,
+                );
+                _mostrarExito(
+                  'CHIP CGN 2015_001 a 003 generado desde datos del sistema',
+                );
+                await _cargarDatos();
+              } catch (e) {
+                _mostrarError('No fue posible generar CHIP: $e');
+              } finally {
+                if (mounted) setState(() => _loading = false);
+              }
+            },
+            child: const Text('Generar'),
+          ),
+        ],
       ),
     );
   }
