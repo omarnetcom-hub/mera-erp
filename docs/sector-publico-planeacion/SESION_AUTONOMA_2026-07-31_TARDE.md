@@ -40,6 +40,25 @@ Built build\windows\x64\runner\Release\MerkaERP.exe
 
 Estado: **Pendiente - REQUIERE DECISION HUMANA DE DISENO Y CARGA DE DATOS**. No se implemento codigo porque no existe una relacion persistida y auditable entre rubro, proyecto, meta y avance fisico. Commit: pendiente de crear al momento de esta anotacion.
 
+## Subtarea Q - Transparencia y consolidacion NICSP 40
+
+### Hallazgo y decision conservadora
+
+`ConsolidacionJerarquicaService` resuelve padre/hijas por `gobernacion_id` y suma saldos/presupuesto por entidad. Las tablas y asientos no contienen contraparte relacionada, identificador comun de operacion ni marca intra-grupo. Las transferencias de `NICSP40Service` identifican origen/destino como texto, pero no se relacionan con los asientos que la consolidacion suma. No es posible emparejar ni eliminar reciprocas de manera determinista; hacerlo por valor, fecha o descripcion puede eliminar operaciones validas distintas.
+
+`PortalTransparenciaService` esta huerfano de UI: `TransparenciaPage` crea `TransparenciaService`, no el cliente de portal. Ademas usa una URL ilustrativa y `TU_API_KEY`. El modulo disciplinario se muestra en la pagina de transparencia, pero la deteccion forense solo construye una lista de alertas y nunca crea una queja preliminar.
+
+### Diseno requerido
+
+1. Modelar grupo de consolidacion y relaciones intra-grupo vigentes.
+2. Propagar `operacion_grupo_id`, contraparte y clase de eliminacion desde el asiento origen hasta el destino, con una tabla de propuesta/aprobacion de eliminaciones; no borrar asientos fuente.
+3. Definir una regla auditable de anomalia a queja, con severidad, evidencia, deduplicacion, reserva y aprobacion humana previa a abrir expediente.
+4. Sustituir el portal por un contrato inyectable/noop y configuracion cifrada por entidad antes de conectarlo a UI.
+
+### Cierre de la subtarea Q
+
+Estado: **Parcial/Pendiente - REQUIERE DECISION HUMANA DE GOBIERNO DE DATOS**. Se mantienen las funciones locales existentes, pero no se implemento eliminacion reciproca ni publicacion/red/quejas automaticas sin identificadores y reglas de negocio. Commit: pendiente de crear al momento de esta anotacion.
+
 ## Subtarea P - SGR y SGP: bloqueos duros entre componentes
 
 ### Hallazgo y decision conservadora
