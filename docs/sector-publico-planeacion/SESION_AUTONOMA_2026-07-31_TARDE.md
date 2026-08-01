@@ -40,6 +40,34 @@ Built build\windows\x64\runner\Release\MerkaERP.exe
 
 Estado: **Pendiente - REQUIERE DECISION HUMANA DE DISENO Y CARGA DE DATOS**. No se implemento codigo porque no existe una relacion persistida y auditable entre rubro, proyecto, meta y avance fisico. Commit: pendiente de crear al momento de esta anotacion.
 
+## Subtarea M - Rentas: cobro coactivo e intereses moratorios
+
+### Hallazgo y decision
+
+El servicio tenia tasa de usura menos dos puntos, pero la convertia a diaria como `tasa_mensual / 30` (`intereses_moratorios_service.dart:45-48,159-163`), incompatible con el articulo 635 ET: la tasa diaria debe ser equivalente a la EA. Se corrigio localmente a `((1 + tasaEA)^(1/365)) - 1`, sin fijar una tasa nueva. La fuente oficial consultada fue Funcion Publica, Ley 1819 de 2016, art. 279 (art. 635 ET), y Decreto 2106 de 2019, que explicita `T = tasa / 365 o 366` en `K x T x t`.
+
+`CobroCoactivoService` conserva seis valores de etapa, pero no constituye un procedimiento certificable: `avanzarEtapa` acepta una `nuevaEtapa` arbitraria (`cobro_coactivo_service.dart:113-192`), sin secuencia, acto/notificacion ni plazos. La tasa se consulta por SODA3 solo en memoria: no se conserva fecha de vigencia, fuente ni tasa usada por cada liquidacion. Se documentan ambas brechas, sin inventar plazos territoriales ni una tasa fija adicional.
+
+### Evidencia cruda: flutter test
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/rentas/intereses_moratorios_service_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: Validaciones Normativas Duras - Fase 4 convierte la tasa EA de mora a tasa diaria equivalente
+00:00 +1: Validaciones Normativas Duras - Fase 4 Calculo de intereses de mora segun formula I = K x T x t
+00:00 +2: Validaciones Normativas Duras - Fase 4 Debe calcular intereses de mora con fecha de vencimiento especifica
+00:00 +3: (tearDownAll)
+00:00 +3: All tests passed!
+```
+
+### Evidencia de verificacion
+
+`flutter analyze` completo: 184 issues, 0 errores. `flutter build windows` completo: `Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe` (NuGet intento descargar/usar cache antes de compilar).
+
+### Cierre de la subtarea M
+
+Estado: **Parcial**. Se corrigio el factor diario y se certifico con valor exacto. **REQUIERE DECISION HUMANA** para la fuente/historial de tasas y para concretar plazos y procedimiento de cobro aplicables por entidad territorial. Commit: pendiente de crear al momento de esta anotacion.
+
 ## Alcance y criterio
 
 - Objetivo: cerrar en orden las subtareas A-D del Sistema Financiero Integrado y, solo si hay margen suficiente, evaluar E-F.

@@ -5,33 +5,39 @@
 /// Integración con API SODA3 de datos.gov.co para TIM
 library;
 
+import 'dart:math' as math;
+
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class InteresesMoratoriosService {
   final Dio _dio;
   final Dio _soda3Dio;
-  
+
   /// Tasa de usura vigente (ejemplo para junio 2026: 28.79% EA)
   /// Este valor se actualiza automáticamente desde Superfinanciera vía SODA3
   double _tasaUsuraVigente = 28.79;
-  
+
   // Configuración de API SODA3 (datos.gov.co - Superfinanciera)
-  static const String _soda3BaseUrl = 'https://datos.gov.co/resource/p63f-gtb6.json';
+  static const String _soda3BaseUrl =
+      'https://datos.gov.co/resource/p63f-gtb6.json';
   static const Duration _timeout = Duration(seconds: 30);
 
-  InteresesMoratoriosService({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
-    connectTimeout: _timeout,
-    receiveTimeout: _timeout,
-  )), _soda3Dio = Dio(BaseOptions(
-    connectTimeout: _timeout,
-    receiveTimeout: _timeout,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-App-Token': _safeEnv('SOCRATA_APP_TOKEN'),
-      'Authorization': _safeEnv('SOCRATA_AUTH_HEADER'),
-    },
-  ));
+  InteresesMoratoriosService({Dio? dio})
+    : _dio =
+          dio ??
+          Dio(BaseOptions(connectTimeout: _timeout, receiveTimeout: _timeout)),
+      _soda3Dio = Dio(
+        BaseOptions(
+          connectTimeout: _timeout,
+          receiveTimeout: _timeout,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-App-Token': _safeEnv('SOCRATA_APP_TOKEN'),
+            'Authorization': _safeEnv('SOCRATA_AUTH_HEADER'),
+          },
+        ),
+      );
 
   /// Lee una variable de entorno sin lanzar NotInitializedError si dotenv no cargó.
   static String _safeEnv(String key) {
@@ -44,7 +50,14 @@ class InteresesMoratoriosService {
 
   /// Obtiene la tasa de mora actual (Usura - 2 puntos)
   double get tasaMoraMensual {
-    return (_tasaUsuraVigente - 2.0) / 12; // Tasa mensual
+    final tasaAnual = tasaInteresMoratorio / 100;
+    return (math.pow(1 + tasaAnual, 1 / 12) - 1) * 100;
+  }
+
+  /// Articulo 635 ET: tasa diaria equivalente a la tasa efectiva anual.
+  double get tasaMoraDiaria {
+    final tasaAnual = tasaInteresMoratorio / 100;
+    return math.pow(1 + tasaAnual, 1 / 365) - 1;
   }
 
   /// Actualiza la tasa de usura desde Superfinanciera vía API SODA3
@@ -62,7 +75,9 @@ class InteresesMoratoriosService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al obtener tasa de usura de Superfinanciera: ${response.statusCode}');
+        throw Exception(
+          'Error al obtener tasa de usura de Superfinanciera: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
@@ -71,12 +86,12 @@ class InteresesMoratoriosService {
       }
 
       final registro = data.first as Map<String, dynamic>;
-      
+
       // Extraer la tasa efectiva anual del campo 'tasa_efectiva_anual'
       final tasaUsura = _parsearTasaUsuraSODA3(registro);
-      
+
       _tasaUsuraVigente = tasaUsura;
-      
+
       return tasaUsura;
     } on DioException catch (e) {
       throw Exception('Error de conexión con API SODA3: ${e.message}');
@@ -87,11 +102,13 @@ class InteresesMoratoriosService {
   double _parsearTasaUsuraSODA3(Map<String, dynamic> registro) {
     // El campo puede venir como string o como número
     final tasaEfectivaAnual = registro['tasa_efectiva_anual'];
-    
+
     if (tasaEfectivaAnual == null) {
-      throw Exception('Campo tasa_efectiva_anual no encontrado en la respuesta');
+      throw Exception(
+        'Campo tasa_efectiva_anual no encontrado en la respuesta',
+      );
     }
-    
+
     // Convertir a double
     double tasa;
     if (tasaEfectivaAnual is String) {
@@ -102,7 +119,7 @@ class InteresesMoratoriosService {
     } else {
       throw Exception('Formato de tasa no válido');
     }
-    
+
     return tasa;
   }
 
@@ -118,11 +135,11 @@ class InteresesMoratoriosService {
     try {
       final tasaUsuraAnterior = _tasaUsuraVigente;
       final timAnterior = tasaInteresMoratorio;
-      
+
       // Actualizar la tasa de usura desde Superfinanciera
       final nuevaTasaUsura = await actualizarTasaUsuraDesdeSuperfinanciera();
       final nuevoTIM = tasaInteresMoratorio;
-      
+
       return {
         'fecha_ejecucion': DateTime.now().toIso8601String(),
         'tasa_usura_anterior': tasaUsuraAnterior,
@@ -157,7 +174,7 @@ class InteresesMoratoriosService {
     if (diasMora <= 0) return 0;
 
     // Tasa de mora diaria = (Tasa mensual / 30)
-    final tasaMoraDiaria = tasaMoraMensual / 30;
+    final tasaMoraDiaria = this.tasaMoraDiaria;
 
     // Fórmula: I = K × T × t
     final intereses = capital * tasaMoraDiaria * diasMora;
@@ -205,7 +222,7 @@ class InteresesMoratoriosService {
     for (int i = 1; i <= numeroCuotas; i++) {
       fechaCuota = fechaCuota.add(Duration(days: periodicidadDias));
       final diasMora = fechaCuota.difference(fechaVencimiento).inDays;
-      
+
       final intereses = calcularInteresesMora(
         capital: saldoPendiente,
         diasMora: diasMora > 0 ? diasMora : 0,
