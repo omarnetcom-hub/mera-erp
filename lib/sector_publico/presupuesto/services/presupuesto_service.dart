@@ -11,6 +11,7 @@ import '../models/rp.dart';
 import '../models/obligacion.dart';
 import '../models/pago.dart';
 import 'pac_service.dart';
+import 'vigencias_futuras_service.dart';
 import '../../contabilidad/services/contabilidad_nicsp_service.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
@@ -251,6 +252,7 @@ class PresupuestoService {
     required String funcionarioExpedidor,
     required String funcionarioSolicitante,
     required String objetoGasto,
+    String? autorizacionVigenciaFuturaId,
     DatabaseExecutor? executor,
   }) async {
     final database = executor ?? db;
@@ -264,6 +266,35 @@ class PresupuestoService {
     final cdp = await obtenerCDP(cdpId, executor: database);
     if (cdp == null) {
       throw Exception('CDP no encontrado');
+    }
+    final anioCDP = int.tryParse(cdp.vigencia);
+    final esVigenciaFutura = anioCDP != null && anioCDP > DateTime.now().year;
+    if (esVigenciaFutura && autorizacionVigenciaFuturaId == null) {
+      throw StateError(
+        'Un RP de vigencia futura exige autorizacion plurianual vigente.',
+      );
+    }
+    if (!esVigenciaFutura && autorizacionVigenciaFuturaId != null) {
+      throw StateError(
+        'La autorizacion plurianual solo puede usarse en una vigencia futura.',
+      );
+    }
+    if (esVigenciaFutura && executor == null) {
+      return db.transaction(
+        (txn) => expedirRP(
+          entidadId: entidadId,
+          usuarioId: usuarioId,
+          cdpId: cdpId,
+          contratoId: contratoId,
+          contratoNumero: contratoNumero,
+          valorRP: valorRP,
+          funcionarioExpedidor: funcionarioExpedidor,
+          funcionarioSolicitante: funcionarioSolicitante,
+          objetoGasto: objetoGasto,
+          autorizacionVigenciaFuturaId: autorizacionVigenciaFuturaId,
+          executor: txn,
+        ),
+      );
     }
 
     // VALIDACIÓN NORMATIVA: Verificar que el CDP esté vigente
@@ -350,6 +381,18 @@ class PresupuestoService {
       );
     }
 
+    if (esVigenciaFutura) {
+      await VigenciasFuturasService(db: db).comprometerVigenciaFutura(
+        entidadId: entidadId,
+        usuarioId: usuarioId,
+        autorizacionId: autorizacionVigenciaFuturaId!,
+        rpId: rp.id,
+        anio: anioCDP,
+        monto: valorRP,
+        executor: database,
+      );
+    }
+
     final auditoria = executor == null ? auditoriaService : AuditoriaService(database);
     await auditoria?.registrarEvento(
       entidadId: entidadId,
@@ -396,14 +439,38 @@ class PresupuestoService {
     DateTime? actaReciboFecha,
     String? facturaNumero,
     DateTime? facturaFecha,
+    DatabaseExecutor? executor,
   }) async {
+    if (executor == null) {
+      return db.transaction(
+        (txn) => registrarObligacion(
+          entidadId: entidadId,
+          usuarioId: usuarioId,
+          rpId: rpId,
+          contratoId: contratoId,
+          contratoNumero: contratoNumero,
+          terceroId: terceroId,
+          terceroNombre: terceroNombre,
+          valorObligacion: valorObligacion,
+          funcionarioReconocio: funcionarioReconocio,
+          objetoGasto: objetoGasto,
+          actaReciboNumero: actaReciboNumero,
+          actaReciboFecha: actaReciboFecha,
+          facturaNumero: facturaNumero,
+          facturaFecha: facturaFecha,
+          executor: txn,
+        ),
+      );
+    }
+    final database = executor;
     await _validarPermisoYSegregacion(
       entidadId: entidadId,
       usuarioId: usuarioId,
       permiso: Permiso.registrarObligacion,
+      executor: database,
     );
     // Obtener el RP
-    final rp = await obtenerRP(rpId);
+    final rp = await obtenerRP(rpId, executor: database);
     if (rp == null) {
       throw Exception('RP no encontrado');
     }
@@ -459,10 +526,28 @@ class PresupuestoService {
       estado: EstadoObligacion.pendiente,
     );
 
-    await db.insert('obligaciones', obligacion.toJson());
+    final compromisosFuturos = await database.query(
+      'compromisos_vigencias_futuras',
+      where: 'rp_id = ? AND entidad_id = ? AND estado = ?',
+      whereArgs: [rpId, entidadId, 'vigente'],
+    );
+    Map<String, Object?>? compromisoFuturo;
+    if (compromisosFuturos.isNotEmpty) {
+      compromisoFuturo = compromisosFuturos.single;
+      final disponibleObligar =
+          (compromisoFuturo['monto_comprometido'] as num).toDouble() -
+          (compromisoFuturo['monto_obligado'] as num).toDouble();
+      if (valorObligacion > disponibleObligar) {
+        throw StateError(
+          'La obligacion excede el compromiso de vigencia futura.',
+        );
+      }
+    }
+
+    await database.insert('obligaciones', obligacion.toJson());
 
     // Actualizar RP
-    await db.update(
+    await database.update(
       'rps',
       {
         'valor_obligado': rp.valorObligado + valorObligacion,
@@ -472,7 +557,34 @@ class PresupuestoService {
       whereArgs: [rpId],
     );
 
-    await auditoriaService?.registrarEvento(
+    if (compromisoFuturo != null) {
+      final nuevoObligado =
+          (compromisoFuturo['monto_obligado'] as num).toDouble() +
+          valorObligacion;
+      await database.insert('obligaciones_vigencias_futuras', {
+        'id': _uuid.v4(),
+        'compromiso_id': compromisoFuturo['id'],
+        'obligacion_id': obligacion.id,
+        'monto_obligado': valorObligacion,
+        'fecha_registro': fechaReconocimiento.toIso8601String(),
+      });
+      await database.update(
+        'compromisos_vigencias_futuras',
+        {'monto_obligado': nuevoObligado},
+        where: 'id = ?',
+        whereArgs: [compromisoFuturo['id']],
+      );
+      await database.rawUpdate(
+        '''
+        UPDATE vigencias_futuras_distribucion
+        SET monto_obligado = monto_obligado + ?
+        WHERE id = ?
+        ''',
+        [valorObligacion, compromisoFuturo['distribucion_id']],
+      );
+    }
+
+    await AuditoriaService(database).registrarEvento(
       entidadId: entidadId,
       usuarioId: usuarioId,
       tipoEvento: TipoEventoAuditoria.registroObligacion,
@@ -599,6 +711,70 @@ class PresupuestoService {
     );
 
     return pago;
+  }
+
+  /// Programa el pago de un recibido solo cuando ya esta regularizado con una
+  /// obligacion presupuestal real. Nunca fabrica la obligacion retrospectiva.
+  Future<Pago> programarPagoRecepcion({
+    required String entidadId,
+    required String usuarioId,
+    required String recepcionId,
+    required String terceroId,
+    required String terceroNombre,
+    required String bancoDestino,
+    required String cuentaDestino,
+    required String tipoCuenta,
+    required double valorPago,
+    required String funcionarioProgramo,
+    required TipoPago tipoPago,
+    required int mesPAC,
+  }) async {
+    final recepciones = await db.query(
+      'recepciones_satisfaccion',
+      where: 'id = ? AND entidad_id = ?',
+      whereArgs: [recepcionId, entidadId],
+    );
+    if (recepciones.isEmpty) throw StateError('Recepcion no encontrada.');
+    final recepcion = recepciones.single;
+    if (recepcion['bloquea_pago'] == 1 ||
+        recepcion['obligacion_id'] == null) {
+      throw StateError(
+        'Pago bloqueado: el recibido no tiene obligacion presupuestal regularizada.',
+      );
+    }
+    return programarPago(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      obligacionId: recepcion['obligacion_id'].toString(),
+      terceroId: terceroId,
+      terceroNombre: terceroNombre,
+      bancoDestino: bancoDestino,
+      cuentaDestino: cuentaDestino,
+      tipoCuenta: tipoCuenta,
+      valorPago: valorPago,
+      funcionarioProgramo: funcionarioProgramo,
+      tipoPago: tipoPago,
+      mesPAC: mesPAC,
+    );
+  }
+
+  /// Consume una anualidad autorizada y la vincula a un RP ya expedido.
+  Future<String> comprometerVigenciaFutura({
+    required String entidadId,
+    required String usuarioId,
+    required String autorizacionId,
+    required String rpId,
+    required int anio,
+    required double monto,
+  }) {
+    return VigenciasFuturasService(db: db).comprometerVigenciaFutura(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      autorizacionId: autorizacionId,
+      rpId: rpId,
+      anio: anio,
+      monto: monto,
+    );
   }
 
   /// Obtiene un pago por ID
@@ -762,6 +938,54 @@ class PresupuestoService {
         where: 'id = ?',
         whereArgs: [obligacion.id],
       );
+      final vinculosVigenciaFutura = await txn.query(
+        'obligaciones_vigencias_futuras',
+        where: 'obligacion_id = ?',
+        whereArgs: [obligacion.id],
+      );
+      if (vinculosVigenciaFutura.isNotEmpty) {
+        final vinculo = vinculosVigenciaFutura.single;
+        final nuevoPagadoVigencia =
+            (vinculo['monto_pagado'] as num).toDouble() + pago.valorPago;
+        final montoObligadoVigencia =
+            (vinculo['monto_obligado'] as num).toDouble();
+        if (nuevoPagadoVigencia > montoObligadoVigencia) {
+          throw StateError(
+            'El pago excede la obligacion vinculada a la vigencia futura.',
+          );
+        }
+        final compromisos = await txn.query(
+          'compromisos_vigencias_futuras',
+          where: 'id = ? AND entidad_id = ?',
+          whereArgs: [vinculo['compromiso_id'], entidadId],
+        );
+        if (compromisos.isEmpty) {
+          throw StateError('Compromiso de vigencia futura no encontrado.');
+        }
+        final compromiso = compromisos.single;
+        await txn.update(
+          'obligaciones_vigencias_futuras',
+          {'monto_pagado': nuevoPagadoVigencia},
+          where: 'id = ?',
+          whereArgs: [vinculo['id']],
+        );
+        await txn.rawUpdate(
+          '''
+          UPDATE compromisos_vigencias_futuras
+          SET monto_pagado = monto_pagado + ?
+          WHERE id = ?
+          ''',
+          [pago.valorPago, compromiso['id']],
+        );
+        await txn.rawUpdate(
+          '''
+          UPDATE vigencias_futuras_distribucion
+          SET monto_pagado = monto_pagado + ?
+          WHERE id = ?
+          ''',
+          [pago.valorPago, compromiso['distribucion_id']],
+        );
+      }
       await txn.update(
         'apropiaciones',
         {'valor_pagado': apropiacion.valorPagado + pago.valorPago},

@@ -267,5 +267,167 @@ class SchemaPresupuesto {
       CREATE INDEX IF NOT EXISTS idx_pac_vigencia_mes 
       ON pac(vigencia, mes)
     ''');
+
+    await crearTablasVigenciasFuturas(db);
+  }
+
+  static Future<void> crearTablasVigenciasFuturas(
+    DatabaseExecutor db,
+  ) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS autorizaciones_vigencias_futuras (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        autorizacion_anterior_id TEXT,
+        tipo TEXT NOT NULL CHECK (tipo IN ('ordinaria', 'excepcional')),
+        regimen_presupuestal TEXT NOT NULL,
+        causal_legal TEXT NOT NULL,
+        objeto TEXT NOT NULL,
+        proyecto_id TEXT,
+        codigo_banco_proyectos TEXT,
+        plan_desarrollo_referencia TEXT NOT NULL,
+        mfmp_referencia TEXT NOT NULL,
+        anio_inicio INTEGER NOT NULL,
+        anio_fin INTEGER NOT NULL,
+        monto_total REAL NOT NULL CHECK (monto_total > 0),
+        apropiacion_vigencia_actual REAL NOT NULL DEFAULT 0,
+        porcentaje_respaldo_actual REAL NOT NULL DEFAULT 0,
+        confis_autoridad TEXT NOT NULL,
+        confis_acto_numero TEXT NOT NULL,
+        confis_acto_fecha TEXT NOT NULL,
+        confis_soporte TEXT NOT NULL,
+        corporacion_tipo TEXT NOT NULL,
+        autorizacion_autoridad TEXT NOT NULL,
+        autorizacion_acto_numero TEXT NOT NULL,
+        autorizacion_acto_fecha TEXT NOT NULL,
+        autorizacion_soporte TEXT NOT NULL,
+        estatuto_presupuestal_ese TEXT,
+        autoridad_competente_ese TEXT,
+        acto_delegacion_ese TEXT,
+        concepto_dnp TEXT,
+        importancia_estrategica_acto TEXT,
+        excepcion_ultimo_anio TEXT,
+        estado TEXT NOT NULL CHECK (estado IN ('autorizada', 'revocada')),
+        registrado_por TEXT NOT NULL,
+        fecha_registro TEXT NOT NULL,
+        motivo_version TEXT,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (autorizacion_anterior_id) REFERENCES autorizaciones_vigencias_futuras(id),
+        UNIQUE(entidad_id, autorizacion_acto_numero, version)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS vigencias_futuras_distribucion (
+        id TEXT PRIMARY KEY,
+        autorizacion_id TEXT NOT NULL,
+        anio INTEGER NOT NULL,
+        monto_autorizado REAL NOT NULL CHECK (monto_autorizado > 0),
+        monto_comprometido REAL NOT NULL DEFAULT 0,
+        monto_obligado REAL NOT NULL DEFAULT 0,
+        monto_pagado REAL NOT NULL DEFAULT 0,
+        saldo_disponible REAL NOT NULL,
+        FOREIGN KEY (autorizacion_id) REFERENCES autorizaciones_vigencias_futuras(id),
+        UNIQUE(autorizacion_id, anio)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS compromisos_vigencias_futuras (
+        id TEXT PRIMARY KEY,
+        autorizacion_id TEXT NOT NULL,
+        distribucion_id TEXT NOT NULL,
+        entidad_id TEXT NOT NULL,
+        rp_id TEXT NOT NULL,
+        anio INTEGER NOT NULL,
+        monto_comprometido REAL NOT NULL CHECK (monto_comprometido > 0),
+        monto_obligado REAL NOT NULL DEFAULT 0,
+        monto_pagado REAL NOT NULL DEFAULT 0,
+        estado TEXT NOT NULL DEFAULT 'vigente',
+        registrado_por TEXT NOT NULL,
+        fecha_registro TEXT NOT NULL,
+        FOREIGN KEY (autorizacion_id) REFERENCES autorizaciones_vigencias_futuras(id),
+        FOREIGN KEY (distribucion_id) REFERENCES vigencias_futuras_distribucion(id),
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (rp_id) REFERENCES rps(id),
+        UNIQUE(rp_id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS obligaciones_vigencias_futuras (
+        id TEXT PRIMARY KEY,
+        compromiso_id TEXT NOT NULL,
+        obligacion_id TEXT NOT NULL UNIQUE,
+        monto_obligado REAL NOT NULL CHECK (monto_obligado > 0),
+        monto_pagado REAL NOT NULL DEFAULT 0,
+        fecha_registro TEXT NOT NULL,
+        FOREIGN KEY (compromiso_id) REFERENCES compromisos_vigencias_futuras(id),
+        FOREIGN KEY (obligacion_id) REFERENCES obligaciones(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS recepciones_satisfaccion (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        tercero_id TEXT NOT NULL,
+        tercero_nombre TEXT NOT NULL,
+        contrato_id TEXT,
+        rp_id TEXT,
+        obligacion_id TEXT,
+        acta_numero TEXT NOT NULL,
+        factura_numero TEXT,
+        fecha_recepcion TEXT NOT NULL,
+        descripcion TEXT NOT NULL,
+        valor_recibido REAL NOT NULL CHECK (valor_recibido > 0),
+        valor_reconocido REAL NOT NULL CHECK (valor_reconocido > 0),
+        asiento_contable_id TEXT,
+        estado_contable TEXT NOT NULL,
+        soporte TEXT NOT NULL,
+        bloquea_pago INTEGER NOT NULL DEFAULT 0,
+        registrado_por TEXT NOT NULL,
+        fecha_registro TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (obligacion_id) REFERENCES obligaciones(id),
+        FOREIGN KEY (asiento_contable_id) REFERENCES asientos_contables_sp(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS incidentes_recibido_sin_obligacion (
+        id TEXT PRIMARY KEY,
+        recepcion_id TEXT NOT NULL UNIQUE,
+        entidad_id TEXT NOT NULL,
+        motivo TEXT NOT NULL,
+        reportado_por TEXT NOT NULL,
+        fecha_reporte TEXT NOT NULL,
+        revisado_por TEXT,
+        concepto_juridico TEXT,
+        ruta_regularizacion TEXT,
+        estado TEXT NOT NULL DEFAULT 'abierto',
+        bloquea_pago INTEGER NOT NULL DEFAULT 1 CHECK (bloquea_pago = 1),
+        FOREIGN KEY (recepcion_id) REFERENCES recepciones_satisfaccion(id),
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_vigencias_futuras_entidad
+      ON autorizaciones_vigencias_futuras(entidad_id, estado)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_compromisos_vigencias_rp
+      ON compromisos_vigencias_futuras(rp_id, anio)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_recepciones_bloqueo
+      ON recepciones_satisfaccion(entidad_id, bloquea_pago)
+    ''');
+  }
+
+  static Future<void> migrarVigenciasFuturas(Database db) async {
+    await crearTablasVigenciasFuturas(db);
   }
 }

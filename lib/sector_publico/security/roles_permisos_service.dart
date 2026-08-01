@@ -31,6 +31,7 @@ enum Permiso {
   aprobarPago,
   ejecutarPago,
   modificarPAC,
+  registrarAutorizacionVigenciaFutura,
 
   // Contabilidad
   crearAsientoContable,
@@ -85,6 +86,7 @@ class RolesPermisosService {
       Permiso.firmarContrato,
       Permiso.liquidarContrato,
       Permiso.aprobarProyecto,
+      Permiso.registrarAutorizacionVigenciaFutura,
     },
     RolSectorPublico.secretarioHacienda: {
       Permiso.configurarEntidad,
@@ -94,6 +96,7 @@ class RolesPermisosService {
       Permiso.consultarEstadosFinancieros,
       Permiso.consultarAuditoria,
       Permiso.consultarTodo,
+      Permiso.registrarAutorizacionVigenciaFutura,
     },
     // Rol administrativo transversal. No recibe facultades fiscales u operativas.
     RolSectorPublico.secretarioGeneral: {
@@ -132,6 +135,7 @@ class RolesPermisosService {
     RolSectorPublico.jefePresupuesto: {
       Permiso.expedirCDP,
       Permiso.expedirRP,
+      Permiso.registrarAutorizacionVigenciaFutura,
       Permiso.consultarTodo,
     },
     RolSectorPublico.ordenadorGasto: {
@@ -385,6 +389,8 @@ class RolesPermisosService {
         return 'Ejecutar Pago';
       case Permiso.modificarPAC:
         return 'Modificar PAC';
+      case Permiso.registrarAutorizacionVigenciaFutura:
+        return 'Registrar Autorización de Vigencia Futura';
       case Permiso.crearAsientoContable:
         return 'Crear Asiento Contable';
       case Permiso.reversarAsiento:
