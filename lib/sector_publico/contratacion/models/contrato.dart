@@ -38,8 +38,8 @@ class Contrato {
   final String contratistaIdentificacion;
   final String cdpId;
   final String numeroCDP;
-  final String rpId;
-  final String numeroRP;
+  final String? rpId;
+  final String? numeroRP;
   final DateTime fechaFirma;
   final DateTime fechaInicioEjecucion;
   final DateTime fechaFinEjecucion;
@@ -68,8 +68,8 @@ class Contrato {
     required this.contratistaIdentificacion,
     required this.cdpId,
     required this.numeroCDP,
-    required this.rpId,
-    required this.numeroRP,
+    this.rpId,
+    this.numeroRP,
     required this.fechaFirma,
     required this.fechaInicioEjecucion,
     required this.fechaFinEjecucion,
@@ -97,13 +97,13 @@ class Contrato {
         (e) => e.toString() == 'TipoContrato.${json['tipo_contrato']}',
       ),
       valorContrato: (json['valor_contrato'] as num).toDouble(),
-      contratistaId: json['contratistaId'] as String,
+      contratistaId: json['contratista_id'] as String,
       contratistaNombre: json['contratista_nombre'] as String,
       contratistaIdentificacion: json['contratista_identificacion'] as String,
       cdpId: json['cdp_id'] as String,
       numeroCDP: json['numero_cdp'] as String,
-      rpId: json['rp_id'] as String,
-      numeroRP: json['numero_rp'] as String,
+      rpId: json['rp_id'] as String?,
+      numeroRP: json['numero_rp'] as String?,
       fechaFirma: DateTime.parse(json['fecha_firma'] as String),
       fechaInicioEjecucion: DateTime.parse(json['fecha_inicio_ejecucion'] as String),
       fechaFinEjecucion: DateTime.parse(json['fecha_fin_ejecucion'] as String),
@@ -163,7 +163,7 @@ class Contrato {
 
   /// Verifica si tiene CDP y RP (requisito Ley 80/1993 Art. 41)
   bool tieneCDPyRP() {
-    return cdpId.isNotEmpty && rpId.isNotEmpty;
+    return cdpId.isNotEmpty && (rpId?.isNotEmpty ?? false);
   }
 
   /// Verifica si está en ejecución

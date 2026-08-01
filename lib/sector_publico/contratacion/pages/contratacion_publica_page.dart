@@ -36,7 +36,6 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   List<Contrato> _contratos = [];
   List<Poliza> _polizas = [];
   List<Map<String, dynamic>> _cdpsDisponibles = [];
-  List<Map<String, dynamic>> _rpsDisponibles = [];
 
   final List<String> _titulos = [
     'Procesos de Contratación',
@@ -114,12 +113,6 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         whereArgs: [widget.entidadId],
       );
 
-      // 5. Cargar RPs disponibles
-      _rpsDisponibles = await db.query(
-        'rps',
-        where: 'entidad_id = ?',
-        whereArgs: [widget.entidadId],
-      );
     } catch (e) {
       _mostrarError('Error al cargar datos: $e');
     }
@@ -350,7 +343,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   children: [
                     Text('Objeto: ${contrato.objetoContrato}'),
                     Text('Contratista Identificación: ${contrato.contratistaIdentificacion}'),
-                    Text('CDP: ${contrato.numeroCDP} | RP: ${contrato.numeroRP}'),
+                    Text('CDP: ${contrato.numeroCDP} | RP: ${contrato.numeroRP ?? 'Pendiente de asociación'}'),
                     Text('Firma: ${DateFormatter.format(contrato.fechaFirma)}'),
                     Text('Ejecución: ${DateFormatter.format(contrato.fechaInicioEjecucion)} a ${DateFormatter.format(contrato.fechaFinEjecucion)} (${contrato.duracionDias} días)'),
                     if (contrato.fechaLegalizacion != null)
@@ -359,7 +352,13 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (contrato.estado == EstadoContrato.enFirma || contrato.estado == EstadoContrato.firmado)
+                        if (contrato.estado == EstadoContrato.firmado && contrato.rpId == null)
+                          TextButton.icon(
+                            icon: Icon(Icons.link),
+                            label: const Text('Expedir y asociar RP'),
+                            onPressed: () => _asociarRPAContrato(contrato),
+                          ),
+                        if (contrato.estado == EstadoContrato.firmado && contrato.rpId != null)
                           TextButton.icon(
                             icon: Icon(Icons.verified),
                             label: const Text('Legalizar Contrato'),
@@ -889,8 +888,6 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
     final contratistaIdController = TextEditingController();
 
     ProcesoContratacion? procesoSeleccionado = proceso;
-    String? rpSeleccionado;
-
     DateTime fechaFirma = DateTime.now();
     DateTime fechaInicio = DateTime.now();
     DateTime fechaFin = DateTime.now().add(const Duration(days: 30));
@@ -918,7 +915,6 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                       onChanged: (val) {
                         setDialogState(() {
                           procesoSeleccionado = val;
-                          rpSeleccionado = null;
                         });
                       },
                       validator: (value) => value == null ? 'Requerido' : null,
@@ -929,23 +925,6 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                       child: Text('Proceso: ${proceso.numeroProceso}', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    initialValue: rpSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Registro Presupuestal (RP)'),
-                    items: _rpsDisponibles.where((r) {
-                      if (procesoSeleccionado == null) return false;
-                      return r['cdp_id'] == procesoSeleccionado!.cdpId;
-                    }).map((r) {
-                      return DropdownMenuItem<String>(
-                        value: r['id'] as String,
-                        child: Text('RP #${r['numero_rp']} - Valor: ${CurrencyFormatter.format((r['valor_compromiso'] as num).toDouble())}'),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      setDialogState(() => rpSeleccionado = val);
-                    },
-                    validator: (value) => value == null ? 'Requerido (Exigencia Ley 80)' : null,
-                  ),
                   TextFormField(
                     controller: contratistaIdController,
                     decoration: const InputDecoration(labelText: 'ID de Contratista'),
@@ -1034,7 +1013,6 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
             ElevatedButton(
               onPressed: () async {
                 if (formKey.currentState!.validate() && procesoSeleccionado != null) {
-                  final rp = _rpsDisponibles.firstWhere((r) => r['id'] == rpSeleccionado);
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
@@ -1047,13 +1025,11 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                       contratistaIdentificacion: contratistaIdentificacionController.text,
                       cdpId: procesoSeleccionado!.cdpId!,
                       numeroCDP: procesoSeleccionado!.numeroCDP!,
-                      rpId: rp['id'] as String,
-                      numeroRP: rp['numero_rp'].toString(),
                       fechaFirma: fechaFirma,
                       fechaInicioEjecucion: fechaInicio,
                       fechaFinEjecucion: fechaFin,
                     );
-                    _mostrarExito('Contrato creado exitosamente');
+                    _mostrarExito('Contrato firmado registrado. Expida y asocie el RP como segundo paso.');
                     await _cargarDatos();
                   } catch (e) {
                     _mostrarError('Error al crear contrato: $e');
@@ -1070,6 +1046,66 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _asociarRPAContrato(Contrato contrato) {
+    if (_contratacionService == null) {
+      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      return;
+    }
+    final formKey = GlobalKey<FormState>();
+    final valorController = TextEditingController(text: contrato.valorContrato.toString());
+    final expedidorController = TextEditingController();
+    final solicitanteController = TextEditingController();
+    final objetoController = TextEditingController(text: contrato.objetoContrato);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Expedir y asociar RP'),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Contrato: ${contrato.numeroContrato}'),
+                Text('CDP: ${contrato.numeroCDP}'),
+                TextFormField(controller: valorController, decoration: const InputDecoration(labelText: 'Valor del RP'), keyboardType: const TextInputType.numberWithOptions(decimal: true), validator: (value) => double.tryParse(value ?? '') == null ? 'Ingrese un valor válido' : null),
+                TextFormField(controller: expedidorController, decoration: const InputDecoration(labelText: 'Funcionario expedidor'), validator: (value) => value == null || value.isEmpty ? 'Requerido' : null),
+                TextFormField(controller: solicitanteController, decoration: const InputDecoration(labelText: 'Funcionario solicitante'), validator: (value) => value == null || value.isEmpty ? 'Requerido' : null),
+                TextFormField(controller: objetoController, decoration: const InputDecoration(labelText: 'Objeto del gasto'), validator: (value) => value == null || value.isEmpty ? 'Requerido' : null),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.pop(context);
+              setState(() => _loading = true);
+              try {
+                await _contratacionService!.asociarRPAContrato(
+                  entidadId: widget.entidadId, usuarioId: widget.usuarioId,
+                  contratoId: contrato.id, valorRP: double.parse(valorController.text),
+                  funcionarioExpedidor: expedidorController.text,
+                  funcionarioSolicitante: solicitanteController.text,
+                  objetoGasto: objetoController.text,
+                );
+                _mostrarExito('RP expedido y asociado al contrato.');
+                await _cargarDatos();
+              } catch (e) {
+                _mostrarError('Error al expedir y asociar RP: $e');
+              } finally {
+                setState(() => _loading = false);
+              }
+            },
+            child: const Text('Expedir RP'),
+          ),
+        ],
       ),
     );
   }

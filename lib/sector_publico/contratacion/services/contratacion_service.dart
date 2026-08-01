@@ -126,8 +126,8 @@ class ContratacionService {
     required String contratistaIdentificacion,
     required String cdpId,
     required String numeroCDP,
-    required String rpId,
-    required String numeroRP,
+    String? rpId,
+    String? numeroRP,
     required DateTime fechaFirma,
     required DateTime fechaInicioEjecucion,
     required DateTime fechaFinEjecucion,
@@ -152,6 +152,18 @@ class ContratacionService {
     // VALIDACIÓN NORMATIVA: Verificar CDP
     if (proceso.cdpId == null || proceso.cdpId!.isEmpty) {
       throw Exception('El proceso debe tener CDP asociado (Ley 80/1993 Art. 41)');
+    }
+    if (proceso.cdpId != cdpId || proceso.numeroCDP != numeroCDP) {
+      throw Exception('El CDP citado no corresponde al proceso de contratación');
+    }
+    if ((rpId == null) != (numeroRP == null)) {
+      throw Exception('El RP debe incluir identificador y número, o no incluirse');
+    }
+    if (rpId != null) {
+      final rpResult = await db.query('rps', where: 'id = ? AND entidad_id = ?', whereArgs: [rpId, entidadId]);
+      if (rpResult.isEmpty || rpResult.first['numero_rp'] != numeroRP || rpResult.first['cdp_id'] != proceso.cdpId) {
+        throw Exception('El RP citado no existe o no corresponde al proceso');
+      }
     }
 
     final duracionDias = fechaFinEjecucion.difference(fechaInicioEjecucion).inDays;
@@ -178,7 +190,7 @@ class ContratacionService {
       fechaInicioEjecucion: fechaInicioEjecucion,
       fechaFinEjecucion: fechaFinEjecucion,
       duracionDias: duracionDias,
-      estado: EstadoContrato.enFirma,
+      estado: EstadoContrato.firmado,
     );
 
     await db.insert('contratos', contrato.toJson());
@@ -202,6 +214,46 @@ class ContratacionService {
     return contrato;
   }
 
+  Future<Contrato> asociarRPAContrato({
+    required String entidadId,
+    required String usuarioId,
+    required String contratoId,
+    required double valorRP,
+    required String funcionarioExpedidor,
+    required String funcionarioSolicitante,
+    required String objetoGasto,
+  }) async {
+    return db.transaction((txn) async {
+      final contratos = await txn.query('contratos', where: 'id = ? AND entidad_id = ?', whereArgs: [contratoId, entidadId]);
+      if (contratos.isEmpty) throw Exception('Contrato no encontrado');
+      final contrato = Contrato.fromJson(contratos.first);
+      if (contrato.estado != EstadoContrato.firmado || contrato.rpId != null) {
+        throw Exception('Solo se puede asociar RP a un contrato firmado sin RP previo');
+      }
+      final procesos = await txn.query('procesos_contratacion', where: 'id = ? AND entidad_id = ?', whereArgs: [contrato.procesoId, entidadId]);
+      if (procesos.isEmpty || procesos.first['estado'] != 'adjudicado' || procesos.first['cdp_id'] != contrato.cdpId) {
+        throw Exception('El contrato no tiene un proceso adjudicado con CDP válido');
+      }
+      final rp = await presupuestoService.expedirRP(
+        entidadId: entidadId, usuarioId: usuarioId, cdpId: contrato.cdpId,
+        contratoId: contrato.id, contratoNumero: contrato.numeroContrato,
+        valorRP: valorRP, funcionarioExpedidor: funcionarioExpedidor,
+        funcionarioSolicitante: funcionarioSolicitante, objetoGasto: objetoGasto,
+        executor: txn,
+      );
+      await txn.update('contratos', {'rp_id': rp.id, 'numero_rp': rp.numeroRP}, where: 'id = ?', whereArgs: [contrato.id]);
+      await AuditoriaService(txn).registrarEvento(
+        entidadId: entidadId, usuarioId: usuarioId,
+        tipoEvento: TipoEventoAuditoria.modificacionRegistro,
+        modulo: 'contratacion', accion: 'asociacion_rp_contrato',
+        valorAnterior: {'contrato_id': contrato.id, 'rp_id': null},
+        valorNuevo: {'rp_id': rp.id, 'numero_rp': rp.numeroRP},
+        referenciaId: contrato.id,
+      );
+      return contrato.copyWith(rpId: rp.id, numeroRP: rp.numeroRP);
+    });
+  }
+
   /// Registra una póliza de garantía
   Future<Poliza> registrarPoliza({
     required String entidadId,
@@ -214,6 +266,10 @@ class ContratacionService {
     required DateTime fechaInicioVigencia,
     required DateTime fechaFinVigencia,
   }) async {
+    final contratos = await db.query('contratos', where: 'id = ? AND entidad_id = ? AND numero_contrato = ?', whereArgs: [contratoId, entidadId, numeroContrato]);
+    if (contratos.isEmpty) {
+      throw Exception('Contrato no encontrado para registrar póliza');
+    }
     final id = _uuid.v4();
     final numeroPoliza = 'PL-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaEmision = DateTime.now();
@@ -273,6 +329,19 @@ class ContratacionService {
 
     if (!contrato.requiereLegalizacion()) {
       throw Exception('El contrato no requiere legalización');
+    }
+
+    if (contrato.rpId == null) {
+      throw Exception('El contrato requiere un RP asociado antes de legalizarse');
+    }
+    final ahora = DateTime.now().toIso8601String();
+    final polizasVigentes = await db.query(
+      'polizas',
+      where: 'contrato_id = ? AND entidad_id = ? AND estado = ? AND fecha_inicio_vigencia <= ? AND fecha_fin_vigencia >= ?',
+      whereArgs: [contratoId, entidadId, 'vigente', ahora, ahora],
+    );
+    if (polizasVigentes.isEmpty) {
+      throw Exception('El contrato requiere al menos una póliza registrada y vigente');
     }
 
     final fechaLegalizacion = DateTime.now();

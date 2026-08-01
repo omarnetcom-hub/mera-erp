@@ -328,7 +328,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 67,
+      version: 68,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -777,6 +777,10 @@ class DatabaseHelper {
         'mes_pac',
         'INTEGER NOT NULL DEFAULT 0',
       );
+    }
+
+    if (oldVersion < 68) {
+      await SchemaContratacion.migrarContratosConRPOpcional(db);
     }
   }
 

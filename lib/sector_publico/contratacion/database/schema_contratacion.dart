@@ -48,8 +48,8 @@ class SchemaContratacion {
         contratista_identificacion TEXT NOT NULL,
         cdp_id TEXT NOT NULL,
         numero_cdp TEXT NOT NULL,
-        rp_id TEXT NOT NULL,
-        numero_rp TEXT NOT NULL,
+        rp_id TEXT,
+        numero_rp TEXT,
         fecha_firma TEXT NOT NULL,
         fecha_inicio_ejecucion TEXT NOT NULL,
         fecha_fin_ejecucion TEXT NOT NULL,
@@ -130,5 +130,52 @@ class SchemaContratacion {
       CREATE INDEX IF NOT EXISTS idx_polizas_estado 
       ON polizas(estado)
     ''');
+  }
+
+  /// Migra contratos heredados para permitir la firma antes de expedir el RP.
+  /// SQLite no permite quitar NOT NULL con ALTER TABLE, por lo que preserva
+  /// explícitamente cada columna de contratos y pólizas al reconstruirlas.
+  static Future<void> migrarContratosConRPOpcional(Database db) async {
+    final columnas = await db.rawQuery('PRAGMA table_info(contratos)');
+    final rpIdObligatorio = columnas.any(
+      (columna) => columna['name'] == 'rp_id' && columna['notnull'] == 1,
+    );
+    final numeroRpObligatorio = columnas.any(
+      (columna) => columna['name'] == 'numero_rp' && columna['notnull'] == 1,
+    );
+    if (columnas.isEmpty || (!rpIdObligatorio && !numeroRpObligatorio)) return;
+
+    await db.execute('ALTER TABLE polizas RENAME TO polizas_legacy_v68');
+    await db.execute('ALTER TABLE contratos RENAME TO contratos_legacy_v68');
+    await crearTablas(db);
+
+    const columnasContrato = '''
+      id, entidad_id, numero_contrato, proceso_id, numero_proceso,
+      objeto_contrato, tipo_contrato, valor_contrato, contratista_id,
+      contratista_nombre, contratista_identificacion, cdp_id, numero_cdp,
+      rp_id, numero_rp, fecha_firma, fecha_inicio_ejecucion,
+      fecha_fin_ejecucion, duracion_dias, estado, fecha_legalizacion,
+      fecha_terminacion, fecha_liquidacion, supervisor_id, supervisor_nombre,
+      interventor_id, interventor_nombre, observaciones
+    ''';
+    await db.execute('''
+      INSERT INTO contratos ($columnasContrato)
+      SELECT $columnasContrato FROM contratos_legacy_v68
+    ''');
+
+    const columnasPoliza = '''
+      id, entidad_id, contrato_id, numero_contrato, numero_poliza,
+      tipo_poliza, aseguradora, valor_asegurado, fecha_emision,
+      fecha_inicio_vigencia, fecha_fin_vigencia, estado, fecha_reclamacion,
+      fecha_pago, observaciones
+    ''';
+    await db.execute('''
+      INSERT INTO polizas ($columnasPoliza)
+      SELECT $columnasPoliza FROM polizas_legacy_v68
+    ''');
+
+    await db.execute('DROP TABLE polizas_legacy_v68');
+    await db.execute('DROP TABLE contratos_legacy_v68');
+    await crearTablas(db);
   }
 }

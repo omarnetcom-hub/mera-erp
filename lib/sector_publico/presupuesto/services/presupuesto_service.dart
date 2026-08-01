@@ -92,8 +92,8 @@ class PresupuestoService {
   }
 
   /// Obtiene una apropiación por ID
-  Future<Apropiacion?> obtenerApropiacion(String id) async {
-    final resultado = await db.query(
+  Future<Apropiacion?> obtenerApropiacion(String id, {DatabaseExecutor? executor}) async {
+    final resultado = await (executor ?? db).query(
       'apropiaciones',
       where: 'id = ?',
       whereArgs: [id],
@@ -109,9 +109,10 @@ class PresupuestoService {
     required String usuarioId,
     required Permiso permiso,
     RolSectorPublico? rolQuienCrea,
+    DatabaseExecutor? executor,
   }) async {
     final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
-      db: db,
+      db: executor ?? db,
       entidadId: entidadId,
       usuarioId: usuarioId,
     );
@@ -225,8 +226,8 @@ class PresupuestoService {
   }
 
   /// Obtiene un CDP por ID
-  Future<CDP?> obtenerCDP(String id) async {
-    final resultado = await db.query(
+  Future<CDP?> obtenerCDP(String id, {DatabaseExecutor? executor}) async {
+    final resultado = await (executor ?? db).query(
       'cdps',
       where: 'id = ?',
       whereArgs: [id],
@@ -250,14 +251,17 @@ class PresupuestoService {
     required String funcionarioExpedidor,
     required String funcionarioSolicitante,
     required String objetoGasto,
+    DatabaseExecutor? executor,
   }) async {
+    final database = executor ?? db;
     await _validarPermisoYSegregacion(
       entidadId: entidadId,
       usuarioId: usuarioId,
       permiso: Permiso.expedirRP,
+      executor: database,
     );
     // Obtener el CDP
-    final cdp = await obtenerCDP(cdpId);
+    final cdp = await obtenerCDP(cdpId, executor: database);
     if (cdp == null) {
       throw Exception('CDP no encontrado');
     }
@@ -277,8 +281,20 @@ class PresupuestoService {
     }
 
     // VALIDACIÓN NORMATIVA DURA: Requerir contrato (Ley 80/1993 Art. 41)
-    if (contratoNumero.isEmpty) {
+    if (contratoId.isEmpty || contratoNumero.isEmpty) {
       throw Exception('El RP requiere un contrato firmado previo (Ley 80/1993 Art. 41)');
+    }
+    final contratoResult = await database.query(
+      'contratos',
+      where: 'id = ? AND entidad_id = ?',
+      whereArgs: [contratoId, entidadId],
+    );
+    if (contratoResult.isEmpty ||
+        contratoResult.first['numero_contrato'] != contratoNumero ||
+        contratoResult.first['estado'] != 'firmado' ||
+        contratoResult.first['cdp_id'] != cdpId ||
+        contratoResult.first['rp_id'] != null) {
+      throw Exception('El RP requiere un contrato firmado, sin RP asociado y vinculado al CDP indicado');
     }
 
     // Generar número de RP
@@ -307,10 +323,10 @@ class PresupuestoService {
       estado: EstadoRP.vigente,
     );
 
-    await db.insert('rps', rp.toJson());
+    await database.insert('rps', rp.toJson());
 
     // Actualizar CDP
-    await db.update(
+    await database.update(
       'cdps',
       {
         'valor_comprometido_rp': cdp.valorComprometidoRP + valorRP,
@@ -321,9 +337,9 @@ class PresupuestoService {
     );
 
     // Actualizar apropiación
-    final apropiacion = await obtenerApropiacion(cdp.apropiacionId);
+    final apropiacion = await obtenerApropiacion(cdp.apropiacionId, executor: database);
     if (apropiacion != null) {
-      await db.update(
+      await database.update(
         'apropiaciones',
         {
           'valor_rp': apropiacion.valorRP + valorRP,
@@ -334,7 +350,8 @@ class PresupuestoService {
       );
     }
 
-    await auditoriaService?.registrarEvento(
+    final auditoria = executor == null ? auditoriaService : AuditoriaService(database);
+    await auditoria?.registrarEvento(
       entidadId: entidadId,
       usuarioId: usuarioId,
       tipoEvento: TipoEventoAuditoria.expedicionRP,
@@ -349,8 +366,8 @@ class PresupuestoService {
   }
 
   /// Obtiene un RP por ID
-  Future<RP?> obtenerRP(String id) async {
-    final resultado = await db.query(
+  Future<RP?> obtenerRP(String id, {DatabaseExecutor? executor}) async {
+    final resultado = await (executor ?? db).query(
       'rps',
       where: 'id = ?',
       whereArgs: [id],
