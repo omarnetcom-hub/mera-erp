@@ -40,6 +40,33 @@ Built build\windows\x64\runner\Release\MerkaERP.exe
 
 Estado: **Pendiente - REQUIERE DECISION HUMANA DE DISENO Y CARGA DE DATOS**. No se implemento codigo porque no existe una relacion persistida y auditable entre rubro, proyecto, meta y avance fisico. Commit: pendiente de crear al momento de esta anotacion.
 
+## Subtarea N - Nomina publica: regimenes salariales y PILA
+
+### Hallazgo y decision conservadora
+
+Solo el regimen docente tiene un servicio propio. El modelo contiene `TipoVinculacion.carrera` y `libreNombramiento`, pero `NominaService` aplica una sola formula; no se localizaron motores para trabajadores oficiales, salud ni Fiscalia/Rama Judicial. Las tarifas de aportes estan codificadas en `nomina_service.dart:92-102`; PILA solamente agrega esos resultados y los serializa, sin catalogo versionado ni formato certificado de operador.
+
+La prueba de liquidacion estaba desalineada con el esquema actual. Al completar de forma temporal su fixture para que use `empleados_sp` y `configuracion_entidad`, llego a las aserciones y fallo en tres valores: salud 170.000 esperado/183.770 actual; solidaridad intermedia 45.426,30/0; solidaridad alta 327.069,36/163.534,68. Se retiro el ajuste temporal para no mezclar esta investigacion con una redefinicion no aprobada de aportes.
+
+### Evidencia cruda: flutter test
+
+```text
+00:00 +0 -1: Debe liquidar nomina completa y calcular aportes parafiscales [E]
+Expected: a numeric value within <0.01> of <170000.0>
+Actual: <183770.0>
+00:00 +0 -2: Debe aplicar fondo de solidaridad 1% para salario entre 4 y 16 SMMLV [E]
+Expected: a numeric value within <0.01> of <45426.3>
+Actual: <0.0>
+00:00 +0 -3: Debe aplicar fondo de solidaridad 2% para salario very alto [E]
+Expected: a numeric value within <0.01> of <327069.36>
+Actual: <163534.68>
+00:00 +1 -3: Some tests failed.
+```
+
+### Cierre de la subtarea N
+
+Estado: **Pendiente - REQUIERE DECISION HUMANA NORMATIVA**. No se cambiaron tarifas ni se afirmo compatibilidad PILA; hace falta definir fuente/versionado de aportes y los cinco regimenes ausentes. Commit: pendiente de crear al momento de esta anotacion.
+
 ## Subtarea M - Rentas: cobro coactivo e intereses moratorios
 
 ### Hallazgo y decision
