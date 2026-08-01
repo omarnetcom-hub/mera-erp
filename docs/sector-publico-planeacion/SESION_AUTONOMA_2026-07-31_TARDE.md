@@ -1,4 +1,17 @@
 # Sesion autonoma - 2026-07-31 tarde
+
+## Subtarea V - Transparencia y consolidacion NICSP 40
+
+### Hallazgo, decision y limite
+
+Se inspecciono `ConsolidacionJerarquicaService`: suma los saldos de la entidad padre y sus hijas sin contraparte, identificador comun ni relacion entre asientos. No se puede eliminar una reciproca sin inferirla por monto/fecha/cuenta, lo que puede borrar operaciones distintas. Se documento la decision humana requerida en `NICSP40_RECIPROCAS_Y_PORTAL_DECISION.md`: tabla de conciliacion aprobada o campos de contraparte/grupo reciproco, siendo la primera opcion mas conservadora para datos existentes.
+
+`PortalTransparenciaService` sigue huerfano de la UI: `transparencia_page.dart` usa el servicio local y el portal remoto conserva URL de ejemplo, `TU_API_KEY` y persistencia pendiente. Se detiene esta parte porque requiere contrato y credenciales externas de la entidad.
+
+### Cierre de la subtarea V
+
+Estado: requiere decision humana. No se implementaron eliminaciones contables ni llamadas externas.
+
 +## Subtarea U - SGR y SGP: destinacion por componente y datos OCAD
 
 ### Hallazgo, implementacion y decision
