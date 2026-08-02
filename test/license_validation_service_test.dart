@@ -114,11 +114,19 @@ void main() {
     );
   });
 
-  test('placeholder de produccion rechaza todos los tokens', () {
+  test('validador de prueba sin clave rechaza todos los tokens', () {
     final token = _createToken(signingKeys.privateKey, _validPayload());
+    final missingKeyValidator = LicenseValidationService.withPublicKey('');
 
-    expect(LicenseValidationService().hasConfiguredPublicKey, isFalse);
-    expect(LicenseValidationService().validateOfflineToken(token), isNull);
+    expect(missingKeyValidator.hasConfiguredPublicKey, isFalse);
+    expect(missingKeyValidator.validateOfflineToken(token), isNull);
+  });
+
+  test('clave publica de produccion es PEM RSA valida de 3072 bits', () {
+    final productionValidator = LicenseValidationService();
+
+    expect(productionValidator.hasConfiguredPublicKey, isTrue);
+    expect(productionValidator.configuredPublicKeyBitLength, 3072);
   });
 
   group('validacion de licencia persistida', () {

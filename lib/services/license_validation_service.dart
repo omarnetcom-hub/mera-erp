@@ -7,9 +7,20 @@ import 'package:crypto/crypto.dart';
 class LicenseValidationService {
   static const String _expectedIssuer = 'MerkaERP-ControlCenter';
 
-  // PENDIENTE: pegar merka_license_public.pem aqui. Mientras este vacia,
-  // toda activacion offline se rechaza de forma cerrada.
-  static const String _productionPublicKeyPem = '';
+  // Clave publica de produccion. La clave privada permanece exclusivamente
+  // en Control Center y nunca debe incorporarse a este repositorio.
+  static const String _productionPublicKeyPem = '''
+-----BEGIN PUBLIC KEY-----
+MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA6MMNqdYuBJuZ1vJXUNGK
+TWFR+8da59yk3XWfgPJ4RKkkQZfMi5TdCtkj+RrReS9mjUidwIkhohM2/eLiPw7X
+K013NqxIArgfQj1e0qOakv5D8lFm9nf2XmRmCk7UWCrV2HR/2pqbZNvnV2f5puVT
+5pXiqSpx43Ijfu1rJUaL2EG5RRlZQCFZvJrOEvzZvEKGIp4zwD1MuMP5w+ogx7K4
+igESaKkmeQIqPCo0ujiYvyLL6x53kO/933wPhqkEiKOxirHHnltopb6OeM3shs+Z
++wB7t09EI8sTA07XwjalQECl+76j82dH5HW5zeC/njl3BB9PtrpFKlVvHlhYUt3V
+g/1+JFobqyc6/ZLRMRMAG31mKqPFGyvNcJxuc5bdzPSDh8uvPkuQgOgZr/950jKL
+5QoULr6ZSqZ4BU13HLsjXz6hftiGq5eaLCXlTxfg/StRwJH4Gh9NOc7n4toBwqMi
+hjkWm8BQxAfKF7CIy+3PTrOwuEnrgPSiIoX7WohsP+JbAgMBAAE=
+-----END PUBLIC KEY-----''';
 
   static final LicenseValidationService _instance = LicenseValidationService._(
     _productionPublicKeyPem,
@@ -25,6 +36,15 @@ class LicenseValidationService {
   final String _publicKeyPem;
 
   bool get hasConfiguredPublicKey => _publicKeyPem.trim().isNotEmpty;
+
+  int? get configuredPublicKeyBitLength {
+    if (!hasConfiguredPublicKey) return null;
+    try {
+      return CryptoUtils.rsaPublicKeyFromPem(_publicKeyPem).modulus?.bitLength;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Verifica primero cabecera y firma RS256. Solo despues procesa claims.
   Map<String, dynamic>? validateOfflineToken(String token) {
