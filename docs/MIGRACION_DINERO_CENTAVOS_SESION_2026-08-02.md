@@ -1,0 +1,639 @@
+# Sesion migracion de dinero - 2026-08-02
+
+## Fase 1 - Diseno aprobado
+
+- Documento: `docs/MIGRACION_DINERO_CENTAVOS_DISENO.md`.
+- Commit publicado: `6d5bf14`.
+- Decision: preservar multimoneda y almacenar unidades menores por moneda.
+
+## Fase 2 - MoneyValue y esquema v75
+
+### Respaldo y copias
+
+```text
+Origen activo: C:\Users\PC\Documents\merka_erp_test_fresco.db
+Respaldo inmutable: C:\Users\PC\Documents\merka_erp_test_fresco_pre_centavos_2026-08-02.db
+Copia validada: C:\Users\PC\Documents\merka_erp_test_fresco_validacion_v75_2026-08-02.db
+SHA-256 respaldo antes y despues: 12F7F5BB08CD827A4A325FA1B2EF2D08B0E603099B745F1B06477799242879F7
+```
+
+### Implementacion
+
+- `MoneyValue` usa `int`/`BigInt`, moneda y escala explicitas; no ofrece constructor desde `double`.
+- La base sube de v74 a v75.
+- El manifiesto congelado contiene 125 tablas y 355 columnas monetarias.
+- v75 reconstruye cada tabla, conserva DDL/indices/triggers/vistas, migra fila por fila y ejecuta `foreign_key_check` e `integrity_check`.
+- Moneda no resoluble con valor distinto de cero aborta; sector publico resuelve COP/2.
+- Se corrigio v66 para omitir onboarding sin entidad territorial real, sin fabricar el destino de la FK.
+
+### Inventario exacto migrado
+
+- `abonos_cxc`: `monto`
+- `abonos_cxp`: `monto`
+- `accounting_journal_lines`: `credit`, `debit`, `local_credit`, `local_debit`
+- `activos_estado`: `depreciacion_acumulada`, `valor_adquisicion`, `valor_libros`, `valor_neto`, `valor_residual`
+- `activos_fijos`: `costo`, `depreciacion_acumulada`, `valor_libros`, `valor_residual`
+- `acuerdos_pago`: `saldo_pendiente`, `valor_cuota`, `valor_original`, `valor_pagado`
+- `ap_payment_schedules`: `amount`
+- `ap_supplier_ledger`: `amount`, `open_amount`
+- `apropiaciones`: `saldo_disponible`, `valor_apropiado`, `valor_cdp`, `valor_inicial`, `valor_obligado`, `valor_pagado`, `valor_rp`
+- `ar_ledger_entries`: `amount`, `open_amount`
+- `ar_payment_promises`: `amount`
+- `asiento_lineas`: `credito`, `debito`
+- `asientos_contables_sp`: `total_credito`, `total_debito`
+- `autorizaciones_vigencias_futuras`: `apropiacion_vigencia_actual`, `monto_total`
+- `avisos_tablero`: `impuesto_aviso`, `tarifa`, `valor_aviso`
+- `bancos`: `saldo_inicial`
+- `bank_statement_lines`: `amount`
+- `bienios_sgr`: `monto_ejecutado_bienio`, `monto_presupuestado_bienio`
+- `caja_sesiones`: `diferencia`, `monto_contado`, `monto_inicial`, `total_egresos`, `total_ingresos`, `total_ventas`
+- `cdps`: `saldo_disponible`, `valor_cdp`, `valor_comprometido_rp`
+- `censo_ica`: `ingresos_anuales_estimados`
+- `cierres_caja`: `diferencia`, `efectivo_contado`, `saldo_sistema`
+- `comisiones_liquidadas`: `base`, `comision`
+- `commission_rules`: `max_amount`, `min_amount`
+- `commissions`: `commission_amount`, `sale_amount`
+- `compras`: `credito`, `efectivo`, `impuesto_total`, `retefuente`, `reteica`, `reteiva`, `subtotal`, `total`, `transferencia`
+- `compras_detalle`: `costo_unitario`, `subtotal`
+- `comprobantes_contables`: `total`
+- `compromisos_vigencias_futuras`: `monto_comprometido`, `monto_obligado`, `monto_pagado`
+- `conciliaciones_bancarias`: `diferencia`, `saldo_extracto`, `saldo_libros`
+- `conciliaciones_reciprocas`: `diferencia_monto_validada`, `monto_conciliado`, `tolerancia_monto`
+- `conciliaciones_reciprocas_partidas`: `monto_eliminar`
+- `configuracion_depreciacion_unidades`: `costo_depreciable`, `costo_por_unidad`, `depreciacion_acumulada`, `valor_adquisicion`, `valor_residual`
+- `consolidaciones_nicsp40`: `valor_ejecutado`, `valor_no_ejecutado`, `valor_transferido`
+- `contratos`: `valor_contrato`
+- `contratos_eps_adres`: `monto_contrato`, `monto_facturado`
+- `cotizacion_detalle`: `precio_unitario`, `subtotal`
+- `cotizaciones`: `impuesto`, `subtotal`, `total`
+- `crm_opportunities`: `value`
+- `cuentas_por_cobrar`: `saldo`, `total`
+- `cuentas_por_pagar`: `saldo`, `total`
+- `customer_credit_profiles`: `balance`, `credit_limit`
+- `declaraciones_ica`: `base_gravable`, `impuesto_ica`, `ingresos_exentos`, `ingresos_gravables`, `ingresos_no_gravables`, `intereses_mora`, `total_pagar`
+- `detalles_asientos`: `credito`, `debito`
+- `devoluciones_compras`: `total`
+- `devoluciones_compras_detalle`: `costo_unitario`, `subtotal`
+- `devoluciones_ventas`: `total`
+- `devoluciones_ventas_detalle`: `precio_unitario`, `subtotal`
+- `documentos_compra_flujo`: `total`
+- `documentos_compra_flujo_lineas`: `costo_unitario`, `total`
+- `documentos_venta_flujo`: `total`
+- `documentos_venta_flujo_lineas`: `precio_unitario`, `total`
+- `embargos_judiciales`: `valor_embargo`
+- `empleados`: `salario_base`
+- `empleados_sp`: `salario_basico`
+- `enterprise_fixed_assets`: `accumulated_depreciation`, `book_value`, `cost`, `fiscal_depreciation`, `monthly_depreciation`
+- `enterprise_tax_calculations`: `retention`, `tax`, `taxable_base`, `total`
+- `extractos_bancarios`: `valor`
+- `facturas_salud`: `monto_glosado`, `monto_pagado`, `monto_total`
+- `fixed_asset_events`: `amount`
+- `fondo_unidad_tesoreria`: `saldo_disponible`, `valor_ejecutado`, `valor_inicial`
+- `glosas`: `valor_aceptado`, `valor_glosado`, `valor_rechazado`
+- `historial_precios`: `precio_anterior`, `precio_nuevo`
+- `horas_extra`: `salario_hora`, `valor_recargo`, `valor_total`
+- `inventory_lots`: `unit_cost`
+- `kardex_inventario`: `costo_total`, `costo_unitario`
+- `liquidaciones_nomina`: `auxilio_alimentacion`, `auxilio_transporte`, `caja_compensacion`, `fondo_solidaridad`, `horas_extra`, `icbf`, `neto_pagar`, `pension`, `recargo_nocturno`, `riesgos_laborales`, `salario_basico`, `salario_devengado`, `salud`, `sena`, `total_aportes`, `total_devengado`
+- `liquidaciones_prediales`: `avaluo_catastral`, `descuento_pronto_pago`, `impuesto_base`, `intereses_mora`, `total_pagar`
+- `lotes`: `costo`
+- `movimientos_caja`: `monto`
+- `movimientos_inventario`: `costo_anterior`, `costo_nuevo`
+- `nomina_liquidaciones`: `aportes_empleador`, `arl`, `cesantias`, `fsp`, `intereses_cesantias`, `neto_pagar`, `parafiscal_caja`, `parafiscal_icbf`, `parafiscal_sena`, `pension_empleado`, `pension_empleador`, `prima_servicios`, `retefuente`, `salario_base`, `salud_empleado`, `salud_empleador`, `total_deducciones`, `total_devengado`, `vacaciones`
+- `obligaciones`: `saldo_pendiente`, `valor_obligacion`, `valor_pagado`
+- `obligaciones_vigencias_futuras`: `monto_obligado`, `monto_pagado`
+- `order_lines`: `discount_amount`, `subtotal`, `tax_amount`, `total`, `unit_cost`, `unit_price`
+- `pac`: `saldo_disponible`, `valor_ejecutado`, `valor_programado`
+- `pagos`: `valor_pago`
+- `pagos_ica`: `valor_pagado`
+- `payment_transactions`: `amount`
+- `payroll_novelties`: `tarifa`, `valor`
+- `payroll_parameters`: `smmlv`, `transportation_allowance`, `uvt`
+- `pedido_detalle`: `precio_unitario`, `subtotal`
+- `pedidos`: `impuesto`, `subtotal`, `total`
+- `polizas`: `valor_asegurado`
+- `predios`: `avaluo_anterior`, `avaluo_catastral`
+- `presupuesto_lineas`: `monto_presupuestado`
+- `presupuestos`: `diferencia`, `valor_presupuestado`, `valor_real`
+- `price_history`: `new_price`, `old_price`
+- `procesos_cobro_coactivo`: `saldo_pendiente`, `valor_deuda`, `valor_recuperado`
+- `procesos_contratacion`: `valor_estimado`
+- `procesos_disciplinarios`: `monto_sancion`
+- `productos`: `costo`, `precio`
+- `provisiones`: `saldo_disponible`, `valor_provision`, `valor_utilizado`
+- `proyectos_mga`: `saldo_por_ejecutar`, `valor_ejecutado`, `valor_total`
+- `proyectos_ocad`: `monto_aprobado`, `monto_giro_spgr`
+- `purchase_analytics_read_model`: `retention`, `spend`, `tax`
+- `purchase_document_lines`: `retention_total`, `subtotal`, `tax_total`, `total`, `unit_cost`
+- `purchase_documents`: `budget_available`, `retention_total`, `subtotal`, `tax_total`, `total`
+- `quote_lines`: `discount_amount`, `subtotal`, `tax_amount`, `total`, `unit_cost`, `unit_price`
+- `recargos`: `salario_hora`, `valor_recargo`
+- `recepciones_satisfaccion`: `valor_recibido`, `valor_reconocido`
+- `regalias`: `valor_asignado`, `valor_distribuido`, `valor_ejecutado`, `valor_estimado`, `valor_recibido`
+- `registros_produccion`: `costo_por_unidad`, `depreciacion_periodo`
+- `reglas_retenciones_empresa`: `base_minima`
+- `reteica`: `valor_retenido`
+- `retroactivos`: `diferencia_mensual`, `salario_anterior`, `salario_nuevo`, `saldo_pendiente`, `valor_pagado`, `valor_total`
+- `revalorizaciones`: `incremento`, `valor_anterior`, `valor_nuevo`
+- `rips`: `valor_copago`, `valor_modera`, `valor_neto`, `valor_servicio`
+- `rps`: `saldo_disponible`, `valor_obligado`, `valor_rp`
+- `saldos_cuentas`: `saldo_acreedor`, `saldo_deudor`, `saldo_neto`
+- `sales_analytics_read_model`: `revenue`, `tax`
+- `sales_document_lines`: `discount`, `subtotal`, `tax_total`, `total`, `unit_price`
+- `sales_documents`: `discount_total`, `subtotal`, `tax_total`, `total`
+- `sales_orders`: `discount_amount`, `subtotal`, `tax_amount`, `total`
+- `sales_quotes`: `discount_amount`, `subtotal`, `tax_amount`, `total`
+- `sgp`: `saldo_disponible`, `valor_asignado`, `valor_ejecutado`, `valor_recibido`, `valor_transferido`
+- `stock_bodega`: `costo`
+- `supplier_balances`: `balance`
+- `traslados_bodega`: `costo_at_movement`
+- `treasury_bank_accounts`: `balance`
+- `treasury_bank_movements`: `amount`
+- `treasury_transfers`: `amount`
+- `ventas`: `costo_unitario`, `credito`, `efectivo`, `impuesto_total`, `precio_unitario`, `retefuente`, `reteica`, `reteiva`, `subtotal`, `total`, `transferencia`
+- `ventas_detalle`: `precio_unitario`, `subtotal`
+- `vigencias_futuras_distribucion`: `monto_autorizado`, `monto_comprometido`, `monto_obligado`, `monto_pagado`, `saldo_disponible`
+
+### Comparacion de la copia del respaldo
+
+- Version: v63 -> v75.
+- Tablas verificadas: 125/125.
+- Columnas verificadas como INTEGER: 355/355.
+- Filas antes/despues: identicas en cada tabla; 7 filas totales dentro del manifiesto tras agregar muestras controladas.
+- Celdas monetarias comparadas: 10/10.
+- Muestras: `99.99 -> 9999`, `10000.0 -> 1000000`, `9900.01 -> 990001`.
+
+### Estado de compilacion
+
+- Errores de compilacion/analyze introducidos: **ninguno**.
+- `flutter analyze`: 189 issues, 0 errores (linea base conservada).
+- `flutter build windows`: genera `build/windows/x64/runner/Release/MerkaERP.exe`.
+- Riesgo abierto: SQLite entrega valores dinamicos; el build compila, pero los consumidores anteriores siguen interpretando unidades menores como unidades mayores. La incompatibilidad es funcional y queda pendiente de Fases 3/4.
+
+Lista completa de errores de compilacion generados por esta fase:
+
+```text
+(vacia: 0 errores)
+```
+
+### Evidencia cruda - Tests MoneyValue y migracion v75 en memoria
+
+Comando:
+
+```powershell
+flutter test test/core/currency/money_value_test.dart test/core/currency/money_schema_migration_test.dart
+```
+
+Salida estandar:
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_value_test.dart
+00:00 +0: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_value_test.dart: MoneyValue suma cien valores decimales sin deriva binaria
+00:00 +1: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_value_test.dart: MoneyValue compara importes solo dentro de la misma moneda y escala
+00:00 +2: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_value_test.dart: MoneyValue convierte texto a unidades menores y vuelve sin perdida
+00:00 +3: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_value_test.dart: MoneyValue multiplica y divide con redondeo racional exacto
+00:00 +4: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_value_test.dart: MoneyValue falla cerrado sin moneda resuelta
+00:00 +5: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_value_test.dart: MoneyValue rechaza precision mayor a la escala de la moneda
+00:00 +6: loading C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_schema_migration_test.dart
+00:01 +6: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_schema_migration_test.dart: migra las 355 columnas y conserva filas y valores COP
+Inicializando tablas del Sector Público para nueva instalación...
+00:04 +7: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_schema_migration_test.dart: respeta la escala configurada de una moneda comercial
+Inicializando tablas del Sector Público para nueva instalación...
+00:06 +8: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_schema_migration_test.dart: es idempotente y no vuelve a escalar una base v75
+Inicializando tablas del Sector Público para nueva instalación...
+00:09 +9: C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_schema_migration_test.dart: una instalacion nueva v75 termina con esquema INTEGER
+Inicializando tablas del Sector Público para nueva instalación...
+Inicializando tablas del Sector Público para nueva instalación...
+00:12 +10: All tests passed!
+```
+
+Error estandar:
+
+```text
+```
+
+### Evidencia cruda - Test de migracion v66 relacionado
+
+Comando:
+
+```powershell
+flutter test test/sector_publico/configuracion/selector_entidad_migracion_test.dart
+```
+
+Salida estandar:
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/configuracion/selector_entidad_migracion_test.dart
+00:00 +0: selector guarda historial vigente y convierte tipos del onboarding legado
+00:00 +1: migracion conserva y Nomina usa la configuracion_legal vigente
+00:00 +2: matriz se siembra y se consulta desde modulos_por_tipo_entidad
+00:00 +3: All tests passed!
+```
+
+Error estandar:
+
+```text
+```
+
+### Evidencia cruda - Test sobre copia real del respaldo
+
+Comando:
+
+```powershell
+$env:MERKA_MONEY_VALIDATION_DB="C:\Users\PC\Documents\merka_erp_test_fresco_validacion_v75_2026-08-02.db"; flutter test test/core/currency/money_backup_v75_integration_test.dart
+```
+
+Salida estandar:
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/core/currency/money_backup_v75_integration_test.dart
+00:00 +0: migra copia del respaldo v63 a v75 y compara cada fila
+Shell: TABLE abonos_cxc rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE abonos_cxp rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE accounting_journal_lines rows_before=0 rows_after=0 money_columns=4 OK
+Shell: TABLE activos_estado rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE activos_fijos rows_before=0 rows_after=0 money_columns=4 OK
+Shell: TABLE acuerdos_pago rows_before=0 rows_after=0 money_columns=4 OK
+Shell: TABLE ap_payment_schedules rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE ap_supplier_ledger rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE apropiaciones rows_before=0 rows_after=0 money_columns=7 OK
+Shell: TABLE ar_ledger_entries rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE ar_payment_promises rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE asiento_lineas rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE asientos_contables_sp rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE autorizaciones_vigencias_futuras rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE avisos_tablero rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE bancos rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE bank_statement_lines rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE bienios_sgr rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE caja_sesiones rows_before=0 rows_after=0 money_columns=6 OK
+Shell: TABLE cdps rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE censo_ica rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE cierres_caja rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE comisiones_liquidadas rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE commission_rules rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE commissions rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE compras rows_before=0 rows_after=0 money_columns=9 OK
+Shell: TABLE compras_detalle rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE comprobantes_contables rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE compromisos_vigencias_futuras rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE conciliaciones_bancarias rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE conciliaciones_reciprocas rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE conciliaciones_reciprocas_partidas rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE configuracion_depreciacion_unidades rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE consolidaciones_nicsp40 rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE contratos rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE contratos_eps_adres rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE cotizacion_detalle rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE cotizaciones rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE crm_opportunities rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE cuentas_por_cobrar rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE cuentas_por_pagar rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE customer_credit_profiles rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE declaraciones_ica rows_before=0 rows_after=0 money_columns=7 OK
+Shell: TABLE detalles_asientos rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE devoluciones_compras rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE devoluciones_compras_detalle rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE devoluciones_ventas rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE devoluciones_ventas_detalle rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE documentos_compra_flujo rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE documentos_compra_flujo_lineas rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE documentos_venta_flujo rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE documentos_venta_flujo_lineas rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE embargos_judiciales rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE empleados rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE empleados_sp rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE enterprise_fixed_assets rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE enterprise_tax_calculations rows_before=0 rows_after=0 money_columns=4 OK
+Shell: TABLE extractos_bancarios rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE facturas_salud rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE fixed_asset_events rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE fondo_unidad_tesoreria rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE glosas rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE historial_precios rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE horas_extra rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE inventory_lots rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE kardex_inventario rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE liquidaciones_nomina rows_before=0 rows_after=0 money_columns=16 OK
+Shell: TABLE liquidaciones_prediales rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE lotes rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE movimientos_caja rows_before=1 rows_after=1 money_columns=1 OK
+Shell: TABLE movimientos_inventario rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE nomina_liquidaciones rows_before=0 rows_after=0 money_columns=19 OK
+Shell: TABLE obligaciones rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE obligaciones_vigencias_futuras rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE order_lines rows_before=0 rows_after=0 money_columns=6 OK
+Shell: TABLE pac rows_before=1 rows_after=1 money_columns=3 OK
+Shell: TABLE pagos rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE pagos_ica rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE payment_transactions rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE payroll_novelties rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE payroll_parameters rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE pedido_detalle rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE pedidos rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE polizas rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE predios rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE presupuesto_lineas rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE presupuestos rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE price_history rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE procesos_cobro_coactivo rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE procesos_contratacion rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE procesos_disciplinarios rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE productos rows_before=1 rows_after=1 money_columns=2 OK
+Shell: TABLE provisiones rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE proyectos_mga rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE proyectos_ocad rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE purchase_analytics_read_model rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE purchase_document_lines rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE purchase_documents rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE quote_lines rows_before=0 rows_after=0 money_columns=6 OK
+Shell: TABLE recargos rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE recepciones_satisfaccion rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE regalias rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE registros_produccion rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE reglas_retenciones_empresa rows_before=4 rows_after=4 money_columns=1 OK
+Shell: TABLE reteica rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE retroactivos rows_before=0 rows_after=0 money_columns=6 OK
+Shell: TABLE revalorizaciones rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE rips rows_before=0 rows_after=0 money_columns=4 OK
+Shell: TABLE rps rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE saldos_cuentas rows_before=0 rows_after=0 money_columns=3 OK
+Shell: TABLE sales_analytics_read_model rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE sales_document_lines rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE sales_documents rows_before=0 rows_after=0 money_columns=4 OK
+Shell: TABLE sales_orders rows_before=0 rows_after=0 money_columns=4 OK
+Shell: TABLE sales_quotes rows_before=0 rows_after=0 money_columns=4 OK
+Shell: TABLE sgp rows_before=0 rows_after=0 money_columns=5 OK
+Shell: TABLE stock_bodega rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE supplier_balances rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE traslados_bodega rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE treasury_bank_accounts rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE treasury_bank_movements rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE treasury_transfers rows_before=0 rows_after=0 money_columns=1 OK
+Shell: TABLE ventas rows_before=0 rows_after=0 money_columns=11 OK
+Shell: TABLE ventas_detalle rows_before=0 rows_after=0 money_columns=2 OK
+Shell: TABLE vigencias_futuras_distribucion rows_before=0 rows_after=0 money_columns=5 OK
+Shell: SAMPLE movimientos_caja.monto original=99.99 migrated=9999 expected=9999
+Shell: SAMPLE pac.valor_programado original=10000.0 migrated=1000000 expected=1000000
+Shell: SAMPLE pac.valor_ejecutado original=99.99 migrated=9999 expected=9999
+Shell: SUMMARY version_before=63 version_after=75 tables=125 columns=355 rows=7 checked_money_cells=10 OK
+00:02 +1: All tests passed!
+```
+
+Error estandar:
+
+```text
+```
+
+### Evidencia cruda - Flutter analyze completo
+
+Comando:
+
+```powershell
+flutter analyze --no-pub
+```
+
+Salida estandar:
+
+```text
+Analyzing Caja_simple...                                        
+
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\activos_fijos_page.dart:171:36 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\commissions_page.dart:367:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\commissions_page.dart:369:41 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\comprobantes_page.dart:111:25 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\conciliacion_bancaria_page.dart:98:7 - use_build_context_synchronously
+warning - The value of the local variable 'data' isn't used - lib\core\api\endpoints\sales_api.dart:98:13 - unused_local_variable
+warning - The value of the local variable 'data' isn't used - lib\core\api\endpoints\sales_api.dart:124:13 - unused_local_variable
+   info - Don't invoke 'print' in production code - lib\core\database\database_initializer.dart:207:5 - avoid_print
+warning - The declaration '_migrarDB' isn't referenced - lib\core\database\database_initializer.dart:237:10 - unused_element
+   info - Don't invoke 'print' in production code - lib\core\logging\logging_service.dart:154:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\logging\logging_service.dart:157:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\logging\logging_service.dart:160:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\logging\logging_service.dart:163:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\logging\logging_service.dart:166:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\logging\logging_service.dart:171:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\logging\logging_service.dart:216:5 - avoid_print
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:122:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:315:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:431:19 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:437:19 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:443:16 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:449:18 - deprecated_member_use
+warning - This default clause is covered by the previous cases - lib\core\theme\theme_service.dart:65:7 - unreachable_switch_default
+warning - This default clause is covered by the previous cases - lib\core\theme\theme_service.dart:94:7 - unreachable_switch_default
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\core\workspace\selector_modo_screen.dart:80:58 - invalid_null_aware_operator
+   info - Don't invoke 'print' in production code - lib\db_helper.dart:800:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\db_helper.dart:816:7 - avoid_print
+   info - 'Table.fromTextArray' is deprecated and shouldn't be used. Use TableHelper.fromTextArray() instead - lib\declaraciones_tributarias_page.dart:97:15 - deprecated_member_use
+   info - The constant name 'presupuesto_publico' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:22:16 - constant_identifier_names
+   info - The constant name 'contabilidad_nicsp' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:23:16 - constant_identifier_names
+   info - The constant name 'contratacion_publica' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:24:16 - constant_identifier_names
+   info - The constant name 'nomina_publica' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:25:16 - constant_identifier_names
+   info - The constant name 'auditoria_forense' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:26:16 - constant_identifier_names
+   info - The constant name 'rentas_departamentales' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:28:16 - constant_identifier_names
+   info - The constant name 'activos_estado' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:30:16 - constant_identifier_names
+   info - The constant name 'salud_publica' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:31:16 - constant_identifier_names
+   info - The constant name 'consolidacion_nicsp_40' isn't a lowerCamelCase identifier - lib\features\feature_key.dart:34:16 - constant_identifier_names
+warning - The value of the local variable 'tipoDocCtrl' isn't used - lib\nomina_page.dart:50:11 - unused_local_variable
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\nomina_page.dart:419:36 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\nomina_page.dart:586:72 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:307:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:308:15 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:320:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:321:15 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:340:17 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:341:17 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:350:17 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:351:17 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:360:17 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:361:17 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:370:17 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\onboarding\onboarding_page.dart:371:17 - deprecated_member_use
+warning - The value of the local variable 'ivaGeneralRate' isn't used - lib\sales\application\create_sale_use_case.dart:120:11 - unused_local_variable
+warning - The value of the local variable 'ivaReducedRate' isn't used - lib\sales\application\create_sale_use_case.dart:121:11 - unused_local_variable
+warning - The value of the local variable 'retefuenteServices1' isn't used - lib\sales\application\create_sale_use_case.dart:125:11 - unused_local_variable
+warning - The value of the local variable 'retefuenteServices2' isn't used - lib\sales\application\create_sale_use_case.dart:126:11 - unused_local_variable
+warning - The value of the local variable 'retefuenteHonoraries1' isn't used - lib\sales\application\create_sale_use_case.dart:127:11 - unused_local_variable
+warning - The value of the local variable 'retefuenteHonoraries2' isn't used - lib\sales\application\create_sale_use_case.dart:128:11 - unused_local_variable
+warning - Unused import: '../models/acta_responsabilidad.dart' - lib\sector_publico\activos\pages\activos_estado_page.dart:15:8 - unused_import
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\activos\pages\activos_estado_page.dart:324:19 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\activos\pages\activos_estado_page.dart:467:19 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\activos\pages\activos_estado_page.dart:541:19 - deprecated_member_use
+warning - The value of the local variable 'idCtrl' isn't used - lib\sector_publico\activos\pages\activos_estado_page.dart:608:11 - unused_local_variable
+warning - The value of the local variable 'dep' isn't used - lib\sector_publico\activos\pages\activos_estado_page.dart:631:29 - unused_local_variable
+warning - The value of the local variable 'depreciacionAnual' isn't used - lib\sector_publico\activos\services\activos_service.dart:40:11 - unused_local_variable
+   info - The type name 'DatosCGN2015_001' isn't an UpperCamelCase identifier - lib\sector_publico\auditoria\models\reporte_chip.dart:93:7 - camel_case_types
+   info - The type name 'DatosCGN2015_002' isn't an UpperCamelCase identifier - lib\sector_publico\auditoria\models\reporte_chip.dart:150:7 - camel_case_types
+   info - The type name 'DatosCGN2015_003' isn't an UpperCamelCase identifier - lib\sector_publico\auditoria\models\reporte_chip.dart:201:7 - camel_case_types
+   info - The type name 'DatosCGN2015_004' isn't an UpperCamelCase identifier - lib\sector_publico\auditoria\models\reporte_chip.dart:237:7 - camel_case_types
+   info - The type name 'DatosCGN2015_005' isn't an UpperCamelCase identifier - lib\sector_publico\auditoria\models\reporte_chip.dart:279:7 - camel_case_types
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\auditoria\pages\auditoria_forense_page.dart:512:17 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\sector_publico\auditoria\pages\auditoria_forense_page.dart:676:52 - deprecated_member_use
+warning - Unused import: 'dart:convert' - lib\sector_publico\auditoria\services\fut_territorial_service.dart:5:8 - unused_import
+warning - Unused import: 'dart:convert' - lib\sector_publico\auditoria\services\sia_observa_service.dart:5:8 - unused_import
+   info - Unnecessary use of string interpolation - lib\sector_publico\contabilidad\pages\contabilidad_nicsp_page.dart:226:19 - unnecessary_string_interpolations
+   info - Unnecessary use of string interpolation - lib\sector_publico\contabilidad\pages\contabilidad_nicsp_page.dart:252:50 - unnecessary_string_interpolations
+   info - Unnecessary use of string interpolation - lib\sector_publico\contabilidad\pages\contabilidad_nicsp_page.dart:260:51 - unnecessary_string_interpolations
+   info - Unnecessary use of string interpolation - lib\sector_publico\contabilidad\pages\contabilidad_nicsp_page.dart:312:15 - unnecessary_string_interpolations
+warning - The value of the local variable 'fechaUltimoDia' isn't used - lib\sector_publico\contabilidad\services\depreciacion_job_service.dart:29:11 - unused_local_variable
+   info - Unnecessary use of string interpolation - lib\sector_publico\contratacion\pages\contratacion_publica_page.dart:429:19 - unnecessary_string_interpolations
+warning - The value of the field '_uuid' isn't used - lib\sector_publico\contratacion\services\secop_service.dart:20:14 - unused_field
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\sector_publico\contratacion\services\secop_service.dart:43:7 - use_null_aware_elements
+   info - Unnecessary use of string interpolation - lib\sector_publico\nomina\pages\nomina_publica_page.dart:318:15 - unnecessary_string_interpolations
+warning - Unused import: '../models/liquidacion_nomina.dart' - lib\sector_publico\nomina\services\pila_service.dart:8:8 - unused_import
+   info - The constant name 'en_revision' isn't a lowerCamelCase identifier - lib\sector_publico\planeacion\services\formulacion_mga_service.dart:13:3 - constant_identifier_names
+   info - The constant name 'revision_tecnica' isn't a lowerCamelCase identifier - lib\sector_publico\planeacion\services\viabilizacion_service.dart:13:3 - constant_identifier_names
+   info - The constant name 'revision_financiera' isn't a lowerCamelCase identifier - lib\sector_publico\planeacion\services\viabilizacion_service.dart:14:3 - constant_identifier_names
+   info - Unnecessary use of string interpolation - lib\sector_publico\presupuesto\pages\pac_tesoreria_page.dart:329:71 - unnecessary_string_interpolations
+   info - Unnecessary use of string interpolation - lib\sector_publico\presupuesto\pages\pac_tesoreria_page.dart:330:71 - unnecessary_string_interpolations
+   info - Unnecessary use of string interpolation - lib\sector_publico\presupuesto\pages\pac_tesoreria_page.dart:331:71 - unnecessary_string_interpolations
+   info - Unnecessary use of string interpolation - lib\sector_publico\presupuesto\pages\pac_tesoreria_page.dart:423:15 - unnecessary_string_interpolations
+warning - The value of the field '_titulos' isn't used - lib\sector_publico\presupuesto\pages\presupuesto_publico_page.dart:34:22 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\sector_publico\presupuesto\pages\presupuesto_publico_page.dart:695:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\sector_publico\presupuesto\pages\presupuesto_publico_page.dart:875:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\sector_publico\presupuesto\pages\presupuesto_publico_page.dart:1031:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\sector_publico\presupuesto\pages\presupuesto_publico_page.dart:1207:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\sector_publico\presupuesto\pages\presupuesto_publico_page.dart:1416:28 - use_build_context_synchronously
+warning - The value of the local variable 'fechaModificacion' isn't used - lib\sector_publico\presupuesto\services\pac_service.dart:274:11 - unused_local_variable
+warning - Unused import: '../models/reporte_spgr.dart' - lib\sector_publico\regalias\pages\regalias_sgp_page.dart:16:8 - unused_import
+warning - Unused import: '../models/reporte_sicodis.dart' - lib\sector_publico\regalias\pages\regalias_sgp_page.dart:17:8 - unused_import
+warning - The value of the field '_bienios' isn't used - lib\sector_publico\regalias\pages\regalias_sgp_page.dart:46:19 - unused_field
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\regalias\pages\regalias_sgp_page.dart:454:19 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\regalias\pages\regalias_sgp_page.dart:581:19 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\regalias\pages\regalias_sgp_page.dart:803:19 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\regalias\pages\regalias_sgp_page.dart:1053:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\rentas\pages\predial_ica_page.dart:793:19 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\rentas\pages\predial_ica_page.dart:864:19 - deprecated_member_use
+warning - The value of the field '_dio' isn't used - lib\sector_publico\rentas\services\intereses_moratorios_service.dart:14:13 - unused_field
+warning - The declaration '_validarPermiso' isn't referenced - lib\sector_publico\rentas\services\predial_service.dart:27:28 - unused_element
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:84:7 - curly_braces_in_flow_control_structures
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\salud\pages\salud_publica_page.dart:540:19 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:552:23 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:577:19 - curly_braces_in_flow_control_structures
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\salud\pages\salud_publica_page.dart:649:19 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:661:23 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:699:19 - curly_braces_in_flow_control_structures
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\salud\pages\salud_publica_page.dart:791:19 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:803:23 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:897:19 - curly_braces_in_flow_control_structures
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\salud\pages\salud_publica_page.dart:1042:19 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:1051:23 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\sector_publico\salud\pages\salud_publica_page.dart:1082:19 - curly_braces_in_flow_control_structures
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\siif\pages\siif_page.dart:199:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\sector_publico\siif\pages\siif_page.dart:268:17 - deprecated_member_use
+warning - Unused import: 'dart:convert' - lib\sector_publico\siif\services\siif_service.dart:5:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\sector_publico\transparencia\pages\transparencia_page.dart:404:56 - deprecated_member_use
+   info - Unnecessary use of string interpolation - lib\sector_publico\transparencia\pages\transparencia_page.dart:489:23 - unnecessary_string_interpolations
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:16:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:17:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:18:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:22:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:30:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:40:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:42:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:54:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:110:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:124:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:143:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:164:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:188:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:354:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:357:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:489:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:492:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:506:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:509:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:510:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:513:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\seed_operations.dart:516:3 - avoid_print
+warning - The value of the local variable 'body' isn't used - lib\services\api_router.dart:539:13 - unused_local_variable
+   info - 'RawKeyboard' is deprecated and shouldn't be used. Use HardwareKeyboard instead. This feature was deprecated after v3.18.0-2.0.pre - lib\services\barcode_scanner_service.dart:26:5 - deprecated_member_use
+   info - 'instance' is deprecated and shouldn't be used. Use HardwareKeyboard.instance instead. This feature was deprecated after v3.18.0-2.0.pre - lib\services\barcode_scanner_service.dart:26:17 - deprecated_member_use
+   info - 'RawKeyboard' is deprecated and shouldn't be used. Use HardwareKeyboard instead. This feature was deprecated after v3.18.0-2.0.pre - lib\services\barcode_scanner_service.dart:31:5 - deprecated_member_use
+   info - 'instance' is deprecated and shouldn't be used. Use HardwareKeyboard.instance instead. This feature was deprecated after v3.18.0-2.0.pre - lib\services\barcode_scanner_service.dart:31:17 - deprecated_member_use
+   info - 'RawKeyEvent' is deprecated and shouldn't be used. Use KeyEvent instead. This feature was deprecated after v3.18.0-2.0.pre - lib\services\barcode_scanner_service.dart:36:24 - deprecated_member_use
+   info - 'RawKeyDownEvent' is deprecated and shouldn't be used. Use KeyDownEvent instead. This feature was deprecated after v3.18.0-2.0.pre - lib\services\barcode_scanner_service.dart:38:19 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\services\barcode_scanner_service.dart:117:7 - avoid_print
+   info - The constant name 'forzar_respaldo' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:10:3 - constant_identifier_names
+   info - The constant name 'reiniciar_sesiones' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:11:3 - constant_identifier_names
+   info - The constant name 'actualizar_modulos' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:12:3 - constant_identifier_names
+   info - The constant name 'enviar_log' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:13:3 - constant_identifier_names
+   info - The constant name 'mensaje_admin' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:14:3 - constant_identifier_names
+   info - The constant name 'bloquear_instalacion' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:15:3 - constant_identifier_names
+   info - The constant name 'activar_instalacion' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:16:3 - constant_identifier_names
+   info - The constant name 'forzar_actualizacion' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:17:3 - constant_identifier_names
+   info - The constant name 'rollback_actualizacion' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:18:3 - constant_identifier_names
+   info - The constant name 'forzar_sincronizacion' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:20:3 - constant_identifier_names
+   info - The constant name 'actualizar_licencia' isn't a lowerCamelCase identifier - lib\services\cc_commands_processor.dart:21:3 - constant_identifier_names
+warning - The value of the field '_claveComandosPendientes' isn't used - lib\services\cc_commands_processor.dart:128:23 - unused_field
+warning - The value of the field '_versionActual' isn't used - lib\services\health_reporter.dart:81:23 - unused_field
+warning - The value of the local variable 'memoriaTotal' isn't used - lib\services\health_reporter.dart:217:13 - unused_local_variable
+warning - The value of the local variable 'metricas' isn't used - lib\services\health_reporter.dart:287:11 - unused_local_variable
+warning - The value of the local variable 'recordId' isn't used - lib\services\hybrid_sync_service.dart:182:13 - unused_local_variable
+warning - The value of the local variable 'lastSyncRecordId' isn't used - lib\services\hybrid_sync_service.dart:239:14 - unused_local_variable
+   info - The constant name 'en_proceso' isn't a lowerCamelCase identifier - lib\services\produccion_service.dart:6:3 - constant_identifier_names
+   info - The constant name 'metro_cuadrado' isn't a lowerCamelCase identifier - lib\services\recetas_service.dart:4:54 - constant_identifier_names
+   info - The constant name 'metro_cubico' isn't a lowerCamelCase identifier - lib\services\recetas_service.dart:4:70 - constant_identifier_names
+   info - The constant name 'en_curso' isn't a lowerCamelCase identifier - lib\services\rutas_service.dart:4:30 - constant_identifier_names
+warning - The value of the local variable 'db' isn't used - lib\services\sync_aware_db_helper.dart:180:11 - unused_local_variable
+warning - The value of the field '_currentVersion' isn't used - lib\services\update_service.dart:120:23 - unused_field
+warning - Dead code - lib\services\update_service.dart:198:7 - dead_code
+   info - Don't use 'BuildContext's across async gaps - lib\transferencias_page.dart:93:21 - use_build_context_synchronously
+warning - The declaration '_marcarPasoCompletado' isn't referenced - lib\ui\onboarding_widget.dart:64:8 - unused_element
+   info - Don't use 'BuildContext's across async gaps - lib\ui\onboarding_widget.dart:70:28 - use_build_context_synchronously
+warning - The member 'setState' can only be used within instance members of subclasses of 'State' - lib\ui\widgets\workspace_widgets.dart:255:39 - invalid_use_of_protected_member
+warning - The declaration '_DesktopModuleDirectory' isn't referenced - lib\ui\widgets\workspace_widgets.dart:1125:7 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\warranties_page.dart:442:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\warranties_page.dart:444:41 - deprecated_member_use
+warning - The value of the local variable 'contabilidadService' isn't used - test\sector_publico\security\rbac_segregacion_test.dart:18:33 - unused_local_variable
+
+```
+
+Error estandar:
+
+```text
+dart.exe : 189 issues found. (ran in 7.0s)
+En línea: 2 Carácter: 1
++ & 'C:\src\flutter\bin\cache\dart-sdk\bin\dart.exe' '--packages=C:\src ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (189 issues found. (ran in 7.0s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+```
+
+### Evidencia cruda - Flutter build windows
+
+Comando:
+
+```powershell
+flutter build windows --no-pub
+```
+
+Salida estandar:
+
+```text
+Building Windows application...                                 
+Building Windows application...                                    89.8s
+√ Built build\windows\x64\runner\Release\MerkaERP.exe
+```
+
+Error estandar:
+
+```text
+dart.exe : Nuget.exe not found, trying to download or use cached version.
+En línea: 2 Carácter: 1
++ & 'C:\src\flutter\bin\cache\dart-sdk\bin\dart.exe' '--packages=C:\src ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Nuget.exe not f...cached version.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+```
+
+## Cierre de la Fase 2
+
+Estado: **Completa en nucleo y esquema; consumidores pendientes por diseno de fases**.
+
+La migracion v75 es atomica e idempotente y fue validada contra una copia del respaldo. No se modifico la base activa ni el respaldo inmutable. El build no falla por el tipado dinamico de SQLite, pero no debe considerarse funcionalmente compatible hasta convertir lectores/escritores comerciales y publicos.
+
+Commit: este commit de Fase 2 (ver `git log`).

@@ -417,6 +417,18 @@ class SchemaMultiTenant {
         configuracion['subtipo'] as String?,
       );
       final entidadId = companyId.toString();
+      final entidad = await db.query(
+        'entidades_territoriales',
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [entidadId],
+        limit: 1,
+      );
+      if (entidad.isEmpty) {
+        // company_settings does not prove that a territorial entity with the
+        // same identifier exists. Skip instead of fabricating an FK target.
+        continue;
+      }
       final existente = await db.query(
         'configuracion_entidad',
         where: 'entidad_id = ? AND parametro = ? AND vigente = 1',

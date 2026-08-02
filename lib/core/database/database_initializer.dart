@@ -228,6 +228,9 @@ extension DatabaseInitializer on DatabaseHelper {
     await db.insert('metodos_pago', {'nombre': 'CREDITO'});
     await db.insert('metodos_pago', {'nombre': 'PAGO MIXTO'});
     await _migrarAVersion43(db);
+    if (version >= 75) {
+      await MoneySchemaMigration.migrateV75(db);
+    }
   }
 
   /// Migraciones incrementales entre versiones de la base de datos.

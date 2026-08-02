@@ -16,6 +16,7 @@ import 'accounting/application/accounting_engine.dart';
 import 'catalog/domain/master_catalog.dart';
 import 'core/branch/branch_context.dart';
 import 'core/currency/currency_service.dart';
+import 'core/currency/money_schema_migration.dart';
 import 'core/payments/payment_service.dart';
 import 'core/webhooks/webhook_service.dart';
 import 'features/feature_registry.dart';
@@ -330,7 +331,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 74,
+      version: 75,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -931,6 +932,10 @@ class DatabaseHelper {
 
     if (oldVersion < 74) {
       await SchemaPresupuesto.migrarVigenciasFuturas(db);
+    }
+
+    if (oldVersion < 75) {
+      await MoneySchemaMigration.migrateV75(db);
     }
   }
 
