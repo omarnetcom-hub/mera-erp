@@ -1,94 +1,144 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:basic_utils/basic_utils.dart';
 import 'package:crypto/crypto.dart';
 
 class LicenseValidationService {
-  static final LicenseValidationService _instance = LicenseValidationService._internal();
+  static const String _expectedIssuer = 'MerkaERP-ControlCenter';
+
+  // PENDIENTE: pegar merka_license_public.pem aqui. Mientras este vacia,
+  // toda activacion offline se rechaza de forma cerrada.
+  static const String _productionPublicKeyPem = '';
+
+  static final LicenseValidationService _instance = LicenseValidationService._(
+    _productionPublicKeyPem,
+  );
+
   factory LicenseValidationService() => _instance;
-  LicenseValidationService._internal();
 
-  // Clave pública RSA embebida (debe generarse desde Control Center y pegarse aquí)
-  // Esta es una clave de ejemplo - debe ser reemplazada con la clave real generada
-  static const String _publicKeyPEM = '''
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA
-[GENERAR DESDE CONTROL CENTER Y PEGAR AQUÍ]
------END PUBLIC KEY-----''';
+  LicenseValidationService.withPublicKey(String publicKeyPem)
+    : _publicKeyPem = publicKeyPem;
 
-  /// Valida un token JWT offline
+  LicenseValidationService._(this._publicKeyPem);
+
+  final String _publicKeyPem;
+
+  bool get hasConfiguredPublicKey => _publicKeyPem.trim().isNotEmpty;
+
+  /// Verifica primero cabecera y firma RS256. Solo despues procesa claims.
   Map<String, dynamic>? validateOfflineToken(String token) {
     try {
       final parts = token.split('.');
-      if (parts.length != 3) return null;
+      if (parts.length != 3 || !hasConfiguredPublicKey) return null;
 
-      final headerEncoded = parts[0];
-      final payloadEncoded = parts[1];
-      final signatureEncoded = parts[2];
-
-      // Decodificar payload
-      final payloadJson = _base64UrlDecode(payloadEncoded);
-      final payload = jsonDecode(payloadJson) as Map<String, dynamic>;
-
-      // Validar firma (en producción, usar validación RSA real)
-      // Por ahora, validamos estructura básica
-      if (!_validateTokenStructure(payload)) {
+      final header = _decodeJsonObject(parts[0]);
+      if (header == null ||
+          header['alg'] != 'RS256' ||
+          header['typ'] != 'JWT') {
         return null;
       }
 
-      // Validar que el hardware fingerprint coincida
-      // Esto se hará en el contexto de la aplicación
+      final publicKey = CryptoUtils.rsaPublicKeyFromPem(_publicKeyPem);
+      final verifier = Signer('SHA-256/RSA')
+        ..init(false, PublicKeyParameter<RSAPublicKey>(publicKey));
+      final signature = RSASignature(_base64UrlDecodeBytes(parts[2]));
+      final signingInput = Uint8List.fromList(
+        ascii.encode('${parts[0]}.${parts[1]}'),
+      );
+
+      if (!verifier.verifySignature(signingInput, signature)) return null;
+
+      final payload = _decodeJsonObject(parts[1]);
+      if (payload == null || !_validateTokenStructure(payload)) return null;
       return payload;
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  /// Valida la estructura del token
-  bool _validateTokenStructure(Map<String, dynamic> payload) {
-    final requiredFields = ['hfp', 'lt', 'st', 'ed', 'md', 'iat', 'iss'];
-    
-    for (final field in requiredFields) {
-      if (!payload.containsKey(field)) return false;
+  /// Aplica las validaciones de negocio requeridas para usar el token.
+  Future<Map<String, dynamic>?> validateOfflineTokenForDevice(
+    String token,
+    String currentFingerprint,
+  ) async {
+    final payload = validateOfflineToken(token);
+    if (payload == null || isTokenExpired(payload) || !isTokenActive(payload)) {
+      return null;
     }
-
-    // Validar issuer
-    if (payload['iss'] != 'MerkaERP-ControlCenter') return false;
-
-    // Validar tipos de licencia
-    final licenseType = payload['lt'] as String;
-    if (licenseType != 'SUSCRIPCION' && licenseType != 'PERPETUA') return false;
-
-    // Validar estado
-    final status = payload['st'] as String;
-    if (status != 'ACTIVO' && status != 'TRIAL' && status != 'SUSPENDIDO') return false;
-
-    return true;
+    final tokenFingerprint = payload['hfp'] as String;
+    if (!await verifyHardwareFingerprint(
+      tokenFingerprint,
+      currentFingerprint,
+    )) {
+      return null;
+    }
+    return payload;
   }
 
-  /// Verifica si el token coincide con el hardware actual
-  Future<bool> verifyHardwareFingerprint(String tokenFingerprint, String currentFingerprint) async {
+  Map<String, dynamic>? _decodeJsonObject(String encoded) {
+    final decoded = utf8.decode(_base64UrlDecodeBytes(encoded));
+    final value = jsonDecode(decoded);
+    if (value is! Map<String, dynamic>) return null;
+    return value;
+  }
+
+  bool _validateTokenStructure(Map<String, dynamic> payload) {
+    const requiredFields = ['hfp', 'lt', 'st', 'ed', 'md', 'iat', 'iss'];
+    if (requiredFields.any((field) => !payload.containsKey(field))) {
+      return false;
+    }
+
+    if (payload['iss'] != _expectedIssuer) return false;
+
+    final fingerprint = payload['hfp'];
+    if (fingerprint is! String || fingerprint.trim().isEmpty) return false;
+
+    final licenseType = payload['lt'];
+    if (licenseType != 'SUSCRIPCION' && licenseType != 'PERPETUA') {
+      return false;
+    }
+
+    final status = payload['st'];
+    if (status != 'ACTIVO' && status != 'TRIAL' && status != 'SUSPENDIDO') {
+      return false;
+    }
+
+    final expiry = payload['ed'];
+    if (expiry is! String || DateTime.tryParse(expiry) == null) return false;
+
+    final modules = payload['md'];
+    if (modules is! List || modules.any((module) => module is! String)) {
+      return false;
+    }
+
+    final issuedAt = payload['iat'];
+    final validIssuedAt =
+        (issuedAt is int && issuedAt > 0) ||
+        (issuedAt is String && DateTime.tryParse(issuedAt) != null);
+    return validIssuedAt;
+  }
+
+  Future<bool> verifyHardwareFingerprint(
+    String tokenFingerprint,
+    String currentFingerprint,
+  ) async {
     return tokenFingerprint == currentFingerprint;
   }
 
-  /// Verifica si el token está expirado
   bool isTokenExpired(Map<String, dynamic> payload) {
-    final licenseType = payload['lt'] as String;
-    
-    // Licencias perpetuas no expiran
-    if (licenseType == 'PERPETUA') return false;
-
-    final expiryDateStr = payload['ed'] as String;
-    final expiryDate = DateTime.parse(expiryDateStr);
-    
-    return DateTime.now().isAfter(expiryDate);
+    if (payload['lt'] == 'PERPETUA') return false;
+    final expiry = payload['ed'];
+    if (expiry is! String) return true;
+    final expiryDate = DateTime.tryParse(expiry);
+    return expiryDate == null || DateTime.now().isAfter(expiryDate);
   }
 
-  /// Verifica si el token está activo
   bool isTokenActive(Map<String, dynamic> payload) {
-    final status = payload['st'] as String;
+    final status = payload['st'];
     return status == 'ACTIVO' || status == 'TRIAL';
   }
 
-  /// Extrae información del token
   Map<String, dynamic> extractLicenseInfo(String token) {
     final payload = validateOfflineToken(token);
     if (payload == null) return {};
@@ -104,65 +154,44 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA
     };
   }
 
-  /// Decodificación Base64 URL-safe
-  String _base64UrlDecode(String input) {
-    var base64Str = input
-        .replaceAll('-', '+')
-        .replaceAll('_', '/');
-    
-    // Padding
-    final padLength = 4 - (base64Str.length % 4);
-    if (padLength != 4) {
-      base64Str += '=' * padLength;
-    }
-    
-    final bytes = base64.decode(base64Str);
-    return utf8.decode(bytes);
+  Uint8List _base64UrlDecodeBytes(String input) {
+    var normalized = input.replaceAll('-', '+').replaceAll('_', '/');
+    final remainder = normalized.length % 4;
+    if (remainder != 0) normalized += '=' * (4 - remainder);
+    return Uint8List.fromList(base64.decode(normalized));
   }
 
-  /// Genera hash de un string (para validaciones adicionales)
   String generateHash(String input) {
     final bytes = utf8.encode(input);
-    final hash = sha256.convert(bytes);
-    return hash.toString();
+    return sha256.convert(bytes).toString();
   }
 
-  /// Valida integridad de datos locales contra token
   bool validateLocalIntegrity({
     required String localLicenseType,
     required String localStatus,
     required String localExpiryDate,
     required Map<String, dynamic> tokenData,
   }) {
-    return localLicenseType == tokenData['license_type'] &&
-           localStatus == tokenData['status'] &&
-           localExpiryDate == tokenData['expiry_date'];
+    return localLicenseType == (tokenData['license_type'] ?? tokenData['lt']) &&
+        localStatus == (tokenData['status'] ?? tokenData['st']) &&
+        localExpiryDate == (tokenData['expiry_date'] ?? tokenData['ed']);
   }
 
-  /// Calcula días restantes hasta expiración
   int getDaysUntilExpiry(String expiryDateStr) {
-    try {
-      final expiryDate = DateTime.parse(expiryDateStr);
-      final now = DateTime.now();
-      final difference = expiryDate.difference(now);
-      return difference.inDays;
-    } catch (e) {
-      return -1;
-    }
+    final expiryDate = DateTime.tryParse(expiryDateStr);
+    if (expiryDate == null) return -1;
+    return expiryDate.difference(DateTime.now()).inDays;
   }
 
-  /// Determina si se requiere renovación
   bool requiresRenewal(String expiryDateStr, {int warningDays = 7}) {
     final daysUntil = getDaysUntilExpiry(expiryDateStr);
     return daysUntil >= 0 && daysUntil <= warningDays;
   }
 
-  /// Valida módulos habilitados
   bool isModuleEnabled(String module, List<dynamic> enabledModules) {
     return enabledModules.contains(module);
   }
 
-  /// Valida límites de licencia
   Map<String, bool> validateLicenseLimits({
     required int currentUsers,
     required int maxUsers,
@@ -175,9 +204,10 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA
       'users_valid': currentUsers <= maxUsers,
       'devices_valid': currentDevices <= maxDevices,
       'branches_valid': currentBranches <= maxBranches,
-      'all_valid': currentUsers <= maxUsers &&
-                   currentDevices <= maxDevices &&
-                   currentBranches <= maxBranches,
+      'all_valid':
+          currentUsers <= maxUsers &&
+          currentDevices <= maxDevices &&
+          currentBranches <= maxBranches,
     };
   }
 }

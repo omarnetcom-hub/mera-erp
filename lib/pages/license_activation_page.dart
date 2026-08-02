@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import '../services/hardware_fingerprint_service.dart';
-import '../services/license_validation_service.dart';
 import '../services/licencia_service.dart';
 import '../services/control_center_endpoint.dart';
 import '../login_page.dart';
@@ -18,17 +17,17 @@ class LicenseActivationPage extends StatefulWidget {
 }
 
 class _LicenseActivationPageState extends State<LicenseActivationPage> {
-  final HardwareFingerprintService _fingerprintService = HardwareFingerprintService();
-  final LicenseValidationService _validationService = LicenseValidationService();
+  final HardwareFingerprintService _fingerprintService =
+      HardwareFingerprintService();
   final LicenciaService _licenciaService = LicenciaService.instance;
   final Dio _dio = Dio();
-  
+
   final _formKey = GlobalKey<FormState>();
-  
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _offlineTokenController = TextEditingController();
-  
+
   bool _loading = false;
   bool _hasInternet = true;
   // Modo de activación seleccionado manualmente por el usuario.
@@ -38,21 +37,22 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
   String? _uuid;
   String? _errorMessage;
   bool _activationSuccess = false;
-  
+
   // Control Center endpoint
-  static const String _defaultControlCenterEndpoint = 'https://merkaerp-control-center-backend.onrender.com';
-  
+  static const String _defaultControlCenterEndpoint =
+      'https://merkaerp-control-center-backend.onrender.com';
+
   @override
   void initState() {
     super.initState();
     _initialize();
   }
-  
+
   Future<void> _initialize() async {
     // Generar hardware fingerprint
     _hardwareFingerprint = await _fingerprintService.generateFingerprint();
     _uuid = await _fingerprintService.generateUUID();
-    
+
     // Verificar conectividad
     final connectivity = await Connectivity().checkConnectivity();
     setState(() {
@@ -60,16 +60,17 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       // Preseleccionar modo según conectividad, pero el usuario puede cambiarlo
       _useOnlineMode = connectivity != ConnectivityResult.none;
     });
-    
+
     // Verificar si ya hay una licencia activa
     final existingLicense = await _licenciaService.obtenerLicencia();
-    if (existingLicense != null && existingLicense.estado == EstadoLicencia.activa) {
+    if (existingLicense != null &&
+        existingLicense.estado == EstadoLicencia.activa) {
       setState(() {
         _activationSuccess = true;
       });
     }
   }
-  
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -77,17 +78,19 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
     _offlineTokenController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _activateOnline() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _loading = true;
       _errorMessage = null;
     });
-    
+
     try {
-      final endpoint = ControlCenterEndpoint.normalize(_defaultControlCenterEndpoint);
+      final endpoint = ControlCenterEndpoint.normalize(
+        _defaultControlCenterEndpoint,
+      );
       final response = await _dio.post(
         ControlCenterEndpoint.activationUrl(endpoint),
         data: {
@@ -101,31 +104,28 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
           sendTimeout: const Duration(seconds: 30),
         ),
       );
-      
+
       if (response.data['success'] == true) {
         final token = response.data['token'];
-        
-        // Guardar licencia en base de datos local
-        await _saveLicenseToLocal({
-          'uuid': _uuid,
-          'license_type': 'SUSCRIPCION',
-          'estado': 'ACTIVO',
-          'fecha_expiracion': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-          'plan': 'Profesional',
-          'hardware_fingerprint': _hardwareFingerprint,
-          'offline_token': token,
-          'modules': ['ventas', 'inventario', 'caja', 'bancos', 'cartera', 'contabilidad', 'reportes_basicos', 'reportes_avanzados'],
-        });
-        
+        final activated = token is String &&
+            await _licenciaService.activarDesdeTokenOffline(token);
+        if (!activated) {
+          if (!mounted) return;
+          setState(() {
+            _errorMessage =
+                'Control Center devolvió un token sin firma RS256 válida';
+          });
+          return;
+        }
+
+        if (!mounted) return;
         setState(() {
           _activationSuccess = true;
         });
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Licencia activada exitosamente')),
-          );
-        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Licencia activada exitosamente')),
+        );
       } else {
         setState(() {
           _errorMessage = response.data['error'] ?? 'Error en activación';
@@ -141,7 +141,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       });
     }
   }
-  
+
   Future<void> _activateOffline() async {
     if (_offlineTokenController.text.trim().isEmpty) {
       setState(() {
@@ -149,107 +149,47 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       });
       return;
     }
-    
+
     setState(() {
       _loading = true;
       _errorMessage = null;
     });
-    
+
     try {
-      // Validar token
-      final tokenData = _validationService.validateOfflineToken(
+      final activated = await _licenciaService.activarDesdeTokenOffline(
         _offlineTokenController.text.trim(),
       );
-      
-      if (tokenData == null) {
+      if (!mounted) return;
+      if (!activated) {
         setState(() {
-          _errorMessage = 'Token inválido o corrupto';
+          _errorMessage = 'Token inválido, expirado o asociado a otro hardware';
         });
         return;
       }
-      
-      // Verificar hardware fingerprint
-      final tokenFingerprint = tokenData['hfp'] as String;
-      final fingerprintMatch = await _fingerprintService.validateFingerprint(tokenFingerprint);
-      
-      if (!fingerprintMatch) {
-        setState(() {
-          _errorMessage = 'El token no corresponde a este hardware';
-        });
-        return;
-      }
-      
-      // Verificar expiración
-      if (_validationService.isTokenExpired(tokenData)) {
-        setState(() {
-          _errorMessage = 'El token ha expirado';
-        });
-        return;
-      }
-      
-      // Verificar estado
-      if (!_validationService.isTokenActive(tokenData)) {
-        setState(() {
-          _errorMessage = 'El token está inactivo: ${tokenData['st']}';
-        });
-        return;
-      }
-      
-      // Guardar licencia en base de datos local
-      await _saveLicenseToLocal({
-        'uuid': _uuid,
-        'license_type': tokenData['lt'],
-        'estado': tokenData['st'],
-        'fecha_expiracion': tokenData['ed'],
-        'plan': 'Profesional',
-        'hardware_fingerprint': _hardwareFingerprint,
-        'modules': tokenData['md'],
-      });
-      
+
       setState(() {
         _activationSuccess = true;
       });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Licencia activada exitosamente (Offline)')),
-        );
-      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Licencia activada exitosamente (Offline)'),
+        ),
+      );
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Error validando token: $e';
       });
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
-  
-  Future<void> _saveLicenseToLocal(Map<String, dynamic> licenseData) async {
-    // Guardar usando LicenciaService
-    final tipoLicencia = licenseData['license_type'] == 'PERPETUA'
-        ? TipoLicencia.perpetua
-        : TipoLicencia.suscripcion;
-    
-    final estado = licenseData['estado'] == 'ACTIVO'
-        ? EstadoLicencia.activa
-        : EstadoLicencia.trial;
-    
-    final licencia = LicenciaInfo(
-      uuid: _uuid ?? 'unknown',
-      plan: TipoPlan.profesional,
-      estado: estado,
-      fechaExpiracion: DateTime.parse(licenseData['fecha_expiracion'] as String),
-      modulosHabilitados: (licenseData['modules'] as List).map((e) => e.toString()).toList(),
-      tipoLicencia: tipoLicencia,
-      hardwareFingerprint: _hardwareFingerprint,
-      offlineToken: licenseData['offline_token'] as String?,
-    );
-    
-    await _licenciaService.guardarLicencia(licencia);
-  }
-  
+
   void _copyFingerprint() {
     if (_hardwareFingerprint != null) {
       Clipboard.setData(ClipboardData(text: _hardwareFingerprint!));
@@ -258,17 +198,15 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       );
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     if (_activationSuccess) {
       return _buildSuccessScreen();
     }
-    
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Activación de Licencia'),
-      ),
+      appBar: AppBar(title: const Text('Activación de Licencia')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -284,7 +222,10 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
               const SizedBox(height: 16),
               _buildModeSelector(),
               const SizedBox(height: 24),
-              if (_useOnlineMode) _buildOnlineActivation() else _buildOfflineActivation(),
+              if (_useOnlineMode)
+                _buildOnlineActivation()
+              else
+                _buildOfflineActivation(),
               const SizedBox(height: 24),
               if (_errorMessage != null) _buildErrorMessage(),
             ],
@@ -293,7 +234,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       ),
     );
   }
-  
+
   Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,7 +253,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       ],
     );
   }
-  
+
   Widget _buildHardwareInfo() {
     return Card(
       child: Padding(
@@ -326,12 +267,18 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
                 const SizedBox(width: 8),
                 Text(
                   'Información del Hardware',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            _buildInfoRow('Hardware Fingerprint', _hardwareFingerprint ?? 'Generando...'),
+            _buildInfoRow(
+              'Hardware Fingerprint',
+              _hardwareFingerprint ?? 'Generando...',
+            ),
             const SizedBox(height: 8),
             _buildInfoRow('UUID', _uuid ?? 'Generando...'),
             const SizedBox(height: 16),
@@ -345,30 +292,24 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       ),
     );
   }
-  
+
   Widget _buildInfoRow(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
         ),
         const SizedBox(height: 4),
         SelectableText(
           value,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 14,
-          ),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
         ),
       ],
     );
   }
-  
+
   Widget _buildModeSelector() {
     return Center(
       child: SegmentedButton<bool>(
@@ -392,9 +333,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
             _errorMessage = null;
           });
         },
-        style: ButtonStyle(
-          visualDensity: VisualDensity.comfortable,
-        ),
+        style: ButtonStyle(visualDensity: VisualDensity.comfortable),
       ),
     );
   }
@@ -412,9 +351,13 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
             ),
             const SizedBox(width: 12),
             Text(
-              _hasInternet ? 'Conexión a Internet Disponible' : 'Sin Conexión a Internet - Modo Offline',
+              _hasInternet
+                  ? 'Conexión a Internet Disponible'
+                  : 'Sin Conexión a Internet - Modo Offline',
               style: TextStyle(
-                color: _hasInternet ? Colors.green.shade800 : Colors.orange.shade800,
+                color: _hasInternet
+                    ? Colors.green.shade800
+                    : Colors.orange.shade800,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -423,7 +366,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       ),
     );
   }
-  
+
   Widget _buildOnlineActivation() {
     return Card(
       child: Padding(
@@ -484,7 +427,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       ),
     );
   }
-  
+
   Widget _buildOfflineActivation() {
     return Card(
       child: Padding(
@@ -542,17 +485,14 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
             const SizedBox(height: 12),
             Text(
               'Para obtener un token, contacte a soporte proporcionando su Hardware Fingerprint.',
-              style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
             ),
           ],
         ),
       ),
     );
   }
-  
+
   Widget _buildErrorMessage() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -575,7 +515,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
       ),
     );
   }
-  
+
   Widget _buildSuccessScreen() {
     return Scaffold(
       body: Center(
@@ -587,11 +527,7 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.check_circle,
-                    size: 80,
-                    color: Colors.green,
-                  ),
+                  const Icon(Icons.check_circle, size: 80, color: Colors.green),
                   const SizedBox(height: 24),
                   const Text(
                     'Licencia Activada',

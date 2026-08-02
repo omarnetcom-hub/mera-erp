@@ -37,12 +37,13 @@ class LicenciaInfo {
   final String? hardwareFingerprint;
   final String? offlineToken;
 
-  bool get esValida => estado == EstadoLicencia.activa || estado == EstadoLicencia.trial;
+  bool get esValida =>
+      estado == EstadoLicencia.activa || estado == EstadoLicencia.trial;
 
   bool get estaPorVencer {
     // Licencias perpetuas no vencen
     if (tipoLicencia == TipoLicencia.perpetua) return false;
-    
+
     final diasRestantes = fechaExpiracion.difference(DateTime.now()).inDays;
     return diasRestantes <= alertaVencimientoDias && diasRestantes > 0;
   }
@@ -84,9 +85,10 @@ class LicenciaInfo {
         orElse: () => EstadoLicencia.trial,
       ),
       fechaExpiracion: DateTime.parse(map['fecha_expiracion'] as String),
-      modulosHabilitados: (jsonDecode(map['modulos_habilitados'] as String) as List)
-          .map((e) => e.toString())
-          .toList(),
+      modulosHabilitados:
+          (jsonDecode(map['modulos_habilitados'] as String) as List)
+              .map((e) => e.toString())
+              .toList(),
       limiteDbMb: map['limite_db_mb'] as int?,
       alertaVencimientoDias: map['alerta_vencimiento_dias'] as int? ?? 30,
       tipoLicencia: TipoLicencia.values.firstWhere(
@@ -133,14 +135,10 @@ class LicenciaService {
 
   Future<void> guardarLicencia(LicenciaInfo licencia) async {
     final db = await DatabaseHelper.instance.database;
-    await db.insert(
-      'app_config',
-      {
-        'clave': _claveConfig,
-        'valor': jsonEncode(licencia.toMap()),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('app_config', {
+      'clave': _claveConfig,
+      'valor': jsonEncode(licencia.toMap()),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     _licenciaCache = licencia;
 
     await DatabaseHelper.instance.registrarEventoAuditoria(
@@ -161,11 +159,16 @@ class LicenciaService {
     if (rows.isEmpty) return;
 
     final licencia = LicenciaInfo.fromMap(rows.first);
-    if (licencia.estado == EstadoLicencia.activa || licencia.estado == EstadoLicencia.trial) {
+    if (licencia.estado == EstadoLicencia.activa ||
+        licencia.estado == EstadoLicencia.trial) {
       return;
     }
 
-    await db.delete('app_config', where: 'clave = ?', whereArgs: ['licencia_info']);
+    await db.delete(
+      'app_config',
+      where: 'clave = ?',
+      whereArgs: ['licencia_info'],
+    );
     _licenciaCache = null;
   }
 
@@ -204,7 +207,9 @@ class LicenciaService {
     return tamanoMbActual <= licencia.limiteDbMb!;
   }
 
-  Future<void> actualizarEstadoDesdeControlCenter(Map<String, dynamic> datos) async {
+  Future<void> actualizarEstadoDesdeControlCenter(
+    Map<String, dynamic> datos,
+  ) async {
     final licenciaActual = await obtenerLicencia();
     if (licenciaActual == null) return;
 
@@ -241,96 +246,115 @@ class LicenciaService {
   }
 
   /// Activar licencia desde token offline
-  Future<bool> activarDesdeTokenOffline(String token) async {
-    final validationService = LicenseValidationService();
-    final fingerprintService = HardwareFingerprintService();
-    
-    // Validar token
-    final tokenData = validationService.validateOfflineToken(token);
+  Future<bool> activarDesdeTokenOffline(
+    String token, {
+    LicenseValidationService? validationService,
+    HardwareFingerprintService? fingerprintService,
+    String? currentHardwareFingerprint,
+  }) async {
+    final validator = validationService ?? LicenseValidationService();
+    final hardwareService = fingerprintService ?? HardwareFingerprintService();
+
+    final currentFingerprint =
+        currentHardwareFingerprint ??
+        await hardwareService.generateFingerprint();
+    final tokenData = await validator.validateOfflineTokenForDevice(
+      token,
+      currentFingerprint,
+    );
     if (tokenData == null) {
       debugPrint('Token inválido');
       return false;
     }
-    
-    // Verificar hardware fingerprint
-    final currentFingerprint = await fingerprintService.generateFingerprint();
-    final tokenFingerprint = tokenData['hfp'] as String;
-    
-    if (!await fingerprintService.validateFingerprint(tokenFingerprint)) {
-      debugPrint('Hardware fingerprint no coincide');
-      return false;
-    }
-    
-    // Verificar expiración
-    if (validationService.isTokenExpired(tokenData)) {
-      debugPrint('Token expirado');
-      return false;
-    }
-    
-    // Verificar estado
-    if (!validationService.isTokenActive(tokenData)) {
-      debugPrint('Token inactivo');
-      return false;
-    }
-    
+
     // Crear licencia desde token
-    final tipoLicencia = tokenData['lt'] == 'PERPETUA' 
-        ? TipoLicencia.perpetua 
+    final tipoLicencia = tokenData['lt'] == 'PERPETUA'
+        ? TipoLicencia.perpetua
         : TipoLicencia.suscripcion;
-    
-    final estado = tokenData['st'] == 'ACTIVO' 
-        ? EstadoLicencia.activa 
+
+    final estado = tokenData['st'] == 'ACTIVO'
+        ? EstadoLicencia.activa
         : EstadoLicencia.trial;
-    
+
     final plan = _determinarPlanDesdeModulos(tokenData['md'] as List);
-    
+
     final licencia = LicenciaInfo(
-      uuid: await fingerprintService.generateUUID(),
+      uuid: await hardwareService.generateUUID(),
       plan: plan,
       estado: estado,
       fechaExpiracion: DateTime.parse(tokenData['ed'] as String),
-      modulosHabilitados: (tokenData['md'] as List).map((e) => e.toString()).toList(),
+      modulosHabilitados: (tokenData['md'] as List)
+          .map((e) => e.toString())
+          .toList(),
       tipoLicencia: tipoLicencia,
       hardwareFingerprint: currentFingerprint,
       offlineToken: token,
     );
-    
+
     await guardarLicencia(licencia);
     return true;
   }
 
   /// Validar licencia local (para uso offline)
-  Future<bool> validarLicenciaLocal() async {
+  Future<bool> validarLicenciaLocal({
+    LicenseValidationService? validationService,
+    HardwareFingerprintService? fingerprintService,
+    String? currentHardwareFingerprint,
+  }) async {
     final licencia = await obtenerLicencia();
-    if (licencia == null) return false;
-    
-    // Si es perpetua, solo validar que esté activa
-    if (licencia.tipoLicencia == TipoLicencia.perpetua) {
-      return licencia.esValida;
-    }
-    
-    // Si es suscripción, validar expiración
-    return licencia.esValida && !licencia.estaExpirada;
+    final token = licencia?.offlineToken;
+    if (licencia == null || token == null || token.trim().isEmpty) return false;
+
+    final validator = validationService ?? LicenseValidationService();
+    final hardwareService = fingerprintService ?? HardwareFingerprintService();
+    final currentFingerprint =
+        currentHardwareFingerprint ??
+        await hardwareService.generateFingerprint();
+    final tokenData = await validator.validateOfflineTokenForDevice(
+      token,
+      currentFingerprint,
+    );
+    if (tokenData == null) return false;
+    final tokenFingerprint = tokenData['hfp'] as String;
+
+    final expectedType = tokenData['lt'] == 'PERPETUA'
+        ? TipoLicencia.perpetua
+        : TipoLicencia.suscripcion;
+    final expectedStatus = tokenData['st'] == 'ACTIVO'
+        ? EstadoLicencia.activa
+        : EstadoLicencia.trial;
+    final expectedExpiry = DateTime.parse(tokenData['ed'] as String);
+    final expectedModules = (tokenData['md'] as List)
+        .map((module) => module.toString())
+        .toList();
+
+    return licencia.tipoLicencia == expectedType &&
+        licencia.estado == expectedStatus &&
+        licencia.plan == _determinarPlanDesdeModulos(expectedModules) &&
+        licencia.fechaExpiracion.toUtc().millisecondsSinceEpoch ==
+            expectedExpiry.toUtc().millisecondsSinceEpoch &&
+        licencia.hardwareFingerprint == tokenFingerprint &&
+        _sameModules(licencia.modulosHabilitados, expectedModules);
   }
 
   /// Validar hardware fingerprint actual contra licencia
   Future<bool> validarHardwareFingerprint() async {
     final licencia = await obtenerLicencia();
     if (licencia == null || licencia.hardwareFingerprint == null) return false;
-    
+
     final fingerprintService = HardwareFingerprintService();
     final currentFingerprint = await fingerprintService.generateFingerprint();
-    
-    return await fingerprintService.validateFingerprint(licencia.hardwareFingerprint!);
+
+    return currentFingerprint == licencia.hardwareFingerprint;
   }
 
   /// Verificar si se requiere reactivación (cambio de hardware)
   Future<bool> requiereReactivacion() async {
     final licencia = await obtenerLicencia();
     if (licencia == null) return true;
-    
+
     if (licencia.hardwareFingerprint == null) return false;
-    
+
     return !(await validarHardwareFingerprint());
   }
 
@@ -342,25 +366,27 @@ class LicenciaService {
 
   TipoPlan _determinarPlanDesdeModulos(List<dynamic> modulos) {
     final modulosSet = modulos.map((e) => e.toString()).toSet();
-    
+
     if (modulosSet.contains('nomina') || modulosSet.contains('activos_fijos')) {
       return TipoPlan.enterprise;
-    } else if (modulosSet.contains('contabilidad') || modulosSet.contains('cartera')) {
+    } else if (modulosSet.contains('contabilidad') ||
+        modulosSet.contains('cartera')) {
       return TipoPlan.profesional;
     } else {
       return TipoPlan.basico;
     }
   }
 
+  bool _sameModules(List<String> local, List<String> signed) {
+    if (local.length != signed.length) return false;
+    return local.toSet().containsAll(signed) &&
+        signed.toSet().containsAll(local);
+  }
+
   List<String> _modulosPorPlan(TipoPlan plan) {
     switch (plan) {
       case TipoPlan.basico:
-        return [
-          'ventas',
-          'inventario',
-          'caja',
-          'reportes_basicos',
-        ];
+        return ['ventas', 'inventario', 'caja', 'reportes_basicos'];
       case TipoPlan.profesional:
         return [
           'ventas',
@@ -393,12 +419,7 @@ class LicenciaService {
           'portal_clientes',
         ];
       case TipoPlan.trial:
-        return [
-          'ventas',
-          'inventario',
-          'caja',
-          'reportes_basicos',
-        ];
+        return ['ventas', 'inventario', 'caja', 'reportes_basicos'];
     }
   }
 

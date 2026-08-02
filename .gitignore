@@ -44,3 +44,13 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 backend_RESPALDO_20260708/
+
+# Local secrets and private key material. Public PEM files remain opt-in.
+.env
+.env.*
+!.env.example
+*.key
+*.p12
+*.pfx
+*private*.pem
+merka_license_private.pem
