@@ -585,12 +585,12 @@ class _NominaPageState extends State<NominaPage> with SingleTickerProviderStateM
                           margin: const EdgeInsets.only(bottom: 8),
                           color: n['estado'] == 'anulada' ? Colors.red.withOpacity(0.05) : null,
                           child: ListTile(
-                            title: Text('${n['empleado']} - Período ${n['mes']}/${n['anio']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('Devengado: ${_fmt(n['devengado'])} | Deducciones: ${_fmt(n['deducciones'])}\nEstado: ${n['estado']?.toUpperCase()}'),
+                            title: Text('${n['empleado']} - Período ${n['periodo']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Devengado: ${_fmt(n['total_devengado'])} | Deducciones: ${_fmt(n['total_deducciones'])}\nEstado: ${n['estado']?.toUpperCase()}'),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(_fmt((n['neto'] as num?) ?? 0), style: TextStyle(fontWeight: FontWeight.bold, color: n['estado'] == 'anulada' ? Colors.grey : Colors.blue)),
+                                Text(_fmt((n['neto_pagar'] as num?) ?? 0), style: TextStyle(fontWeight: FontWeight.bold, color: n['estado'] == 'anulada' ? Colors.grey : Colors.blue)),
                                 if (n['estado'] != 'anulada')
                                   IconButton(
                                     icon: const Icon(Icons.cancel, color: Colors.red),

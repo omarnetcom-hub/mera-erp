@@ -14,12 +14,12 @@
 ## Resumen ejecutivo
 
 1. No existe una política monetaria central: dinero, cantidades, impuestos y saldos usan `double` en Dart y `REAL` en SQLite. Un probe reprodujo `10000 x 99.99 = 999899.99999992212` y una diferencia de COP 0,01 entre redondeo de IVA por línea y por documento.
-2. El flujo POS tiene una regresión tributaria reproducible: una venta de COP 5.000 devuelve COP 4.979,30 por una ReteICA automática de 0,414 %, pese a que la regla empresarial configurada no participa en ese cálculo.
-3. Los borradores F300/F350 no son confiables: F300 supone que toda venta incluye IVA 19 % y F350 distribuye retenciones con porcentajes arbitrarios 40/30/20. Además, el reporte fiscal consulta `nomina_liquidaciones.neto`, pero el esquema real crea `neto_pagar`.
+2. ReteICA en ventas POS ya se calcula exclusivamente desde una regla empresarial activa y aplicable a ventas; sin regla, el valor es cero. Dos casos de integración verifican ambos caminos.
+3. Los borradores F300/F350 siguen sin ser confiables: F300 supone que toda venta incluye IVA 19 % y F350 distribuye retenciones con porcentajes arbitrarios 40/30/20. La consulta de nómina del reporte fiscal ya usa la columna real `neto_pagar` y tiene prueba de integración.
 4. La facturación electrónica es local/simulada. El cliente activo es `NoOp`; el supuesto CUFE es Base64 más un sufijo, no SHA-384 conforme al anexo técnico DIAN vigente; no hay CUDE.
 5. La partida doble se valida en servicios, pero no en SQLite. Un probe insertó por SQL directo un asiento con débito 100 y crédito 0.
 6. Inventarios mezclan promedio ponderado, FEFO y un stock ledger separado que incluso expone LIFO. El flujo POS no consume ese ledger y `kardex_inventario` no tiene escritores activos.
-7. Nómina privada contiene tarifas base razonables, pero calcula IBC sobre salario básico, ignora exoneraciones, provisiona mal intereses de cesantías, no tiene configuración operativa visible ni pruebas comerciales.
+7. Nómina privada contiene tarifas base razonables, pero calcula IBC sobre salario básico, ignora exoneraciones, provisiona mal intereses de cesantías y no tiene configuración operativa visible ni pruebas directas de esos cálculos laborales.
 
 ## Evidencia ejecutada de esta auditoría
 
@@ -27,9 +27,10 @@
 |---|---|---|
 | EV-01 | Probe Dart temporal de precisión IEEE-754 | `0.1 + 0.2 = 0.30000000000000004`; `10000 x 99.99 = 999899.99999992212`; IVA de tres líneas de 100,01: 57,00 redondeando por línea frente a 57,01 redondeando al final. El probe fue eliminado después de ejecutarse. |
 | EV-02 | `flutter test test/accounting_rules_test.dart test/accounting_report_test.dart test/architectural_consolidation_test.dart test/core/invoicing/cufe_test.dart test/core/invoicing/crear_factura_integration_test.dart test/core/invoicing/dian_transmission_client_noop_test.dart test/enterprise_services_test.dart test/purchase_repository_test.dart test/sales_repository_test.dart` | **27 pruebas pasaron** (`All tests passed!`). |
-| EV-03 | `flutter test test/sales_flow_test.dart` | **Falló**: esperaba `5000`, obtuvo `4979.3` en `test/sales_flow_test.dart:68`. |
+| EV-03 | `flutter test test/sales_flow_test.dart --reporter expanded` | **2 pruebas pasaron**: sin regla activa la venta conserva total 5.000 y ReteICA cero; con regla activa de la empresa al 1,1 %, ignora reglas inactivas/de otra empresa y registra ReteICA 110 sobre base 10.000. |
 | EV-04 | `flutter test test/commercial_security_test.dart` | **5 pasaron, 1 falló**. La sexta reutiliza la misma base `:memory:` y falla al crear de nuevo `app_config`; no certifica el escenario fail-closed que declara. |
 | EV-05 | Probe Flutter/SQLite temporal sobre esquema de instalación nueva | **2 pruebas pasaron**. Confirmó que `nomina_liquidaciones` contiene `neto_pagar` y no `neto`, que `obtenerReporteFiscal()` lanza `DatabaseException`, y que SQL directo persiste un asiento con `debito=100.0, credito=0.0`. El probe fue eliminado. |
+| EV-06 | `flutter test test/reporte_fiscal_nomina_integration_test.dart --reporter expanded` | **1 prueba pasó**: `liquidarNomina()` creó una liquidación real con `neto_pagar=920000`; `obtenerReporteFiscal()` devolvió exactamente `nomina=920000` y `obtenerNomina()` leyó periodo/devengado/deducciones/neto desde las columnas reales sin excepción. |
 
 ## 1. Matemática financiera y precisión numérica
 
@@ -48,12 +49,12 @@
 | Manejar IVA 0 %, 5 % y 19 % según clasificación real del bien/servicio. | ET arts. 468 y 468-1; reglas de bienes excluidos/exentos y descontables [N1][N2]. | `catalog/domain/master_catalog.dart:57-62`; `db_helper.dart:3908-3943`; campos `productos.impuesto_pct` y líneas de venta/compra. | No hay prueba de clasificación tributaria por producto. | Inspección: existen 0/5/19, pero `EXEMPT` mezcla exento, excluido y no gravado; también aparece `IVA_8` sin semántica separada de INC. La tarifa es selección/manual, no deriva de clasificación fiscal. | **Parcial:** catálogo básico presente, clasificación normativa ausente. |
 | Separar IVA generado en ventas e IVA descontable procedente en compras y producir F300 por tarifa/periodicidad. | ET arts. 485 y 488; formulario y periodicidad dependen de la responsabilidad tributaria [N1][N2]. | `AccountingEngine.sale/purchase`; `DatabaseHelper.obtenerReporteFiscal()`; `obtenerBorradorFormulario300()`. | `commercial_security_test.dart` solo prueba aislamiento con un esquema artificial; no prueba F300 ni procedencia del descuento. | `obtenerReporteFiscal()` suma todo IVA de compras como descontable. F300 calcula `baseGravada = ventas / 1.19`, por lo que falla con tarifas mixtas, ventas excluidas o valores sin IVA incluido. EV-05 confirma que el reporte falla en una instalación nueva por `neto` vs. `neto_pagar`. | **Parcial:** separación contable nominal, borrador fiscal no confiable. |
 | Aplicar ReteFuente por concepto, calidad del beneficiario, base mínima y UVT vigentes. | DUR 1625/2016 arts. 1.2.4.9.1, 1.2.4.4.14 y reglas de honorarios/servicios; UVT 2026 COP 52.374 [N3][N4][N5]. | `db_helper.dart:2078-2098`, `2330-2343`, `3946-3974`; `create_sale_use_case.dart:120-165`; `compras_page.dart`; `ventas_page.dart`. | Ninguna prueba normativa por concepto/base. | Código usa `1090 * 47062` como umbral y comenta “UVT 2024”; la UVT vigente es 52.374. Las reglas semilla tienen `base_minima=0`; compras reciben retenciones manuales. F350 reparte el total 40 % servicios, 30 % honorarios y 20 % arrendamientos sin datos fuente. | **Parcial:** tarifas nominales 2,5/3,5/4/6/10/11 existen, pero bases, vigencia, concepto y reporte están desalineados. |
-| Calcular ReteICA desde reglas por empresa/municipio, no desde una tarifa global. | Ley 14/1983: tarifa determinada territorialmente por concejos dentro del marco legal [N7]. | `reglas_retenciones_empresa`; `create_sale_use_case.dart:129,164-165`; `obtenerBorradorICA()`. | `sales_flow_test.dart`; primera prueba de `commercial_security_test.dart`. | EV-03 falla: venta de 5.000 resulta 4.979,30 por 0,414 % automático. `CreateSaleUseCase` lee `tax_parameters.reteica_base_rate`, no `reglas_retenciones_empresa`; el catálogo semilla empresarial usa 0,966 %. | **Parcial:** **regresión confirmada**; la regla empresarial no gobierna el flujo POS. |
+| Calcular ReteICA desde reglas por empresa/municipio, no desde una tarifa global. | Ley 14/1983: tarifa determinada territorialmente por concejos dentro del marco legal [N7]. | `reglas_retenciones_empresa`; `create_sale_use_case.dart`; `obtenerBorradorICA()`. | `sales_flow_test.dart`: `venta POS descuenta inventario, registra caja y asiento contable`; `venta POS aplica ReteICA solo desde regla activa de ventas`. | EV-03 confirma filtrado por `company_id`, `activo=1` y `aplica_ventas=1`, conversión de la tasa porcentual y ReteICA cero cuando no existe regla aplicable. | **Completo:** el flujo POS queda gobernado por la regla empresarial y ambos caminos están probados. |
 | Transmitir factura UBL 2.1 a DIAN/PTA con autenticación, validación previa y respuesta persistida. | Resolución DIAN 000165/2023, anexo 1.9, modificada por resoluciones posteriores listadas por DIAN [N6]. | `dian_transmission_client.dart`; `dian_transmission_client_noop.dart`; `dian_transmission_client_registry.dart`; `facturacion_electronica_page.dart`. | `dian_transmission_client_noop_test.dart`. | EV-02 confirma únicamente estados de configuración del NoOp. El registro global instancia `NoOpDianTransmissionClient`; `transmitInvoice()` devuelve `simulated` y no hace red. | **Pendiente:** no existe cliente DIAN/PTA real. |
 | Generar CUFE/CUDE conforme al algoritmo y campos del anexo técnico vigente. | Resolución 000165/2023 v1.9 y procedimiento CUFE; DIAN confirma SHA-384 [N6][N8]. | `core/invoicing/cufe.dart`; `core/invoicing/xml/generator.dart`. | `cufe_test.dart`; `crear_factura_integration_test.dart`. | EV-02 pasa consistencia interna, no conformidad DIAN. `computeCufe()` aplica Base64 a `Venta|Total|Fecha|PIN` y añade `fe2026dian`; no usa SHA-384 ni la cadena normativa. No se encontró generador CUDE. XML es “UBL-like” mínimo y omite bloques fiscales obligatorios. | **Pendiente:** identificador y documento no son certificables ante DIAN. |
 | Manejar Impuesto Nacional al Consumo sin confundirlo con IVA. | ET arts. 512-1, 512-2 y 512-9: restaurantes 8 %, telefonía/datos 4 %, con reglas de base y responsables [N9][N10]. | `tax_parameters.inc_restaurant_rate/inc_telecom_rate`; `MasterCatalog.IVA_8`. | Sin pruebas. | Las tasas existen solo como parámetros; no se consumen en ventas, contabilidad, XML ni formulario 310. `IVA_8` se trata como impuesto genérico, no como INC. | **Parcial:** metadatos presentes, flujo tributario ausente. |
 
-**Resumen D2:** 0 Completos / 5 Parciales / 2 Pendientes.
+**Resumen D2:** 1 Completo / 4 Parciales / 2 Pendientes.
 
 ## 3. Lógica contable comercial
 
@@ -97,25 +98,25 @@
 | Calcular cesantías, prima, intereses y vacaciones sobre bases y tiempo causado correctos. | CST arts. 186, 249 y 306; intereses 12 % anual sobre cesantías [N20][N21]. | `liquidarNomina():6277-6281`; parámetros 8,33 %, 8,33 %, 1 % y 4,17 %. | Sin pruebas. | Cesantías y prima usan solo salario y omiten auxilio de transporte/variables cuando corresponda; no consideran días. `interesesCesantias = cesantias * 0.01` aplica 1 % a la provisión de cesantías, no 12 % anual sobre el saldo, quedando aproximadamente 12 veces por debajo de la provisión mensual usual. | **Parcial:** error material identificado. |
 | Calcular parafiscales 2 % SENA, 3 % ICBF y 4 % caja con exoneración aplicable. | Reglas 2/3/4 y ET art. 114-1 [N18][N22]. | Defaults y `liquidarNomina():6272-6275`. | Sin pruebas. | Tasas default correctas, pero se aplican siempre. No se usa `health_exonerated`, no hay bandera de contribuyente ni regla de menos de 10 SMMLV; tampoco base salarial configurable. | **Parcial.** |
 | Obtener neto correcto, aplicar retención laboral y ejecutar liquidación de forma atómica. | Reglas laborales/tributarias y trazabilidad transaccional. | `liquidarNomina():6290-6441`. | Sin pruebas. | `retefuente=0` está explícitamente pendiente. El movimiento de caja, asiento y liquidación se hacen fuera de una única transacción; un fallo puede dejar operación parcial. El asiento registra devengos/deducciones del trabajador, no todas las cargas/provisiones del empleador. | **Pendiente para certificación.** |
-| Integrar nómina con reportes fiscales sin romper el esquema real. | Integridad de declaraciones e información contable. | `obtenerReporteFiscal():6641-6643`; esquema `nomina_liquidaciones`. | `commercial_security_test.dart` usa un esquema de prueba distinto (`neto`). | EV-05 confirma: producción crea `neto_pagar`, la consulta usa `SUM(neto)` y lanza `DatabaseException` en instalación nueva. | **Pendiente:** bug de esquema bloqueante. |
+| Integrar nómina con reportes fiscales sin romper el esquema real. | Integridad de declaraciones e información contable. | `obtenerReporteFiscal()`; `obtenerNomina()`; esquema `nomina_liquidaciones.neto_pagar`. | `reporte_fiscal_nomina_integration_test.dart`: `obtenerReporteFiscal suma neto_pagar de una liquidacion real`. | EV-06 crea la liquidación mediante `liquidarNomina()`, verifica `neto_pagar=920000`, confirma el mismo total en el reporte fiscal y lee el historial con los nombres reales del esquema. | **Completo:** consulta e historial alineados con el esquema real y flujo integrado probado. |
 
-**Resumen D6:** 0 Completos / 5 Parciales / 2 Pendientes.
+**Resumen D6:** 1 Completo / 5 Parciales / 1 Pendiente.
 
 ## Resumen por dominio
 
 | Dominio | Completos | Parciales | Pendientes | Diagnóstico |
 |---|---:|---:|---:|---|
 | 1. Precisión numérica | 0 | 2 | 1 | Sin tipo monetario ni política de redondeo. |
-| 2. Impuestos y DIAN | 0 | 5 | 2 | Catálogos parciales; ReteICA regresionada; F300/F350 y DIAN no certificables. |
+| 2. Impuestos y DIAN | 1 | 4 | 2 | ReteICA POS corregida; F300/F350 y DIAN siguen sin ser certificables. |
 | 3. Contabilidad | 0 | 3 | 2 | Servicios validan, pero DB/cierre/marco NIIF incompletos. |
 | 4. Inventario | 0 | 3 | 0 | Tres representaciones y métodos desconectados; no hay Kardex único. |
 | 5. Multiempresa | 0 | 2 | 1 | Aislamiento parcial; consolidación y transferencias huérfanas. |
-| 6. Nómina privada | 0 | 5 | 2 | Tarifas nominales, bases/provisiones/transacción/reportes incorrectos o sin prueba. |
-| **Total** | **0** | **20** | **8** | **Ningún dominio comercial queda certificado completo con la evidencia actual.** |
+| 6. Nómina privada | 1 | 5 | 1 | Reporte fiscal alineado; bases, provisiones y transacción siguen incorrectas o sin prueba. |
+| **Total** | **2** | **19** | **7** | **Dos requisitos puntuales quedan completos; ningún dominio completo en su conjunto.** |
 
 ## Brechas críticas priorizadas
 
-1. **Detener cálculos tributarios automáticos incorrectos:** ReteICA POS, umbral ReteFuente, F300/F350 y error `neto`/`neto_pagar`. Son cifras fiscales y de caja visibles al cliente.
+1. **Detener cálculos tributarios automáticos incorrectos restantes:** umbral ReteFuente y borradores F300/F350. Son cifras fiscales visibles al cliente.
 2. **Definir y migrar una política monetaria exacta:** fixed-point/enteros por unidad mínima o biblioteca decimal, escalas por moneda y redondeo DIAN centralizado.
 3. **Reemplazar CUFE/XML local y NoOp por un flujo DIAN/PTA certificable:** anexo técnico 1.9 vigente, SHA-384, UBL completo, firma, CUDE, transmisión y respuestas.
 4. **Corregir y probar nómina privada:** IBC de novedades, exoneración, prestaciones, retención laboral, asientos patronales y transacción atómica.

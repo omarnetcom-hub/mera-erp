@@ -29,6 +29,14 @@ void main() {
     });
   });
 
+  setUp(() async {
+    await db.delete(
+      'reglas_retenciones_empresa',
+      where: 'company_id = ? AND aplica_ventas = 1',
+      whereArgs: [companyId],
+    );
+  });
+
   test(
     'venta POS descuenta inventario, registra caja y asiento contable',
     () async {
@@ -66,6 +74,14 @@ void main() {
       );
 
       expect(result.total, 5000);
+
+      final saleRows = await db.query(
+        'ventas',
+        columns: ['reteica'],
+        where: 'id = ? AND company_id = ?',
+        whereArgs: [result.saleId, companyId],
+      );
+      expect((saleRows.single['reteica'] as num).toDouble(), 0);
 
       final detailRows = await db.rawQuery(
         '''
@@ -107,6 +123,90 @@ void main() {
       expect(accountingRows, isNotEmpty);
     },
   );
+
+  test('venta POS aplica ReteICA solo desde regla activa de ventas', () async {
+    await db.insert('reglas_retenciones_empresa', {
+      'company_id': companyId + 1000,
+      'codigo': 'RTEICA_OTRA_EMPRESA_TEST',
+      'nombre': 'ReteICA de otra empresa',
+      'tasa': 9.9,
+      'base_minima': 0,
+      'cuenta_contable': '2367',
+      'aplica_ventas': 1,
+      'aplica_compras': 0,
+      'activo': 1,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+    await db.insert('reglas_retenciones_empresa', {
+      'company_id': companyId,
+      'codigo': 'RTEICA_INACTIVA_TEST',
+      'nombre': 'ReteICA inactiva',
+      'tasa': 8.8,
+      'base_minima': 0,
+      'cuenta_contable': '2367',
+      'aplica_ventas': 1,
+      'aplica_compras': 0,
+      'activo': 0,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+    await db.insert('reglas_retenciones_empresa', {
+      'company_id': companyId,
+      'codigo': 'RTEICA_VENTAS_TEST',
+      'nombre': 'ReteICA ventas de prueba',
+      'tasa': 1.1,
+      'base_minima': 5000,
+      'cuenta_contable': '2367',
+      'aplica_ventas': 1,
+      'aplica_compras': 0,
+      'activo': 1,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    final suffix = DateTime.now().microsecondsSinceEpoch;
+    final productName = 'Producto ReteICA $suffix';
+    final productId = await db.insert('productos', {
+      'company_id': companyId,
+      'nombre': productName,
+      'unidad_base': 'unid.',
+      'stock': 2,
+      'costo': 4000,
+      'precio': 10000,
+      'impuesto_pct': 0,
+      'codigo_barras': 'RTEICA$suffix',
+    });
+
+    final result = await CreateSaleUseCase().execute(
+      CreateSaleRequest(
+        items: [
+          SaleItemInput(
+            productId: productId,
+            productName: productName,
+            quantity: 1,
+            unitPrice: 10000,
+            unitCost: 4000,
+            subtotal: 10000,
+            taxRate: 0,
+            taxTotal: 0,
+          ),
+        ],
+        paymentMethodId: 1,
+        paymentMethodName: 'EFECTIVO',
+        clientName: 'Cliente general',
+      ),
+    );
+
+    expect(result.total, 9890);
+    final saleRows = await db.query(
+      'ventas',
+      columns: ['reteica'],
+      where: 'id = ? AND company_id = ?',
+      whereArgs: [result.saleId, companyId],
+    );
+    expect(
+      (saleRows.single['reteica'] as num).toDouble(),
+      closeTo(110, 0.000000001),
+    );
+  });
 
   tearDownAll(() async {
     CompanyConfigurationService.instance.resetForTests();

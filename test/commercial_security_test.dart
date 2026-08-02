@@ -64,7 +64,7 @@ void main() {
       CREATE TABLE IF NOT EXISTS nomina_liquidaciones (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id INTEGER NOT NULL,
-        neto REAL NOT NULL,
+        neto_pagar REAL NOT NULL,
         estado TEXT DEFAULT 'activo',
         fecha TEXT NOT NULL
       )

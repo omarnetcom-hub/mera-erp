@@ -6507,7 +6507,7 @@ class DatabaseHelper {
     final db = await instance.database;
     return await db.query(
       'nomina_liquidaciones',
-      orderBy: 'anio DESC, mes DESC',
+      orderBy: 'periodo DESC, id DESC',
     );
   }
 
@@ -6639,7 +6639,7 @@ class DatabaseHelper {
       "SELECT COALESCE(SUM(impuesto_total), 0) AS total FROM compras WHERE company_id = ? AND fecha >= ? AND fecha < ? AND estado != 'anulada'",
     );
     final nomina = await total(
-      "SELECT COALESCE(SUM(neto), 0) AS total FROM nomina_liquidaciones WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, 'activo') != 'anulado'",
+      "SELECT COALESCE(SUM(neto_pagar), 0) AS total FROM nomina_liquidaciones WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, 'activo') != 'anulado'",
     );
     final retefuenteVentas = await total(
       'SELECT COALESCE(SUM(retefuente), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, \'emitida\') != \'anulada\'',

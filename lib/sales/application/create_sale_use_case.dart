@@ -126,7 +126,20 @@ class CreateSaleUseCase {
     final retefuenteServices2 = taxParams.isEmpty ? 0.06 : (taxParams.first['retefuente_services_2'] as num).toDouble();
     final retefuenteHonoraries1 = taxParams.isEmpty ? 0.10 : (taxParams.first['retefuente_honoraries_1'] as num).toDouble();
     final retefuenteHonoraries2 = taxParams.isEmpty ? 0.11 : (taxParams.first['retefuente_honoraries_2'] as num).toDouble();
-    final reteicaBaseRate = taxParams.isEmpty ? 0.00414 : (taxParams.first['reteica_base_rate'] as num).toDouble();
+    final reteicaRules = await database.query(
+      'reglas_retenciones_empresa',
+      columns: ['tasa', 'base_minima'],
+      where: 'company_id = ? AND activo = 1 AND aplica_ventas = 1',
+      whereArgs: [companyId],
+      orderBy: 'id ASC',
+      limit: 1,
+    );
+    final reteicaBaseRate = reteicaRules.isEmpty
+        ? 0.0
+        : (reteicaRules.first['tasa'] as num).toDouble() / 100;
+    final reteicaMinimumBase = reteicaRules.isEmpty
+        ? 0.0
+        : (reteicaRules.first['base_minima'] as num).toDouble();
     
     // Obtener banderas fiscales del cliente si existe
     bool isAutoretainer = false;
@@ -161,8 +174,9 @@ class CreateSaleUseCase {
         calculatedRetefuente = subtotal * (isDeclarante ? retefuentePurchasesDeclaring : retefuentePurchasesNonDeclaring);
       }
       
-      // ReteICA (simplificado - debería usar tarifa del municipio)
-      calculatedReteica = subtotal * reteicaBaseRate;
+      if (subtotal >= reteicaMinimumBase) {
+        calculatedReteica = subtotal * reteicaBaseRate;
+      }
     }
     
     final tax = request.items.fold<double>(

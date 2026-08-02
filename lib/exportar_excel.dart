@@ -839,8 +839,7 @@ class ExportarExcel {
   ) {
     final hoja = excel['Nomina'];
     final encabezados = [
-      'Año',
-      'Mes',
+      'Periodo',
       'Empleado',
       'Devengado',
       'Deducciones',
@@ -851,12 +850,11 @@ class ExportarExcel {
     _negritaEncabezado(hoja, encabezados.length);
     for (final n in nomina.reversed) {
       hoja.appendRow([
-        IntCellValue((n['anio'] as num).toInt()),
-        IntCellValue((n['mes'] as num).toInt()),
+        TextCellValue(n['periodo']?.toString() ?? ''),
         TextCellValue(n['empleado']?.toString() ?? ''),
-        DoubleCellValue((n['devengado'] as num?)?.toDouble() ?? 0),
-        DoubleCellValue((n['deducciones'] as num?)?.toDouble() ?? 0),
-        DoubleCellValue((n['neto'] as num?)?.toDouble() ?? 0),
+        DoubleCellValue((n['total_devengado'] as num?)?.toDouble() ?? 0),
+        DoubleCellValue((n['total_deducciones'] as num?)?.toDouble() ?? 0),
+        DoubleCellValue((n['neto_pagar'] as num?)?.toDouble() ?? 0),
         TextCellValue(n['estado']?.toString() ?? ''),
       ]);
     }
