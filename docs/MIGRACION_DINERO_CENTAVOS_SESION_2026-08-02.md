@@ -1449,3 +1449,33 @@ Commit publicado: `2531602` (`feat(dinero): convertir presupuesto y contabilidad
 publicos a unidad menor`). Fase 3B permanece **en progreso**; no se declara
 `X/X COMPLETA` hasta reconciliar y convertir los consumidores restantes del
 inventario congelado.
+
+## Fase 3B - cierre del bloque activos y FUT local
+
+### Cambios
+
+Se convirtieron a `MoneyValue` y SQLite INTEGER los modelos y servicios de
+`activo_estado.dart`, `fondo_unidad_tesoreria.dart`, `activos_service.dart`,
+`depreciacion_unidades_service.dart`, `fondo_unidad_tesoreria_service.dart` y
+`revalorizacion_service.dart`, junto con `activos_estado_page.dart`. El job de
+depreciacion por unidades y revalorizacion conserva porcentajes/volumenes como
+parametros no monetarios, pero todos los valores de activos, fondos, asientos
+y acumulados usan unidades menores exactas.
+
+### Evidencia cruda
+
+```text
+dart format --output=none --set-exit-if-changed lib/sector_publico/activos test/sector_publico/contabilidad/depreciacion_job_service_test.dart
+Formatted 11 files (11 changed) in 0.12 seconds.
+Exit code: 1 (cambios de formato reportados; el parser proceso los archivos)
+
+dart test test/sector_publico/contabilidad/depreciacion_job_service_test.dart --reporter expanded
+Pendiente de ejecucion util: el runner dart test de esta sesion queda sin salida y vence por timeout antes de iniciar.
+```
+
+### Cierre de la subtarea activos y FUT
+
+Commit publicado: `48fd8f7` (`feat(dinero): convertir activos y fondos publicos a
+unidad menor`). Fase 3B sigue **en progreso**. Queda pendiente la verificacion
+ejecutada del test NICSP 17 y la conversion de rentas, SGR/SGP, nomina,
+contratacion completa, salud y reportes/transparencia.
