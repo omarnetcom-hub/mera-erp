@@ -1860,3 +1860,99 @@ El bloque de salud queda convertido a nivel de codigo y esquema declarativo.
 La evidencia de tests queda **pendiente de ejecucion** por el crash de assets
 nativos de Windows; Fase 3B continua en progreso y no se declara `X/X COMPLETA`.
 Commit de este bloque: el commit que contiene esta seccion de cierre.
+
+## Fase 3B - cierre del bloque de reportes especiales y bordes de UI
+
+### Alcance y cambios
+
+Se convirtieron los consumidores monetarios de reportes externos y los
+ultimos bordes de presentacion que aun recibian `MoneyValue` directamente:
+
+- `lib/sector_publico/auditoria/models/reporte_chip.dart`
+- `lib/sector_publico/auditoria/services/chip_reporter_service.dart`
+- `lib/sector_publico/auditoria/models/reporte_fut_territorial.dart`
+- `lib/sector_publico/auditoria/services/fut_territorial_service.dart`
+- `lib/sector_publico/auditoria/models/reporte_sia_observa.dart`
+- `lib/sector_publico/auditoria/services/sia_observa_service.dart`
+- `lib/sector_publico/siif/models/reporte_siif.dart`
+- `lib/sector_publico/siif/services/siif_service.dart`
+- `lib/sector_publico/services/migracion_datos_service.dart`
+- `lib/sector_publico/contabilidad/pages/contabilidad_nicsp_page.dart`
+- `lib/sector_publico/contabilidad/pages/conciliacion_reciproca_dialog.dart`
+- `lib/sector_publico/transparencia/pages/transparencia_page.dart`
+- `lib/sector_publico/activos/pages/activos_estado_page.dart`
+- `lib/sector_publico/planeacion/pages/planeacion_page.dart`
+- `lib/sector_publico/regalias/pages/regalias_sgp_page.dart`
+- `lib/sector_publico/rentas/pages/predial_ica_page.dart`
+- `lib/sector_publico/nomina/pages/nomina_publica_page.dart`
+- `lib/sector_publico/nomina/pages/horas_extra_form_page.dart`
+
+Los DTOs CHIP, FUT, SIA Observa y SIIF conservan sus formatos externos y
+convierten a pesos unicamente en `toJson()`. Las consultas SQL deserializan
+con `publicMoneyFromSql`; los calculos permanecen en `MoneyValue` COP con
+escala fija de dos decimales. Los campos que son porcentajes, cantidades,
+identificadores o datos clinicos no se convirtieron.
+
+La reconciliacion del inventario congelado queda asi:
+
+- 90 archivos nominales en el inventario original.
+- 87 consumidores monetarios directos convertidos.
+- 3 archivos nominales excluidos por inspeccion porque no realizan
+  aritmetica ni serializacion monetaria: `lib/sector_publico/regalias/models/reporte_sicodis.dart`,
+  `lib/sector_publico/salud/models/rips_fev.dart` y
+  `lib/sector_publico/auditoria/pages/auditoria_forense_page.dart`.
+
+Por tanto, la cobertura real de consumidores monetarios directos es
+87/87. No se declara aun la fase operacionalmente completa porque las
+herramientas de ejecucion Flutter del entorno no logran llegar a compilar
+los tests.
+
+### Evidencia cruda
+
+```text
+dart format --output=none --set-exit-if-changed [18 archivos del bloque]
+La ejecucion agrupada y una ejecucion aislada quedaron sin salida durante
+el timeout del entorno y fueron detenidas. El mismo chequeo habia terminado
+con exit code 0 en los bloques anteriores; este bloque queda pendiente de
+repeticion por Omar en una maquina con el toolchain disponible.
+
+flutter test test/sector_publico/auditoria/chip_datos_sistema_integracion_test.dart test/sector_publico/auditoria/fut_territorial_service_test.dart test/sector_publico/auditoria/sia_observa_service_test.dart test/sector_publico/siif/siif_service_test.dart --reporter expanded
+This crash may already be reported.
+PathExistsException: Cannot copy file to 'C:\\Users\\PC\\Desktop\\Caja_simple\\build\\native_assets\\windows\\sqlite3.dll'
+path = 'C:\\Users\\PC\\Desktop\\Caja_simple\\.dart_tool\\hooks_runner\\shared\\sqlite3\\build\\download-7970568\\sqlite3.dll'
+OS Error: No se puede crear un archivo que ya existe, errno = 183
+Stack relevante: _File.copy -> _copyNativeCodeAssetsToBundleOnWindowsLinux ->
+_copyNativeCodeAssetsForOS -> installCodeAssets -> testCompilerBuildNativeAssets ->
+TestCommand.runCommand.
+Exit code: 1; ningun test llego a compilar o ejecutar aserciones.
+```
+
+### Bugs y decisiones
+
+- Se eliminaron los ultimos formateos directos de `MoneyValue` con
+  `CurrencyFormatter` en las pantallas contables y de reportes.
+- Los reportes externos no exponen centavos como enteros: la conversion a
+  pesos queda limitada al borde JSON/UI esperado por cada formato.
+- `lib/sector_publico/regalias/models/reporte_sicodis.dart`,
+  `lib/sector_publico/salud/models/rips_fev.dart` y
+  `lib/sector_publico/auditoria/pages/auditoria_forense_page.dart` no
+  requieren cambios: la inspeccion no encontro columnas monetarias ni
+  operaciones aritmeticas sobre dinero.
+- La validacion SQL de partida doble permanece fuera del alcance de esta
+  migracion y es el primer pendiente posterior a Fase 3B.
+- El submodulo `backend` conserva sus cambios locales preexistentes y no fue
+  tocado.
+
+### Cierre de la subtarea reportes especiales
+
+La conversion de consumidores monetarios directos del sector publico queda
+en 87/87 a nivel de codigo. Los 3 archivos restantes del inventario son
+falsos positivos documentados, no consumidores de dinero. La evidencia
+ejecutable queda pendiente por el bloqueo de `sqlite3.dll`; por ello no se
+marca aun como cierre operacional completo. Omar debe ejecutar al cierre:
+
+```text
+flutter analyze
+flutter build windows
+flutter test --reporter silent --file-reporter json:phase3b_full_suite.json --concurrency=4
+```

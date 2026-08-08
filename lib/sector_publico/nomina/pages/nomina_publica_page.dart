@@ -266,7 +266,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
               children: [
                 Text('Identificación: ${emp.numeroIdentificacion}'),
                 Text('Cargo: ${emp.cargo} | Dependencia: ${emp.dependencia}'),
-                Text('Salario: ${CurrencyFormatter.format(emp.salarioBasico)}'),
+                Text('Salario: ${publicMoneyForDisplay(emp.salarioBasico)}'),
               ],
             ),
             trailing: Chip(
@@ -318,7 +318,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             title: Text(liq.numeroLiquidacion),
             subtitle: Text('${liq.empleadoNombre} | Periodo: ${liq.periodo}'),
             trailing: Text(
-              '${CurrencyFormatter.format(liq.netoPagar)}',
+              '${publicMoneyForDisplay(liq.netoPagar)}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
@@ -331,40 +331,40 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Salario Básico: ${CurrencyFormatter.format(liq.salarioBasico)}',
+                      'Salario Básico: ${publicMoneyForDisplay(liq.salarioBasico)}',
                     ),
                     Text(
-                      'Salario Devengado: ${CurrencyFormatter.format(liq.salarioDevengado)}',
+                      'Salario Devengado: ${publicMoneyForDisplay(liq.salarioDevengado)}',
                     ),
                     Text(
-                      'Auxilio Transporte: ${CurrencyFormatter.format(liq.auxilioTransporte)}',
+                      'Auxilio Transporte: ${publicMoneyForDisplay(liq.auxilioTransporte)}',
                     ),
                     Text(
-                      'Horas Extra / Recargo Nocturno: ${CurrencyFormatter.format((liq.horasExtra + liq.recargoNocturno))}',
-                    ),
-                    const Divider(),
-                    Text(
-                      'Deducción Salud (8.5%): ${CurrencyFormatter.format(liq.salud)}',
-                    ),
-                    Text(
-                      'Deducción Pensión (12%): ${CurrencyFormatter.format(liq.pension)}',
-                    ),
-                    Text(
-                      'Deducción Solidaridad: ${CurrencyFormatter.format(liq.fondoSolidaridad)}',
-                    ),
-                    Text(
-                      'Riesgos Laborales: ${CurrencyFormatter.format(liq.riesgosLaborales)}',
+                      'Horas Extra / Recargo Nocturno: ${publicMoneyForDisplay(liq.horasExtra + liq.recargoNocturno)}',
                     ),
                     const Divider(),
                     Text(
-                      'Aporte Caja Compensación: ${CurrencyFormatter.format(liq.cajaCompensacion)}',
+                      'Deducción Salud (8.5%): ${publicMoneyForDisplay(liq.salud)}',
                     ),
                     Text(
-                      'Aporte SENA / ICBF: ${CurrencyFormatter.format((liq.sena + liq.icbf))}',
+                      'Deducción Pensión (12%): ${publicMoneyForDisplay(liq.pension)}',
+                    ),
+                    Text(
+                      'Deducción Solidaridad: ${publicMoneyForDisplay(liq.fondoSolidaridad)}',
+                    ),
+                    Text(
+                      'Riesgos Laborales: ${publicMoneyForDisplay(liq.riesgosLaborales)}',
                     ),
                     const Divider(),
                     Text(
-                      'Neto a Pagar: ${CurrencyFormatter.format(liq.netoPagar)}',
+                      'Aporte Caja Compensación: ${publicMoneyForDisplay(liq.cajaCompensacion)}',
+                    ),
+                    Text(
+                      'Aporte SENA / ICBF: ${publicMoneyForDisplay(liq.sena + liq.icbf)}',
+                    ),
+                    const Divider(),
+                    Text(
+                      'Neto a Pagar: ${publicMoneyForDisplay(liq.netoPagar)}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
@@ -444,7 +444,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
           child: ExpansionTile(
             title: Text(ret.numeroRetroactivo),
             subtitle: Text(
-              '${ret.empleadoNombre} | Total: ${CurrencyFormatter.format(ret.valorTotal)}',
+              '${ret.empleadoNombre} | Total: ${publicMoneyForDisplay(ret.valorTotal)}',
             ),
             trailing: Chip(
               label: Text(ret.estado.toString().split('.').last.toUpperCase()),
@@ -464,10 +464,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                       'Rango: ${DateFormatter.format(ret.fechaInicio)} a ${DateFormatter.format(ret.fechaFin)} (${ret.meses} meses)',
                     ),
                     Text(
-                      'Salario Anterior: ${CurrencyFormatter.format(ret.salarioAnterior)} | Nuevo: ${CurrencyFormatter.format(ret.salarioNuevo)}',
+                      'Salario Anterior: ${publicMoneyForDisplay(ret.salarioAnterior)} | Nuevo: ${publicMoneyForDisplay(ret.salarioNuevo)}',
                     ),
                     Text(
-                      'Diferencia Mensual: ${CurrencyFormatter.format(ret.diferenciaMensual)}',
+                      'Diferencia Mensual: ${publicMoneyForDisplay(ret.diferenciaMensual)}',
                     ),
                     if (ret.actoAdministrativo != null)
                       Text('Acto Administrativo: ${ret.actoAdministrativo}'),
@@ -1359,9 +1359,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Empleado: ${ret.empleadoNombre}'),
-              Text(
-                'Total a Pagar: ${CurrencyFormatter.format(ret.valorTotal)}',
-              ),
+              Text('Total a Pagar: ${publicMoneyForDisplay(ret.valorTotal)}'),
               const Divider(),
               TextFormField(
                 controller: actoController,
@@ -1428,7 +1426,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
             children: [
               Text('Empleado: ${ret.empleadoNombre}'),
               Text(
-                'Saldo Pendiente: ${CurrencyFormatter.format(ret.saldoPendiente)}',
+                'Saldo Pendiente: ${publicMoneyForDisplay(ret.saldoPendiente)}',
               ),
               const Divider(),
               TextFormField(

@@ -3,6 +3,8 @@
 library;
 
 import 'dart:convert';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum TipoFormularioFUTTerritorial {
   futIngresos,
@@ -52,7 +54,9 @@ class ReporteFUTTerritorial {
         orElse: () => TipoFormularioFUTTerritorial.futIngresos,
       ),
       vigencia: json['vigencia'] as String,
-      trimestre: json['trimestre'] is int ? json['trimestre'] as int : int.parse(json['trimestre'].toString()),
+      trimestre: json['trimestre'] is int
+          ? json['trimestre'] as int
+          : int.parse(json['trimestre'].toString()),
       fechaGeneracion: DateTime.parse(json['fecha_generacion'] as String),
       usuarioGenero: json['usuario_genero'] as String,
       datos: datosMap,
@@ -92,12 +96,12 @@ class ReporteFUTTerritorial {
 
 /// Datos de Ejecución de Ingresos FUT DNP
 class DatosFUTIngresos {
-  final double ingresosCorrientes;
-  final double tributarios;
-  final double noTributarios;
-  final double transferenciasSGP;
-  final double regalias;
-  final double totalRecaudado;
+  final MoneyValue ingresosCorrientes;
+  final MoneyValue tributarios;
+  final MoneyValue noTributarios;
+  final MoneyValue transferenciasSGP;
+  final MoneyValue regalias;
+  final MoneyValue totalRecaudado;
 
   DatosFUTIngresos({
     required this.ingresosCorrientes,
@@ -110,25 +114,25 @@ class DatosFUTIngresos {
 
   Map<String, dynamic> toJson() {
     return {
-      'ingresos_corrientes': ingresosCorrientes,
-      'tributarios': tributarios,
-      'no_tributarios': noTributarios,
-      'transferencias_sgp': transferenciasSGP,
-      'regalias': regalias,
-      'total_recaudado': totalRecaudado,
+      'ingresos_corrientes': publicMoneyForDisplay(ingresosCorrientes),
+      'tributarios': publicMoneyForDisplay(tributarios),
+      'no_tributarios': publicMoneyForDisplay(noTributarios),
+      'transferencias_sgp': publicMoneyForDisplay(transferenciasSGP),
+      'regalias': publicMoneyForDisplay(regalias),
+      'total_recaudado': publicMoneyForDisplay(totalRecaudado),
     };
   }
 }
 
 /// Datos de Ejecución de Gastos FUT DNP
 class DatosFUTGastos {
-  final double funcionamiento;
-  final double serviciosPersonales;
-  final double gastosGenerales;
-  final double transferencias;
-  final double inversion;
-  final double servicioDeuda;
-  final double totalObligado;
+  final MoneyValue funcionamiento;
+  final MoneyValue serviciosPersonales;
+  final MoneyValue gastosGenerales;
+  final MoneyValue transferencias;
+  final MoneyValue inversion;
+  final MoneyValue servicioDeuda;
+  final MoneyValue totalObligado;
 
   DatosFUTGastos({
     required this.funcionamiento,
@@ -142,13 +146,13 @@ class DatosFUTGastos {
 
   Map<String, dynamic> toJson() {
     return {
-      'funcionamiento': funcionamiento,
-      'servicios_personales': serviciosPersonales,
-      'gastos_generales': gastosGenerales,
-      'transferencias': transferencias,
-      'inversion': inversion,
-      'servicio_deuda': servicioDeuda,
-      'total_obligado': totalObligado,
+      'funcionamiento': publicMoneyForDisplay(funcionamiento),
+      'servicios_personales': publicMoneyForDisplay(serviciosPersonales),
+      'gastos_generales': publicMoneyForDisplay(gastosGenerales),
+      'transferencias': publicMoneyForDisplay(transferencias),
+      'inversion': publicMoneyForDisplay(inversion),
+      'servicio_deuda': publicMoneyForDisplay(servicioDeuda),
+      'total_obligado': publicMoneyForDisplay(totalObligado),
     };
   }
 }

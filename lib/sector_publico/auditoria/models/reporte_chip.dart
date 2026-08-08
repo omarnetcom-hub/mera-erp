@@ -3,6 +3,8 @@
 library;
 
 import 'dart:convert';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum TipoFormularioCHIP {
   cgn2015_001, // Información de la entidad
@@ -148,19 +150,19 @@ class DatosCGN2015_001 {
 
 /// Datos específicos para formulario CGN 2015_002 (Ingresos y Gastos)
 class DatosCGN2015_002 {
-  final double ingresosTributarios;
-  final double ingresosNoTributarios;
-  final double transferenciasSGP;
-  final double regalias;
-  final double otrosIngresos;
-  final double totalIngresos;
-  final double gastosPersonal;
-  final double gastosGenerales;
-  final double transferencias;
-  final double gastosInversion;
-  final double otrosGastos;
-  final double totalGastos;
-  final double resultadoOperacional;
+  final MoneyValue ingresosTributarios;
+  final MoneyValue ingresosNoTributarios;
+  final MoneyValue transferenciasSGP;
+  final MoneyValue regalias;
+  final MoneyValue otrosIngresos;
+  final MoneyValue totalIngresos;
+  final MoneyValue gastosPersonal;
+  final MoneyValue gastosGenerales;
+  final MoneyValue transferencias;
+  final MoneyValue gastosInversion;
+  final MoneyValue otrosGastos;
+  final MoneyValue totalGastos;
+  final MoneyValue resultadoOperacional;
 
   DatosCGN2015_002({
     required this.ingresosTributarios,
@@ -180,33 +182,33 @@ class DatosCGN2015_002 {
 
   Map<String, dynamic> toJson() {
     return {
-      'ingresos_tributarios': ingresosTributarios,
-      'ingresos_no_tributarios': ingresosNoTributarios,
-      'transferencias_sgp': transferenciasSGP,
-      'regalias': regalias,
-      'otros_ingresos': otrosIngresos,
-      'total_ingresos': totalIngresos,
-      'gastos_personal': gastosPersonal,
-      'gastos_generales': gastosGenerales,
-      'transferencias': transferencias,
-      'gastos_inversion': gastosInversion,
-      'otros_gastos': otrosGastos,
-      'total_gastos': totalGastos,
-      'resultado_operacional': resultadoOperacional,
+      'ingresos_tributarios': publicMoneyForDisplay(ingresosTributarios),
+      'ingresos_no_tributarios': publicMoneyForDisplay(ingresosNoTributarios),
+      'transferencias_sgp': publicMoneyForDisplay(transferenciasSGP),
+      'regalias': publicMoneyForDisplay(regalias),
+      'otros_ingresos': publicMoneyForDisplay(otrosIngresos),
+      'total_ingresos': publicMoneyForDisplay(totalIngresos),
+      'gastos_personal': publicMoneyForDisplay(gastosPersonal),
+      'gastos_generales': publicMoneyForDisplay(gastosGenerales),
+      'transferencias': publicMoneyForDisplay(transferencias),
+      'gastos_inversion': publicMoneyForDisplay(gastosInversion),
+      'otros_gastos': publicMoneyForDisplay(otrosGastos),
+      'total_gastos': publicMoneyForDisplay(totalGastos),
+      'resultado_operacional': publicMoneyForDisplay(resultadoOperacional),
     };
   }
 }
 
 /// Datos específicos para formulario CGN 2015_003 (Situación Financiera)
 class DatosCGN2015_003 {
-  final double activoCorriente;
-  final double activoNoCorriente;
-  final double totalActivo;
-  final double pasivoCorriente;
-  final double pasivoNoCorriente;
-  final double totalPasivo;
-  final double patrimonio;
-  final double totalPasivoPatrimonio;
+  final MoneyValue activoCorriente;
+  final MoneyValue activoNoCorriente;
+  final MoneyValue totalActivo;
+  final MoneyValue pasivoCorriente;
+  final MoneyValue pasivoNoCorriente;
+  final MoneyValue totalPasivo;
+  final MoneyValue patrimonio;
+  final MoneyValue totalPasivoPatrimonio;
 
   DatosCGN2015_003({
     required this.activoCorriente,
@@ -221,30 +223,30 @@ class DatosCGN2015_003 {
 
   Map<String, dynamic> toJson() {
     return {
-      'activo_corriente': activoCorriente,
-      'activo_no_corriente': activoNoCorriente,
-      'total_activo': totalActivo,
-      'pasivo_corriente': pasivoCorriente,
-      'pasivo_no_corriente': pasivoNoCorriente,
-      'total_pasivo': totalPasivo,
-      'patrimonio': patrimonio,
-      'total_pasivo_patrimonio': totalPasivoPatrimonio,
+      'activo_corriente': publicMoneyForDisplay(activoCorriente),
+      'activo_no_corriente': publicMoneyForDisplay(activoNoCorriente),
+      'total_activo': publicMoneyForDisplay(totalActivo),
+      'pasivo_corriente': publicMoneyForDisplay(pasivoCorriente),
+      'pasivo_no_corriente': publicMoneyForDisplay(pasivoNoCorriente),
+      'total_pasivo': publicMoneyForDisplay(totalPasivo),
+      'patrimonio': publicMoneyForDisplay(patrimonio),
+      'total_pasivo_patrimonio': publicMoneyForDisplay(totalPasivoPatrimonio),
     };
   }
 }
 
 /// Datos específicos para formulario CGN 2015_004 (Ejecución Presupuestal)
 class DatosCGN2015_004 {
-  final double apropiacionInicial;
-  final double adiciones;
-  final double reducciones;
-  final double credito;
-  final double contraCredito;
-  final double apropiacionDefinitiva;
-  final double compromisos;
-  final double obligaciones;
-  final double pagos;
-  final double saldoPorComprometer;
+  final MoneyValue apropiacionInicial;
+  final MoneyValue adiciones;
+  final MoneyValue reducciones;
+  final MoneyValue credito;
+  final MoneyValue contraCredito;
+  final MoneyValue apropiacionDefinitiva;
+  final MoneyValue compromisos;
+  final MoneyValue obligaciones;
+  final MoneyValue pagos;
+  final MoneyValue saldoPorComprometer;
 
   DatosCGN2015_004({
     required this.apropiacionInicial,
@@ -261,29 +263,29 @@ class DatosCGN2015_004 {
 
   Map<String, dynamic> toJson() {
     return {
-      'apropiacion_inicial': apropiacionInicial,
-      'adiciones': adiciones,
-      'reducciones': reducciones,
-      'credito': credito,
-      'contra_credito': contraCredito,
-      'apropiacion_definitiva': apropiacionDefinitiva,
-      'compromisos': compromisos,
-      'obligaciones': obligaciones,
-      'pagos': pagos,
-      'saldo_por_comprometer': saldoPorComprometer,
+      'apropiacion_inicial': publicMoneyForDisplay(apropiacionInicial),
+      'adiciones': publicMoneyForDisplay(adiciones),
+      'reducciones': publicMoneyForDisplay(reducciones),
+      'credito': publicMoneyForDisplay(credito),
+      'contra_credito': publicMoneyForDisplay(contraCredito),
+      'apropiacion_definitiva': publicMoneyForDisplay(apropiacionDefinitiva),
+      'compromisos': publicMoneyForDisplay(compromisos),
+      'obligaciones': publicMoneyForDisplay(obligaciones),
+      'pagos': publicMoneyForDisplay(pagos),
+      'saldo_por_comprometer': publicMoneyForDisplay(saldoPorComprometer),
     };
   }
 }
 
 /// Datos específicos para formulario CGN 2015_005 (Deuda Pública)
 class DatosCGN2015_005 {
-  final double deudaInterna;
-  final double deudaExterna;
-  final double deudaTotal;
-  final double servicioDeuda;
-  final double cuotaAmortizacion;
-  final double intereses;
-  final double deudaVencida;
+  final MoneyValue deudaInterna;
+  final MoneyValue deudaExterna;
+  final MoneyValue deudaTotal;
+  final MoneyValue servicioDeuda;
+  final MoneyValue cuotaAmortizacion;
+  final MoneyValue intereses;
+  final MoneyValue deudaVencida;
 
   DatosCGN2015_005({
     required this.deudaInterna,
@@ -297,13 +299,13 @@ class DatosCGN2015_005 {
 
   Map<String, dynamic> toJson() {
     return {
-      'deuda_interna': deudaInterna,
-      'deuda_externa': deudaExterna,
-      'deuda_total': deudaTotal,
-      'servicio_deuda': servicioDeuda,
-      'cuota_amortizacion': cuotaAmortizacion,
-      'intereses': intereses,
-      'deuda_vencida': deudaVencida,
+      'deuda_interna': publicMoneyForDisplay(deudaInterna),
+      'deuda_externa': publicMoneyForDisplay(deudaExterna),
+      'deuda_total': publicMoneyForDisplay(deudaTotal),
+      'servicio_deuda': publicMoneyForDisplay(servicioDeuda),
+      'cuota_amortizacion': publicMoneyForDisplay(cuotaAmortizacion),
+      'intereses': publicMoneyForDisplay(intereses),
+      'deuda_vencida': publicMoneyForDisplay(deudaVencida),
     };
   }
 }

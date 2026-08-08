@@ -56,16 +56,31 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
       final auditoria = AuditoriaService(db);
 
       _activosService = ActivosService(db: db, auditoriaService: auditoria);
-      _depreciacionUnidadesService = DepreciacionUnidadesService(db: db, auditoriaService: auditoria);
-      _revalorizacionService = RevalorizacionService(db: db, auditoriaService: auditoria);
-      _futService = FondoUnidadTesoreriaService(db: db, auditoriaService: auditoria);
-      _actaService = ActaResponsabilidadService(db: db, auditoriaService: auditoria);
+      _depreciacionUnidadesService = DepreciacionUnidadesService(
+        db: db,
+        auditoriaService: auditoria,
+      );
+      _revalorizacionService = RevalorizacionService(
+        db: db,
+        auditoriaService: auditoria,
+      );
+      _futService = FondoUnidadTesoreriaService(
+        db: db,
+        auditoriaService: auditoria,
+      );
+      _actaService = ActaResponsabilidadService(
+        db: db,
+        auditoriaService: auditoria,
+      );
 
       await _cargarDatos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al inicializar servicios de Activos: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al inicializar servicios de Activos: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -76,7 +91,9 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
   Future<void> _cargarDatos() async {
     if (_activosService == null || _futService == null) return;
     try {
-      final activos = await _activosService!.consultarActivos(entidadId: widget.entidadId);
+      final activos = await _activosService!.consultarActivos(
+        entidadId: widget.entidadId,
+      );
       final futs = await _futService!.consultarFUT(entidadId: widget.entidadId);
 
       setState(() {
@@ -86,7 +103,10 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar datos de Activos: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al cargar datos de Activos: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -99,10 +119,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
         title: const Text('Propiedad, Planta y Equipo (NICSP 17)'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _cargarDatos,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _cargarDatos),
         ],
       ),
       body: _cargando
@@ -113,10 +130,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                 Expanded(
                   child: IndexedStack(
                     index: _selectedIndex,
-                    children: [
-                      _buildActivosTab(),
-                      _buildFUTTab(),
-                    ],
+                    children: [_buildActivosTab(), _buildFUTTab()],
                   ),
                 ),
               ],
@@ -173,7 +187,10 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
           children: [
             Icon(Icons.inventory, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text('Gestión de Activos del Estado', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Gestión de Activos del Estado',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             const Text('Propiedad, Planta y Equipo según NICSP 17'),
             const SizedBox(height: 24),
@@ -203,37 +220,72 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.precision_manufacturing, color: Colors.white),
             ),
-            title: Text('${activo.nombreActivo} (#${activo.numeroInventario})', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(
+              '${activo.nombreActivo} (#${activo.numeroInventario})',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Tipo: ${activo.tipoActivo.name} | Adquisición: ${CurrencyFormatter.format(activo.valorAdquisicion)}'),
-                Text('Libros: ${CurrencyFormatter.format(activo.valorLibros)} | Deprec. Acum.: ${CurrencyFormatter.format(activo.depreciacionAcumulada)}'),
+                Text(
+                  'Tipo: ${activo.tipoActivo.name} | Adquisición: ${publicMoneyForDisplay(activo.valorAdquisicion)}',
+                ),
+                Text(
+                  'Libros: ${publicMoneyForDisplay(activo.valorLibros)} | Deprec. Acum.: ${publicMoneyForDisplay(activo.depreciacionAcumulada)}',
+                ),
               ],
             ),
             trailing: PopupMenuButton<String>(
               onSelected: (val) {
                 if (val == 'depreciar_lineal') _depreciarLinealDialog(activo);
-                if (val == 'config_unidades') _configurarDepreciacionUnidadesDialog(activo);
+                if (val == 'config_unidades')
+                  _configurarDepreciacionUnidadesDialog(activo);
                 if (val == 'revalorizar') _revalorizarActivoDialog(activo);
                 if (val == 'asignar_acta') _asignarActaDialog(activo);
               },
               itemBuilder: (context) => [
                 PopupMenuItem(
                   value: 'asignar_acta',
-                  child: Row(children: [Icon(Icons.assignment_ind, color: Theme.of(context).colorScheme.primary), SizedBox(width: 8), Text('Asignar Acta Custodia')]),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.assignment_ind,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      SizedBox(width: 8),
+                      Text('Asignar Acta Custodia'),
+                    ],
+                  ),
                 ),
                 const PopupMenuItem(
                   value: 'depreciar_lineal',
-                  child: Row(children: [Icon(Icons.trending_down, color: Colors.blue), SizedBox(width: 8), Text('Depreciación Lineal')]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.trending_down, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text('Depreciación Lineal'),
+                    ],
+                  ),
                 ),
                 const PopupMenuItem(
                   value: 'config_unidades',
-                  child: Row(children: [Icon(Icons.speed, color: Colors.orange), SizedBox(width: 8), Text('Depreciación por Unidades')]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.speed, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('Depreciación por Unidades'),
+                    ],
+                  ),
                 ),
                 const PopupMenuItem(
                   value: 'revalorizar',
-                  child: Row(children: [Icon(Icons.trending_up, color: Colors.green), SizedBox(width: 8), Text('Revalorizar NICSP 17')]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.trending_up, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text('Revalorizar NICSP 17'),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -251,7 +303,10 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
           children: [
             Icon(Icons.account_balance_wallet, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text('Fondo de Unidad de Tesorería (FUT)', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Fondo de Unidad de Tesorería (FUT)',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             const Text('FUT - Cuentas de Tesorería Pública'),
             const SizedBox(height: 24),
@@ -280,8 +335,13 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.account_balance, color: Colors.white),
             ),
-            title: Text('${fut.nombreFUT} (#${fut.numeroFUT})', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Valor Inicial: ${CurrencyFormatter.format(fut.valorInicial)} | Ejecutado: ${CurrencyFormatter.format(fut.valorEjecutado)}'),
+            title: Text(
+              '${fut.nombreFUT} (#${fut.numeroFUT})',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Valor Inicial: ${publicMoneyForDisplay(fut.valorInicial)} | Ejecutado: ${publicMoneyForDisplay(fut.valorEjecutado)}',
+            ),
           ),
         );
       },
@@ -319,31 +379,88 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: numInvCtrl, decoration: const InputDecoration(labelText: 'Número de Inventario', hintText: 'ej. INV-2026-001')),
-                TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre del Activo', hintText: 'ej. Maquinaria de Obras Públicas')),
+                TextField(
+                  controller: numInvCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de Inventario',
+                    hintText: 'ej. INV-2026-001',
+                  ),
+                ),
+                TextField(
+                  controller: nombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre del Activo',
+                    hintText: 'ej. Maquinaria de Obras Públicas',
+                  ),
+                ),
                 DropdownButtonFormField<TipoActivo>(
                   value: tipoSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Clasificación del Activo NICSP 17'),
+                  decoration: const InputDecoration(
+                    labelText: 'Clasificación del Activo NICSP 17',
+                  ),
                   items: TipoActivo.values.map((t) {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => tipoSeleccionado = val);
+                    if (val != null)
+                      setDialogState(() => tipoSeleccionado = val);
                   },
                 ),
-                TextField(controller: marcaCtrl, decoration: const InputDecoration(labelText: 'Marca', hintText: 'ej. Caterpillar')),
-                TextField(controller: modeloCtrl, decoration: const InputDecoration(labelText: 'Modelo / Año', hintText: 'ej. CAT-320')),
-                TextField(controller: serieCtrl, decoration: const InputDecoration(labelText: 'Número de Serie', hintText: 'ej. SN-99887766')),
-                TextField(controller: valorAdqCtrl, decoration: const InputDecoration(labelText: 'Valor Adquisición', hintText: 'ej. 120000000'), keyboardType: TextInputType.number),
-                TextField(controller: vidaUtilCtrl, decoration: const InputDecoration(labelText: 'Vida Útil (Años)', hintText: 'ej. 10'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: marcaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Marca',
+                    hintText: 'ej. Caterpillar',
+                  ),
+                ),
+                TextField(
+                  controller: modeloCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Modelo / Año',
+                    hintText: 'ej. CAT-320',
+                  ),
+                ),
+                TextField(
+                  controller: serieCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de Serie',
+                    hintText: 'ej. SN-99887766',
+                  ),
+                ),
+                TextField(
+                  controller: valorAdqCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Valor Adquisición',
+                    hintText: 'ej. 120000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: vidaUtilCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Vida Útil (Años)',
+                    hintText: 'ej. 10',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (numInvCtrl.text.isEmpty || nombreCtrl.text.isEmpty || valorAdqCtrl.text.isEmpty || vidaUtilCtrl.text.isEmpty || marcaCtrl.text.isEmpty || modeloCtrl.text.isEmpty || serieCtrl.text.isEmpty) return;
+                if (numInvCtrl.text.isEmpty ||
+                    nombreCtrl.text.isEmpty ||
+                    valorAdqCtrl.text.isEmpty ||
+                    vidaUtilCtrl.text.isEmpty ||
+                    marcaCtrl.text.isEmpty ||
+                    modeloCtrl.text.isEmpty ||
+                    serieCtrl.text.isEmpty)
+                  return;
                 try {
                   final valorAdq = publicMoneyFromMajor(valorAdqCtrl.text);
                   await _activosService!.registrarActivo(
@@ -363,12 +480,21 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Activo registrado con éxito')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Activo registrado con éxito'),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -390,13 +516,22 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Depreciación lineal actualizada. Valor en libros: ${CurrencyFormatter.format(res.valorLibros)}')),
+          SnackBar(
+            content: Text(
+              'Depreciación lineal actualizada. Valor en libros: ${publicMoneyForDisplay(res.valorLibros)}',
+            ),
+          ),
         );
       }
       _cargarDatos();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al depreciar: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al depreciar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -408,35 +543,55 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Configurar Depreciación por Unidades - ${activo.nombreActivo}'),
+        title: Text(
+          'Configurar Depreciación por Unidades - ${activo.nombreActivo}',
+        ),
         content: TextField(
           controller: unidadesTotalesCtrl,
-          decoration: const InputDecoration(labelText: 'Unidades Totales Estimadas (ej. km / horas)', hintText: 'ej. 100000'),
+          decoration: const InputDecoration(
+            labelText: 'Unidades Totales Estimadas (ej. km / horas)',
+            hintText: 'ej. 100000',
+          ),
           keyboardType: TextInputType.number,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (unidadesTotalesCtrl.text.isEmpty) return;
               try {
-                await _depreciacionUnidadesService!.configurarDepreciacionUnidades(
-                  entidadId: widget.entidadId,
-                  usuarioId: widget.usuarioId,
-                  activoId: activo.id,
-                  unidadesTotalesEstimadas: double.parse(unidadesTotalesCtrl.text),
-                  valorAdquisicion: activo.valorAdquisicion,
-                  valorResidual: activo.valorResidual,
-                  fechaInicio: DateTime.now(),
-                );
+                await _depreciacionUnidadesService!
+                    .configurarDepreciacionUnidades(
+                      entidadId: widget.entidadId,
+                      usuarioId: widget.usuarioId,
+                      activoId: activo.id,
+                      unidadesTotalesEstimadas: double.parse(
+                        unidadesTotalesCtrl.text,
+                      ),
+                      valorAdquisicion: activo.valorAdquisicion,
+                      valorResidual: activo.valorResidual,
+                      fechaInicio: DateTime.now(),
+                    );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Configuración por unidades registrada')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Configuración por unidades registrada'),
+                    ),
+                  );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -453,7 +608,8 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
     final peritoCtrl = TextEditingController();
     final dictamenCtrl = TextEditingController();
     final motivoCtrl = TextEditingController();
-    MetodoRevalorizacion metodoSeleccionado = MetodoRevalorizacion.valorRazonable;
+    MetodoRevalorizacion metodoSeleccionado =
+        MetodoRevalorizacion.valorRazonable;
 
     showDialog(
       context: context,
@@ -466,26 +622,61 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
               children: [
                 DropdownButtonFormField<MetodoRevalorizacion>(
                   value: metodoSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Método de Revalorización'),
+                  decoration: const InputDecoration(
+                    labelText: 'Método de Revalorización',
+                  ),
                   items: MetodoRevalorizacion.values.map((m) {
                     return DropdownMenuItem(value: m, child: Text(m.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => metodoSeleccionado = val);
+                    if (val != null)
+                      setDialogState(() => metodoSeleccionado = val);
                   },
                 ),
-                TextField(controller: valorNuevoCtrl, decoration: const InputDecoration(labelText: 'Nuevo Valor Razonable (min +10%)', hintText: 'ej. 150000000'), keyboardType: TextInputType.number),
-                TextField(controller: peritoCtrl, decoration: const InputDecoration(labelText: 'Perito Avaluador', hintText: 'ej. Ing. Carlos Pérez (Reg. ANAV)')),
-                TextField(controller: dictamenCtrl, decoration: const InputDecoration(labelText: 'Número Dictamen / Avalúo', hintText: 'ej. DICT-2026-001')),
-                TextField(controller: motivoCtrl, decoration: const InputDecoration(labelText: 'Motivo / Justificación Técnica', hintText: 'ej. Avalúo quinquenal NICSP 17')),
+                TextField(
+                  controller: valorNuevoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nuevo Valor Razonable (min +10%)',
+                    hintText: 'ej. 150000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: peritoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Perito Avaluador',
+                    hintText: 'ej. Ing. Carlos Pérez (Reg. ANAV)',
+                  ),
+                ),
+                TextField(
+                  controller: dictamenCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Número Dictamen / Avalúo',
+                    hintText: 'ej. DICT-2026-001',
+                  ),
+                ),
+                TextField(
+                  controller: motivoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo / Justificación Técnica',
+                    hintText: 'ej. Avalúo quinquenal NICSP 17',
+                  ),
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (valorNuevoCtrl.text.isEmpty || peritoCtrl.text.isEmpty || dictamenCtrl.text.isEmpty || motivoCtrl.text.isEmpty) return;
+                if (valorNuevoCtrl.text.isEmpty ||
+                    peritoCtrl.text.isEmpty ||
+                    dictamenCtrl.text.isEmpty ||
+                    motivoCtrl.text.isEmpty)
+                  return;
                 try {
                   final valorNuevo = publicMoneyFromMajor(valorNuevoCtrl.text);
                   await _revalorizacionService!.registrarRevalorizacion(
@@ -502,12 +693,23 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Revalorización aprobada y aplicada al activo')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Revalorización aprobada y aplicada al activo',
+                        ),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -526,7 +728,8 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
     final terceroIdCtrl = TextEditingController();
     final terceroNombreCtrl = TextEditingController();
     final terceroIdentificacionCtrl = TextEditingController();
-    TipoFondoUnidadTesoreria tipoSeleccionado = TipoFondoUnidadTesoreria.convenio;
+    TipoFondoUnidadTesoreria tipoSeleccionado =
+        TipoFondoUnidadTesoreria.convenio;
 
     showDialog(
       context: context,
@@ -537,7 +740,13 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre FUT', hintText: 'ej. Fondo Educación Municipal')),
+                TextField(
+                  controller: nombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre FUT',
+                    hintText: 'ej. Fondo Educación Municipal',
+                  ),
+                ),
                 DropdownButtonFormField<TipoFondoUnidadTesoreria>(
                   value: tipoSeleccionado,
                   decoration: const InputDecoration(labelText: 'Tipo de FUT'),
@@ -545,21 +754,55 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => tipoSeleccionado = val);
+                    if (val != null)
+                      setDialogState(() => tipoSeleccionado = val);
                   },
                 ),
-                TextField(controller: valorCtrl, decoration: const InputDecoration(labelText: 'Valor Inicial', hintText: 'ej. 50000000'), keyboardType: TextInputType.number),
-                TextField(controller: terceroIdCtrl, decoration: const InputDecoration(labelText: 'ID Tercero', hintText: 'ej. TER-001')),
-                TextField(controller: terceroNombreCtrl, decoration: const InputDecoration(labelText: 'Nombre Tercero / Entidad', hintText: 'ej. Ministerio de Educación')),
-                TextField(controller: terceroIdentificacionCtrl, decoration: const InputDecoration(labelText: 'NIT / Cédula Tercero', hintText: 'ej. 899999111')),
+                TextField(
+                  controller: valorCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Valor Inicial',
+                    hintText: 'ej. 50000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: terceroIdCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'ID Tercero',
+                    hintText: 'ej. TER-001',
+                  ),
+                ),
+                TextField(
+                  controller: terceroNombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre Tercero / Entidad',
+                    hintText: 'ej. Ministerio de Educación',
+                  ),
+                ),
+                TextField(
+                  controller: terceroIdentificacionCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'NIT / Cédula Tercero',
+                    hintText: 'ej. 899999111',
+                  ),
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (nombreCtrl.text.isEmpty || valorCtrl.text.isEmpty || terceroNombreCtrl.text.isEmpty || terceroIdentificacionCtrl.text.isEmpty || terceroIdCtrl.text.isEmpty) return;
+                if (nombreCtrl.text.isEmpty ||
+                    valorCtrl.text.isEmpty ||
+                    terceroNombreCtrl.text.isEmpty ||
+                    terceroIdentificacionCtrl.text.isEmpty ||
+                    terceroIdCtrl.text.isEmpty)
+                  return;
                 try {
                   await _futService!.crearFUT(
                     entidadId: widget.entidadId,
@@ -573,12 +816,21 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Registro FUT creado con éxito')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Registro FUT creado con éxito'),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -624,7 +876,9 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
               children: [
                 if (empleados.isNotEmpty) ...[
                   DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'Seleccionar Cuentadante / Funcionario'),
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar Cuentadante / Funcionario',
+                    ),
                     items: empleados.map((emp) {
                       final id = emp['id'] as String;
                       final nombre = emp['nombre_completo'] as String;
@@ -632,7 +886,10 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                       final dep = emp['dependencia'] as String;
                       return DropdownMenuItem(
                         value: id,
-                        child: Text('$nombre ($cc)', overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          '$nombre ($cc)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -641,7 +898,8 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                         setDialogState(() {
                           funcionarioIdSel = val;
                           nombreCtrl.text = sel['nombre_completo'] as String;
-                          cedulaCtrl.text = sel['numero_identificacion'] as String;
+                          cedulaCtrl.text =
+                              sel['numero_identificacion'] as String;
                           depCtrl.text = sel['dependencia'] as String;
                         });
                       }
@@ -649,24 +907,57 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre Completo Cuentadante', hintText: 'ej. Carlos Restrepo')),
-                TextField(controller: cedulaCtrl, decoration: const InputDecoration(labelText: 'Cédula / Identificación', hintText: 'ej. 79998877')),
-                TextField(controller: depCtrl, decoration: const InputDecoration(labelText: 'Dependencia / Secretaría', hintText: 'ej. Secretaría de Obras Públicas')),
-                TextField(controller: ubicaCtrl, decoration: const InputDecoration(labelText: 'Ubicación Física del Activo', hintText: 'ej. Almacén Central - Bodega 2')),
+                TextField(
+                  controller: nombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre Completo Cuentadante',
+                    hintText: 'ej. Carlos Restrepo',
+                  ),
+                ),
+                TextField(
+                  controller: cedulaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Cédula / Identificación',
+                    hintText: 'ej. 79998877',
+                  ),
+                ),
+                TextField(
+                  controller: depCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Dependencia / Secretaría',
+                    hintText: 'ej. Secretaría de Obras Públicas',
+                  ),
+                ),
+                TextField(
+                  controller: ubicaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Ubicación Física del Activo',
+                    hintText: 'ej. Almacén Central - Bodega 2',
+                  ),
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (nombreCtrl.text.isEmpty || cedulaCtrl.text.isEmpty || depCtrl.text.isEmpty || ubicaCtrl.text.isEmpty) return;
+                if (nombreCtrl.text.isEmpty ||
+                    cedulaCtrl.text.isEmpty ||
+                    depCtrl.text.isEmpty ||
+                    ubicaCtrl.text.isEmpty)
+                  return;
                 try {
                   final acta = await _actaService!.asignarResponsabilidad(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
                     activoId: activo.id,
-                    funcionarioId: funcionarioIdSel ?? 'FUNC-TEMP-${DateTime.now().millisecondsSinceEpoch}',
+                    funcionarioId:
+                        funcionarioIdSel ??
+                        'FUNC-TEMP-${DateTime.now().millisecondsSinceEpoch}',
                     funcionarioNombre: nombreCtrl.text,
                     funcionarioIdentificacion: cedulaCtrl.text,
                     dependencia: depCtrl.text,
@@ -679,9 +970,14 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Acta de Responsabilidad Generada'),
-                        content: SingleChildScrollView(child: SelectableText(plano)),
+                        content: SingleChildScrollView(
+                          child: SelectableText(plano),
+                        ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cerrar'),
+                          ),
                         ],
                       ),
                     );
@@ -689,7 +985,12 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },

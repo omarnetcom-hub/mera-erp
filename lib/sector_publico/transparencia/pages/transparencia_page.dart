@@ -13,6 +13,7 @@ import '../models/proceso_disciplinario.dart';
 import '../models/consolidacion_nicsp40.dart';
 import '../../nomina/models/empleado.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_formatter.dart';
 
@@ -66,9 +67,18 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
       final db = await DatabaseHelper.instance.database;
       final auditoriaService = AuditoriaService(db);
 
-      _transparenciaService = TransparenciaService(db: db, auditoriaService: auditoriaService);
-      _disciplinarioService = DisciplinarioService(db: db, auditoriaService: auditoriaService);
-      _nicsp40Service = NICSP40Service(db: db, auditoriaService: auditoriaService);
+      _transparenciaService = TransparenciaService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
+      _disciplinarioService = DisciplinarioService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
+      _nicsp40Service = NICSP40Service(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
       _consolidacionJerarquicaService = ConsolidacionJerarquicaService(db: db);
       _conciliacionReciprocasService = ConciliacionReciprocasService(db: db);
       final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
@@ -76,7 +86,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
       );
-      _puedeAprobarReciprocas = rol != null &&
+      _puedeAprobarReciprocas =
+          rol != null &&
           RolesPermisosService.tienePermiso(
             rol,
             Permiso.aprobarConciliacionReciproca,
@@ -109,11 +120,11 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
         entidadId: widget.entidadId,
       );
 
-      _conciliacionesReciprocas =
-          await _conciliacionReciprocasService.listarConciliaciones(
-        entidadConsolidadoraId: widget.entidadId,
-        vigencia: DateTime.now().year.toString(),
-      );
+      _conciliacionesReciprocas = await _conciliacionReciprocasService
+          .listarConciliaciones(
+            entidadConsolidadoraId: widget.entidadId,
+            vigencia: DateTime.now().year.toString(),
+          );
 
       // 4. Cargar Empleados (para autocompletado opcional en control disciplinario)
       final empleadosResult = await db.query(
@@ -185,18 +196,18 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
               child: Icon(Icons.add),
             )
           : _selectedIndex == 1
-              ? FloatingActionButton(
-                  onPressed: _iniciarProceso,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Icon(Icons.add),
-                )
-              : _selectedIndex == 2
-                  ? FloatingActionButton(
-                      onPressed: _registrarTransferencia,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Icon(Icons.add),
-                    )
-                  : null,
+          ? FloatingActionButton(
+              onPressed: _iniciarProceso,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
+            )
+          : _selectedIndex == 2
+          ? FloatingActionButton(
+              onPressed: _registrarTransferencia,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -236,10 +247,14 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             title: Text(rep.titulo),
-            subtitle: Text('${rep.numeroReporte} | Tipo: ${rep.tipoReporte.toString().split('.').last}'),
+            subtitle: Text(
+              '${rep.numeroReporte} | Tipo: ${rep.tipoReporte.toString().split('.').last}',
+            ),
             trailing: Chip(
               label: Text(rep.estado.toString().split('.').last.toUpperCase()),
-              backgroundColor: rep.estado == EstadoReporte.publicado ? Colors.green : Colors.grey,
+              backgroundColor: rep.estado == EstadoReporte.publicado
+                  ? Colors.green
+                  : Colors.grey,
               labelStyle: const TextStyle(color: Colors.white, fontSize: 10),
             ),
             children: [
@@ -249,9 +264,14 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Descripción: ${rep.descripcion}'),
-                    Text('Periodo: ${DateFormatter.format(rep.periodoInicio)} a ${DateFormatter.format(rep.periodoFin)}'),
+                    Text(
+                      'Periodo: ${DateFormatter.format(rep.periodoInicio)} a ${DateFormatter.format(rep.periodoFin)}',
+                    ),
                     if (rep.urlPublicacion != null)
-                      Text('URL Publicación: ${rep.urlPublicacion}', style: TextStyle(color: Colors.blue)),
+                      Text(
+                        'URL Publicación: ${rep.urlPublicacion}',
+                        style: TextStyle(color: Colors.blue),
+                      ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -266,7 +286,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         );
@@ -325,28 +345,39 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                     Text('Descripción de la Falta: ${proc.descripcion}'),
                     Text('Inicio: ${DateFormatter.format(proc.fechaInicio)}'),
                     if (proc.fechaDecision != null)
-                      Text('Decisión: ${DateFormatter.format(proc.fechaDecision!)}'),
+                      Text(
+                        'Decisión: ${DateFormatter.format(proc.fechaDecision!)}',
+                      ),
                     if (proc.sancion != null)
-                      Text('Sanción / Medida: ${proc.sancion}', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        'Sanción / Medida: ${proc.sancion}',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     if (proc.montoSancion != null && proc.montoSancion! > 0)
-                      Text('Monto Sanción: ${CurrencyFormatter.format(proc.montoSancion!)}'),
+                      Text(
+                        'Monto Sanción: ${publicMoneyForDisplay(proc.montoSancion!)}',
+                      ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (proc.estado != EstadoProcesoDisciplinario.archivado &&
-                            proc.estado != EstadoProcesoDisciplinario.absuelto &&
-                            proc.estado != EstadoProcesoDisciplinario.sancionado)
+                        if (proc.estado !=
+                                EstadoProcesoDisciplinario.archivado &&
+                            proc.estado !=
+                                EstadoProcesoDisciplinario.absuelto &&
+                            proc.estado !=
+                                EstadoProcesoDisciplinario.sancionado)
                           TextButton.icon(
                             icon: Icon(Icons.assignment_turned_in),
                             label: const Text('Registrar Decisión/Fallo'),
-                            onPressed: () => _registrarDecisionDisciplinaria(proc),
+                            onPressed: () =>
+                                _registrarDecisionDisciplinaria(proc),
                           ),
                       ],
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         );
@@ -365,7 +396,11 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
             children: [
               Text(
                 'Transferencias Consolidadas',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
               Wrap(
                 spacing: 8,
@@ -409,21 +444,51 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   children: [
                     Text(
                       'Consolidado de Saldos Contables (Gobernación + Entidades Adscritas)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.getSuccessColor(context)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.getSuccessColor(context),
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text('Entidades Consolidadas: ${_consolidadoJerarquicoReporte!['total_entidades_consolidadas']}'),
-                    Text('Vigencia: ${_consolidadoJerarquicoReporte!['vigencia']}'),
+                    Text(
+                      'Entidades Consolidadas: ${_consolidadoJerarquicoReporte!['total_entidades_consolidadas']}',
+                    ),
+                    Text(
+                      'Vigencia: ${_consolidadoJerarquicoReporte!['vigencia']}',
+                    ),
                     const Divider(),
-                    Text('Activos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['activos'] as double))}'),
-                    Text('Pasivos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['pasivos'] as double))}'),
-                    Text('Patrimonio: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['patrimonio'] as double))}'),
-                    Text('Ingresos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['ingresos'] as double))}'),
-                    Text('Gastos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['gastos'] as double))}'),
-                    Text('Superávit/Déficit: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['superavit_deficit'] as double))}', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      'Activos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['activos'] as double))}',
+                    ),
+                    Text(
+                      'Pasivos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['pasivos'] as double))}',
+                    ),
+                    Text(
+                      'Patrimonio: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['patrimonio'] as double))}',
+                    ),
+                    Text(
+                      'Ingresos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['ingresos'] as double))}',
+                    ),
+                    Text(
+                      'Gastos: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['gastos'] as double))}',
+                    ),
+                    Text(
+                      'Superávit/Déficit: ${CurrencyFormatter.format((_consolidadoJerarquicoReporte!['resumen']['superavit_deficit'] as double))}',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(height: 6),
-                    Text('Conciliaciones aplicadas: ${_consolidadoJerarquicoReporte!['eliminaciones_reciprocas']['conciliaciones_aplicadas']}'),
-                    const Text('* Solo se eliminan partidas recíprocas aprobadas; los asientos originales no cambian.', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey)),
+                    Text(
+                      'Conciliaciones aplicadas: ${_consolidadoJerarquicoReporte!['eliminaciones_reciprocas']['conciliaciones_aplicadas']}',
+                    ),
+                    const Text(
+                      '* Solo se eliminan partidas recíprocas aprobadas; los asientos originales no cambian.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -431,17 +496,26 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
             const SizedBox(height: 16),
           ],
           if (_conciliacionesReciprocas.isNotEmpty) ...[
-            Text('Conciliaciones recíprocas aprobadas', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Conciliaciones recíprocas aprobadas',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            ..._conciliacionesReciprocas.map((conciliacion) => ListTile(
-              leading: const Icon(Icons.verified),
-              title: Text(CurrencyFormatter.format((conciliacion['monto_conciliado'] as num).toDouble())),
-              subtitle: Text(
-                '${conciliacion['total_partidas']} partidas | Aprobó ${conciliacion['aprobado_por']} | '
-                'Tolerancias: ${conciliacion['tolerancia_dias']} días / '
-                '${CurrencyFormatter.format((conciliacion['tolerancia_monto'] as num).toDouble())}',
+            ..._conciliacionesReciprocas.map(
+              (conciliacion) => ListTile(
+                leading: const Icon(Icons.verified),
+                title: Text(
+                  publicMoneyForDisplay(
+                    publicMoneyFromSql(conciliacion['monto_conciliado']),
+                  ),
+                ),
+                subtitle: Text(
+                  '${conciliacion['total_partidas']} partidas | Aprobó ${conciliacion['aprobado_por']} | '
+                  'Tolerancias: ${conciliacion['tolerancia_dias']} días / '
+                  '${publicMoneyForDisplay(publicMoneyFromSql(conciliacion['tolerancia_monto']))}',
+                ),
               ),
-            )),
+            ),
             const Divider(),
           ],
           if (_nicsp40Reporte != null) ...[
@@ -454,12 +528,23 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   children: [
                     Text(
                       'Resumen Consolidado (Revelaciones)',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSecondaryContainer),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    Text('Total Transferido: ${CurrencyFormatter.format((_nicsp40Reporte!['total_transferido'] as double))}'),
-                    Text('Total Ejecutado: ${CurrencyFormatter.format((_nicsp40Reporte!['total_ejecutado'] as double))}'),
-                    Text('Total No Ejecutado: ${CurrencyFormatter.format((_nicsp40Reporte!['total_no_ejecutado'] as double))}'),
+                    Text(
+                      'Total Transferido: ${CurrencyFormatter.format((_nicsp40Reporte!['total_transferido'] as double))}',
+                    ),
+                    Text(
+                      'Total Ejecutado: ${CurrencyFormatter.format((_nicsp40Reporte!['total_ejecutado'] as double))}',
+                    ),
+                    Text(
+                      'Total No Ejecutado: ${CurrencyFormatter.format((_nicsp40Reporte!['total_no_ejecutado'] as double))}',
+                    ),
                   ],
                 ),
               ),
@@ -484,9 +569,11 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ExpansionTile(
                     title: Text('${con.entidadOrigen} ➔ ${con.entidadDestino}'),
-                    subtitle: Text('${con.numeroConsolidacion} | Vigencia: ${con.vigencia}'),
+                    subtitle: Text(
+                      '${con.numeroConsolidacion} | Vigencia: ${con.vigencia}',
+                    ),
                     trailing: Text(
-                      '${CurrencyFormatter.format(con.valorTransferido)}',
+                      '${publicMoneyForDisplay(con.valorTransferido)}',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     children: [
@@ -495,14 +582,22 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Tipo: ${con.tipoTransferencia.toString().split('.').last}'),
+                            Text(
+                              'Tipo: ${con.tipoTransferencia.toString().split('.').last}',
+                            ),
                             Text('Descripción: ${con.descripcion}'),
-                            Text('Fecha Transferencia: ${DateFormatter.format(con.fechaTransferencia)}'),
+                            Text(
+                              'Fecha Transferencia: ${DateFormatter.format(con.fechaTransferencia)}',
+                            ),
                             if (con.proyecto != null)
                               Text('Proyecto Asociado: ${con.proyecto}'),
                             const Divider(),
-                            Text('Valor Ejecutado: ${CurrencyFormatter.format(con.valorEjecutado)}'),
-                            Text('Valor No Ejecutado: ${CurrencyFormatter.format(con.valorNoEjecutado)}'),
+                            Text(
+                              'Valor Ejecutado: ${publicMoneyForDisplay(con.valorEjecutado)}',
+                            ),
+                            Text(
+                              'Valor No Ejecutado: ${publicMoneyForDisplay(con.valorNoEjecutado)}',
+                            ),
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
@@ -510,13 +605,14 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                                 TextButton.icon(
                                   icon: Icon(Icons.edit),
                                   label: const Text('Actualizar Ejecución'),
-                                  onPressed: () => _actualizarEjecucionNICSP40(con),
+                                  onPressed: () =>
+                                      _actualizarEjecucionNICSP40(con),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
                 );
@@ -548,7 +644,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
     final formKey = GlobalKey<FormState>();
     final tituloController = TextEditingController();
     final descripcionController = TextEditingController();
-    TipoReporteTransparencia tipoSeleccionado = TipoReporteTransparencia.contratacion;
+    TipoReporteTransparencia tipoSeleccionado =
+        TipoReporteTransparencia.contratacion;
 
     DateTime fechaInicio = DateTime.now().subtract(const Duration(days: 30));
     DateTime fechaFin = DateTime.now();
@@ -566,9 +663,14 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 children: [
                   DropdownButtonFormField<TipoReporteTransparencia>(
                     initialValue: tipoSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Tipo de Reporte'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de Reporte',
+                    ),
                     items: TipoReporteTransparencia.values.map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t.toString().split('.').last));
+                      return DropdownMenuItem(
+                        value: t,
+                        child: Text(t.toString().split('.').last),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -578,13 +680,19 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   ),
                   TextFormField(
                     controller: tituloController,
-                    decoration: const InputDecoration(labelText: 'Título del Reporte'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Título del Reporte',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: descripcionController,
-                    decoration: const InputDecoration(labelText: 'Descripción / Resumen'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Descripción / Resumen',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -684,8 +792,11 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
           key: formKey,
           child: TextFormField(
             controller: urlController,
-            decoration: const InputDecoration(labelText: 'URL de Publicación Web (ej. Colombia Compra)'),
-            validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+            decoration: const InputDecoration(
+              labelText: 'URL de Publicación Web (ej. Colombia Compra)',
+            ),
+            validator: (value) =>
+                value == null || value.isEmpty ? 'Requerido' : null,
           ),
         ),
         actions: [
@@ -747,9 +858,14 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 children: [
                   DropdownButtonFormField<TipoProceso>(
                     initialValue: tipoSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Tipo de Proceso'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de Proceso',
+                    ),
                     items: TipoProceso.values.map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t.toString().split('.').last));
+                      return DropdownMenuItem(
+                        value: t,
+                        child: Text(t.toString().split('.').last),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -760,22 +876,27 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<Empleado?>(
                     initialValue: null,
-                    decoration: const InputDecoration(labelText: 'Autocompletar con Empleado (Opcional)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Autocompletar con Empleado (Opcional)',
+                    ),
                     items: [
                       const DropdownMenuItem<Empleado?>(
                         value: null,
                         child: Text('Ninguno (Ingreso Manual)'),
                       ),
-                      ..._empleados.map((e) => DropdownMenuItem<Empleado?>(
-                        value: e,
-                        child: Text(e.nombreCompleto),
-                      )),
+                      ..._empleados.map(
+                        (e) => DropdownMenuItem<Empleado?>(
+                          value: e,
+                          child: Text(e.nombreCompleto),
+                        ),
+                      ),
                     ],
                     onChanged: (emp) {
                       if (emp != null) {
                         setDialogState(() {
                           servidorController.text = emp.nombreCompleto;
-                          identificacionController.text = emp.numeroIdentificacion;
+                          identificacionController.text =
+                              emp.numeroIdentificacion;
                           cargoController.text = emp.cargo;
                           dependenciaController.text = emp.dependencia;
                         });
@@ -785,28 +906,39 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: servidorController,
-                    decoration: const InputDecoration(labelText: 'Servidor Público Implicado'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Servidor Público Implicado',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: identificacionController,
-                    decoration: const InputDecoration(labelText: 'Identificación (NIT/CC)'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Identificación (NIT/CC)',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: cargoController,
                     decoration: const InputDecoration(labelText: 'Cargo'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: dependenciaController,
                     decoration: const InputDecoration(labelText: 'Dependencia'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: descripcionController,
-                    decoration: const InputDecoration(labelText: 'Descripción de los Hechos'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Descripción de los Hechos',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                 ],
               ),
@@ -859,7 +991,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
     final actoController = TextEditingController();
     final sancionController = TextEditingController();
     final montoController = TextEditingController(text: '0.0');
-    EstadoProcesoDisciplinario estadoSeleccionado = EstadoProcesoDisciplinario.sancionado;
+    EstadoProcesoDisciplinario estadoSeleccionado =
+        EstadoProcesoDisciplinario.sancionado;
 
     showDialog(
       context: context,
@@ -877,14 +1010,20 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   const Divider(),
                   DropdownButtonFormField<EstadoProcesoDisciplinario>(
                     initialValue: estadoSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Fallo/Estado'),
-                    items: [
-                      EstadoProcesoDisciplinario.sancionado,
-                      EstadoProcesoDisciplinario.absuelto,
-                      EstadoProcesoDisciplinario.archivado,
-                    ].map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t.toString().split('.').last));
-                    }).toList(),
+                    decoration: const InputDecoration(
+                      labelText: 'Fallo/Estado',
+                    ),
+                    items:
+                        [
+                          EstadoProcesoDisciplinario.sancionado,
+                          EstadoProcesoDisciplinario.absuelto,
+                          EstadoProcesoDisciplinario.archivado,
+                        ].map((t) {
+                          return DropdownMenuItem(
+                            value: t,
+                            child: Text(t.toString().split('.').last),
+                          );
+                        }).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setDialogState(() => estadoSeleccionado = val);
@@ -893,17 +1032,27 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   ),
                   TextFormField(
                     controller: actoController,
-                    decoration: const InputDecoration(labelText: 'Acto Administrativo / Resolución #'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido (Exigencia Auditoría)' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Acto Administrativo / Resolución #',
+                    ),
+                    validator: (value) => value == null || value.isEmpty
+                        ? 'Requerido (Exigencia Auditoría)'
+                        : null,
                   ),
                   TextFormField(
                     controller: sancionController,
-                    decoration: const InputDecoration(labelText: 'Sanción / Medida Aplicada'),
+                    decoration: const InputDecoration(
+                      labelText: 'Sanción / Medida Aplicada',
+                    ),
                   ),
                   TextFormField(
                     controller: montoController,
-                    decoration: const InputDecoration(labelText: 'Monto de Multa (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Monto de Multa (\$)',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                   ),
                 ],
               ),
@@ -925,8 +1074,9 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                       usuarioId: widget.usuarioId,
                       procesoId: proc.id,
                       estadoDecision: estadoSeleccionado,
-                      sancion: 'Acto Administrativo: ${actoController.text}. Sanción: ${sancionController.text}',
-                      montoSancion: double.parse(montoController.text),
+                      sancion:
+                          'Acto Administrativo: ${actoController.text}. Sanción: ${sancionController.text}',
+                      montoSancion: publicMoneyFromMajor(montoController.text),
                     );
                     _mostrarExito('Fallo registrado correctamente');
                     await _cargarDatos();
@@ -951,7 +1101,9 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
 
   void _registrarTransferencia() {
     final formKey = GlobalKey<FormState>();
-    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaController = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     final origenController = TextEditingController();
     final destinoController = TextEditingController();
     final descripcionController = TextEditingController();
@@ -974,24 +1126,38 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 children: [
                   TextFormField(
                     controller: vigenciaController,
-                    decoration: const InputDecoration(labelText: 'Vigencia Fiscal'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Vigencia Fiscal',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: origenController,
-                    decoration: const InputDecoration(labelText: 'Entidad de Origen (Aportante)'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Entidad de Origen (Aportante)',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: destinoController,
-                    decoration: const InputDecoration(labelText: 'Entidad Destino (Receptora)'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Entidad Destino (Receptora)',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   DropdownButtonFormField<TipoTransferencia>(
                     initialValue: tipoSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Tipo de Transferencia'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de Transferencia',
+                    ),
                     items: TipoTransferencia.values.map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t.toString().split('.').last));
+                      return DropdownMenuItem(
+                        value: t,
+                        child: Text(t.toString().split('.').last),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -1001,24 +1167,36 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                   ),
                   TextFormField(
                     controller: descripcionController,
-                    decoration: const InputDecoration(labelText: 'Descripción / Concepto'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Descripción / Concepto',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: valorController,
-                    decoration: const InputDecoration(labelText: 'Valor Transferido (\$)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Valor Transferido (\$)',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: proyectoController,
-                    decoration: const InputDecoration(labelText: 'Proyecto Asociado (Opcional)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Proyecto Asociado (Opcional)',
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Fecha: ${fechaTransferencia.toString().split(' ')[0]}'),
+                      Text(
+                        'Fecha: ${fechaTransferencia.toString().split(' ')[0]}',
+                      ),
                       TextButton(
                         onPressed: () async {
                           final selected = await showDatePicker(
@@ -1058,9 +1236,13 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                       entidadDestino: destinoController.text,
                       tipoTransferencia: tipoSeleccionado,
                       descripcion: descripcionController.text,
-                      valorTransferido: double.parse(valorController.text),
+                      valorTransferido: publicMoneyFromMajor(
+                        valorController.text,
+                      ),
                       fechaTransferencia: fechaTransferencia,
-                      proyecto: proyectoController.text.isEmpty ? null : proyectoController.text,
+                      proyecto: proyectoController.text.isEmpty
+                          ? null
+                          : proyectoController.text,
                     );
                     _mostrarExito('Transferencia registrada exitosamente');
                     await _cargarDatos();
@@ -1085,7 +1267,9 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
 
   void _actualizarEjecucionNICSP40(ConsolidacionNICSP40 con) {
     final formKey = GlobalKey<FormState>();
-    final valorEjecutadoController = TextEditingController(text: con.valorEjecutado.toString());
+    final valorEjecutadoController = TextEditingController(
+      text: con.valorEjecutado.toString(),
+    );
     final observacionesController = TextEditingController();
 
     showDialog(
@@ -1098,13 +1282,20 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Consolidación: ${con.numeroConsolidacion}'),
-              Text('Valor Transferido: ${CurrencyFormatter.format(con.valorTransferido)}'),
+              Text(
+                'Valor Transferido: ${publicMoneyForDisplay(con.valorTransferido)}',
+              ),
               const Divider(),
               TextFormField(
                 controller: valorEjecutadoController,
-                decoration: const InputDecoration(labelText: 'Valor Ejecutado (\$)'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Valor Ejecutado (\$)',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: observacionesController,
@@ -1128,7 +1319,9 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
                     consolidacionId: con.id,
-                    valorEjecutado: double.parse(valorEjecutadoController.text),
+                    valorEjecutado: publicMoneyFromMajor(
+                      valorEjecutadoController.text,
+                    ),
                   );
                   _mostrarExito('Ejecución actualizada correctamente');
                   await _cargarDatos();
@@ -1152,7 +1345,9 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
 
   void _generarReporteNICSP40() {
     final formKey = GlobalKey<FormState>();
-    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaController = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
 
     showDialog(
       context: context,
@@ -1162,8 +1357,11 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
           key: formKey,
           child: TextFormField(
             controller: vigenciaController,
-            decoration: const InputDecoration(labelText: 'Vigencia Fiscal (Año)'),
-            validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+            decoration: const InputDecoration(
+              labelText: 'Vigencia Fiscal (Año)',
+            ),
+            validator: (value) =>
+                value == null || value.isEmpty ? 'Requerido' : null,
           ),
         ),
         actions: [
@@ -1205,18 +1403,25 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
 
   void _generarConsolidadoJerarquico() {
     final formKey = GlobalKey<FormState>();
-    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaController = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Consolidado de Saldos Contables (Gobernación + Entidades Adscritas)'),
+        title: const Text(
+          'Consolidado de Saldos Contables (Gobernación + Entidades Adscritas)',
+        ),
         content: Form(
           key: formKey,
           child: TextFormField(
             controller: vigenciaController,
-            decoration: const InputDecoration(labelText: 'Vigencia Fiscal (Año)'),
-            validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+            decoration: const InputDecoration(
+              labelText: 'Vigencia Fiscal (Año)',
+            ),
+            validator: (value) =>
+                value == null || value.isEmpty ? 'Requerido' : null,
           ),
         ),
         actions: [
@@ -1230,14 +1435,17 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 Navigator.pop(context);
                 setState(() => _loading = true);
                 try {
-                  final res = await _consolidacionJerarquicaService.obtenerConsolidadoContable(
-                    entidadIdPadre: widget.entidadId,
-                    vigencia: vigenciaController.text,
-                  );
+                  final res = await _consolidacionJerarquicaService
+                      .obtenerConsolidadoContable(
+                        entidadIdPadre: widget.entidadId,
+                        vigencia: vigenciaController.text,
+                      );
                   setState(() {
                     _consolidadoJerarquicoReporte = res;
                   });
-                  _mostrarExito('Consolidado jerárquico de saldos generado correctamente');
+                  _mostrarExito(
+                    'Consolidado jerárquico de saldos generado correctamente',
+                  );
                 } catch (e) {
                   _mostrarError('Error al generar consolidado jerárquico: $e');
                 } finally {

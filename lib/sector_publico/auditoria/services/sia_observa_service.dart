@@ -5,6 +5,7 @@ library;
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/reporte_sia_observa.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
@@ -15,10 +16,7 @@ class SIAObservaService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  SIAObservaService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  SIAObservaService({required this.db, required this.auditoriaService});
 
   Future<RolSectorPublico> _validarPermiso({
     required String entidadId,
@@ -32,11 +30,15 @@ class SIAObservaService {
     );
 
     if (rol == null) {
-      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+      throw Exception(
+        'Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId',
+      );
     }
 
     if (!RolesPermisosService.tienePermiso(rol, permiso)) {
-      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+      throw Exception(
+        'Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}',
+      );
     }
 
     return rol;
@@ -53,7 +55,11 @@ class SIAObservaService {
     required int hallazgosAtendidos,
     required int accionesImplementadas,
   }) async {
-    await _validarPermiso(entidadId: entidadId, usuarioId: usuarioId, permiso: Permiso.consultarAuditoria);
+    await _validarPermiso(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.consultarAuditoria,
+    );
     final id = _uuid.v4();
 
     // 1. Consultar Contratación Estatal
@@ -62,24 +68,35 @@ class SIAObservaService {
       [entidadId, vigencia],
     );
     final rowContratos = resContratos.first;
-    final int totalContratos = (rowContratos['total_count'] as num?)?.toInt() ?? 0;
-    final double valorContratado = (rowContratos['valor_total'] as num?)?.toDouble() ?? 0.0;
+    final int totalContratos =
+        (rowContratos['total_count'] as num?)?.toInt() ?? 0;
+    final valorContratado = publicMoneyFromSql(
+      rowContratos['valor_total'],
+      nullableAsZero: true,
+    );
 
     // 2. Consultar Ejecución Presupuestal de Gastos (Pagos)
     final resPagos = await db.rawQuery(
       'SELECT SUM(monto_total) as total_pagos FROM pagos WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
-    final double totalPagadoPresupuesto = (resPagos.first['total_pagos'] as num?)?.toDouble() ?? 0.0;
+    final totalPagadoPresupuesto = publicMoneyFromSql(
+      resPagos.first['total_pagos'],
+      nullableAsZero: true,
+    );
 
     // 3. Consultar Nómina Liquidada (Tabla real: liquidaciones_nomina)
     final resNomina = await db.rawQuery(
       'SELECT SUM(neto_pagar) as total_nomina FROM liquidaciones_nomina WHERE entidad_id = ? AND periodo LIKE ?',
       [entidadId, '$vigencia%'],
     );
-    final double totalNomina = (resNomina.first['total_nomina'] as num?)?.toDouble() ?? 0.0;
+    final totalNomina = publicMoneyFromSql(
+      resNomina.first['total_nomina'],
+      nullableAsZero: true,
+    );
 
-    final double cumplimientoPct = (accionesImplementadas > 0 && hallazgosAtendidos > 0)
+    final double cumplimientoPct =
+        (accionesImplementadas > 0 && hallazgosAtendidos > 0)
         ? (accionesImplementadas / hallazgosAtendidos) * 100.0
         : 100.0;
 
@@ -140,19 +157,27 @@ class SIAObservaService {
 
   /// Exporta reporte SIA Observa a archivo plano .txt para la CGR
   Future<String> exportarAPlano(String reporteId) async {
-    final res = await db.query('reportes_sia_observa', where: 'id = ?', whereArgs: [reporteId]);
+    final res = await db.query(
+      'reportes_sia_observa',
+      where: 'id = ?',
+      whereArgs: [reporteId],
+    );
     if (res.isEmpty) throw Exception('Reporte SIA Observa no encontrado');
     final reporte = ReporteSIAObserva.fromJson(res.first);
 
     final buffer = StringBuffer();
-    buffer.writeln('SIA_OBSERVA_HEADER|${reporte.entidadId}|${reporte.vigencia}|${reporte.tipoReporte.name}|${reporte.fechaGeneracion.toIso8601String()}');
+    buffer.writeln(
+      'SIA_OBSERVA_HEADER|${reporte.entidadId}|${reporte.vigencia}|${reporte.tipoReporte.name}|${reporte.fechaGeneracion.toIso8601String()}',
+    );
 
     final mapDatos = reporte.datos;
     mapDatos.forEach((k, v) {
       buffer.writeln('SIA_RECORD|$k|$v');
     });
 
-    buffer.writeln('SIA_OBSERVA_FOOTER|TOTAL_RECORDS|${mapDatos.length}|ESTADO|${reporte.estado}');
+    buffer.writeln(
+      'SIA_OBSERVA_FOOTER|TOTAL_RECORDS|${mapDatos.length}|ESTADO|${reporte.estado}',
+    );
     return buffer.toString();
   }
 }

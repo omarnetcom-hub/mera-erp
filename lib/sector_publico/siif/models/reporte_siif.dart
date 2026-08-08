@@ -3,12 +3,10 @@
 library;
 
 import 'dart:convert';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
-enum TipoReporteSIIF {
-  presupuestoMensual,
-  tesoreriaPagos,
-  consolidadoMensual,
-}
+enum TipoReporteSIIF { presupuestoMensual, tesoreriaPagos, consolidadoMensual }
 
 class ReporteSIIF {
   final String id;
@@ -51,7 +49,9 @@ class ReporteSIIF {
         orElse: () => TipoReporteSIIF.presupuestoMensual,
       ),
       vigencia: json['vigencia'] as String,
-      mes: json['mes'] is int ? json['mes'] as int : int.parse(json['mes'].toString()),
+      mes: json['mes'] is int
+          ? json['mes'] as int
+          : int.parse(json['mes'].toString()),
       fechaGeneracion: DateTime.parse(json['fecha_generacion'] as String),
       usuarioGenero: json['usuario_genero'] as String,
       datos: datosMap,
@@ -89,16 +89,16 @@ class ReporteSIIF {
 
 /// Datos consolidados para reporte de Presupuesto Mensual SIIF Nación
 class DatosSIIFPresupuesto {
-  final double totalApropiacionInicial;
-  final double totalAdiciones;
-  final double totalReducciones;
-  final double totalApropiacionDefinitiva;
-  final double totalCDP;
-  final double totalRP;
-  final double totalObligaciones;
-  final double totalPagos;
-  final double saldoPorComprometer;
-  final double saldoPorPagar;
+  final MoneyValue totalApropiacionInicial;
+  final MoneyValue totalAdiciones;
+  final MoneyValue totalReducciones;
+  final MoneyValue totalApropiacionDefinitiva;
+  final MoneyValue totalCDP;
+  final MoneyValue totalRP;
+  final MoneyValue totalObligaciones;
+  final MoneyValue totalPagos;
+  final MoneyValue saldoPorComprometer;
+  final MoneyValue saldoPorPagar;
 
   DatosSIIFPresupuesto({
     required this.totalApropiacionInicial,
@@ -115,27 +115,31 @@ class DatosSIIFPresupuesto {
 
   Map<String, dynamic> toJson() {
     return {
-      'total_apropiacion_inicial': totalApropiacionInicial,
-      'total_adiciones': totalAdiciones,
-      'total_reducciones': totalReducciones,
-      'total_apropiacion_definitiva': totalApropiacionDefinitiva,
-      'total_cdp': totalCDP,
-      'total_rp': totalRP,
-      'total_obligaciones': totalObligaciones,
-      'total_pagos': totalPagos,
-      'saldo_por_comprometer': saldoPorComprometer,
-      'saldo_por_pagar': saldoPorPagar,
+      'total_apropiacion_inicial': publicMoneyForDisplay(
+        totalApropiacionInicial,
+      ),
+      'total_adiciones': publicMoneyForDisplay(totalAdiciones),
+      'total_reducciones': publicMoneyForDisplay(totalReducciones),
+      'total_apropiacion_definitiva': publicMoneyForDisplay(
+        totalApropiacionDefinitiva,
+      ),
+      'total_cdp': publicMoneyForDisplay(totalCDP),
+      'total_rp': publicMoneyForDisplay(totalRP),
+      'total_obligaciones': publicMoneyForDisplay(totalObligaciones),
+      'total_pagos': publicMoneyForDisplay(totalPagos),
+      'saldo_por_comprometer': publicMoneyForDisplay(saldoPorComprometer),
+      'saldo_por_pagar': publicMoneyForDisplay(saldoPorPagar),
     };
   }
 }
 
 /// Datos consolidados para reporte de Tesorería y Pagos SIIF Nación
 class DatosSIIFTesoreria {
-  final double totalPagosEfectuados;
-  final double totalRetencionesEfectuadas;
-  final double totalNetoPagado;
+  final MoneyValue totalPagosEfectuados;
+  final MoneyValue totalRetencionesEfectuadas;
+  final MoneyValue totalNetoPagado;
   final int numeroCuentasBancariasOperativas;
-  final double totalTransferenciasSIIF;
+  final MoneyValue totalTransferenciasSIIF;
 
   DatosSIIFTesoreria({
     required this.totalPagosEfectuados,
@@ -147,11 +151,15 @@ class DatosSIIFTesoreria {
 
   Map<String, dynamic> toJson() {
     return {
-      'total_pagos_efectuados': totalPagosEfectuados,
-      'total_retenciones_efectuadas': totalRetencionesEfectuadas,
-      'total_neto_pagado': totalNetoPagado,
+      'total_pagos_efectuados': publicMoneyForDisplay(totalPagosEfectuados),
+      'total_retenciones_efectuadas': publicMoneyForDisplay(
+        totalRetencionesEfectuadas,
+      ),
+      'total_neto_pagado': publicMoneyForDisplay(totalNetoPagado),
       'numero_cuentas_bancarias_operativas': numeroCuentasBancariasOperativas,
-      'total_transferencias_siif': totalTransferenciasSIIF,
+      'total_transferencias_siif': publicMoneyForDisplay(
+        totalTransferenciasSIIF,
+      ),
     };
   }
 }

@@ -57,7 +57,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
     try {
       final db = await DatabaseHelper.instance.database;
       final auditoriaService = AuditoriaService(db);
-      _contabilidadService = ContabilidadNICSPService(db: db, auditoriaService: auditoriaService);
+      _contabilidadService = ContabilidadNICSPService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
       _cierreService = CierreVigenciaService(
         db: db,
         contabilidadService: _contabilidadService,
@@ -100,15 +103,17 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         orderBy: 'cuenta_codigo',
       );
       _saldos = saldosResult
-          .map((r) => SaldoCuenta.fromJson({
-                'cuenta_id': r['id'],
-                'cuenta_codigo': r['cuenta_codigo'],
-                'cuenta_nombre': r['cuenta_nombre'],
-                'saldo_deudor': r['saldo_deudor'],
-                'saldo_acreedor': r['saldo_acreedor'],
-                'saldo_neto': r['saldo_neto'],
-                'fecha_ultimo_movimiento': r['fecha_ultimo_movimiento'],
-              }))
+          .map(
+            (r) => SaldoCuenta.fromJson({
+              'cuenta_id': r['id'],
+              'cuenta_codigo': r['cuenta_codigo'],
+              'cuenta_nombre': r['cuenta_nombre'],
+              'saldo_deudor': r['saldo_deudor'],
+              'saldo_acreedor': r['saldo_acreedor'],
+              'saldo_neto': r['saldo_neto'],
+              'fecha_ultimo_movimiento': r['fecha_ultimo_movimiento'],
+            }),
+          )
           .toList();
     } catch (e) {
       _mostrarError('Error al cargar datos: $e');
@@ -161,18 +166,12 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             icon: Icon(Icons.account_balance),
             label: 'Saldos',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description),
-            label: 'EEFF',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.description), label: 'EEFF'),
           BottomNavigationBarItem(
             icon: Icon(Icons.lock_clock),
             label: 'Cierre',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.water),
-            label: 'Flujos',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.water), label: 'Flujos'),
         ],
       ),
       floatingActionButton: _selectedIndex == 0
@@ -221,14 +220,19 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             title: Text(asiento.numeroAsiento),
-            subtitle: Text('${asiento.descripcion} (${asiento.tipoAsiento.name})'),
+            subtitle: Text(
+              '${asiento.descripcion} (${asiento.tipoAsiento.name})',
+            ),
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${CurrencyFormatter.format(publicMoneyForDisplay(asiento.totalDebito))}',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                  '${publicMoneyForDisplay(asiento.totalDebito)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
                 ),
                 Text(
                   DateFormatter.format(asiento.fechaAsiento),
@@ -238,50 +242,64 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             ),
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Column(
                   children: [
                     const Divider(),
-                    ...asiento.detalles.map((d) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: Text('${d.cuentaCodigo} - ${d.cuentaNombre}'),
+                    ...asiento.detalles.map(
+                      (d) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                '${d.cuentaCodigo} - ${d.cuentaNombre}',
                               ),
-                              Expanded(
-                                flex: 1,
-                                child: Text(
-                                  d.debito > publicMoneyZero() ? '${CurrencyFormatter.format(publicMoneyForDisplay(d.debito))}' : '',
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(color: Colors.green),
-                                ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                d.debito > publicMoneyZero()
+                                    ? '${publicMoneyForDisplay(d.debito)}'
+                                    : '',
+                                textAlign: TextAlign.end,
+                                style: TextStyle(color: Colors.green),
                               ),
-                              Expanded(
-                                flex: 1,
-                                child: Text(
-                                  d.credito > publicMoneyZero() ? '${CurrencyFormatter.format(publicMoneyForDisplay(d.credito))}' : '',
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(color: Colors.red),
-                                ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                d.credito > publicMoneyZero()
+                                    ? '${publicMoneyForDisplay(d.credito)}'
+                                    : '',
+                                textAlign: TextAlign.end,
+                                style: TextStyle(color: Colors.red),
                               ),
-                            ],
-                          ),
-                        )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     if (asiento.observaciones != null) ...[
                       const SizedBox(height: 8),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Observaciones: ${asiento.observaciones}',
-                          style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ]
+                    ],
                   ],
                 ),
-              )
+              ),
             ],
           ),
         );
@@ -292,7 +310,9 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
   Widget _buildSaldosTab() {
     if (_saldos.isEmpty) {
       return const Center(
-        child: Text('No hay saldos registrados. Ejecute transacciones primero.'),
+        child: Text(
+          'No hay saldos registrados. Ejecute transacciones primero.',
+        ),
       );
     }
 
@@ -308,15 +328,17 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             subtitle: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Débito: ${CurrencyFormatter.format(saldo.saldoDeudor)}'),
-                Text('Crédito: ${CurrencyFormatter.format(saldo.saldoAcreedor)}'),
+                Text('Débito: ${publicMoneyForDisplay(saldo.saldoDeudor)}'),
+                Text('Crédito: ${publicMoneyForDisplay(saldo.saldoAcreedor)}'),
               ],
             ),
             trailing: Text(
-              '${CurrencyFormatter.format(saldo.saldoNeto)}',
+              '${publicMoneyForDisplay(saldo.saldoNeto)}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: saldo.saldoNeto.minorUnits >= 0 ? Colors.green : Colors.red,
+                color: saldo.saldoNeto.minorUnits >= 0
+                    ? Colors.green
+                    : Colors.red,
               ),
             ),
           ),
@@ -331,7 +353,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
       children: [
         Card(
           child: ListTile(
-            leading: Icon(Icons.balance, color: Theme.of(context).colorScheme.primary),
+            leading: Icon(
+              Icons.balance,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             title: const Text('Estado de Situación Financiera'),
             subtitle: const Text('Generar balance general (NICSP 1)'),
             trailing: Icon(Icons.chevron_right),
@@ -341,7 +366,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         const SizedBox(height: 12),
         Card(
           child: ListTile(
-            leading: Icon(Icons.trending_up, color: Theme.of(context).colorScheme.primary),
+            leading: Icon(
+              Icons.trending_up,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             title: const Text('Estado de Resultados'),
             subtitle: const Text('Generar resultado operacional (NICSP 1)'),
             trailing: Icon(Icons.chevron_right),
@@ -351,7 +379,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         const SizedBox(height: 12),
         Card(
           child: ListTile(
-            leading: Icon(Icons.payments, color: Theme.of(context).colorScheme.primary),
+            leading: Icon(
+              Icons.payments,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             title: const Text('Estado de Flujos de Efectivo'),
             subtitle: const Text('Generar flujos de efectivo (NICSP 2)'),
             trailing: Icon(Icons.chevron_right),
@@ -369,7 +400,11 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock_clock, size: 80, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.lock_clock,
+              size: 80,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(height: 24),
             const Text(
               'Cierre Anual de Vigencia',
@@ -389,7 +424,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
               ),
             ),
           ],
@@ -463,13 +501,10 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               DropdownButtonFormField<int>(
                 initialValue: anio,
                 decoration: const InputDecoration(labelText: 'Vigencia'),
-                items: List.generate(
-                  11,
-                  (index) {
-                    final value = DateTime.now().year - 5 + index;
-                    return DropdownMenuItem(value: value, child: Text('$value'));
-                  },
-                ),
+                items: List.generate(11, (index) {
+                  final value = DateTime.now().year - 5 + index;
+                  return DropdownMenuItem(value: value, child: Text('$value'));
+                }),
                 onChanged: (value) {
                   if (value != null) setDialogState(() => anio = value);
                 },
@@ -539,13 +574,21 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               Text('Periodo: ${estado['periodo']}'),
               Text('Metodo: ${estado['metodo']}'),
               const Divider(),
-              Text('Efectivo inicial: ${CurrencyFormatter.format(estado['efectivo_inicial'])}'),
-              Text('Operacion: ${CurrencyFormatter.format(estado['actividades_operacion'])}'),
-              Text('Inversion: ${CurrencyFormatter.format(estado['actividades_inversion'])}'),
-              Text('Financiacion: ${CurrencyFormatter.format(estado['actividades_financiacion'])}'),
+              Text(
+                'Efectivo inicial: ${publicMoneyForDisplay(estado['efectivo_inicial'] as MoneyValue)}',
+              ),
+              Text(
+                'Operacion: ${publicMoneyForDisplay(estado['actividades_operacion'] as MoneyValue)}',
+              ),
+              Text(
+                'Inversion: ${publicMoneyForDisplay(estado['actividades_inversion'] as MoneyValue)}',
+              ),
+              Text(
+                'Financiacion: ${publicMoneyForDisplay(estado['actividades_financiacion'] as MoneyValue)}',
+              ),
               const Divider(),
               Text(
-                'Efectivo final: ${CurrencyFormatter.format(estado['efectivo_final'])}',
+                'Efectivo final: ${publicMoneyForDisplay(estado['efectivo_final'] as MoneyValue)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
@@ -585,7 +628,9 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
 
   void _mostrarConfiguracionSituacion() {
     final formKey = GlobalKey<FormState>();
-    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaController = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     DateTime fechaCorte = DateTime.now();
 
     showDialog(
@@ -600,15 +645,20 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               children: [
                 TextFormField(
                   controller: vigenciaController,
-                  decoration: const InputDecoration(labelText: 'Vigencia (Año)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Vigencia (Año)',
+                  ),
                   keyboardType: TextInputType.number,
-                  validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Requerido' : null,
                 ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Fecha de Corte: ${fechaCorte.toString().split(' ')[0]}'),
+                    Text(
+                      'Fecha de Corte: ${fechaCorte.toString().split(' ')[0]}',
+                    ),
                     TextButton(
                       onPressed: () async {
                         final selected = await showDatePicker(
@@ -676,12 +726,14 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               Text('Vigencia: ${esf.vigencia}'),
               Text('Fecha Corte: ${esf.fechaCorte.toString().split(' ')[0]}'),
               const Divider(),
-              Text('Total Activos: ${CurrencyFormatter.format(esf.totalActivo)}'),
-              Text('Total Pasivos: ${CurrencyFormatter.format(esf.totalPasivo)}'),
-              Text('Total Patrimonio: ${CurrencyFormatter.format(esf.totalPatrimonio)}'),
+              Text('Total Activos: ${publicMoneyForDisplay(esf.totalActivo)}'),
+              Text('Total Pasivos: ${publicMoneyForDisplay(esf.totalPasivo)}'),
+              Text(
+                'Total Patrimonio: ${publicMoneyForDisplay(esf.totalPatrimonio)}',
+              ),
               const Divider(),
               Text(
-                'Diferencia (Activo - Pasivo - Pat): ${CurrencyFormatter.format((esf.totalActivo - esf.totalPasivo - esf.totalPatrimonio).abs())}',
+                'Diferencia (Activo - Pasivo - Pat): ${publicMoneyForDisplay((esf.totalActivo - esf.totalPasivo - esf.totalPatrimonio).abs())}',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
@@ -703,7 +755,9 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
 
   void _mostrarConfiguracionResultados() {
     final formKey = GlobalKey<FormState>();
-    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaController = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     DateTime fechaInicio = DateTime(DateTime.now().year, 1, 1);
     DateTime fechaFin = DateTime(DateTime.now().year, 12, 31);
 
@@ -719,9 +773,12 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               children: [
                 TextFormField(
                   controller: vigenciaController,
-                  decoration: const InputDecoration(labelText: 'Vigencia (Año)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Vigencia (Año)',
+                  ),
                   keyboardType: TextInputType.number,
-                  validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Requerido' : null,
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -780,7 +837,11 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               onPressed: () {
                 if (formKey.currentState!.validate()) {
                   Navigator.pop(context);
-                  _generarEstadoResultado(vigenciaController.text, fechaInicio, fechaFin);
+                  _generarEstadoResultado(
+                    vigenciaController.text,
+                    fechaInicio,
+                    fechaFin,
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -795,7 +856,11 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
     );
   }
 
-  void _generarEstadoResultado(String vigencia, DateTime fechaInicio, DateTime fechaFin) async {
+  void _generarEstadoResultado(
+    String vigencia,
+    DateTime fechaInicio,
+    DateTime fechaFin,
+  ) async {
     setState(() => _loading = true);
     try {
       final er = await _cierreService.generarEstadoResultado(
@@ -815,16 +880,24 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Vigencia: ${er.vigencia}'),
-              Text('Periodo: ${er.fechaInicio.toString().split(' ')[0]} a ${er.fechaFin.toString().split(' ')[0]}'),
-              const Divider(),
-              Text('Ingresos Fiscales: ${CurrencyFormatter.format(er.totalIngresos)}'),
-              Text('Gastos de Operación: ${CurrencyFormatter.format(er.totalGastos)}'),
+              Text(
+                'Periodo: ${er.fechaInicio.toString().split(' ')[0]} a ${er.fechaFin.toString().split(' ')[0]}',
+              ),
               const Divider(),
               Text(
-                'Resultado Operacional: ${CurrencyFormatter.format(er.resultadoOperacional)}',
+                'Ingresos Fiscales: ${publicMoneyForDisplay(er.totalIngresos)}',
+              ),
+              Text(
+                'Gastos de Operación: ${publicMoneyForDisplay(er.totalGastos)}',
+              ),
+              const Divider(),
+              Text(
+                'Resultado Operacional: ${publicMoneyForDisplay(er.resultadoOperacional)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: er.resultadoOperacional >= 0 ? Colors.green : Colors.red,
+                  color: er.resultadoOperacional >= 0
+                      ? Colors.green
+                      : Colors.red,
                 ),
               ),
             ],
@@ -846,7 +919,9 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
 
   void _mostrarConfiguracionFlujos() {
     final formKey = GlobalKey<FormState>();
-    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaController = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     DateTime fechaInicio = DateTime(DateTime.now().year, 1, 1);
     DateTime fechaFin = DateTime(DateTime.now().year, 12, 31);
 
@@ -862,9 +937,12 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               children: [
                 TextFormField(
                   controller: vigenciaController,
-                  decoration: const InputDecoration(labelText: 'Vigencia (Año)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Vigencia (Año)',
+                  ),
                   keyboardType: TextInputType.number,
-                  validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Requerido' : null,
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -923,7 +1001,11 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               onPressed: () {
                 if (formKey.currentState!.validate()) {
                   Navigator.pop(context);
-                  _generarEstadoFlujos(vigenciaController.text, fechaInicio, fechaFin);
+                  _generarEstadoFlujos(
+                    vigenciaController.text,
+                    fechaInicio,
+                    fechaFin,
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -938,7 +1020,11 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
     );
   }
 
-  void _generarEstadoFlujos(String vigencia, DateTime fechaInicio, DateTime fechaFin) async {
+  void _generarEstadoFlujos(
+    String vigencia,
+    DateTime fechaInicio,
+    DateTime fechaFin,
+  ) async {
     setState(() => _loading = true);
     try {
       final efe = await _cierreService.generarEstadoFlujosEfectivo(
@@ -958,14 +1044,22 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Vigencia: ${efe.vigencia}'),
-              Text('Periodo: ${efe.fechaInicio.toString().split(' ')[0]} a ${efe.fechaFin.toString().split(' ')[0]}'),
-              const Divider(),
-              Text('Flujos Operación: ${CurrencyFormatter.format(efe.totalActividadesOperacion)}'),
-              Text('Flujos Inversión: ${CurrencyFormatter.format(efe.totalActividadesInversion)}'),
-              Text('Flujos Financiación: ${CurrencyFormatter.format(efe.totalActividadesFinanciacion)}'),
+              Text(
+                'Periodo: ${efe.fechaInicio.toString().split(' ')[0]} a ${efe.fechaFin.toString().split(' ')[0]}',
+              ),
               const Divider(),
               Text(
-                'Aumento/Disminución Neto: ${CurrencyFormatter.format(efe.variacionNetaEfectivo)}',
+                'Flujos Operación: ${publicMoneyForDisplay(efe.totalActividadesOperacion)}',
+              ),
+              Text(
+                'Flujos Inversión: ${publicMoneyForDisplay(efe.totalActividadesInversion)}',
+              ),
+              Text(
+                'Flujos Financiación: ${publicMoneyForDisplay(efe.totalActividadesFinanciacion)}',
+              ),
+              const Divider(),
+              Text(
+                'Aumento/Disminución Neto: ${publicMoneyForDisplay(efe.variacionNetaEfectivo)}',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
@@ -987,7 +1081,9 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
 
   void _ejecutarCierre() {
     final formKey = GlobalKey<FormState>();
-    final vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+    final vigenciaController = TextEditingController(
+      text: DateTime.now().year.toString(),
+    );
     final motivoController = TextEditingController();
 
     showDialog(
@@ -1003,13 +1099,18 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                 controller: vigenciaController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Vigencia (Año)'),
-                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: motivoController,
-                decoration: const InputDecoration(labelText: 'Motivo / Justificación Legal del Cierre'),
-                validator: (value) => value == null || value.isEmpty ? 'El motivo es obligatorio' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo / Justificación Legal del Cierre',
+                ),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'El motivo es obligatorio'
+                    : null,
               ),
             ],
           ),
@@ -1032,8 +1133,8 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                     motivo: motivoController.text,
                   );
                   _mostrarExito(
-                    'Cierre ejecutado: Reservas ${CurrencyFormatter.format(resultado['reservas'])}, '
-                    'Cuentas por pagar ${CurrencyFormatter.format(resultado['cuentas_por_pagar'])}',
+                    'Cierre ejecutado: Reservas ${publicMoneyForDisplay(resultado['reservas'] as MoneyValue)}, '
+                    'Cuentas por pagar ${publicMoneyForDisplay(resultado['cuentas_por_pagar'] as MoneyValue)}',
                   );
                   await _cargarDatos();
                 } catch (e) {
@@ -1071,7 +1172,8 @@ class _AsientoManualFormDialog extends StatefulWidget {
   });
 
   @override
-  State<_AsientoManualFormDialog> createState() => _AsientoManualFormDialogState();
+  State<_AsientoManualFormDialog> createState() =>
+      _AsientoManualFormDialogState();
 }
 
 class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
@@ -1091,11 +1193,13 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
 
   void _agregarFila() {
     setState(() {
-      _detalles.add(_DetalleRow(
-        cuentaController: TextEditingController(),
-        debitoController: TextEditingController(text: '0.0'),
-        creditoController: TextEditingController(text: '0.0'),
-      ));
+      _detalles.add(
+        _DetalleRow(
+          cuentaController: TextEditingController(),
+          debitoController: TextEditingController(text: '0.0'),
+          creditoController: TextEditingController(text: '0.0'),
+        ),
+      );
     });
   }
 
@@ -1137,8 +1241,8 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
         SnackBar(
           content: Text(
             'El asiento no está cuadrado. '
-            'Débitos: ${CurrencyFormatter.format(_totalDebitos)} | '
-            'Créditos: ${CurrencyFormatter.format(_totalCreditos)}'
+            'Débitos: ${publicMoneyForDisplay(_totalDebitos)} | '
+            'Créditos: ${publicMoneyForDisplay(_totalCreditos)}',
           ),
           backgroundColor: Colors.red,
         ),
@@ -1168,7 +1272,9 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
         fechaAsiento: _fechaAsiento,
         descripcion: _descripcionController.text,
         detalles: detallesAsiento,
-        observaciones: _observacionesController.text.isEmpty ? null : _observacionesController.text,
+        observaciones: _observacionesController.text.isEmpty
+            ? null
+            : _observacionesController.text,
       );
 
       widget.onSaved();
@@ -1198,18 +1304,25 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
               children: [
                 TextFormField(
                   controller: _descripcionController,
-                  decoration: const InputDecoration(labelText: 'Descripción / Concepto'),
-                  validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Descripción / Concepto',
+                  ),
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Requerido' : null,
                 ),
                 TextFormField(
                   controller: _observacionesController,
-                  decoration: const InputDecoration(labelText: 'Observaciones (Opcional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Observaciones (Opcional)',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Fecha de Asiento: ${_fechaAsiento.toString().split(' ')[0]}'),
+                    Text(
+                      'Fecha de Asiento: ${_fechaAsiento.toString().split(' ')[0]}',
+                    ),
                     TextButton.icon(
                       icon: Icon(Icons.calendar_month),
                       label: const Text('Seleccionar'),
@@ -1244,12 +1357,18 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
                         Expanded(
                           flex: 3,
                           child: DropdownButtonFormField<String>(
-                            initialValue: row.cuentaController.text.isEmpty ? null : row.cuentaController.text,
-                            decoration: const InputDecoration(labelText: 'Cuenta'),
+                            initialValue: row.cuentaController.text.isEmpty
+                                ? null
+                                : row.cuentaController.text,
+                            decoration: const InputDecoration(
+                              labelText: 'Cuenta',
+                            ),
                             items: widget.planCuentas.map((c) {
                               return DropdownMenuItem<String>(
                                 value: c['codigo_cuenta'] as String,
-                                child: Text('${c['codigo_cuenta']} - ${c['nombre_cuenta']}'),
+                                child: Text(
+                                  '${c['codigo_cuenta']} - ${c['nombre_cuenta']}',
+                                ),
                               );
                             }).toList(),
                             onChanged: (val) {
@@ -1257,7 +1376,8 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
                                 row.cuentaController.text = val ?? '';
                               });
                             },
-                            validator: (value) => value == null ? 'Requerido' : null,
+                            validator: (value) =>
+                                value == null ? 'Requerido' : null,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1265,8 +1385,12 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
                           flex: 1,
                           child: TextFormField(
                             controller: row.debitoController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'Débito'),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Débito',
+                            ),
                             onChanged: (val) => setState(() {}),
                           ),
                         ),
@@ -1275,15 +1399,19 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
                           flex: 1,
                           child: TextFormField(
                             controller: row.creditoController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'Crédito'),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Crédito',
+                            ),
                             onChanged: (val) => setState(() {}),
                           ),
                         ),
                         IconButton(
                           icon: Icon(Icons.delete, color: Colors.red),
                           onPressed: () => _eliminarFila(index),
-                        )
+                        ),
                       ],
                     ),
                   );
@@ -1298,8 +1426,12 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Total Débitos: ${CurrencyFormatter.format(_totalDebitos)}'),
-                    Text('Total Créditos: ${CurrencyFormatter.format(_totalCreditos)}'),
+                    Text(
+                      'Total Débitos: ${publicMoneyForDisplay(_totalDebitos)}',
+                    ),
+                    Text(
+                      'Total Créditos: ${publicMoneyForDisplay(_totalCreditos)}',
+                    ),
                   ],
                 ),
               ],

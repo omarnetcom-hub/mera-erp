@@ -82,7 +82,7 @@ class _ConciliacionReciprocaDialogState
     );
     final valor = debito > publicMoneyZero() ? debito : credito;
     return '${partida['numero_asiento']} | ${partida['entidad_id']} | '
-        '${partida['cuenta_codigo']} | ${CurrencyFormatter.format(valor)}';
+        '${partida['cuenta_codigo']} | ${publicMoneyForDisplay(valor)}';
   }
 
   String? _validarMonto(String? value) {
@@ -106,16 +106,14 @@ class _ConciliacionReciprocaDialogState
         partidas: [
           PartidaReciprocaInput(
             detalleAsientoId: _partidaAId!,
-        montoEliminar: publicMoneyFromMajor(_montoAController.text),
+            montoEliminar: publicMoneyFromMajor(_montoAController.text),
           ),
           PartidaReciprocaInput(
             detalleAsientoId: _partidaBId!,
-        montoEliminar: publicMoneyFromMajor(_montoBController.text),
+            montoEliminar: publicMoneyFromMajor(_montoBController.text),
           ),
         ],
-        toleranciaMonto: publicMoneyFromMajor(
-          _toleranciaMontoController.text,
-        ),
+        toleranciaMonto: publicMoneyFromMajor(_toleranciaMontoController.text),
         toleranciaDias: int.tryParse(_toleranciaDiasController.text) ?? 0,
         observaciones: _observacionesController.text.trim(),
       );
@@ -139,94 +137,94 @@ class _ConciliacionReciprocaDialogState
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _partidas.length < 2
-                ? const Text(
-                    'No hay al menos dos partidas disponibles para conciliar.',
-                  )
-                : SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+            ? const Text(
+                'No hay al menos dos partidas disponibles para conciliar.',
+              )
+            : SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _selectorPartida(
+                        label: 'Partida 1',
+                        value: _partidaAId,
+                        onChanged: (value) =>
+                            setState(() => _partidaAId = value),
+                      ),
+                      TextFormField(
+                        controller: _montoAController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Monto a eliminar de partida 1',
+                        ),
+                        validator: _validarMonto,
+                      ),
+                      _selectorPartida(
+                        label: 'Partida 2',
+                        value: _partidaBId,
+                        onChanged: (value) =>
+                            setState(() => _partidaBId = value),
+                        segunda: true,
+                      ),
+                      TextFormField(
+                        controller: _montoBController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Monto a eliminar de partida 2',
+                        ),
+                        validator: _validarMonto,
+                      ),
+                      Row(
                         children: [
-                          _selectorPartida(
-                            label: 'Partida 1',
-                            value: _partidaAId,
-                            onChanged: (value) =>
-                                setState(() => _partidaAId = value),
-                          ),
-                          TextFormField(
-                            controller: _montoAController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Monto a eliminar de partida 1',
-                            ),
-                            validator: _validarMonto,
-                          ),
-                          _selectorPartida(
-                            label: 'Partida 2',
-                            value: _partidaBId,
-                            onChanged: (value) =>
-                                setState(() => _partidaBId = value),
-                            segunda: true,
-                          ),
-                          TextFormField(
-                            controller: _montoBController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Monto a eliminar de partida 2',
-                            ),
-                            validator: _validarMonto,
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _toleranciaMontoController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
+                          Expanded(
+                            child: TextFormField(
+                              controller: _toleranciaMontoController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Tolerancia de monto',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _toleranciaDiasController,
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Tolerancia en días',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          TextFormField(
-                            controller: _observacionesController,
-                            decoration: const InputDecoration(
-                              labelText: 'Soporte u observaciones',
-                            ),
-                            maxLines: 2,
-                          ),
-                          if (_error != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              _error!,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
+                              decoration: const InputDecoration(
+                                labelText: 'Tolerancia de monto',
                               ),
                             ),
-                          ],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _toleranciaDiasController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Tolerancia en días',
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
+                      TextFormField(
+                        controller: _observacionesController,
+                        decoration: const InputDecoration(
+                          labelText: 'Soporte u observaciones',
+                        ),
+                        maxLines: 2,
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
+              ),
       ),
       actions: [
         TextButton(
@@ -256,10 +254,7 @@ class _ConciliacionReciprocaDialogState
           .map(
             (partida) => DropdownMenuItem(
               value: partida['detalle_id'].toString(),
-              child: Text(
-                _etiqueta(partida),
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(_etiqueta(partida), overflow: TextOverflow.ellipsis),
             ),
           )
           .toList(),
@@ -267,8 +262,8 @@ class _ConciliacionReciprocaDialogState
       validator: (selected) => selected == null
           ? 'Requerido'
           : segunda && selected == _partidaAId
-              ? 'Seleccione otra partida'
-              : null,
+          ? 'Seleccione otra partida'
+          : null,
     );
   }
 }

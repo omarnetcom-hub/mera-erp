@@ -4,6 +4,7 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/registro_auditoria.dart';
 import '../security/auditoria_service.dart';
 
@@ -34,10 +35,7 @@ class MigracionDatosService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  MigracionDatosService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  MigracionDatosService({required this.db, required this.auditoriaService});
 
   /// Resultado del diagnóstico del sistema origen
 
@@ -55,9 +53,13 @@ class MigracionDatosService {
         : 0;
 
     if (!tienePlanCuentas) {
-      erroresCriticos.add('No se encontró plan de cuentas en el sistema origen');
+      erroresCriticos.add(
+        'No se encontró plan de cuentas en el sistema origen',
+      );
     } else if (cantidadCuentas < 50) {
-      advertencias.add('Plan de cuentas con muy pocas cuentas ($cantidadCuentas)');
+      advertencias.add(
+        'Plan de cuentas con muy pocas cuentas ($cantidadCuentas)',
+      );
     }
 
     // Verificar saldos iniciales
@@ -134,7 +136,7 @@ class MigracionDatosService {
 
     for (final saldo in saldosOrigen.entries) {
       final cuentaOrigen = saldo.key;
-      final valor = saldo.value as double;
+      final valor = publicMoneyFromMajor((saldo.value as num).toString());
 
       // Obtener cuenta destino según mapeo
       final cuentaDestino = mapeoCuentas[cuentaOrigen];
@@ -148,7 +150,7 @@ class MigracionDatosService {
           modulo: 'migracion',
           accion: 'cuenta_no_mapeada',
           valorAnterior: {'cuenta_origen': cuentaOrigen},
-          valorNuevo: {'valor': valor, 'estado': 'no_mapeado'},
+          valorNuevo: {'valor': valor.toWireMap(), 'estado': 'no_mapeado'},
           observaciones: 'Cuenta no encontrada en mapeo CGC',
         );
         continue;
@@ -159,8 +161,8 @@ class MigracionDatosService {
         'id': _uuid.v4(),
         'entidad_id': entidadId,
         'codigo_cuenta': cuentaDestino,
-        'saldo_deudor': valor > 0 ? valor : 0,
-        'saldo_acreedor': valor < 0 ? valor.abs() : 0,
+        'saldo_deudor': valor > publicMoneyZero() ? valor.toSql() : 0,
+        'saldo_acreedor': valor < publicMoneyZero() ? (-valor).toSql() : 0,
         'fecha_carga': fechaCarga.toIso8601String(),
         'cargado_por': usuarioId,
         'cuenta_origen': cuentaOrigen,
@@ -173,11 +175,14 @@ class MigracionDatosService {
         tipoEvento: TipoEventoAuditoria.creacionRegistro,
         modulo: 'migracion',
         accion: 'carga_saldo_inicial',
-        valorAnterior: {'cuenta_origen': cuentaOrigen, 'valor': valor},
+        valorAnterior: {
+          'cuenta_origen': cuentaOrigen,
+          'valor': valor.toWireMap(),
+        },
         valorNuevo: {
           'cuenta_destino': cuentaDestino,
-          'saldo_deudor': valor > 0 ? valor : 0,
-          'saldo_acreedor': valor < 0 ? valor.abs() : 0,
+          'saldo_deudor': valor > publicMoneyZero() ? valor.toSql() : 0,
+          'saldo_acreedor': valor < publicMoneyZero() ? (-valor).toSql() : 0,
         },
       );
     }
@@ -196,7 +201,8 @@ class MigracionDatosService {
       // Verificar si ya existe
       final existente = await db.query(
         'terceros_sector_publico',
-        where: 'entidad_id = ? AND tipo_identificacion = ? AND numero_identificacion = ?',
+        where:
+            'entidad_id = ? AND tipo_identificacion = ? AND numero_identificacion = ?',
         whereArgs: [entidadId, tipoIdentificacion, numeroIdentificacion],
       );
 
@@ -279,7 +285,9 @@ class MigracionDatosService {
         'numero_contrato': contrato['numero_contrato'],
         'tipo_contrato': contrato['tipo_contrato'],
         'objeto': contrato['objeto'],
-        'valor_contrato': contrato['valor_contrato'],
+        'valor_contrato': publicMoneyFromMajor(
+          (contrato['valor_contrato'] as num).toString(),
+        ).toSql(),
         'fecha_firma': contrato['fecha_firma'],
         'fecha_inicio': contrato['fecha_inicio'],
         'fecha_fin': contrato['fecha_fin'],

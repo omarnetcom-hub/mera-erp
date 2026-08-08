@@ -245,7 +245,7 @@ class _PredialICAPageState extends State<PredialICAPage>
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Dirección: ${p.direccion} | Avalúo: ${CurrencyFormatter.format(p.avaluoCatastral)} | Uso: ${p.usoSuelo.name}',
+              'Dirección: ${p.direccion} | Avalúo: ${publicMoneyForDisplay(p.avaluoCatastral)} | Uso: ${p.usoSuelo.name}',
             ),
             trailing: ElevatedButton(
               onPressed: () => _liquidarPredioIndividualDialog(p),
@@ -306,7 +306,7 @@ class _PredialICAPageState extends State<PredialICAPage>
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Vigencia: ${l.vigencia} | Total: ${CurrencyFormatter.format(l.totalPagar)} | Estado: ${l.estado.name}',
+              'Vigencia: ${l.vigencia} | Total: ${publicMoneyForDisplay(l.totalPagar)} | Estado: ${l.estado.name}',
             ),
             trailing: IconButton(
               icon: Icon(
@@ -492,10 +492,10 @@ class _PredialICAPageState extends State<PredialICAPage>
                                 color: Colors.blue,
                               ),
                               title: Text(
-                                'Periodo: ${d['periodo']} - Impuesto ICA: ${CurrencyFormatter.format(publicMoneyFromSql(d['impuesto_ica']))}',
+                                'Periodo: ${d['periodo']} - Impuesto ICA: ${publicMoneyForDisplay(publicMoneyFromSql(d['impuesto_ica']))}',
                               ),
                               subtitle: Text(
-                                'Base Gravable: ${CurrencyFormatter.format(publicMoneyFromSql(d['base_gravable']))} | Total Pagar: ${CurrencyFormatter.format(publicMoneyFromSql(d['total_pagar']))}',
+                                'Base Gravable: ${publicMoneyForDisplay(publicMoneyFromSql(d['base_gravable']))} | Total Pagar: ${publicMoneyForDisplay(publicMoneyFromSql(d['total_pagar']))}',
                               ),
                               trailing: IconButton(
                                 icon: Icon(
@@ -811,7 +811,7 @@ class _PredialICAPageState extends State<PredialICAPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Liquidación realizada. Total a Pagar: ${CurrencyFormatter.format(liq.totalPagar)}',
+              'Liquidación realizada. Total a Pagar: ${publicMoneyForDisplay(liq.totalPagar)}',
             ),
           ),
         );

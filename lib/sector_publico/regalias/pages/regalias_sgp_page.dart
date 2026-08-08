@@ -17,6 +17,7 @@ import '../models/reporte_spgr.dart';
 import '../models/reporte_sicodis.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/currency/public_sector_money.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 class RegaliasSGPPage extends StatefulWidget {
   final String entidadId;
@@ -218,7 +219,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Tipo: ${r.tipoRegalia.name} | Vigencia: ${r.vigencia}\nEstimado: ${CurrencyFormatter.format(r.valorEstimado)} | Recibido: ${CurrencyFormatter.format(r.valorRecibido)}',
+              'Tipo: ${r.tipoRegalia.name} | Vigencia: ${r.vigencia}\nEstimado: ${publicMoneyForDisplay(r.valorEstimado)} | Recibido: ${publicMoneyForDisplay(r.valorRecibido)}',
             ),
           ),
         );
@@ -269,7 +270,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Participación: ${s.tipoParticipacion.name} | Vigencia: ${s.vigencia}\nAsignado: ${CurrencyFormatter.format(s.valorAsignado)} | Saldo: ${CurrencyFormatter.format(s.saldoDisponible)}',
+              'Participación: ${s.tipoParticipacion.name} | Vigencia: ${s.vigencia}\nAsignado: ${publicMoneyForDisplay(s.valorAsignado)} | Saldo: ${publicMoneyForDisplay(s.saldoDisponible)}',
             ),
           ),
         );
@@ -325,7 +326,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Bienalidad: ${p.bienalidad} | OCAD: ${p.tipoOCAD.name}\nAprobado: ${CurrencyFormatter.format(p.montoAprobado)} | Girado SPGR: ${CurrencyFormatter.format(p.montoGiroSPGR)}',
+              'Bienalidad: ${p.bienalidad} | OCAD: ${p.tipoOCAD.name}\nAprobado: ${publicMoneyForDisplay(p.montoAprobado)} | Girado SPGR: ${publicMoneyForDisplay(p.montoGiroSPGR)}',
             ),
             trailing: IconButton(
               icon: Icon(Icons.payment, color: Colors.green),

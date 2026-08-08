@@ -5,6 +5,7 @@ library;
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/reporte_fut_territorial.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
@@ -15,10 +16,7 @@ class FUTTerritorialService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  FUTTerritorialService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  FUTTerritorialService({required this.db, required this.auditoriaService});
 
   Future<RolSectorPublico> _validarPermiso({
     required String entidadId,
@@ -32,11 +30,15 @@ class FUTTerritorialService {
     );
 
     if (rol == null) {
-      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+      throw Exception(
+        'Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId',
+      );
     }
 
     if (!RolesPermisosService.tienePermiso(rol, permiso)) {
-      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+      throw Exception(
+        'Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}',
+      );
     }
 
     return rol;
@@ -52,34 +54,47 @@ class FUTTerritorialService {
     required String vigencia,
     required int trimestre,
   }) async {
-    await _validarPermiso(entidadId: entidadId, usuarioId: usuarioId, permiso: Permiso.consultarAuditoria);
+    await _validarPermiso(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.consultarAuditoria,
+    );
     final id = _uuid.v4();
 
     final resPredial = await db.rawQuery(
       'SELECT SUM(total_pagar) as total FROM liquidaciones_prediales WHERE entidad_id = ? AND vigencia = ? AND estado = ?',
       [entidadId, vigencia, 'pagada'],
     );
-    final double tributarioPredial = (resPredial.first['total'] as num?)?.toDouble() ?? 0.0;
+    final tributarioPredial = publicMoneyFromSql(
+      resPredial.first['total'],
+      nullableAsZero: true,
+    );
 
     final resICA = await db.rawQuery(
       'SELECT SUM(total_pagar) as total FROM declaraciones_ica WHERE entidad_id = ? AND periodo LIKE ?',
       [entidadId, '$vigencia%'],
     );
-    final double tributarioICA = (resICA.first['total'] as num?)?.toDouble() ?? 0.0;
+    final tributarioICA = publicMoneyFromSql(
+      resICA.first['total'],
+      nullableAsZero: true,
+    );
 
-    final double totalTributario = tributarioPredial + tributarioICA;
+    final totalTributario = tributarioPredial + tributarioICA;
 
     final resRegalias = await db.rawQuery(
       'SELECT SUM(monto_aprobado) as total FROM regalias WHERE entidad_id = ? AND bienalidad LIKE ?',
       [entidadId, '%$vigencia%'],
     );
-    final double totalRegalias = (resRegalias.first['total'] as num?)?.toDouble() ?? 0.0;
+    final totalRegalias = publicMoneyFromSql(
+      resRegalias.first['total'],
+      nullableAsZero: true,
+    );
 
     final datos = DatosFUTIngresos(
       ingresosCorrientes: totalTributario,
       tributarios: totalTributario,
-      noTributarios: 0.0,
-      transferenciasSGP: 0.0,
+      noTributarios: publicMoneyZero(),
+      transferenciasSGP: publicMoneyZero(),
       regalias: totalRegalias,
       totalRecaudado: totalTributario + totalRegalias,
     );
@@ -105,7 +120,11 @@ class FUTTerritorialService {
       modulo: 'auditoria',
       accion: 'generar_fut_ingresos',
       valorAnterior: {},
-      valorNuevo: {'reporte_id': id, 'vigencia': vigencia, 'trimestre': trimestre},
+      valorNuevo: {
+        'reporte_id': id,
+        'vigencia': vigencia,
+        'trimestre': trimestre,
+      },
       referenciaId: id,
     );
 
@@ -125,21 +144,29 @@ class FUTTerritorialService {
       'SELECT SUM(monto_total) as total FROM pagos WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
-    final double totalPagos = (resPagos.first['total'] as num?)?.toDouble() ?? 0.0;
+    final totalPagos = publicMoneyFromSql(
+      resPagos.first['total'],
+      nullableAsZero: true,
+    );
 
     final resNomina = await db.rawQuery(
       'SELECT SUM(neto_pagar) as total FROM liquidaciones_nomina WHERE entidad_id = ? AND periodo LIKE ?',
       [entidadId, '$vigencia%'],
     );
-    final double totalNomina = (resNomina.first['total'] as num?)?.toDouble() ?? 0.0;
+    final totalNomina = publicMoneyFromSql(
+      resNomina.first['total'],
+      nullableAsZero: true,
+    );
 
     final datos = DatosFUTGastos(
       funcionamiento: totalNomina,
       serviciosPersonales: totalNomina,
-      gastosGenerales: 0.0,
-      transferencias: 0.0,
-      inversion: totalPagos > totalNomina ? (totalPagos - totalNomina) : 0.0,
-      servicioDeuda: 0.0,
+      gastosGenerales: publicMoneyZero(),
+      transferencias: publicMoneyZero(),
+      inversion: totalPagos > totalNomina
+          ? totalPagos - totalNomina
+          : publicMoneyZero(),
+      servicioDeuda: publicMoneyZero(),
       totalObligado: totalPagos > totalNomina ? totalPagos : totalNomina,
     );
 
@@ -164,7 +191,11 @@ class FUTTerritorialService {
       modulo: 'auditoria',
       accion: 'generar_fut_gastos',
       valorAnterior: {},
-      valorNuevo: {'reporte_id': id, 'vigencia': vigencia, 'trimestre': trimestre},
+      valorNuevo: {
+        'reporte_id': id,
+        'vigencia': vigencia,
+        'trimestre': trimestre,
+      },
       referenciaId: id,
     );
 
@@ -177,7 +208,8 @@ class FUTTerritorialService {
     String? vigencia,
     int? trimestre,
   }) async {
-    String query = 'SELECT * FROM reportes_fut_territorial WHERE entidad_id = ?';
+    String query =
+        'SELECT * FROM reportes_fut_territorial WHERE entidad_id = ?';
     List<dynamic> args = [entidadId];
 
     if (vigencia != null) {
@@ -196,19 +228,27 @@ class FUTTerritorialService {
 
   /// Exporta reporte FUT a formato CSV / Plano CHIP DNP
   Future<String> exportarAPlano(String reporteId) async {
-    final res = await db.query('reportes_fut_territorial', where: 'id = ?', whereArgs: [reporteId]);
+    final res = await db.query(
+      'reportes_fut_territorial',
+      where: 'id = ?',
+      whereArgs: [reporteId],
+    );
     if (res.isEmpty) throw Exception('Reporte FUT no encontrado');
     final reporte = ReporteFUTTerritorial.fromJson(res.first);
 
     final buffer = StringBuffer();
-    buffer.writeln('FUT_DNP_HEADER;${reporte.entidadId};${reporte.vigencia};T${reporte.trimestre};${reporte.tipoFormulario.name}');
+    buffer.writeln(
+      'FUT_DNP_HEADER;${reporte.entidadId};${reporte.vigencia};T${reporte.trimestre};${reporte.tipoFormulario.name}',
+    );
 
     final mapDatos = reporte.datos;
     mapDatos.forEach((k, v) {
       buffer.writeln('FUT_DNP_ROW;$k;$v');
     });
 
-    buffer.writeln('FUT_DNP_FOOTER;TOTAL_REGISTROS;${mapDatos.length};ESTADO;${reporte.estado}');
+    buffer.writeln(
+      'FUT_DNP_FOOTER;TOTAL_REGISTROS;${mapDatos.length};ESTADO;${reporte.estado}',
+    );
     return buffer.toString();
   }
 }

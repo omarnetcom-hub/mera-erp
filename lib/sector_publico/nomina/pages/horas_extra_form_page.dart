@@ -181,7 +181,7 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Valor por Hora: ${CurrencyFormatter.format(publicMoneyFromMajor(_valorHora.toStringAsFixed(2)))}',
+                        'Valor por Hora: ${publicMoneyForDisplay(publicMoneyFromMajor(_valorHora.toStringAsFixed(2)))}',
                       ),
                       Slider(
                         value: _valorHora,
@@ -215,10 +215,10 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
                                   'Recargo: ${_obtenerRecargo(_tipoHoraExtra!)}%',
                                 ),
                                 Text(
-                                  'Valor Base: ${CurrencyFormatter.format(_valorBasePreview())}',
+                                  'Valor Base: ${publicMoneyForDisplay(_valorBasePreview())}',
                                 ),
                                 Text(
-                                  'Valor Total: ${CurrencyFormatter.format(_valorTotalPreview())}',
+                                  'Valor Total: ${publicMoneyForDisplay(_valorTotalPreview())}',
                                 ),
                               ],
                             ),

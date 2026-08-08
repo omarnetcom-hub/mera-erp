@@ -213,23 +213,22 @@ class CHIPReporterService {
         totalGastos - gastosPersonal - gastosGenerales - transferencias;
 
     return DatosCGN2015_002(
-      ingresosTributarios: ingresosTributarios.toMajorUnitsDoubleForDisplay(),
-      ingresosNoTributarios: ingresosNoTributarios.toMajorUnitsDoubleForDisplay(),
-      transferenciasSGP: transferenciasSGP.toMajorUnitsDoubleForDisplay(),
+      ingresosTributarios: ingresosTributarios,
+      ingresosNoTributarios: ingresosNoTributarios,
+      transferenciasSGP: transferenciasSGP,
       // No existe una equivalencia CGC persistida para regalias; no se acepta
       // entrada manual. El valor queda pendiente de una taxonomia contable.
-      regalias: 0,
-      otrosIngresos: otrosIngresos.toMajorUnitsDoubleForDisplay(),
-      totalIngresos: totalIngresos.toMajorUnitsDoubleForDisplay(),
-      gastosPersonal: gastosPersonal.toMajorUnitsDoubleForDisplay(),
-      gastosGenerales: gastosGenerales.toMajorUnitsDoubleForDisplay(),
-      transferencias: transferencias.toMajorUnitsDoubleForDisplay(),
+      regalias: publicMoneyZero(),
+      otrosIngresos: otrosIngresos,
+      totalIngresos: totalIngresos,
+      gastosPersonal: gastosPersonal,
+      gastosGenerales: gastosGenerales,
+      transferencias: transferencias,
       // Presupuesto no conserva una clasificacion contable de inversion.
-      gastosInversion: 0,
-      otrosGastos: otrosGastos.toMajorUnitsDoubleForDisplay(),
-      totalGastos: totalGastos.toMajorUnitsDoubleForDisplay(),
-      resultadoOperacional:
-          (totalIngresos - totalGastos).toMajorUnitsDoubleForDisplay(),
+      gastosInversion: publicMoneyZero(),
+      otrosGastos: otrosGastos,
+      totalGastos: totalGastos,
+      resultadoOperacional: totalIngresos - totalGastos,
     );
   }
 
@@ -280,17 +279,14 @@ class CHIPReporterService {
         );
 
     return DatosCGN2015_003(
-      activoCorriente: activoCorriente.toMajorUnitsDoubleForDisplay(),
-      activoNoCorriente:
-          (estado.totalActivo - activoCorriente).toMajorUnitsDoubleForDisplay(),
-      totalActivo: estado.totalActivo.toMajorUnitsDoubleForDisplay(),
-      pasivoCorriente: pasivoCorriente.toMajorUnitsDoubleForDisplay(),
-      pasivoNoCorriente:
-          (estado.totalPasivo - pasivoCorriente).toMajorUnitsDoubleForDisplay(),
-      totalPasivo: estado.totalPasivo.toMajorUnitsDoubleForDisplay(),
-      patrimonio: estado.totalPatrimonio.toMajorUnitsDoubleForDisplay(),
-      totalPasivoPatrimonio:
-          estado.totalPasivoPatrimonio.toMajorUnitsDoubleForDisplay(),
+      activoCorriente: activoCorriente,
+      activoNoCorriente: estado.totalActivo - activoCorriente,
+      totalActivo: estado.totalActivo,
+      pasivoCorriente: pasivoCorriente,
+      pasivoNoCorriente: estado.totalPasivo - pasivoCorriente,
+      totalPasivo: estado.totalPasivo,
+      patrimonio: estado.totalPatrimonio,
+      totalPasivoPatrimonio: estado.totalPasivoPatrimonio,
     );
   }
 

@@ -3,6 +3,8 @@
 library;
 
 import 'dart:convert';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum TipoReporteSIAObserva {
   planMejoramiento,
@@ -88,9 +90,9 @@ class DatosSIAObservaPlan {
   final int totalHallazgosAtendidos;
   final int totalAccionesImplementadas;
   final int totalContratosAuditados;
-  final double valorTotalContratado;
-  final double valorTotalEjecutadoPresupuesto;
-  final double valorTotalNominaLiquidada;
+  final MoneyValue valorTotalContratado;
+  final MoneyValue valorTotalEjecutadoPresupuesto;
+  final MoneyValue valorTotalNominaLiquidada;
   final double cumplimientoPorcentaje;
 
   DatosSIAObservaPlan({
@@ -108,9 +110,13 @@ class DatosSIAObservaPlan {
       'total_hallazgos_atendidos': totalHallazgosAtendidos,
       'total_acciones_implementadas': totalAccionesImplementadas,
       'total_contratos_auditados': totalContratosAuditados,
-      'valor_total_contratado': valorTotalContratado,
-      'valor_total_ejecutado_presupuesto': valorTotalEjecutadoPresupuesto,
-      'valor_total_nomina_liquidada': valorTotalNominaLiquidada,
+      'valor_total_contratado': publicMoneyForDisplay(valorTotalContratado),
+      'valor_total_ejecutado_presupuesto': publicMoneyForDisplay(
+        valorTotalEjecutadoPresupuesto,
+      ),
+      'valor_total_nomina_liquidada': publicMoneyForDisplay(
+        valorTotalNominaLiquidada,
+      ),
       'cumplimiento_porcentaje': cumplimientoPorcentaje,
     };
   }

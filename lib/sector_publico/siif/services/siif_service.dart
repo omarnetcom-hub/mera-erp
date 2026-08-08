@@ -5,6 +5,7 @@ library;
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/reporte_siif.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
@@ -15,10 +16,7 @@ class SIIFService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  SIIFService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  SIIFService({required this.db, required this.auditoriaService});
 
   Future<RolSectorPublico> _validarPermiso({
     required String entidadId,
@@ -32,11 +30,15 @@ class SIIFService {
     );
 
     if (rol == null) {
-      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+      throw Exception(
+        'Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId',
+      );
     }
 
     if (!RolesPermisosService.tienePermiso(rol, permiso)) {
-      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+      throw Exception(
+        'Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}',
+      );
     }
 
     return rol;
@@ -53,7 +55,11 @@ class SIIFService {
     required String vigencia,
     required int mes,
   }) async {
-    await _validarPermiso(entidadId: entidadId, usuarioId: usuarioId, permiso: Permiso.consultarAuditoria);
+    await _validarPermiso(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      permiso: Permiso.consultarAuditoria,
+    );
     final id = _uuid.v4();
 
     // 1. Consultar Apropiaciones
@@ -62,38 +68,59 @@ class SIIFService {
       [entidadId, vigencia],
     );
     final rowApr = resApropiaciones.first;
-    final double inicial = (rowApr['inicial'] as num?)?.toDouble() ?? 0.0;
-    final double adiciones = (rowApr['adiciones'] as num?)?.toDouble() ?? 0.0;
-    final double reducciones = (rowApr['reducciones'] as num?)?.toDouble() ?? 0.0;
-    final double definitivo = (rowApr['definitivo'] as num?)?.toDouble() ?? (inicial + adiciones - reducciones);
+    final inicial = publicMoneyFromSql(rowApr['inicial'], nullableAsZero: true);
+    final adiciones = publicMoneyFromSql(
+      rowApr['adiciones'],
+      nullableAsZero: true,
+    );
+    final reducciones = publicMoneyFromSql(
+      rowApr['reducciones'],
+      nullableAsZero: true,
+    );
+    final definitivo = publicMoneyFromSql(
+      rowApr['definitivo'],
+      nullableAsZero: true,
+    );
 
     // 2. Consultar CDP
     final resCDP = await db.rawQuery(
       'SELECT SUM(monto_total) as total FROM cdp WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
-    final double totalCDP = (resCDP.first['total'] as num?)?.toDouble() ?? 0.0;
+    final totalCDP = publicMoneyFromSql(
+      resCDP.first['total'],
+      nullableAsZero: true,
+    );
 
     // 3. Consultar RP (Registros Presupuestales)
     final resRP = await db.rawQuery(
       'SELECT SUM(monto_total) as total FROM rp WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
-    final double totalRP = (resRP.first['total'] as num?)?.toDouble() ?? 0.0;
+    final totalRP = publicMoneyFromSql(
+      resRP.first['total'],
+      nullableAsZero: true,
+    );
 
     // 4. Consultar Obligaciones
     final resObl = await db.rawQuery(
       'SELECT SUM(monto_total) as total FROM obligaciones WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
-    final double totalObligaciones = (resObl.first['total'] as num?)?.toDouble() ?? 0.0;
+    final totalObligaciones = publicMoneyFromSql(
+      resObl.first['total'],
+      nullableAsZero: true,
+    );
 
     // 5. Consultar Pagos
     final resPagos = await db.rawQuery(
       'SELECT SUM(monto_total) as total FROM pagos WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
-    final double totalPagos = (resPagos.first['total'] as num?)?.toDouble() ?? 0.0;
+    final totalPagos = publicMoneyFromSql(
+      resPagos.first['total'],
+      nullableAsZero: true,
+    );
 
     final datos = DatosSIIFPresupuesto(
       totalApropiacionInicial: inicial,
@@ -111,7 +138,9 @@ class SIIFService {
     // Validar cuadres contables antes de guardar
     final validacion = validarCuadresPresupuesto(datos);
     if (!validacion['valido']) {
-      throw Exception('Error de consistencia presupuestal para SIIF Nación: ${validacion['errores'].join(", ")}');
+      throw Exception(
+        'Error de consistencia presupuestal para SIIF Nación: ${validacion['errores'].join(", ")}',
+      );
     }
 
     final reporte = ReporteSIIF(
@@ -157,9 +186,12 @@ class SIIFService {
     );
 
     final row = resPagos.first;
-    final double bruto = (row['total_bruto'] as num?)?.toDouble() ?? 0.0;
-    final double retenciones = (row['total_retenciones'] as num?)?.toDouble() ?? 0.0;
-    final double neto = (row['total_neto'] as num?)?.toDouble() ?? (bruto - retenciones);
+    final bruto = publicMoneyFromSql(row['total_bruto'], nullableAsZero: true);
+    final retenciones = publicMoneyFromSql(
+      row['total_retenciones'],
+      nullableAsZero: true,
+    );
+    final neto = publicMoneyFromSql(row['total_neto'], nullableAsZero: true);
 
     final datos = DatosSIIFTesoreria(
       totalPagosEfectuados: bruto,
@@ -201,20 +233,23 @@ class SIIFService {
   Map<String, dynamic> validarCuadresPresupuesto(DatosSIIFPresupuesto datos) {
     final errores = <String>[];
 
-    if (datos.totalRP > datos.totalCDP + 0.01) {
-      errores.add('Total Registros Presupuestales (RP: \$${datos.totalRP}) supera el Total CDP (\$${datos.totalCDP})');
+    if (datos.totalRP > datos.totalCDP) {
+      errores.add(
+        'Total Registros Presupuestales (RP: \$${datos.totalRP}) supera el Total CDP (\$${datos.totalCDP})',
+      );
     }
-    if (datos.totalObligaciones > datos.totalRP + 0.01) {
-      errores.add('Total Obligaciones (\$${datos.totalObligaciones}) supera el Total RP (\$${datos.totalRP})');
+    if (datos.totalObligaciones > datos.totalRP) {
+      errores.add(
+        'Total Obligaciones (\$${datos.totalObligaciones}) supera el Total RP (\$${datos.totalRP})',
+      );
     }
-    if (datos.totalPagos > datos.totalObligaciones + 0.01) {
-      errores.add('Total Pagos (\$${datos.totalPagos}) supera el Total Obligaciones (\$${datos.totalObligaciones})');
+    if (datos.totalPagos > datos.totalObligaciones) {
+      errores.add(
+        'Total Pagos (\$${datos.totalPagos}) supera el Total Obligaciones (\$${datos.totalObligaciones})',
+      );
     }
 
-    return {
-      'valido': errores.isEmpty,
-      'errores': errores,
-    };
+    return {'valido': errores.isEmpty, 'errores': errores};
   }
 
   /// Consultar reportes SIIF de una entidad
@@ -242,19 +277,27 @@ class SIIFService {
 
   /// Exporta reporte SIIF Nación a archivo plano (.txt)
   Future<String> exportarAPlano(String reporteId) async {
-    final res = await db.query('reportes_siif_nacion', where: 'id = ?', whereArgs: [reporteId]);
+    final res = await db.query(
+      'reportes_siif_nacion',
+      where: 'id = ?',
+      whereArgs: [reporteId],
+    );
     if (res.isEmpty) throw Exception('Reporte SIIF Nación no encontrado');
     final reporte = ReporteSIIF.fromJson(res.first);
 
     final buffer = StringBuffer();
-    buffer.writeln('HDR|SIIF_NACION|${reporte.entidadId}|${reporte.vigencia}|${reporte.mes.toString().padLeft(2, '0')}|${reporte.tipoReporte.name}');
+    buffer.writeln(
+      'HDR|SIIF_NACION|${reporte.entidadId}|${reporte.vigencia}|${reporte.mes.toString().padLeft(2, '0')}|${reporte.tipoReporte.name}',
+    );
 
     final mapDatos = reporte.datos;
     mapDatos.forEach((key, val) {
       buffer.writeln('DAT|$key|$val');
     });
 
-    buffer.writeln('FTR|TOTAL_CAMPOS|${mapDatos.length}|ESTADO|${reporte.estado}');
+    buffer.writeln(
+      'FTR|TOTAL_CAMPOS|${mapDatos.length}|ESTADO|${reporte.estado}',
+    );
     return buffer.toString();
   }
 }

@@ -13,6 +13,7 @@ import '../models/proyecto_mga.dart';
 import '../models/pdt.dart';
 import 'formulacion_mga_form_page.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 class PlaneacionPage extends StatefulWidget {
   final String entidadId;
@@ -61,14 +62,23 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
         entidadId: widget.entidadId,
       );
       _pdtService = PDTService(db: db, auditoriaService: auditoria);
-      _formulacionMGAService = FormulacionMGAService(db: db, auditoriaService: auditoria);
-      _viabilizacionService = ViabilizacionService(db: db, auditoriaService: auditoria);
+      _formulacionMGAService = FormulacionMGAService(
+        db: db,
+        auditoriaService: auditoria,
+      );
+      _viabilizacionService = ViabilizacionService(
+        db: db,
+        auditoriaService: auditoria,
+      );
 
       await _cargarDatos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al inicializar servicios: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al inicializar servicios: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -82,9 +92,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
       final proyectos = await _bancoProyectosService!.consultarProyectos(
         entidadId: widget.entidadId,
       );
-      final pdts = await _pdtService!.consultarPDT(
-        entidadId: widget.entidadId,
-      );
+      final pdts = await _pdtService!.consultarPDT(entidadId: widget.entidadId);
 
       setState(() {
         _proyectos = proyectos;
@@ -93,7 +101,10 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar datos: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al cargar datos: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -106,10 +117,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
         title: const Text('Planeación Territorial & BPIN (DNP)'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _cargarDatos,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _cargarDatos),
         ],
       ),
       body: _cargando
@@ -120,10 +128,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
                 Expanded(
                   child: IndexedStack(
                     index: _selectedIndex,
-                    children: [
-                      _buildProyectosMGATab(),
-                      _buildPDTTab(),
-                    ],
+                    children: [_buildProyectosMGATab(), _buildPDTTab()],
                   ),
                 ),
               ],
@@ -137,10 +142,7 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
             icon: Icon(Icons.account_tree),
             label: 'Proyectos MGA',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: 'PDT',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'PDT'),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -213,16 +215,25 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Text(
-                proyecto.codigoBPIN.length >= 4 ? proyecto.codigoBPIN.substring(0, 4) : 'BPIN',
+                proyecto.codigoBPIN.length >= 4
+                    ? proyecto.codigoBPIN.substring(0, 4)
+                    : 'BPIN',
                 style: TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
-            title: Text(proyecto.nombreProyecto, style: TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(
+              proyecto.nombreProyecto,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('BPIN: ${proyecto.codigoBPIN} | Sector: ${proyecto.sector}'),
-                Text('Valor Total: ${CurrencyFormatter.format(proyecto.valorTotal)} | Estado: ${proyecto.estado.toString().split('.').last}'),
+                Text(
+                  'BPIN: ${proyecto.codigoBPIN} | Sector: ${proyecto.sector}',
+                ),
+                Text(
+                  'Valor Total: ${publicMoneyForDisplay(proyecto.valorTotal)} | Estado: ${proyecto.estado.toString().split('.').last}',
+                ),
               ],
             ),
             trailing: PopupMenuButton<String>(
@@ -300,22 +311,36 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.map, color: Colors.white),
             ),
-            title: Text(pdt.nombrePDT, style: TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(
+              pdt.nombrePDT,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Vigencia: ${pdt.vigencia} | Estado: ${pdt.estado.toString().split('.').last}'),
+                Text(
+                  'Vigencia: ${pdt.vigencia} | Estado: ${pdt.estado.toString().split('.').last}',
+                ),
                 Text('Visión: ${pdt.vision}'),
               ],
             ),
             trailing: pdt.estado == EstadoPDT.borrador
                 ? ElevatedButton(
                     onPressed: () => _aprobarPDTConcejoDialog(pdt),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
-                    child: const Text('Aprobar Concejo', style: TextStyle(fontSize: 11)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      'Aprobar Concejo',
+                      style: TextStyle(fontSize: 11),
+                    ),
                   )
                 : const Chip(
-                    label: Text('Aprobado', style: TextStyle(fontSize: 11, color: Colors.white)),
+                    label: Text(
+                      'Aprobado',
+                      style: TextStyle(fontSize: 11, color: Colors.white),
+                    ),
                     backgroundColor: Colors.green,
                   ),
           ),
@@ -359,14 +384,21 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Proyecto BPIN ${proyecto.codigoBPIN} sincronizado con DNP')),
+          SnackBar(
+            content: Text(
+              'Proyecto BPIN ${proyecto.codigoBPIN} sincronizado con DNP',
+            ),
+          ),
         );
       }
       _cargarDatos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al sincronizar con BPIN DNP: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al sincronizar con BPIN DNP: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -378,7 +410,9 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Iniciar Flujo de Viabilización - ${proyecto.nombreProyecto}'),
+        title: Text(
+          'Iniciar Flujo de Viabilización - ${proyecto.nombreProyecto}',
+        ),
         content: TextField(
           controller: motivoCtrl,
           decoration: const InputDecoration(
@@ -404,13 +438,20 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Flujo de viabilización iniciado exitosamente')),
+                    const SnackBar(
+                      content: Text(
+                        'Flujo de viabilización iniciado exitosamente',
+                      ),
+                    ),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -475,7 +516,10 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (nombreCtrl.text.isEmpty || vigenciaCtrl.text.isEmpty || visionCtrl.text.isEmpty) return;
+              if (nombreCtrl.text.isEmpty ||
+                  vigenciaCtrl.text.isEmpty ||
+                  visionCtrl.text.isEmpty)
+                return;
               try {
                 await _pdtService!.crearPDT(
                   entidadId: widget.entidadId,
@@ -490,14 +534,19 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('PDT creado en estado borrador')),
+                    const SnackBar(
+                      content: Text('PDT creado en estado borrador'),
+                    ),
                   );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -541,14 +590,19 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('PDT aprobado por Concejo municipal')),
+                    const SnackBar(
+                      content: Text('PDT aprobado por Concejo municipal'),
+                    ),
                   );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
