@@ -1138,3 +1138,22 @@ y costos por lote de inventario quedan convertidos y cubiertos por tests
 dirigidos. La Fase 3A no queda cerrada: faltan 38 consumidores del inventario
 de 52 y la verificacion global de analyze/build debe ejecutarla Omar.
 No se toca \`backend\`; su estado local preexistente se conserva.
+
+## Limpieza de evidencia temporal - 2026-08-08
+
+- \`phase3a_audit_suite.json\`: borrado; era la salida puntual de la suite,
+  ya resumida y respaldada por este log.
+- \`presupuesto_publico_aislado.json\`: borrado; era la salida puntual del
+  diagnóstico de Fase 3B, ya documentada en este log.
+- \`phase3a_analyze_v3.txt\` y \`phase3a_analyze_v3_error.txt\`: ambos estaban
+  vacíos y se intentaron borrar, pero Windows los mantiene abiertos por otro
+  proceso. Quedaron ignorados mediante \`.gitignore\`; no aparecen como
+  untracked. Omar puede eliminarlos cuando cierre el proceso que los retiene.
+- \`.gitignore\`: agrega patrones raíz para \`phase3a\`, salidas
+  \`*_analyze_*.txt\`, \`*_audit_*.json\` y \`*_aislado.json\`.
+
+### Cierre de la limpieza temporal
+
+Estado: **Completo en Git**. El working tree queda limpio salvo el submodulo
+\`backend\` preexistente; los dos archivos vacios bloqueados no forman parte del
+indice ni del estado de Git.

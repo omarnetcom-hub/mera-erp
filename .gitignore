@@ -45,6 +45,13 @@ app.*.map.json
 /android/app/release
 backend_RESPALDO_20260708/
 
+# Temporary evidence generated while migrating money consumers at repository root.
+/phase3a_analyze_*.txt
+/phase3a_*.json
+/*_analyze_*.txt
+/*_audit_*.json
+/*_aislado.json
+
 # Local secrets and private key material. Public PEM files remain opt-in.
 .env
 .env.*
