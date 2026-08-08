@@ -1,8 +1,8 @@
-import 'dart:math' as math;
-
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
@@ -14,7 +14,7 @@ class PartidaReciprocaInput {
   });
 
   final String detalleAsientoId;
-  final double montoEliminar;
+  final MoneyValue montoEliminar;
 }
 
 /// Registra aprobaciones humanas de partidas reciprocas para NICSP 40.
@@ -31,17 +31,17 @@ class ConciliacionReciprocasService {
     required String vigencia,
     required String usuarioId,
     required List<PartidaReciprocaInput> partidas,
-    required double toleranciaMonto,
+    required MoneyValue toleranciaMonto,
     required int toleranciaDias,
     String? observaciones,
   }) async {
     if (partidas.length < 2) {
       throw StateError('La conciliacion requiere al menos dos partidas.');
     }
-    if (toleranciaMonto < 0 || toleranciaDias < 0) {
+    if (toleranciaMonto < publicMoneyZero() || toleranciaDias < 0) {
       throw ArgumentError('Las tolerancias no pueden ser negativas.');
     }
-    if (partidas.any((partida) => partida.montoEliminar <= 0)) {
+    if (partidas.any((partida) => partida.montoEliminar <= publicMoneyZero())) {
       throw ArgumentError('Cada monto a eliminar debe ser mayor que cero.');
     }
     if (partidas.map((p) => p.detalleAsientoId).toSet().length !=
@@ -87,8 +87,8 @@ class ConciliacionReciprocasService {
     final asientos = <String>{};
     final entidades = <String>{};
     final fechas = <DateTime>[];
-    double totalDebito = 0;
-    double totalCredito = 0;
+    var totalDebito = publicMoneyZero();
+    var totalCredito = publicMoneyZero();
     final partidasValidadas = <Map<String, dynamic>>[];
 
     for (final input in partidas) {
@@ -110,11 +110,11 @@ class ConciliacionReciprocasService {
         throw StateError('Todas las partidas deben pertenecer a la vigencia.');
       }
 
-      final debito = (fila['debito'] as num).toDouble();
-      final credito = (fila['credito'] as num).toDouble();
-      final lado = debito > 0 && credito == 0
+      final debito = publicMoneyFromSql(fila['debito'], nullableAsZero: true);
+      final credito = publicMoneyFromSql(fila['credito'], nullableAsZero: true);
+      final lado = debito > publicMoneyZero() && credito == publicMoneyZero()
           ? 'debito'
-          : credito > 0 && debito == 0
+          : credito > publicMoneyZero() && debito == publicMoneyZero()
           ? 'credito'
           : null;
       if (lado == null) {
@@ -129,8 +129,10 @@ class ConciliacionReciprocasService {
         INNER JOIN conciliaciones_reciprocas c ON c.id = p.conciliacion_id
         WHERE p.detalle_asiento_id = ? AND c.estado = 'aprobada'
       ''', [input.detalleAsientoId]);
-      final yaEliminado =
-          (eliminacionesPrevias.first['total'] as num?)?.toDouble() ?? 0.0;
+      final yaEliminado = publicMoneyFromSql(
+        eliminacionesPrevias.first['total'],
+        nullableAsZero: true,
+      );
       if (input.montoEliminar > disponible - yaEliminado) {
         throw StateError(
           'El monto a eliminar excede el valor de la partida ${input.detalleAsientoId}.',
@@ -157,7 +159,7 @@ class ConciliacionReciprocasService {
         'La conciliacion debe relacionar asientos de al menos dos entidades.',
       );
     }
-    if (totalDebito == 0 || totalCredito == 0) {
+    if (totalDebito == publicMoneyZero() || totalCredito == publicMoneyZero()) {
       throw StateError(
         'La conciliacion requiere debitos y creditos reciprocos.',
       );
@@ -184,10 +186,10 @@ class ConciliacionReciprocasService {
         'id': id,
         'entidad_consolidadora_id': entidadConsolidadoraId,
         'vigencia': vigencia,
-        'monto_conciliado': math.min(totalDebito, totalCredito),
-        'tolerancia_monto': toleranciaMonto,
+        'monto_conciliado': (totalDebito < totalCredito ? totalDebito : totalCredito).toSql(),
+        'tolerancia_monto': toleranciaMonto.toSql(),
         'tolerancia_dias': toleranciaDias,
-        'diferencia_monto_validada': diferenciaMonto,
+        'diferencia_monto_validada': diferenciaMonto.toSql(),
         'diferencia_dias_validada': diferenciaDias,
         'aprobado_por': usuarioId,
         'fecha_aprobacion': fechaAprobacion,
@@ -202,7 +204,7 @@ class ConciliacionReciprocasService {
           'asiento_id': partida['asiento_id'],
           'detalle_asiento_id': partida['detalle_id'],
           'lado': partida['lado'],
-          'monto_eliminar': partida['monto_eliminar'],
+          'monto_eliminar': (partida['monto_eliminar'] as MoneyValue).toSql(),
         });
       }
       await AuditoriaService(txn).registrarEvento(
@@ -216,8 +218,8 @@ class ConciliacionReciprocasService {
           'conciliacion_id': id,
           'vigencia': vigencia,
           'asientos': asientos.toList(),
-          'monto_conciliado': math.min(totalDebito, totalCredito),
-          'tolerancia_monto': toleranciaMonto,
+          'monto_conciliado': (totalDebito < totalCredito ? totalDebito : totalCredito).toSql(),
+          'tolerancia_monto': toleranciaMonto.toSql(),
           'tolerancia_dias': toleranciaDias,
         },
         referenciaId: id,

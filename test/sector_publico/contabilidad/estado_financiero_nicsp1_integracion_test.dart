@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/contabilidad/database/schema_contabilidad.dart';
 import 'package:merka_erp/sector_publico/contabilidad/services/cierre_vigencia_service.dart';
 import 'package:merka_erp/sector_publico/contabilidad/services/contabilidad_nicsp_service.dart';
@@ -69,20 +70,20 @@ void main() {
         fechaFin: DateTime(2026, 12, 31),
       );
 
-      expect(situacion.totalActivo, 1000.0);
-      expect(situacion.totalPasivo, 400.0);
-      expect(situacion.totalPatrimonio, 600.0);
-      expect(situacion.totalPasivoPatrimonio, 1000.0);
+      expect(situacion.totalActivo, _m(1000));
+      expect(situacion.totalPasivo, _m(400));
+      expect(situacion.totalPatrimonio, _m(600));
+      expect(situacion.totalPasivoPatrimonio, _m(1000));
       expect(situacion.estaCuadrado(), isTrue);
-      expect(resultado.totalIngresos, 500.0);
-      expect(resultado.totalGastos, 200.0);
-      expect(resultado.resultadoOperacional, 300.0);
+      expect(resultado.totalIngresos, _m(500));
+      expect(resultado.totalGastos, _m(200));
+      expect(resultado.resultadoOperacional, _m(300));
       expect(
         situacion.patrimonio
             .where((r) => r.codigoCuenta == 'RESULTADO-PERIODO')
             .single
             .valor,
-        300.0,
+        _m(300),
       );
     },
   );
@@ -91,18 +92,22 @@ void main() {
 Future<void> _insertarSaldo(
   String codigo,
   String nombre, {
-  required double deudor,
-  required double acreedor,
+  required num deudor,
+  required num acreedor,
 }) {
+  final deudorMinor = _m(deudor).toSql();
+  final acreedorMinor = _m(acreedor).toSql();
   return db.insert('saldos_cuentas', {
     'id': 'SALDO-$codigo',
     'entidad_id': _entidadId,
     'cuenta_codigo': codigo,
     'cuenta_nombre': nombre,
-    'saldo_deudor': deudor,
-    'saldo_acreedor': acreedor,
-    'saldo_neto': deudor - acreedor,
+    'saldo_deudor': deudorMinor,
+    'saldo_acreedor': acreedorMinor,
+    'saldo_neto': deudorMinor - acreedorMinor,
     'fecha_ultimo_movimiento': DateTime(2026, 12, 31).toIso8601String(),
     'vigencia': _vigencia,
   });
 }
+
+final _m = (num pesos) => publicMoneyFromMajor(pesos.toString());

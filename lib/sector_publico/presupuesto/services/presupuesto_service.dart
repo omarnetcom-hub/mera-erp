@@ -5,6 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/apropiacion.dart';
 import '../models/cdp.dart';
 import '../models/rp.dart';
@@ -36,7 +38,7 @@ class PresupuestoService {
     required String vigencia,
     required String codigoRubro,
     required String nombreRubro,
-    required double valorApropiado,
+    required MoneyValue valorApropiado,
     required String fuenteFinanciacion,
     required String sector,
     required String programa,
@@ -58,10 +60,10 @@ class PresupuestoService {
       nombreRubro: nombreRubro,
       valorInicial: valorApropiado,
       valorApropiado: valorApropiado,
-      valorCDP: 0,
-      valorRP: 0,
-      valorObligado: 0,
-      valorPagado: 0,
+      valorCDP: publicMoneyZero(),
+      valorRP: publicMoneyZero(),
+      valorObligado: publicMoneyZero(),
+      valorPagado: publicMoneyZero(),
       saldoDisponible: valorApropiado,
       fuenteFinanciacion: fuenteFinanciacion,
       sector: sector,
@@ -149,7 +151,7 @@ class PresupuestoService {
     required String entidadId,
     required String usuarioId,
     required String apropiacionId,
-    required double valorCDP,
+    required MoneyValue valorCDP,
     required String funcionarioExpedidor,
     required String funcionarioSolicitante,
     required String objetoGasto,
@@ -188,7 +190,7 @@ class PresupuestoService {
       apropiacionId: apropiacionId,
       codigoRubro: apropiacion.codigoRubro,
       valorCDP: valorCDP,
-      valorComprometidoRP: 0,
+      valorComprometidoRP: publicMoneyZero(),
       saldoDisponible: valorCDP,
       fechaExpedicion: fechaExpedicion,
       fechaVigencia: fechaVigencia,
@@ -205,8 +207,8 @@ class PresupuestoService {
     await db.update(
       'apropiaciones',
       {
-        'valor_cdp': apropiacion.valorCDP + valorCDP,
-        'saldo_disponible': apropiacion.calcularSaldoDisponibleCDP() - valorCDP,
+        'valor_cdp': (apropiacion.valorCDP + valorCDP).toSql(),
+        'saldo_disponible': (apropiacion.calcularSaldoDisponibleCDP() - valorCDP).toSql(),
       },
       where: 'id = ?',
       whereArgs: [apropiacionId],
@@ -218,8 +220,8 @@ class PresupuestoService {
       tipoEvento: TipoEventoAuditoria.expedicionCDP,
       modulo: 'presupuesto',
       accion: 'expedicion_cdp',
-      valorAnterior: {'apropiacion_id': apropiacionId, 'saldo_anterior': apropiacion.saldoDisponible},
-      valorNuevo: {'cdp_id': cdp.id, 'numero_cdp': numeroCDP, 'valor': valorCDP},
+      valorAnterior: {'apropiacion_id': apropiacionId, 'saldo_anterior': apropiacion.saldoDisponible.toSql()},
+      valorNuevo: {'cdp_id': cdp.id, 'numero_cdp': numeroCDP, 'valor': valorCDP.toSql()},
       referenciaId: cdp.id,
     );
 
@@ -248,7 +250,7 @@ class PresupuestoService {
     required String cdpId,
     required String contratoId,
     required String contratoNumero,
-    required double valorRP,
+    required MoneyValue valorRP,
     required String funcionarioExpedidor,
     required String funcionarioSolicitante,
     required String objetoGasto,
@@ -344,7 +346,7 @@ class PresupuestoService {
       contratoNumero: contratoNumero,
       codigoRubro: cdp.codigoRubro,
       valorRP: valorRP,
-      valorObligado: 0,
+      valorObligado: publicMoneyZero(),
       saldoDisponible: valorRP,
       fechaExpedicion: fechaExpedicion,
       fechaVigencia: fechaVigencia,
@@ -360,8 +362,8 @@ class PresupuestoService {
     await database.update(
       'cdps',
       {
-        'valor_comprometido_rp': cdp.valorComprometidoRP + valorRP,
-        'saldo_disponible': cdp.saldoDisponible - valorRP,
+        'valor_comprometido_rp': (cdp.valorComprometidoRP + valorRP).toSql(),
+        'saldo_disponible': (cdp.saldoDisponible - valorRP).toSql(),
       },
       where: 'id = ?',
       whereArgs: [cdpId],
@@ -373,8 +375,8 @@ class PresupuestoService {
       await database.update(
         'apropiaciones',
         {
-          'valor_rp': apropiacion.valorRP + valorRP,
-          'saldo_disponible': apropiacion.calcularSaldoDisponibleCDP() - valorRP,
+          'valor_rp': (apropiacion.valorRP + valorRP).toSql(),
+          'saldo_disponible': (apropiacion.calcularSaldoDisponibleCDP() - valorRP).toSql(),
         },
         where: 'id = ?',
         whereArgs: [apropiacion.id],
@@ -400,8 +402,8 @@ class PresupuestoService {
       tipoEvento: TipoEventoAuditoria.expedicionRP,
       modulo: 'presupuesto',
       accion: 'expedicion_rp',
-      valorAnterior: {'cdp_id': cdpId, 'saldo_anterior': cdp.saldoDisponible},
-      valorNuevo: {'rp_id': rp.id, 'numero_rp': numeroRP, 'valor': valorRP, 'contrato': contratoNumero},
+      valorAnterior: {'cdp_id': cdpId, 'saldo_anterior': cdp.saldoDisponible.toSql()},
+      valorNuevo: {'rp_id': rp.id, 'numero_rp': numeroRP, 'valor': valorRP.toSql(), 'contrato': contratoNumero},
       referenciaId: rp.id,
     );
 
@@ -432,7 +434,7 @@ class PresupuestoService {
     required String contratoNumero,
     required String terceroId,
     required String terceroNombre,
-    required double valorObligacion,
+    required MoneyValue valorObligacion,
     required String funcionarioReconocio,
     required String objetoGasto,
     String? actaReciboNumero,
@@ -514,7 +516,7 @@ class PresupuestoService {
       terceroNombre: terceroNombre,
       codigoRubro: rp.codigoRubro,
       valorObligacion: valorObligacion,
-      valorPagado: 0,
+      valorPagado: publicMoneyZero(),
       saldoPendiente: valorObligacion,
       fechaReconocimiento: fechaReconocimiento,
       funcionarioReconocio: funcionarioReconocio,
@@ -535,8 +537,8 @@ class PresupuestoService {
     if (compromisosFuturos.isNotEmpty) {
       compromisoFuturo = compromisosFuturos.single;
       final disponibleObligar =
-          (compromisoFuturo['monto_comprometido'] as num).toDouble() -
-          (compromisoFuturo['monto_obligado'] as num).toDouble();
+          publicMoneyFromSql(compromisoFuturo['monto_comprometido']) -
+          publicMoneyFromSql(compromisoFuturo['monto_obligado']);
       if (valorObligacion > disponibleObligar) {
         throw StateError(
           'La obligacion excede el compromiso de vigencia futura.',
@@ -550,8 +552,8 @@ class PresupuestoService {
     await database.update(
       'rps',
       {
-        'valor_obligado': rp.valorObligado + valorObligacion,
-        'saldo_disponible': rp.saldoDisponible - valorObligacion,
+        'valor_obligado': (rp.valorObligado + valorObligacion).toSql(),
+        'saldo_disponible': (rp.saldoDisponible - valorObligacion).toSql(),
       },
       where: 'id = ?',
       whereArgs: [rpId],
@@ -559,18 +561,18 @@ class PresupuestoService {
 
     if (compromisoFuturo != null) {
       final nuevoObligado =
-          (compromisoFuturo['monto_obligado'] as num).toDouble() +
+          publicMoneyFromSql(compromisoFuturo['monto_obligado']) +
           valorObligacion;
       await database.insert('obligaciones_vigencias_futuras', {
         'id': _uuid.v4(),
         'compromiso_id': compromisoFuturo['id'],
         'obligacion_id': obligacion.id,
-        'monto_obligado': valorObligacion,
+        'monto_obligado': valorObligacion.toSql(),
         'fecha_registro': fechaReconocimiento.toIso8601String(),
       });
       await database.update(
         'compromisos_vigencias_futuras',
-        {'monto_obligado': nuevoObligado},
+        {'monto_obligado': nuevoObligado.toSql()},
         where: 'id = ?',
         whereArgs: [compromisoFuturo['id']],
       );
@@ -580,7 +582,7 @@ class PresupuestoService {
         SET monto_obligado = monto_obligado + ?
         WHERE id = ?
         ''',
-        [valorObligacion, compromisoFuturo['distribucion_id']],
+        [valorObligacion.toSql(), compromisoFuturo['distribucion_id']],
       );
     }
 
@@ -590,11 +592,11 @@ class PresupuestoService {
       tipoEvento: TipoEventoAuditoria.registroObligacion,
       modulo: 'presupuesto',
       accion: 'registro_obligacion',
-      valorAnterior: {'rp_id': rpId, 'saldo_anterior': rp.saldoDisponible},
+      valorAnterior: {'rp_id': rpId, 'saldo_anterior': rp.saldoDisponible.toSql()},
       valorNuevo: {
         'obligacion_id': obligacion.id,
         'numero_obligacion': numeroObligacion,
-        'valor': valorObligacion,
+        'valor': valorObligacion.toSql(),
         'tercero': terceroNombre,
       },
       referenciaId: obligacion.id,
@@ -628,7 +630,7 @@ class PresupuestoService {
     required String bancoDestino,
     required String cuentaDestino,
     required String tipoCuenta,
-    required double valorPago,
+    required MoneyValue valorPago,
     required String funcionarioProgramo,
     required TipoPago tipoPago,
     required int mesPAC, // Mes para el cual se programa el pago
@@ -704,7 +706,7 @@ class PresupuestoService {
       valorNuevo: {
         'pago_id': pago.id,
         'numero_pago': numeroPago,
-        'valor': valorPago,
+        'valor': valorPago.toSql(),
         'mes_pac': mesPAC,
       },
       referenciaId: pago.id,
@@ -724,7 +726,7 @@ class PresupuestoService {
     required String bancoDestino,
     required String cuentaDestino,
     required String tipoCuenta,
-    required double valorPago,
+    required MoneyValue valorPago,
     required String funcionarioProgramo,
     required TipoPago tipoPago,
     required int mesPAC,
@@ -765,7 +767,7 @@ class PresupuestoService {
     required String autorizacionId,
     required String rpId,
     required int anio,
-    required double monto,
+    required MoneyValue monto,
   }) {
     return VigenciasFuturasService(db: db).comprometerVigenciaFutura(
       entidadId: entidadId,
@@ -924,15 +926,15 @@ class PresupuestoService {
       final fechaEjecucion = DateTime.now();
       final nuevoValorPagado = obligacion.valorPagado + pago.valorPago;
       final nuevoSaldoPendiente = obligacion.saldoPendiente - pago.valorPago;
-      final nuevoEstadoObligacion = nuevoSaldoPendiente == 0
+      final nuevoEstadoObligacion = nuevoSaldoPendiente == publicMoneyZero()
           ? EstadoObligacion.pagadaTotalmente
           : EstadoObligacion.pagadaParcialmente;
 
       await txn.update(
         'obligaciones',
         {
-          'valor_pagado': nuevoValorPagado,
-          'saldo_pendiente': nuevoSaldoPendiente,
+          'valor_pagado': nuevoValorPagado.toSql(),
+          'saldo_pendiente': nuevoSaldoPendiente.toSql(),
           'estado': nuevoEstadoObligacion.name,
         },
         where: 'id = ?',
@@ -946,9 +948,9 @@ class PresupuestoService {
       if (vinculosVigenciaFutura.isNotEmpty) {
         final vinculo = vinculosVigenciaFutura.single;
         final nuevoPagadoVigencia =
-            (vinculo['monto_pagado'] as num).toDouble() + pago.valorPago;
+            publicMoneyFromSql(vinculo['monto_pagado']) + pago.valorPago;
         final montoObligadoVigencia =
-            (vinculo['monto_obligado'] as num).toDouble();
+            publicMoneyFromSql(vinculo['monto_obligado']);
         if (nuevoPagadoVigencia > montoObligadoVigencia) {
           throw StateError(
             'El pago excede la obligacion vinculada a la vigencia futura.',
@@ -965,7 +967,7 @@ class PresupuestoService {
         final compromiso = compromisos.single;
         await txn.update(
           'obligaciones_vigencias_futuras',
-          {'monto_pagado': nuevoPagadoVigencia},
+          {'monto_pagado': nuevoPagadoVigencia.toSql()},
           where: 'id = ?',
           whereArgs: [vinculo['id']],
         );
@@ -975,7 +977,7 @@ class PresupuestoService {
           SET monto_pagado = monto_pagado + ?
           WHERE id = ?
           ''',
-          [pago.valorPago, compromiso['id']],
+          [pago.valorPago.toSql(), compromiso['id']],
         );
         await txn.rawUpdate(
           '''
@@ -983,12 +985,12 @@ class PresupuestoService {
           SET monto_pagado = monto_pagado + ?
           WHERE id = ?
           ''',
-          [pago.valorPago, compromiso['distribucion_id']],
+          [pago.valorPago.toSql(), compromiso['distribucion_id']],
         );
       }
       await txn.update(
         'apropiaciones',
-        {'valor_pagado': apropiacion.valorPagado + pago.valorPago},
+        {'valor_pagado': (apropiacion.valorPagado + pago.valorPago).toSql()},
         where: 'id = ?',
         whereArgs: [apropiacion.id],
       );

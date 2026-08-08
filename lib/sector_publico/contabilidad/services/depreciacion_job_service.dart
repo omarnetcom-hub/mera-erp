@@ -6,6 +6,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
@@ -39,7 +41,7 @@ class DepreciacionJobService {
       return {
         'periodo': periodo,
         'total_activos': 0,
-        'total_depreciacion': 0.0,
+        'total_depreciacion': publicMoneyZero().toSql(),
         'asiento_id': null,
         'mensaje': 'No hay activos activos para depreciar',
       };
@@ -63,7 +65,7 @@ class DepreciacionJobService {
 
     // 3. Calcular depreciación por activo
     final detallesDepreciacion = <Map<String, dynamic>>[];
-    double totalDepreciacion = 0;
+    var totalDepreciacion = publicMoneyZero();
 
     for (final activo in activos) {
       final tipoActivo = activo['tipo_activo'];
@@ -71,8 +73,8 @@ class DepreciacionJobService {
 
       if (config == null) continue;
 
-      final valorAdquisicion = activo['valor_adquisicion'] as double;
-      final valorResidual = activo['valor_residual'] as double;
+      final valorAdquisicion = publicMoneyFromSql(activo['valor_adquisicion']);
+      final valorResidual = publicMoneyFromSql(activo['valor_residual']);
       final vidaUtilAnios = config['vida_util_anios'] as int;
       final metodo = config['metodo_depreciacion'] as String;
 
@@ -83,24 +85,28 @@ class DepreciacionJobService {
         metodo: metodo,
       );
 
-      if (depreciacionMensual > 0) {
+      if (depreciacionMensual > publicMoneyZero()) {
         detallesDepreciacion.add({
           'activo_id': activo['id'],
           'numero_inventario': activo['numero_inventario'],
           'tipo_activo': tipoActivo,
-          'valor_adquisicion': valorAdquisicion,
+          'valor_adquisicion': valorAdquisicion.toSql(),
           'depreciacion_mensual': depreciacionMensual,
         });
 
         totalDepreciacion += depreciacionMensual;
 
         // Actualizar depreciación acumulada del activo
-        final depreciacionAcumuladaActual = (activo['depreciacion_acumulada'] as num).toDouble();
+        final depreciacionAcumuladaActual =
+            publicMoneyFromSql(activo['depreciacion_acumulada']);
         await db.update(
           'activos_estado',
           {
-            'depreciacion_acumulada': depreciacionAcumuladaActual + depreciacionMensual,
-            'valor_neto': valorAdquisicion - (depreciacionAcumuladaActual + depreciacionMensual),
+            'depreciacion_acumulada':
+                (depreciacionAcumuladaActual + depreciacionMensual).toSql(),
+            'valor_neto': (valorAdquisicion -
+                    (depreciacionAcumuladaActual + depreciacionMensual))
+                .toSql(),
           },
           where: 'id = ?',
           whereArgs: [activo['id']],
@@ -112,7 +118,7 @@ class DepreciacionJobService {
       return {
         'periodo': periodo,
         'total_activos': activos.length,
-        'total_depreciacion': 0.0,
+        'total_depreciacion': publicMoneyZero().toSql(),
         'asiento_id': null,
         'mensaje': 'No se generó depreciación para ningún activo',
       };
@@ -138,7 +144,7 @@ class DepreciacionJobService {
       valorNuevo: {
         'periodo': periodo,
         'total_activos': activos.length,
-        'total_depreciacion': totalDepreciacion,
+        'total_depreciacion': totalDepreciacion.toSql(),
         'asiento_id': asientoId,
       },
     );
@@ -146,7 +152,7 @@ class DepreciacionJobService {
     return {
       'periodo': periodo,
       'total_activos': activos.length,
-      'total_depreciacion': totalDepreciacion,
+      'total_depreciacion': totalDepreciacion.toSql(),
       'asiento_id': asientoId,
       'detalles': detallesDepreciacion,
       'mensaje': 'Depreciación mensual ejecutada exitosamente',
@@ -154,9 +160,9 @@ class DepreciacionJobService {
   }
 
   /// Calcula la depreciación mensual según el método
-  double _calcularDepreciacionMensual({
-    required double valorAdquisicion,
-    required double valorResidual,
+  MoneyValue _calcularDepreciacionMensual({
+    required MoneyValue valorAdquisicion,
+    required MoneyValue valorResidual,
     required int vidaUtilAnios,
     required String metodo,
   }) {
@@ -176,7 +182,7 @@ class DepreciacionJobService {
     required String entidadId,
     required String usuarioId,
     required String periodo,
-    required double totalDepreciacion,
+    required MoneyValue totalDepreciacion,
     required List<Map<String, dynamic>> detallesDepreciacion,
   }) async {
     final asientoId = _uuid.v4();
@@ -198,8 +204,8 @@ class DepreciacionJobService {
       'descripcion': 'Depreciación mensual de activos fijos - $periodo',
       'tipo_asiento': 'automatico',
       'estado': 'aprobado',
-      'total_debito': totalDepreciacion,
-      'total_credito': totalDepreciacion,
+      'total_debito': totalDepreciacion.toSql(),
+      'total_credito': totalDepreciacion.toSql(),
       'usuario_creo': usuarioId,
       'usuario_reviso': usuarioId,
       'fecha_revision': DateTime.now().toIso8601String(),
@@ -214,8 +220,8 @@ class DepreciacionJobService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaGastoDepreciacion,
       'cuenta_nombre': 'Gasto por depreciación de propiedades, planta y equipo',
-      'debito': totalDepreciacion,
-      'credito': 0,
+      'debito': totalDepreciacion.toSql(),
+      'credito': publicMoneyZero().toSql(),
       'referencia_id': asientoId,
     });
 
@@ -225,8 +231,8 @@ class DepreciacionJobService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaDepreciacionAcumulada,
       'cuenta_nombre': 'Depreciación acumulada - Propiedades, planta y equipo',
-      'debito': 0,
-      'credito': totalDepreciacion,
+      'debito': publicMoneyZero().toSql(),
+      'credito': totalDepreciacion.toSql(),
       'referencia_id': asientoId,
     });
 
@@ -237,7 +243,7 @@ class DepreciacionJobService {
       cuentaCodigo: cuentaGastoDepreciacion,
       cuentaNombre: 'Gasto por depreciación de propiedades, planta y equipo',
       debito: totalDepreciacion,
-      credito: 0,
+      credito: publicMoneyZero(),
     );
 
     await _actualizarSaldosCuentas(
@@ -245,7 +251,7 @@ class DepreciacionJobService {
       periodo: periodo,
       cuentaCodigo: cuentaDepreciacionAcumulada,
       cuentaNombre: 'Depreciación acumulada - Propiedades, planta y equipo',
-      debito: 0,
+      debito: publicMoneyZero(),
       credito: totalDepreciacion,
     );
 
@@ -272,8 +278,8 @@ class DepreciacionJobService {
     required String periodo,
     required String cuentaCodigo,
     required String cuentaNombre,
-    required double debito,
-    required double credito,
+    required MoneyValue debito,
+    required MoneyValue credito,
   }) async {
     final saldoExistente = await db.query(
       'saldos_cuentas',
@@ -287,23 +293,25 @@ class DepreciacionJobService {
         'entidad_id': entidadId,
         'cuenta_codigo': cuentaCodigo,
         'cuenta_nombre': cuentaNombre,
-        'saldo_deudor': debito,
-        'saldo_acreedor': credito,
-        'saldo_neto': debito - credito,
+        'saldo_deudor': debito.toSql(),
+        'saldo_acreedor': credito.toSql(),
+        'saldo_neto': (debito - credito).toSql(),
         'fecha_ultimo_movimiento': DateTime.now().toIso8601String(),
         'vigencia': periodo,
       });
     } else {
       final saldoActual = saldoExistente.first;
-      final nuevoSaldoDeudor = (saldoActual['saldo_deudor'] as num).toDouble() + debito;
-      final nuevoSaldoAcreedor = (saldoActual['saldo_acreedor'] as num).toDouble() + credito;
+      final nuevoSaldoDeudor =
+          publicMoneyFromSql(saldoActual['saldo_deudor']) + debito;
+      final nuevoSaldoAcreedor =
+          publicMoneyFromSql(saldoActual['saldo_acreedor']) + credito;
 
       await db.update(
         'saldos_cuentas',
         {
-          'saldo_deudor': nuevoSaldoDeudor,
-          'saldo_acreedor': nuevoSaldoAcreedor,
-          'saldo_neto': nuevoSaldoDeudor - nuevoSaldoAcreedor,
+          'saldo_deudor': nuevoSaldoDeudor.toSql(),
+          'saldo_acreedor': nuevoSaldoAcreedor.toSql(),
+          'saldo_neto': (nuevoSaldoDeudor - nuevoSaldoAcreedor).toSql(),
           'fecha_ultimo_movimiento': DateTime.now().toIso8601String(),
         },
         where: 'id = ?',

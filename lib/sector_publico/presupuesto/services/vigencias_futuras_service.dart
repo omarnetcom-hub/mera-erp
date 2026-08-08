@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 import '../../contabilidad/models/asiento_contable.dart';
 import '../../contabilidad/services/contabilidad_nicsp_service.dart';
@@ -24,9 +26,9 @@ class VigenciasFuturasService {
     required String mfmpReferencia,
     required int anioInicio,
     required int anioFin,
-    required double montoTotal,
-    required double apropiacionVigenciaActual,
-    required Map<int, double> distribucion,
+    required MoneyValue montoTotal,
+    required MoneyValue apropiacionVigenciaActual,
+    required Map<int, MoneyValue> distribucion,
     required String confisAutoridad,
     required String confisActoNumero,
     required DateTime confisActoFecha,
@@ -55,7 +57,7 @@ class VigenciasFuturasService {
     if (tipo != 'ordinaria' && tipo != 'excepcional') {
       throw ArgumentError('Tipo de vigencia futura no valido.');
     }
-    if (montoTotal <= 0 || distribucion.isEmpty) {
+    if (montoTotal <= publicMoneyZero() || distribucion.isEmpty) {
       throw ArgumentError('La autorizacion requiere monto y distribucion.');
     }
     if (anioInicio > anioFin ||
@@ -65,15 +67,17 @@ class VigenciasFuturasService {
     if (distribucion.keys.any((anio) => anio <= DateTime.now().year)) {
       throw StateError('La distribucion debe afectar vigencias posteriores.');
     }
-    final totalDistribuido = distribucion.values.fold<double>(
-      0,
+    final totalDistribuido = distribucion.values.fold<MoneyValue>(
+      publicMoneyZero(),
       (total, monto) => total + monto,
     );
-    if ((totalDistribuido - montoTotal).abs() >= 0.01 ||
-        distribucion.values.any((monto) => monto <= 0)) {
+    if ((totalDistribuido - montoTotal) != publicMoneyZero() ||
+        distribucion.values.any((monto) => monto <= publicMoneyZero())) {
       throw StateError('La distribucion anual debe sumar el monto autorizado.');
     }
-    if (tipo == 'ordinaria' && apropiacionVigenciaActual < montoTotal * 0.15) {
+    if (tipo == 'ordinaria' &&
+        apropiacionVigenciaActual <
+            montoTotal.multiplyRatio(numerator: 15, denominator: 100)) {
       throw StateError(
         'La vigencia futura ordinaria requiere apropiacion actual minima del 15%.',
       );
@@ -152,9 +156,9 @@ class VigenciasFuturasService {
     }
 
     final id = _uuid.v4();
-    final porcentaje = montoTotal == 0
+    final porcentaje = montoTotal.minorUnits == 0
         ? 0.0
-        : apropiacionVigenciaActual * 100 / montoTotal;
+        : apropiacionVigenciaActual.minorUnits * 100 / montoTotal.minorUnits;
     await db.transaction((txn) async {
       if (autorizacionAnteriorId != null) {
         await txn.update(
@@ -179,8 +183,8 @@ class VigenciasFuturasService {
         'mfmp_referencia': mfmpReferencia,
         'anio_inicio': anioInicio,
         'anio_fin': anioFin,
-        'monto_total': montoTotal,
-        'apropiacion_vigencia_actual': apropiacionVigenciaActual,
+        'monto_total': montoTotal.toSql(),
+        'apropiacion_vigencia_actual': apropiacionVigenciaActual.toSql(),
         'porcentaje_respaldo_actual': porcentaje,
         'confis_autoridad': confisAutoridad,
         'confis_acto_numero': confisActoNumero,
@@ -207,8 +211,8 @@ class VigenciasFuturasService {
           'id': _uuid.v4(),
           'autorizacion_id': id,
           'anio': anualidad.key,
-          'monto_autorizado': anualidad.value,
-          'saldo_disponible': anualidad.value,
+          'monto_autorizado': anualidad.value.toSql(),
+          'saldo_disponible': anualidad.value.toSql(),
         });
       }
       await AuditoriaService(txn).registrarEvento(
@@ -222,7 +226,7 @@ class VigenciasFuturasService {
           'autorizacion_id': id,
           'tipo': tipo,
           'version': version,
-          'monto_total': montoTotal,
+          'monto_total': montoTotal.toSql(),
           'distribucion': distribucion.toString(),
         },
         referenciaId: id,
@@ -237,10 +241,10 @@ class VigenciasFuturasService {
     required String autorizacionId,
     required String rpId,
     required int anio,
-    required double monto,
+    required MoneyValue monto,
     DatabaseExecutor? executor,
   }) async {
-    if (monto <= 0) {
+    if (monto <= publicMoneyZero()) {
       throw ArgumentError('El compromiso debe ser mayor que cero.');
     }
     await _validarPermiso(
@@ -280,7 +284,7 @@ class VigenciasFuturasService {
     required String autorizacionId,
     required String rpId,
     required int anio,
-    required double monto,
+    required MoneyValue monto,
   }) async {
     final autorizaciones = await executor.query(
       'autorizaciones_vigencias_futuras',
@@ -308,7 +312,7 @@ class VigenciasFuturasService {
       throw StateError('La vigencia solicitada no fue autorizada.');
     }
     final distribucion = distribuciones.single;
-    final saldo = (distribucion['saldo_disponible'] as num).toDouble();
+    final saldo = publicMoneyFromSql(distribucion['saldo_disponible']);
     if (monto > saldo) {
       throw StateError('El compromiso excede el monto futuro autorizado.');
     }
@@ -320,7 +324,7 @@ class VigenciasFuturasService {
       'entidad_id': entidadId,
       'rp_id': rpId,
       'anio': anio,
-      'monto_comprometido': monto,
+      'monto_comprometido': monto.toSql(),
       'registrado_por': usuarioId,
       'fecha_registro': DateTime.now().toIso8601String(),
     });
@@ -328,8 +332,8 @@ class VigenciasFuturasService {
       'vigencias_futuras_distribucion',
       {
         'monto_comprometido':
-            (distribucion['monto_comprometido'] as num).toDouble() + monto,
-        'saldo_disponible': saldo - monto,
+            (publicMoneyFromSql(distribucion['monto_comprometido']) + monto).toSql(),
+        'saldo_disponible': (saldo - monto).toSql(),
       },
       where: 'id = ?',
       whereArgs: [distribucion['id']],
@@ -340,12 +344,12 @@ class VigenciasFuturasService {
       tipoEvento: TipoEventoAuditoria.expedicionRP,
       modulo: 'presupuesto',
       accion: 'COMPROMETER_VIGENCIA_FUTURA',
-      valorAnterior: {'saldo_autorizado': saldo},
+      valorAnterior: {'saldo_autorizado': saldo.toSql()},
       valorNuevo: {
         'compromiso_id': compromisoId,
         'rp_id': rpId,
         'anio': anio,
-        'monto': monto,
+        'monto': monto.toSql(),
       },
       referenciaId: compromisoId,
     );
@@ -360,7 +364,7 @@ class VigenciasFuturasService {
     required String actaNumero,
     required DateTime fechaRecepcion,
     required String descripcion,
-    required double valor,
+    required MoneyValue valor,
     required String soporte,
     String? contratoId,
     String? rpId,
@@ -378,7 +382,9 @@ class VigenciasFuturasService {
       'descripcion': descripcion,
       'soporte': soporte,
     });
-    if (valor <= 0) throw ArgumentError('El valor recibido debe ser positivo.');
+    if (valor <= publicMoneyZero()) {
+      throw ArgumentError('El valor recibido debe ser positivo.');
+    }
 
     Map<String, Object?>? obligacion;
     if (obligacionId != null) {
@@ -412,8 +418,8 @@ class VigenciasFuturasService {
         'factura_numero': facturaNumero,
         'fecha_recepcion': fechaRecepcion.toIso8601String(),
         'descripcion': descripcion,
-        'valor_recibido': valor,
-        'valor_reconocido': valor,
+        'valor_recibido': valor.toSql(),
+        'valor_reconocido': valor.toSql(),
         'estado_contable': sinObligacion
             ? 'pasivo_reconocido_excepcional'
             : 'vinculada_obligacion',
@@ -451,14 +457,14 @@ class VigenciasFuturasService {
               cuentaCodigo: '5111',
               cuentaNombre: 'Gastos generales',
               debito: valor,
-              credito: 0,
+              credito: publicMoneyZero(),
               referenciaId: recepcionId,
             ),
             DetalleAsiento(
               id: _uuid.v4(),
               cuentaCodigo: '2401',
               cuentaNombre: 'Cuentas por pagar a contratistas',
-              debito: 0,
+              debito: publicMoneyZero(),
               credito: valor,
               referenciaId: recepcionId,
             ),
@@ -482,7 +488,7 @@ class VigenciasFuturasService {
         valorNuevo: {
           'recepcion_id': recepcionId,
           'obligacion_id': obligacionId,
-          'valor': valor,
+          'valor': valor.toSql(),
           'bloquea_pago': sinObligacion,
         },
         referenciaId: recepcionId,

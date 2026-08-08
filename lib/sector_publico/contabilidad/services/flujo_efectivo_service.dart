@@ -4,6 +4,8 @@
 library;
 
 import 'package:sqflite/sqflite.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
@@ -54,9 +56,10 @@ class FlujoEfectivoService {
     }
 
     // Calcular variación neta de efectivo
-    final variacionNeta = (flujos['actividades_operacion'] as double) +
-                         (flujos['actividades_inversion'] as double) +
-                         (flujos['actividades_financiacion'] as double);
+    final variacionNeta =
+        (flujos['actividades_operacion'] as MoneyValue) +
+        (flujos['actividades_inversion'] as MoneyValue) +
+        (flujos['actividades_financiacion'] as MoneyValue);
 
     // Calcular efectivo final
     final efectivoFinal = efectivoInicial + variacionNeta;
@@ -92,7 +95,7 @@ class FlujoEfectivoService {
   }
 
   /// Obtiene el efectivo inicial al inicio del periodo
-  Future<double> _obtenerEfectivoInicial({
+  Future<MoneyValue> _obtenerEfectivoInicial({
     required String entidadId,
     required DateTime fecha,
   }) async {
@@ -103,7 +106,7 @@ class FlujoEfectivoService {
       '110503', // Cuentas de ahorro
     ];
 
-    double efectivoTotal = 0;
+    var efectivoTotal = publicMoneyZero();
     for (final cuenta in cuentasEfectivo) {
       final resultado = await db.query(
         'saldos_cuentas',
@@ -113,7 +116,7 @@ class FlujoEfectivoService {
 
       if (resultado.isNotEmpty) {
         final saldo = resultado.first;
-        efectivoTotal += (saldo['saldo_neto'] as num).toDouble();
+        efectivoTotal += publicMoneyFromSql(saldo['saldo_neto']);
       }
     }
 
@@ -163,9 +166,9 @@ class FlujoEfectivoService {
     required DateTime fechaInicio,
     required DateTime fechaFin,
   }) async {
-    double totalEntradas = 0;
-    double totalSalidas = 0;
-    final detalles = <String, double>{};
+    var totalEntradas = publicMoneyZero();
+    var totalSalidas = publicMoneyZero();
+    final detalles = <String, MoneyValue>{};
 
     // Entradas de operación
     final cuentasEntradasOperacion = [
@@ -194,12 +197,12 @@ class FlujoEfectivoService {
         ],
       );
  
-      final suma = resultado.fold<double>(
-        0,
-        (sum, r) => sum + (r['debito'] as num).toDouble(),
+      final suma = resultado.fold<MoneyValue>(
+        publicMoneyZero(),
+        (sum, r) => sum + publicMoneyFromSql(r['debito']),
       );
- 
-      if (suma > 0) {
+
+      if (suma > publicMoneyZero()) {
         totalEntradas += suma;
         detalles[cuenta['nombre']!] = suma;
       }
@@ -232,12 +235,12 @@ class FlujoEfectivoService {
         ],
       );
  
-      final suma = resultado.fold<double>(
-        0,
-        (sum, r) => sum + (r['credito'] as num).toDouble(),
+      final suma = resultado.fold<MoneyValue>(
+        publicMoneyZero(),
+        (sum, r) => sum + publicMoneyFromSql(r['credito']),
       );
- 
-      if (suma > 0) {
+
+      if (suma > publicMoneyZero()) {
         totalSalidas += suma;
         detalles[cuenta['nombre']!] = -suma;
       }
@@ -255,9 +258,9 @@ class FlujoEfectivoService {
     required DateTime fechaInicio,
     required DateTime fechaFin,
   }) async {
-    double totalEntradas = 0;
-    double totalSalidas = 0;
-    final detalles = <String, double>{};
+    var totalEntradas = publicMoneyZero();
+    var totalSalidas = publicMoneyZero();
+    final detalles = <String, MoneyValue>{};
 
     // Entradas de inversión
     final cuentasEntradasInversion = [
@@ -284,12 +287,12 @@ class FlujoEfectivoService {
         ],
       );
  
-      final suma = resultado.fold<double>(
-        0,
-        (sum, r) => sum + (r['debito'] as num).toDouble(),
+      final suma = resultado.fold<MoneyValue>(
+        publicMoneyZero(),
+        (sum, r) => sum + publicMoneyFromSql(r['debito']),
       );
- 
-      if (suma > 0) {
+
+      if (suma > publicMoneyZero()) {
         totalEntradas += suma;
         detalles[cuenta['nombre']!] = suma;
       }
@@ -320,12 +323,12 @@ class FlujoEfectivoService {
         ],
       );
  
-      final suma = resultado.fold<double>(
-        0,
-        (sum, r) => sum + (r['credito'] as num).toDouble(),
+      final suma = resultado.fold<MoneyValue>(
+        publicMoneyZero(),
+        (sum, r) => sum + publicMoneyFromSql(r['credito']),
       );
- 
-      if (suma > 0) {
+
+      if (suma > publicMoneyZero()) {
         totalSalidas += suma;
         detalles[cuenta['nombre']!] = -suma;
       }
@@ -343,9 +346,9 @@ class FlujoEfectivoService {
     required DateTime fechaInicio,
     required DateTime fechaFin,
   }) async {
-    double totalEntradas = 0;
-    double totalSalidas = 0;
-    final detalles = <String, double>{};
+    var totalEntradas = publicMoneyZero();
+    var totalSalidas = publicMoneyZero();
+    final detalles = <String, MoneyValue>{};
 
     // Entradas de financiación
     final cuentasEntradasFinanciacion = [
@@ -372,12 +375,12 @@ class FlujoEfectivoService {
         ],
       );
  
-      final suma = resultado.fold<double>(
-        0,
-        (sum, r) => sum + (r['debito'] as num).toDouble(),
+      final suma = resultado.fold<MoneyValue>(
+        publicMoneyZero(),
+        (sum, r) => sum + publicMoneyFromSql(r['debito']),
       );
- 
-      if (suma > 0) {
+
+      if (suma > publicMoneyZero()) {
         totalEntradas += suma;
         detalles[cuenta['nombre']!] = suma;
       }
@@ -408,12 +411,12 @@ class FlujoEfectivoService {
         ],
       );
  
-      final suma = resultado.fold<double>(
-        0,
-        (sum, r) => sum + (r['credito'] as num).toDouble(),
+      final suma = resultado.fold<MoneyValue>(
+        publicMoneyZero(),
+        (sum, r) => sum + publicMoneyFromSql(r['credito']),
       );
- 
-      if (suma > 0) {
+
+      if (suma > publicMoneyZero()) {
         totalSalidas += suma;
         detalles[cuenta['nombre']!] = -suma;
       }
@@ -442,9 +445,9 @@ class FlujoEfectivoService {
       whereArgs: [entidadId, '310101', '${fechaInicio.year}'],
     );
 
-    double utilidadNeta = 0;
+    var utilidadNeta = publicMoneyZero();
     if (resultadoUtilidad.isNotEmpty) {
-      utilidadNeta = (resultadoUtilidad.first['saldo_neto'] as num).toDouble();
+      utilidadNeta = publicMoneyFromSql(resultadoUtilidad.first['saldo_neto']);
     }
 
     // Ajustes por depreciación (partida no monetaria)
@@ -465,9 +468,9 @@ class FlujoEfectivoService {
       ],
     );
 
-    double depreciacion = resultadoDepreciacion.fold<double>(
-      0,
-      (sum, r) => sum + (r['total_debito'] as num).toDouble(),
+    final depreciacion = resultadoDepreciacion.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['total_debito']),
     );
 
     // Flujo neto de operación (simplificado)
@@ -475,8 +478,8 @@ class FlujoEfectivoService {
 
     return {
       'actividades_operacion': flujoOperacion,
-      'actividades_inversion': 0.0, // Debe calcularse desde datos reales
-      'actividades_financiacion': 0.0, // Debe calcularse desde datos reales
+      'actividades_inversion': publicMoneyZero(), // Debe calcularse desde datos reales
+      'actividades_financiacion': publicMoneyZero(), // Debe calcularse desde datos reales
       'detalles_operacion': {
         'utilidad_neta': utilidadNeta,
         'depreciacion': depreciacion,

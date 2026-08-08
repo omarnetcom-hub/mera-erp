@@ -2,6 +2,8 @@
 /// Tercera etapa del flujo: APROPIACIÓN → CDP → RP → OBLIGACIÓN → PAGO
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum EstadoRP {
   vigente,
@@ -21,9 +23,9 @@ class RP {
   final String contratoId; // Requisito: contrato firmado
   final String contratoNumero;
   final String codigoRubro;
-  final double valorRP;
-  double valorObligado;
-  double saldoDisponible;
+  final MoneyValue valorRP;
+  MoneyValue valorObligado;
+  MoneyValue saldoDisponible;
   final DateTime fechaExpedicion;
   final DateTime fechaVigencia;
   final String funcionarioExpedidor;
@@ -69,9 +71,9 @@ class RP {
       contratoId: json['contrato_id'] as String,
       contratoNumero: json['contrato_numero'] as String,
       codigoRubro: json['codigo_rubro'] as String,
-      valorRP: (json['valor_rp'] as num).toDouble(),
-      valorObligado: (json['valor_obligado'] as num).toDouble(),
-      saldoDisponible: (json['saldo_disponible'] as num).toDouble(),
+      valorRP: publicMoneyFromSql(json['valor_rp']),
+      valorObligado: publicMoneyFromSql(json['valor_obligado']),
+      saldoDisponible: publicMoneyFromSql(json['saldo_disponible']),
       fechaExpedicion: DateTime.parse(json['fecha_expedicion'] as String),
       fechaVigencia: DateTime.parse(json['fecha_vigencia'] as String),
       funcionarioExpedidor: json['funcionario_expedidor'] as String,
@@ -99,9 +101,9 @@ class RP {
       'contrato_id': contratoId,
       'contrato_numero': contratoNumero,
       'codigo_rubro': codigoRubro,
-      'valor_rp': valorRP,
-      'valor_obligado': valorObligado,
-      'saldo_disponible': saldoDisponible,
+      'valor_rp': valorRP.toSql(),
+      'valor_obligado': valorObligado.toSql(),
+      'saldo_disponible': saldoDisponible.toSql(),
       'fecha_expedicion': fechaExpedicion.toIso8601String(),
       'fecha_vigencia': fechaVigencia.toIso8601String(),
       'funcionario_expedidor': funcionarioExpedidor,
@@ -118,20 +120,20 @@ class RP {
   bool estaVigente() {
     return estado == EstadoRP.vigente &&
            DateTime.now().isBefore(fechaVigencia) &&
-           saldoDisponible > 0;
+           saldoDisponible > publicMoneyZero();
   }
 
   /// Verifica si hay saldo disponible para una obligación
-  bool tieneSaldoParaObligacion(double montoObligacion) {
+  bool tieneSaldoParaObligacion(MoneyValue montoObligacion) {
     return saldoDisponible >= montoObligacion && estaVigente();
   }
 
   /// Actualiza el saldo después de una obligación
-  void actualizarSaldoObligacion(double montoObligacion) {
+  void actualizarSaldoObligacion(MoneyValue montoObligacion) {
     valorObligado += montoObligacion;
     saldoDisponible -= montoObligacion;
     
-    if (saldoDisponible == 0) {
+    if (saldoDisponible == publicMoneyZero()) {
       estado = EstadoRP.totalmenteObligado;
     }
   }
@@ -146,9 +148,9 @@ class RP {
     String? contratoId,
     String? contratoNumero,
     String? codigoRubro,
-    double? valorRP,
-    double? valorObligado,
-    double? saldoDisponible,
+    MoneyValue? valorRP,
+    MoneyValue? valorObligado,
+    MoneyValue? saldoDisponible,
     DateTime? fechaExpedicion,
     DateTime? fechaVigencia,
     String? funcionarioExpedidor,

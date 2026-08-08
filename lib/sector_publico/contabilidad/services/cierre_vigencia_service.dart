@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import '../models/asiento_contable.dart';
 import '../models/estado_financiero.dart';
 import 'contabilidad_nicsp_service.dart';
@@ -132,46 +134,50 @@ class CierreVigenciaService {
 
     // Cerrar ingresos (crédito)
     for (final ingreso in ingresos) {
-      final saldoNeto = (ingreso['saldo_neto'] as num).toDouble();
-      if (saldoNeto > 0) {
+      final saldoNeto = publicMoneyFromSql(ingreso['saldo_neto']);
+      if (saldoNeto > publicMoneyZero()) {
         detalles.add(DetalleAsiento(
           id: _uuid.v4(),
           cuentaCodigo: ingreso['cuenta_codigo'] as String,
           cuentaNombre: ingreso['cuenta_nombre'] as String,
           debito: saldoNeto,
-          credito: 0,
+          credito: publicMoneyZero(),
         ));
       }
     }
 
     // Cerrar gastos (débito)
     for (final gasto in gastos) {
-      final saldoNeto = (gasto['saldo_neto'] as num).toDouble();
-      if (saldoNeto > 0) {
+      final saldoNeto = publicMoneyFromSql(gasto['saldo_neto']);
+      if (saldoNeto > publicMoneyZero()) {
         detalles.add(DetalleAsiento(
           id: _uuid.v4(),
           cuentaCodigo: gasto['cuenta_codigo'] as String,
           cuentaNombre: gasto['cuenta_nombre'] as String,
-          debito: 0,
+          debito: publicMoneyZero(),
           credito: saldoNeto,
         ));
       }
     }
 
     // Si hay resultado, llevarlo a resultado del ejercicio
-    final totalIngresos = ingresos.fold(
-0.0, (sum, r) => sum + (r['saldo_neto'] as num).toDouble());
-    final totalGastos = gastos.fold(
-0.0, (sum, r) => sum + (r['saldo_neto'] as num).toDouble());
+    final totalIngresos = ingresos.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['saldo_neto']),
+    );
+    final totalGastos = gastos.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['saldo_neto']),
+    );
     final resultado = totalIngresos - totalGastos;
 
-    if (resultado.abs() > 0.01) {
+    if (resultado != publicMoneyZero()) {
       detalles.add(DetalleAsiento(
         id: _uuid.v4(),
         cuentaCodigo: '3115',
         cuentaNombre: 'Resultado del ejercicio',
-        debito: resultado > 0 ? resultado : 0,
-        credito: resultado < 0 ? resultado.abs() : 0,
+        debito: resultado > publicMoneyZero() ? resultado : publicMoneyZero(),
+        credito: resultado < publicMoneyZero() ? resultado.abs() : publicMoneyZero(),
       ));
     }
 
@@ -201,14 +207,14 @@ class CierreVigenciaService {
     final detalles = <DetalleAsiento>[];
 
     for (final saldo in saldosBalance) {
-      final saldoNeto = (saldo['saldo_neto'] as num).toDouble();
-      if (saldoNeto.abs() > 0.01) {
+      final saldoNeto = publicMoneyFromSql(saldo['saldo_neto']);
+      if (saldoNeto != publicMoneyZero()) {
         detalles.add(DetalleAsiento(
           id: _uuid.v4(),
           cuentaCodigo: saldo['cuenta_codigo'] as String,
           cuentaNombre: saldo['cuenta_nombre'] as String,
-          debito: saldoNeto > 0 ? saldoNeto : 0,
-          credito: saldoNeto < 0 ? saldoNeto.abs() : 0,
+          debito: saldoNeto > publicMoneyZero() ? saldoNeto : publicMoneyZero(),
+          credito: saldoNeto < publicMoneyZero() ? saldoNeto.abs() : publicMoneyZero(),
         ));
       }
     }
@@ -241,10 +247,14 @@ class CierreVigenciaService {
       whereArgs: [entidadId, 'activa'],
     );
 
-    final totalCuentasPagar = cuentasPagar.fold(
-0.0, (sum, r) => sum + (r['saldo_neto'] as num).toDouble());
-    final totalProvisiones = provisiones.fold(
-0.0, (sum, r) => sum + (r['valor_provision'] as num).toDouble());
+    final totalCuentasPagar = cuentasPagar.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['saldo_neto']),
+    );
+    final totalProvisiones = provisiones.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['valor_provision']),
+    );
 
     return {
       'cuentas_por_pagar': totalCuentasPagar,
@@ -350,7 +360,7 @@ class CierreVigenciaService {
     );
   }
 
-  Future<double> _calcularResultadoPeriodo(
+  Future<MoneyValue> _calcularResultadoPeriodo(
     String entidadId,
     String vigencia,
   ) async {
@@ -369,12 +379,12 @@ class CierreVigenciaService {
         _sumarSaldos(gastosYCostos);
   }
 
-  double _sumarSaldos(
+  MoneyValue _sumarSaldos(
     List<Map<String, dynamic>> saldos, {
     bool naturalezaAcreedora = false,
   }) {
-    return saldos.fold(0.0, (sum, saldo) {
-      final valor = (saldo['saldo_neto'] as num).toDouble();
+    return saldos.fold<MoneyValue>(publicMoneyZero(), (sum, saldo) {
+      final valor = publicMoneyFromSql(saldo['saldo_neto']);
       return sum + (naturalezaAcreedora ? -valor : valor);
     });
   }
@@ -389,8 +399,8 @@ class CierreVigenciaService {
             codigoCuenta: saldo['cuenta_codigo'] as String,
             nombreCuenta: saldo['cuenta_nombre'] as String,
             valor: naturalezaAcreedora
-                ? -(saldo['saldo_neto'] as num).toDouble()
-                : (saldo['saldo_neto'] as num).toDouble(),
+                ? -publicMoneyFromSql(saldo['saldo_neto'])
+                : publicMoneyFromSql(saldo['saldo_neto']),
             nivel: 1,
           ),
         )
@@ -419,8 +429,11 @@ class CierreVigenciaService {
     );
 
     // Cálculo simplificado - en producción se requiere lógica más compleja
-    final totalOperacion = actividadesOperacion.fold(
-0.0, (sum, r) => sum + ((r['debito'] as num).toDouble() - (r['credito'] as num).toDouble()));
+    final totalOperacion = actividadesOperacion.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum +
+          (publicMoneyFromSql(r['debito']) - publicMoneyFromSql(r['credito'])),
+    );
 
     return EstadoFlujosEfectivo(
       entidadId: entidadId,
@@ -428,10 +441,10 @@ class CierreVigenciaService {
       fechaInicio: fechaInicio,
       fechaFin: fechaFin,
       totalActividadesOperacion: totalOperacion,
-      totalActividadesInversion: 0,
-      totalActividadesFinanciacion: 0,
+      totalActividadesInversion: publicMoneyZero(),
+      totalActividadesFinanciacion: publicMoneyZero(),
       variacionNetaEfectivo: totalOperacion,
-      efectivoAlInicio: 0,
+      efectivoAlInicio: publicMoneyZero(),
       efectivoAlFinal: totalOperacion,
       actividadesOperacion: [],
       actividadesInversion: [],

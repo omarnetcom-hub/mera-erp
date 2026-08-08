@@ -2,6 +2,8 @@
 /// Implementa asientos automáticos desde el flujo presupuestal
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum TipoAsiento {
   manual,
@@ -24,8 +26,8 @@ class DetalleAsiento {
   final String id;
   final String cuentaCodigo;
   final String cuentaNombre;
-  final double debito;
-  final double credito;
+  final MoneyValue debito;
+  final MoneyValue credito;
   final String? referenciaId; // ID del documento origen (CDP, RP, etc.)
 
   DetalleAsiento({
@@ -42,8 +44,8 @@ class DetalleAsiento {
       id: json['id'] as String,
       cuentaCodigo: json['cuenta_codigo'] as String,
       cuentaNombre: json['cuenta_nombre'] as String,
-      debito: (json['debito'] as num).toDouble(),
-      credito: (json['credito'] as num).toDouble(),
+      debito: publicMoneyFromSql(json['debito']),
+      credito: publicMoneyFromSql(json['credito']),
       referenciaId: json['referencia_id'] as String?,
     );
   }
@@ -53,8 +55,8 @@ class DetalleAsiento {
       'id': id,
       'cuenta_codigo': cuentaCodigo,
       'cuenta_nombre': cuentaNombre,
-      'debito': debito,
-      'credito': credito,
+      'debito': debito.toSql(),
+      'credito': credito.toSql(),
       'referencia_id': referenciaId,
     };
   }
@@ -63,8 +65,8 @@ class DetalleAsiento {
     String? id,
     String? cuentaCodigo,
     String? cuentaNombre,
-    double? debito,
-    double? credito,
+    MoneyValue? debito,
+    MoneyValue? credito,
     String? referenciaId,
   }) {
     return DetalleAsiento(
@@ -87,8 +89,8 @@ class AsientoContable {
   final TipoAsiento tipoAsiento;
   final EstadoAsiento estado;
   final List<DetalleAsiento> detalles;
-  final double totalDebito;
-  final double totalCredito;
+  final MoneyValue totalDebito;
+  final MoneyValue totalCredito;
   final String usuarioCreo;
   final String? usuarioReviso;
   final DateTime? fechaRevision;
@@ -134,8 +136,8 @@ class AsientoContable {
         (e) => e.toString() == 'EstadoAsiento.${json['estado']}',
       ),
       detalles: detalles,
-      totalDebito: (json['total_debito'] as num).toDouble(),
-      totalCredito: (json['total_credito'] as num).toDouble(),
+      totalDebito: publicMoneyFromSql(json['total_debito']),
+      totalCredito: publicMoneyFromSql(json['total_credito']),
       usuarioCreo: json['usuario_creo'] as String,
       usuarioReviso: json['usuario_reviso'] as String?,
       fechaRevision: json['fecha_revision'] != null
@@ -157,8 +159,8 @@ class AsientoContable {
       'tipo_asiento': tipoAsiento.toString().split('.').last,
       'estado': estado.toString().split('.').last,
       'detalles': detalles.map((d) => d.toJson()).toList(),
-      'total_debito': totalDebito,
-      'total_credito': totalCredito,
+      'total_debito': totalDebito.toSql(),
+      'total_credito': totalCredito.toSql(),
       'usuario_creo': usuarioCreo,
       'usuario_reviso': usuarioReviso,
       'fecha_revision': fechaRevision?.toIso8601String(),
@@ -170,7 +172,7 @@ class AsientoContable {
 
   /// Verifica si el asiento está cuadrado (débito = crédito)
   bool estaCuadrado() {
-    return (totalDebito - totalCredito).abs() < 0.01; // Tolerancia de 1 centavo
+    return totalDebito == totalCredito;
   }
 
   /// Verifica si el asiento puede ser registrado
@@ -192,8 +194,8 @@ class AsientoContable {
     TipoAsiento? tipoAsiento,
     EstadoAsiento? estado,
     List<DetalleAsiento>? detalles,
-    double? totalDebito,
-    double? totalCredito,
+    MoneyValue? totalDebito,
+    MoneyValue? totalCredito,
     String? usuarioCreo,
     String? usuarioReviso,
     DateTime? fechaRevision,

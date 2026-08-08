@@ -7,6 +7,8 @@ import 'package:merka_erp/sector_publico/presupuesto/services/pac_service.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 const entidadId = 'ENT-PAGO-001';
 const vigencia = '2026';
@@ -70,7 +72,7 @@ void main() {
   test(
     'flujo completo descuenta PAC, actualiza saldos y genera asiento NICSP',
     () async {
-      final flujo = await _crearFlujo(pacProgramado: 300, valorPago: 200);
+      final flujo = await _crearFlujo(pacProgramado: _m(300), valorPago: _m(200));
 
       final pagoAprobado = await presupuestoService.aprobarPago(
         entidadId: entidadId,
@@ -89,19 +91,19 @@ void main() {
       expect(pagoEjecutado.fechaEjecucion, isNotNull);
 
       final apropiacion = (await db.query('apropiaciones')).single;
-      expect(apropiacion['valor_cdp'], 500.0);
-      expect(apropiacion['valor_rp'], 500.0);
-      expect(apropiacion['saldo_disponible'], 0.0);
-      expect(apropiacion['valor_pagado'], 200.0);
+      expect(apropiacion['valor_cdp'], 50000);
+      expect(apropiacion['valor_rp'], 50000);
+      expect(apropiacion['saldo_disponible'], 0);
+      expect(apropiacion['valor_pagado'], 20000);
 
       final obligacion = (await db.query('obligaciones')).single;
-      expect(obligacion['valor_pagado'], 200.0);
-      expect(obligacion['saldo_pendiente'], 100.0);
+      expect(obligacion['valor_pagado'], 20000);
+      expect(obligacion['saldo_pendiente'], 10000);
       expect(obligacion['estado'], 'pagadaParcialmente');
 
       final pac = (await db.query('pac')).single;
-      expect(pac['valor_ejecutado'], 200.0);
-      expect(pac['saldo_disponible'], 100.0);
+      expect(pac['valor_ejecutado'], 20000);
+      expect(pac['saldo_disponible'], 10000);
 
       final asiento = await db.query(
         'asientos_contables_sp',
@@ -124,7 +126,7 @@ void main() {
           cdpId: 'CDP-INEXISTENTE',
           contratoId: 'CONTRATO-001',
           contratoNumero: 'CT-001',
-          valorRP: 100,
+          valorRP: _m(100),
           funcionarioExpedidor: 'Jefe de Presupuesto',
           funcionarioSolicitante: 'Solicitante',
           objetoGasto: 'Servicios',
@@ -140,7 +142,7 @@ void main() {
           contratoNumero: 'CT-001',
           terceroId: 'TERCERO-001',
           terceroNombre: 'Proveedor de Prueba S.A.S.',
-          valorObligacion: 100,
+          valorObligacion: _m(100),
           funcionarioReconocio: 'Ordenador del Gasto',
           objetoGasto: 'Servicios',
           facturaNumero: 'FAC-001',
@@ -157,7 +159,7 @@ void main() {
           bancoDestino: 'Banco de Prueba',
           cuentaDestino: '123456789',
           tipoCuenta: 'Corriente',
-          valorPago: 100,
+          valorPago: _m(100),
           funcionarioProgramo: 'Ordenador del Gasto',
           tipoPago: TipoPago.transferenciaBancaria,
           mesPAC: 1,
@@ -165,7 +167,7 @@ void main() {
         throwsException,
       );
 
-      final excedido = await _crearFlujo(pacProgramado: 100, valorPago: 200);
+      final excedido = await _crearFlujo(pacProgramado: _m(100), valorPago: _m(200));
       final pagoExcedido = await presupuestoService.aprobarPago(
         entidadId: entidadId,
         usuarioId: usuarioAlcalde,
@@ -183,8 +185,8 @@ void main() {
       );
 
       final sinAprobacion = await _crearFlujo(
-        pacProgramado: 300,
-        valorPago: 200,
+        pacProgramado: _m(300),
+        valorPago: _m(200),
         sufijo: 'SIN-APROBACION',
       );
       await expectLater(
@@ -215,8 +217,8 @@ Future<void> _crearFuncionario(String usuarioId, String cargoClave) {
 }
 
 Future<_FlujoCreado> _crearFlujo({
-  required double pacProgramado,
-  required double valorPago,
+  required MoneyValue pacProgramado,
+  required MoneyValue valorPago,
   String sufijo = '',
 }) async {
   final apropiacion = await presupuestoService.crearApropiacion(
@@ -225,7 +227,7 @@ Future<_FlujoCreado> _crearFlujo({
     vigencia: vigencia,
     codigoRubro: '$codigoRubro$sufijo',
     nombreRubro: 'Servicios generales $sufijo',
-    valorApropiado: 1000,
+    valorApropiado: _m(1000),
     fuenteFinanciacion: 'Recursos propios',
     sector: 'Administracion',
     programa: 'Funcionamiento',
@@ -240,7 +242,7 @@ Future<_FlujoCreado> _crearFlujo({
     entidadId: entidadId,
     usuarioId: usuarioPresupuesto,
     apropiacionId: apropiacion.id,
-    valorCDP: 500,
+    valorCDP: _m(500),
     funcionarioExpedidor: 'Jefe de Presupuesto',
     funcionarioSolicitante: 'Solicitante',
     objetoGasto: 'Servicios',
@@ -252,7 +254,7 @@ Future<_FlujoCreado> _crearFlujo({
     cdpId: cdp.id,
     contratoId: 'CONTRATO-$sufijo',
     contratoNumero: 'CT-$sufijo',
-    valorRP: 500,
+    valorRP: _m(500),
     funcionarioExpedidor: 'Jefe de Presupuesto',
     funcionarioSolicitante: 'Solicitante',
     objetoGasto: 'Servicios',
@@ -265,7 +267,7 @@ Future<_FlujoCreado> _crearFlujo({
     contratoNumero: 'CT-$sufijo',
     terceroId: 'TERCERO-001',
     terceroNombre: 'Proveedor de Prueba S.A.S.',
-    valorObligacion: 300,
+    valorObligacion: _m(300),
     funcionarioReconocio: 'Ordenador del Gasto',
     objetoGasto: 'Servicios',
     facturaNumero: 'FACTURA-$sufijo',
@@ -310,3 +312,5 @@ class _FlujoCreado {
 
   const _FlujoCreado(this.pago);
 }
+
+MoneyValue _m(num value) => publicMoneyFromMajor(value.toString());

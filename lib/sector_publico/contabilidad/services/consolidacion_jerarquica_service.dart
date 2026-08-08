@@ -1,5 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
+
 /// Servicio de Consolidación Jerárquica de Saldos Contables y Presupuestales (NICSP 40 / CGN).
 ///
 /// NOTA DE LIMITACIÓN ARQUITECTÓNICA:
@@ -76,9 +79,9 @@ class ConsolidacionJerarquicaService {
     final clasesMap = <String, Map<String, dynamic>>{};
     for (final row in result) {
       final clase = row['clase']?.toString() ?? '0';
-      final deudor = (row['total_deudor'] as num?)?.toDouble() ?? 0.0;
-      final acreedor = (row['total_acreedor'] as num?)?.toDouble() ?? 0.0;
-      final neto = (row['total_neto'] as num?)?.toDouble() ?? 0.0;
+      final deudor = publicMoneyFromSql(row['total_deudor'], nullableAsZero: true);
+      final acreedor = publicMoneyFromSql(row['total_acreedor'], nullableAsZero: true);
+      final neto = publicMoneyFromSql(row['total_neto'], nullableAsZero: true);
       final totalCuentas = (row['total_cuentas'] as num?)?.toInt() ?? 0;
 
       clasesMap[clase] = {
@@ -107,39 +110,40 @@ class ConsolidacionJerarquicaService {
       GROUP BY SUBSTR(d.cuenta_codigo, 1, 1), p.lado
     ''', [entidadIdPadre, vigencia, ...entidadIds]);
 
-    var totalEliminadoDebito = 0.0;
-    var totalEliminadoCredito = 0.0;
+    var totalEliminadoDebito = publicMoneyZero();
+    var totalEliminadoCredito = publicMoneyZero();
     for (final eliminacion in eliminaciones) {
       final clase = eliminacion['clase']?.toString() ?? '0';
       final lado = eliminacion['lado']?.toString();
-      final monto =
-          (eliminacion['total_eliminado'] as num?)?.toDouble() ?? 0.0;
+      final monto = publicMoneyFromSql(
+        eliminacion['total_eliminado'],
+        nullableAsZero: true,
+      );
       final claseActual = clasesMap.putIfAbsent(
         clase,
         () => {
           'clase': clase,
-          'deudor': 0.0,
-          'acreedor': 0.0,
-          'neto': 0.0,
+          'deudor': publicMoneyZero(),
+          'acreedor': publicMoneyZero(),
+          'neto': publicMoneyZero(),
           'total_cuentas': 0,
         },
       );
       if (lado == 'debito') {
-        claseActual['deudor'] =
-            (claseActual['deudor'] as num).toDouble() - monto;
+        claseActual['deudor'] = (claseActual['deudor'] as MoneyValue) - monto;
         totalEliminadoDebito += monto;
       } else {
         claseActual['acreedor'] =
-            (claseActual['acreedor'] as num).toDouble() - monto;
+            (claseActual['acreedor'] as MoneyValue) - monto;
         totalEliminadoCredito += monto;
       }
       claseActual['neto'] =
-          (claseActual['deudor'] as num).toDouble() -
-          (claseActual['acreedor'] as num).toDouble();
+          (claseActual['deudor'] as MoneyValue) -
+          (claseActual['acreedor'] as MoneyValue);
     }
 
-    double netoClase(String clase) =>
-        (clasesMap[clase]?['neto'] as num?)?.toDouble() ?? 0.0;
+    MoneyValue netoClase(String clase) =>
+        clasesMap[clase]?['neto'] as MoneyValue? ?? publicMoneyZero();
     final totalActivos = netoClase('1');
     final totalPasivos = netoClase('2');
     final totalPatrimonio = netoClase('3');
@@ -209,10 +213,22 @@ class ConsolidacionJerarquicaService {
       WHERE entidad_id IN ($placeholders) AND vigencia = ?
     ''', [...entidadIds, vigencia]);
 
-    final totalApropiado = (resApropiado.first['total'] as num?)?.toDouble() ?? 0.0;
-    final totalCDP = (resCDP.first['total'] as num?)?.toDouble() ?? 0.0;
-    final totalRP = (resRP.first['total'] as num?)?.toDouble() ?? 0.0;
-    final totalPagado = (resPagos.first['total'] as num?)?.toDouble() ?? 0.0;
+    final totalApropiado = publicMoneyFromSql(
+      resApropiado.first['total'],
+      nullableAsZero: true,
+    );
+    final totalCDP = publicMoneyFromSql(
+      resCDP.first['total'],
+      nullableAsZero: true,
+    );
+    final totalRP = publicMoneyFromSql(
+      resRP.first['total'],
+      nullableAsZero: true,
+    );
+    final totalPagado = publicMoneyFromSql(
+      resPagos.first['total'],
+      nullableAsZero: true,
+    );
 
     return {
       'entidad_padre_id': entidadIdPadre,

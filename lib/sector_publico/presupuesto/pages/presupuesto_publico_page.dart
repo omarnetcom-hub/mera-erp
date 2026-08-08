@@ -14,6 +14,7 @@ import '../models/pago.dart';
 import '../services/presupuesto_service.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 class PresupuestoPublicoPage extends StatefulWidget {
   final String entidadId;
@@ -212,12 +213,12 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Vigencia: ${apropiacion.vigencia}'),
-                Text('Valor: ${CurrencyFormatter.format(apropiacion.valorApropiado)}'),
-                Text('Saldo disponible: ${CurrencyFormatter.format(apropiacion.saldoDisponible)}'),
+                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.valorApropiado))}'),
+                Text('Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.saldoDisponible))}'),
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
-                  value: apropiacion.valorApropiado > 0 
-                      ? apropiacion.valorPagado / apropiacion.valorApropiado 
+                  value: apropiacion.valorApropiado > publicMoneyZero()
+                      ? apropiacion.valorPagado.minorUnits / apropiacion.valorApropiado.minorUnits
                       : 0,
                   backgroundColor: Colors.grey[300],
                 ),
@@ -225,8 +226,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             ),
             trailing: Chip(
               label: Text(
-                apropiacion.valorApropiado > 0
-                    ? '${((apropiacion.valorPagado / apropiacion.valorApropiado) * 100).toStringAsFixed(1)}%'
+                apropiacion.valorApropiado > publicMoneyZero()
+                    ? '${((apropiacion.valorPagado.minorUnits / apropiacion.valorApropiado.minorUnits) * 100).toStringAsFixed(1)}%'
                     : '0.0%',
               ),
               backgroundColor: Theme.of(context).colorScheme.primary,
@@ -284,8 +285,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Rubro: ${cdp.codigoRubro}'),
-                Text('Valor: ${CurrencyFormatter.format(cdp.valorCDP)}'),
-                Text('Saldo disponible: ${CurrencyFormatter.format(cdp.saldoDisponible)}'),
+                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.valorCDP))}'),
+                Text('Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible))}'),
                 Text('Vence: ${DateFormatter.format(cdp.fechaVigencia)}'),
                 const SizedBox(height: 4),
                 Chip(
@@ -348,8 +349,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               children: [
                 Text('CDP: ${rp.numeroCDP}'),
                 Text('Contrato: ${rp.contratoNumero}'),
-                Text('Valor: ${CurrencyFormatter.format(rp.valorRP)}'),
-                Text('Saldo disponible: ${CurrencyFormatter.format(rp.saldoDisponible)}'),
+                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(rp.valorRP))}'),
+                Text('Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible))}'),
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(rp.estado.toString().split('.').last.toUpperCase()),
@@ -410,8 +411,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Tercero: ${obligacion.terceroNombre}'),
-                Text('Valor: ${CurrencyFormatter.format(obligacion.valorObligacion)}'),
-                Text('Pendiente: ${CurrencyFormatter.format(obligacion.saldoPendiente)}'),
+                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.valorObligacion))}'),
+                Text('Pendiente: ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.saldoPendiente))}'),
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(obligacion.estado.toString().split('.').last.toUpperCase()),
@@ -474,7 +475,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Tercero: ${pago.terceroNombre}'),
-                Text('Valor: ${CurrencyFormatter.format(pago.valorPago)}'),
+                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(pago.valorPago))}'),
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(pago.estado.toString().split('.').last.toUpperCase()),
@@ -679,7 +680,7 @@ class _ApropiacionFormState extends State<_ApropiacionForm> {
         vigencia: _vigenciaController.text,
         codigoRubro: _codigoRubroController.text,
         nombreRubro: _nombreRubroController.text,
-        valorApropiado: double.parse(_valorController.text),
+        valorApropiado: publicMoneyFromMajor(_valorController.text),
         fuenteFinanciacion: _fuenteController.text,
         sector: _sectorController.text,
         programa: _programaController.text,
@@ -864,7 +865,7 @@ class _CDPFormState extends State<_CDPForm> {
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
         apropiacionId: _apropiacionSeleccionada!.id,
-        valorCDP: double.parse(_valorController.text),
+        valorCDP: publicMoneyFromMajor(_valorController.text),
         funcionarioExpedidor: _funcionarioExpedidorController.text,
         funcionarioSolicitante: _funcionarioSolicitanteController.text,
         objetoGasto: _objetoGastoController.text,
@@ -893,7 +894,7 @@ class _CDPFormState extends State<_CDPForm> {
                 items: widget.apropiaciones.map((apropiacion) {
                   return DropdownMenuItem(
                     value: apropiacion,
-                    child: Text('${apropiacion.codigoRubro} - ${CurrencyFormatter.format(apropiacion.saldoDisponible)}'),
+                    child: Text('${apropiacion.codigoRubro} - ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.saldoDisponible))}'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -905,7 +906,7 @@ class _CDPFormState extends State<_CDPForm> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Saldo disponible: ${CurrencyFormatter.format(_apropiacionSeleccionada!.saldoDisponible)}',
+                    'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(_apropiacionSeleccionada!.saldoDisponible))}',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -917,7 +918,7 @@ class _CDPFormState extends State<_CDPForm> {
                   if (value?.isEmpty ?? true) return 'Requerido';
                   if (double.tryParse(value!) == null) return 'Número inválido';
                   if (_apropiacionSeleccionada != null) {
-                    final valor = double.parse(value);
+                    final valor = publicMoneyFromMajor(value);
                     if (valor > _apropiacionSeleccionada!.saldoDisponible) {
                       return 'Excede saldo disponible';
                     }
@@ -1021,7 +1022,7 @@ class _RPFormState extends State<_RPForm> {
         cdpId: _cdpSeleccionado!.id,
         contratoId: _contratoIdController.text,
         contratoNumero: _contratoNumeroController.text,
-        valorRP: double.parse(_valorController.text),
+        valorRP: publicMoneyFromMajor(_valorController.text),
         funcionarioExpedidor: _funcionarioExpedidorController.text,
         funcionarioSolicitante: _funcionarioSolicitanteController.text,
         objetoGasto: _objetoGastoController.text,
@@ -1051,7 +1052,7 @@ class _RPFormState extends State<_RPForm> {
                 items: cdpsVigentes.map((cdp) {
                   return DropdownMenuItem(
                     value: cdp,
-                    child: Text('${cdp.numeroCDP} - ${CurrencyFormatter.format(cdp.saldoDisponible)}'),
+                    child: Text('${cdp.numeroCDP} - ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible))}'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1063,7 +1064,7 @@ class _RPFormState extends State<_RPForm> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Saldo disponible: ${CurrencyFormatter.format(_cdpSeleccionado!.saldoDisponible)}',
+                    'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(_cdpSeleccionado!.saldoDisponible))}',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1084,7 +1085,7 @@ class _RPFormState extends State<_RPForm> {
                   if (value?.isEmpty ?? true) return 'Requerido';
                   if (double.tryParse(value!) == null) return 'Número inválido';
                   if (_cdpSeleccionado != null) {
-                    final valor = double.parse(value);
+                    final valor = publicMoneyFromMajor(value);
                     if (valor > _cdpSeleccionado!.saldoDisponible) {
                       return 'Excede saldo disponible en CDP';
                     }
@@ -1194,7 +1195,7 @@ class _ObligacionFormState extends State<_ObligacionForm> {
         contratoNumero: _contratoNumeroController.text,
         terceroId: _terceroIdController.text,
         terceroNombre: _terceroNombreController.text,
-        valorObligacion: double.parse(_valorController.text),
+        valorObligacion: publicMoneyFromMajor(_valorController.text),
         funcionarioReconocio: _funcionarioReconocioController.text,
         objetoGasto: _objetoGastoController.text,
         actaReciboNumero: _actaReciboController.text.isEmpty ? null : _actaReciboController.text,
@@ -1227,7 +1228,7 @@ class _ObligacionFormState extends State<_ObligacionForm> {
                 items: rpsVigentes.map((rp) {
                   return DropdownMenuItem(
                     value: rp,
-                    child: Text('${rp.numeroRP} - ${CurrencyFormatter.format(rp.saldoDisponible)}'),
+                    child: Text('${rp.numeroRP} - ${CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible))}'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1239,7 +1240,7 @@ class _ObligacionFormState extends State<_ObligacionForm> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Saldo disponible: ${CurrencyFormatter.format(_rpSeleccionado!.saldoDisponible)}',
+                    'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(_rpSeleccionado!.saldoDisponible))}',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1268,7 +1269,7 @@ class _ObligacionFormState extends State<_ObligacionForm> {
                   if (value?.isEmpty ?? true) return 'Requerido';
                   if (double.tryParse(value!) == null) return 'Número inválido';
                   if (_rpSeleccionado != null) {
-                    final valor = double.parse(value);
+                    final valor = publicMoneyFromMajor(value);
                     if (valor > _rpSeleccionado!.saldoDisponible) {
                       return 'Excede saldo disponible en RP';
                     }
@@ -1406,7 +1407,7 @@ class _PagoFormState extends State<_PagoForm> {
         bancoDestino: _bancoController.text,
         cuentaDestino: _cuentaController.text,
         tipoCuenta: _tipoCuentaController.text,
-        valorPago: double.parse(_valorController.text),
+        valorPago: publicMoneyFromMajor(_valorController.text),
         funcionarioProgramo: _funcionarioController.text,
         tipoPago: TipoPago.transferenciaBancaria,
         mesPAC: int.parse(_mesPACController.text),
@@ -1438,7 +1439,7 @@ class _PagoFormState extends State<_PagoForm> {
                 items: obligacionesPendientes.map((obligacion) {
                   return DropdownMenuItem(
                     value: obligacion,
-                    child: Text('${obligacion.numeroObligacion} - ${CurrencyFormatter.format(obligacion.saldoPendiente)}'),
+                    child: Text('${obligacion.numeroObligacion} - ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.saldoPendiente))}'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1450,7 +1451,7 @@ class _PagoFormState extends State<_PagoForm> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Saldo pendiente: ${CurrencyFormatter.format(_obligacionSeleccionada!.saldoPendiente)}',
+                    'Saldo pendiente: ${CurrencyFormatter.format(publicMoneyForDisplay(_obligacionSeleccionada!.saldoPendiente))}',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1462,7 +1463,7 @@ class _PagoFormState extends State<_PagoForm> {
                   if (value?.isEmpty ?? true) return 'Requerido';
                   if (double.tryParse(value!) == null) return 'Número inválido';
                   if (_obligacionSeleccionada != null) {
-                    final valor = double.parse(value);
+                    final valor = publicMoneyFromMajor(value);
                     if (valor > _obligacionSeleccionada!.saldoPendiente) {
                       return 'Excede saldo pendiente';
                     }

@@ -5,6 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/asiento_contable.dart';
 import '../models/cuenta_contable.dart';
 import '../../security/auditoria_service.dart';
@@ -75,11 +77,17 @@ class ContabilidadNICSPService {
     final numeroAsiento = 'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
 
     // Calcular totales
-    final totalDebito = detalles.fold(0.0, (sum, d) => sum + d.debito);
-    final totalCredito = detalles.fold(0.0, (sum, d) => sum + d.credito);
+    final totalDebito = detalles.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, d) => sum + d.debito,
+    );
+    final totalCredito = detalles.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, d) => sum + d.credito,
+    );
 
     // Verificar que esté cuadrado
-    if ((totalDebito - totalCredito).abs() >= 0.01) {
+    if (totalDebito != totalCredito) {
       throw Exception(
         'El asiento no está cuadrado. '
         'Débito: $totalDebito, Crédito: $totalCredito'
@@ -108,8 +116,8 @@ class ContabilidadNICSPService {
       'descripcion': descripcion,
       'tipo_asiento': TipoAsiento.manual.toString().split('.').last,
       'estado': EstadoAsiento.borrador.toString().split('.').last,
-      'total_debito': totalDebito,
-      'total_credito': totalCredito,
+      'total_debito': totalDebito.toSql(),
+      'total_credito': totalCredito.toSql(),
       'usuario_creo': usuarioId,
       'observaciones': observaciones,
     });
@@ -121,8 +129,8 @@ class ContabilidadNICSPService {
         'asiento_id': id,
         'cuenta_codigo': detalle.cuentaCodigo,
         'cuenta_nombre': detalle.cuentaNombre,
-        'debito': detalle.debito,
-        'credito': detalle.credito,
+        'debito': detalle.debito.toSql(),
+        'credito': detalle.credito.toSql(),
         'referencia_id': detalle.referenciaId,
       });
     }
@@ -137,8 +145,8 @@ class ContabilidadNICSPService {
       valorNuevo: {
         'asiento_id': id,
         'numero_asiento': numeroAsiento,
-        'total_debito': totalDebito,
-        'total_credito': totalCredito,
+        'total_debito': totalDebito.toSql(),
+        'total_credito': totalCredito.toSql(),
       },
       referenciaId: id,
     );
@@ -160,8 +168,14 @@ class ContabilidadNICSPService {
     final id = _uuid.v4();
     final numeroAsiento = 'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
 
-    final totalDebito = detalles.fold(0.0, (sum, d) => sum + d.debito);
-    final totalCredito = detalles.fold(0.0, (sum, d) => sum + d.credito);
+    final totalDebito = detalles.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, d) => sum + d.debito,
+    );
+    final totalCredito = detalles.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, d) => sum + d.credito,
+    );
 
     final asiento = AsientoContable(
       id: id,
@@ -187,8 +201,8 @@ class ContabilidadNICSPService {
       'descripcion': descripcion,
       'tipo_asiento': TipoAsiento.automaticoPresupuestal.toString().split('.').last,
       'estado': EstadoAsiento.registrado.toString().split('.').last,
-      'total_debito': totalDebito,
-      'total_credito': totalCredito,
+      'total_debito': totalDebito.toSql(),
+      'total_credito': totalCredito.toSql(),
       'usuario_creo': usuarioId,
       'referencia_origen': referenciaOrigen,
       'tipo_documento_origen': tipoDocumento,
@@ -200,8 +214,8 @@ class ContabilidadNICSPService {
         'asiento_id': id,
         'cuenta_codigo': detalle.cuentaCodigo,
         'cuenta_nombre': detalle.cuentaNombre,
-        'debito': detalle.debito,
-        'credito': detalle.credito,
+        'debito': detalle.debito.toSql(),
+        'credito': detalle.credito.toSql(),
         'referencia_id': detalle.referenciaId,
       });
     }
@@ -240,7 +254,7 @@ class ContabilidadNICSPService {
     required String obligacionId,
     required String numeroObligacion,
     required String terceroNombre,
-    required double valorObligacion,
+    required MoneyValue valorObligacion,
     required String cuentaGasto,
     required String nombreCuentaGasto,
   }) async {
@@ -250,14 +264,14 @@ class ContabilidadNICSPService {
         cuentaCodigo: cuentaGasto,
         cuentaNombre: nombreCuentaGasto,
         debito: valorObligacion,
-        credito: 0,
+        credito: publicMoneyZero(),
         referenciaId: obligacionId,
       ),
       DetalleAsiento(
         id: _uuid.v4(),
         cuentaCodigo: '2401',
         cuentaNombre: 'Cuentas por pagar a contratistas',
-        debito: 0,
+        debito: publicMoneyZero(),
         credito: valorObligacion,
         referenciaId: obligacionId,
       ),
@@ -283,7 +297,7 @@ class ContabilidadNICSPService {
     required String pagoId,
     required String numeroPago,
     required String terceroNombre,
-    required double valorPago,
+    required MoneyValue valorPago,
     required String cuentaBanco,
     required String nombreCuentaBanco,
   }) async {
@@ -293,14 +307,14 @@ class ContabilidadNICSPService {
         cuentaCodigo: '2401',
         cuentaNombre: 'Cuentas por pagar a contratistas',
         debito: valorPago,
-        credito: 0,
+        credito: publicMoneyZero(),
         referenciaId: pagoId,
       ),
       DetalleAsiento(
         id: _uuid.v4(),
         cuentaCodigo: cuentaBanco,
         cuentaNombre: nombreCuentaBanco,
-        debito: 0,
+        debito: publicMoneyZero(),
         credito: valorPago,
         referenciaId: pagoId,
       ),
@@ -431,8 +445,8 @@ class ContabilidadNICSPService {
       'descripcion': asientoReversa.descripcion,
       'tipo_asiento': TipoAsiento.reversa.toString().split('.').last,
       'estado': EstadoAsiento.registrado.toString().split('.').last,
-      'total_debito': asientoReversa.totalDebito,
-      'total_credito': asientoReversa.totalCredito,
+      'total_debito': asientoReversa.totalDebito.toSql(),
+      'total_credito': asientoReversa.totalCredito.toSql(),
       'usuario_creo': usuarioId,
       'referencia_origen': asientoOriginal.id,
       'tipo_documento_origen': 'REVERSA',
@@ -445,8 +459,8 @@ class ContabilidadNICSPService {
         'asiento_id': id,
         'cuenta_codigo': detalle.cuentaCodigo,
         'cuenta_nombre': detalle.cuentaNombre,
-        'debito': detalle.debito,
-        'credito': detalle.credito,
+        'debito': detalle.debito.toSql(),
+        'credito': detalle.credito.toSql(),
         'referencia_id': detalle.referenciaId,
       });
     }
@@ -514,8 +528,8 @@ class ContabilidadNICSPService {
         (e) => e.toString() == 'EstadoAsiento.${asientoData['estado']}',
       ),
       detalles: detalles,
-      totalDebito: (asientoData['total_debito'] as num).toDouble(),
-      totalCredito: (asientoData['total_credito'] as num).toDouble(),
+      totalDebito: publicMoneyFromSql(asientoData['total_debito']),
+      totalCredito: publicMoneyFromSql(asientoData['total_credito']),
       usuarioCreo: asientoData['usuario_creo'] as String,
       usuarioReviso: asientoData['usuario_reviso'] as String?,
       fechaRevision: asientoData['fecha_revision'] != null
@@ -552,24 +566,24 @@ class ContabilidadNICSPService {
           'entidad_id': entidadId,
           'cuenta_codigo': detalle.cuentaCodigo,
           'cuenta_nombre': detalle.cuentaNombre,
-          'saldo_deudor': detalle.debito,
-          'saldo_acreedor': detalle.credito,
-          'saldo_neto': detalle.debito - detalle.credito,
+          'saldo_deudor': detalle.debito.toSql(),
+          'saldo_acreedor': detalle.credito.toSql(),
+          'saldo_neto': (detalle.debito - detalle.credito).toSql(),
           'fecha_ultimo_movimiento': ahora.toIso8601String(),
           'vigencia': vigencia,
         });
       } else {
         // Actualizar saldo existente
         final saldoData = saldoActual.first;
-        final nuevoDeudor = (saldoData['saldo_deudor'] as num).toDouble() + detalle.debito;
-        final nuevoAcreedor = (saldoData['saldo_acreedor'] as num).toDouble() + detalle.credito;
+        final nuevoDeudor = publicMoneyFromSql(saldoData['saldo_deudor']) + detalle.debito;
+        final nuevoAcreedor = publicMoneyFromSql(saldoData['saldo_acreedor']) + detalle.credito;
 
         await db.update(
           'saldos_cuentas',
           {
-            'saldo_deudor': nuevoDeudor,
-            'saldo_acreedor': nuevoAcreedor,
-            'saldo_neto': nuevoDeudor - nuevoAcreedor,
+            'saldo_deudor': nuevoDeudor.toSql(),
+            'saldo_acreedor': nuevoAcreedor.toSql(),
+            'saldo_neto': (nuevoDeudor - nuevoAcreedor).toSql(),
             'fecha_ultimo_movimiento': ahora.toIso8601String(),
           },
           where: 'id = ?',
@@ -598,9 +612,9 @@ class ContabilidadNICSPService {
       cuentaId: data['id'] as String,
       cuentaCodigo: data['cuenta_codigo'] as String,
       cuentaNombre: data['cuenta_nombre'] as String,
-      saldoDeudor: (data['saldo_deudor'] as num).toDouble(),
-      saldoAcreedor: (data['saldo_acreedor'] as num).toDouble(),
-      saldoNeto: (data['saldo_neto'] as num).toDouble(),
+      saldoDeudor: publicMoneyFromSql(data['saldo_deudor']),
+      saldoAcreedor: publicMoneyFromSql(data['saldo_acreedor']),
+      saldoNeto: publicMoneyFromSql(data['saldo_neto']),
       fechaUltimoMovimiento: DateTime.parse(data['fecha_ultimo_movimiento'] as String),
     );
   }

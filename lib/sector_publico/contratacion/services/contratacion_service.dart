@@ -4,6 +4,7 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
 import '../models/proceso_contratacion.dart';
 import '../models/contrato.dart';
 import '../models/poliza.dart';
@@ -218,7 +219,7 @@ class ContratacionService {
     required String entidadId,
     required String usuarioId,
     required String contratoId,
-    required double valorRP,
+    required MoneyValue valorRP,
     required String funcionarioExpedidor,
     required String funcionarioSolicitante,
     required String objetoGasto,

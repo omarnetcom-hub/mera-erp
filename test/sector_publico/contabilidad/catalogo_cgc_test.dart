@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/contabilidad/database/schema_contabilidad.dart';
 import 'package:merka_erp/sector_publico/contabilidad/services/contabilidad_nicsp_service.dart';
 import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
@@ -71,7 +72,7 @@ void main() {
       obligacionId: 'OBL-CGC-001',
       numeroObligacion: 'OBL-001',
       terceroNombre: 'Proveedor de prueba',
-      valorObligacion: 500,
+      valorObligacion: publicMoneyFromMajor('500'),
       cuentaGasto: '5101',
       nombreCuentaGasto: 'Servicios personales',
     );
@@ -82,7 +83,7 @@ void main() {
       pagoId: 'PAG-CGC-001',
       numeroPago: 'PAG-001',
       terceroNombre: 'Proveedor de prueba',
-      valorPago: 500,
+      valorPago: publicMoneyFromMajor('500'),
       cuentaBanco: '1110',
       nombreCuentaBanco: 'Efectivo y equivalentes de efectivo',
     );

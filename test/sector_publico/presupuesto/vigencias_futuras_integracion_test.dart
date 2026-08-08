@@ -8,6 +8,8 @@ import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_servic
 import 'package:merka_erp/sector_publico/presupuesto/services/vigencias_futuras_service.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 void main() {
   sqfliteFfiInit();
@@ -80,7 +82,7 @@ void main() {
         usuarioJefe: 'USR-JEFE-MUN',
         sufijo: 'MUN',
         anio: anioFuturo,
-        valorRP: 600,
+        valorRP: _m(600),
         autorizacionId: autorizacionId,
       );
       final obligacion = await presupuesto.registrarObligacion(
@@ -91,7 +93,7 @@ void main() {
         contratoNumero: 'CONTRATO-MUN',
         terceroId: 'TER-MUN',
         terceroNombre: 'Proveedor futuro municipal',
-        valorObligacion: 500,
+        valorObligacion: _m(500),
         funcionarioReconocio: 'Ordenador del gasto',
         objetoGasto: 'Proyecto plurianual',
         facturaNumero: 'FAC-MUN',
@@ -104,7 +106,7 @@ void main() {
         vigencia: anioFuturo.toString(),
         mes: 1,
         codigoRubro: 'RUBRO-MUN',
-        valorProgramado: 500,
+        valorProgramado: _m(500),
         funcionarioProgramo: 'Tesorero',
       );
       await pac.aprobarPAC(
@@ -123,7 +125,7 @@ void main() {
         bancoDestino: 'Banco publico',
         cuentaDestino: '123456',
         tipoCuenta: 'corriente',
-        valorPago: 400,
+        valorPago: _m(400),
         funcionarioProgramo: 'Ordenador del gasto',
         tipoPago: TipoPago.transferenciaBancaria,
         mesPAC: 1,
@@ -150,14 +152,14 @@ void main() {
         whereArgs: [autorizacionId],
       )).single;
       expect(compromiso['rp_id'], rpId);
-      expect(compromiso['monto_comprometido'], 600.0);
-      expect(compromiso['monto_obligado'], 500.0);
-      expect(compromiso['monto_pagado'], 400.0);
-      expect(distribucion['monto_autorizado'], 1000.0);
-      expect(distribucion['monto_comprometido'], 600.0);
-      expect(distribucion['monto_obligado'], 500.0);
-      expect(distribucion['monto_pagado'], 400.0);
-      expect(distribucion['saldo_disponible'], 400.0);
+      expect(compromiso['monto_comprometido'], 60000);
+      expect(compromiso['monto_obligado'], 50000);
+      expect(compromiso['monto_pagado'], 40000);
+      expect(distribucion['monto_autorizado'], 100000);
+      expect(distribucion['monto_comprometido'], 60000);
+      expect(distribucion['monto_obligado'], 50000);
+      expect(distribucion['monto_pagado'], 40000);
+      expect(distribucion['saldo_disponible'], 40000);
     },
   );
 
@@ -192,7 +194,7 @@ void main() {
         usuarioJefe: 'USR-JEFE-ESE',
         sufijo: 'ESE',
         anio: anioFuturo,
-        valorRP: 300,
+        valorRP: _m(300),
         autorizacionId: autorizacionId,
       );
 
@@ -218,7 +220,7 @@ void main() {
           usuarioJefe: 'USR-JEFE-MUN',
           sufijo: 'SIN-AUT',
           anio: anioFuturo,
-          valorRP: 100,
+          valorRP: _m(100),
         ),
         throwsA(isA<StateError>()),
       );
@@ -238,7 +240,7 @@ void main() {
           usuarioJefe: 'USR-JEFE-MUN',
           sufijo: 'EXCESO',
           anio: anioFuturo,
-          valorRP: 1001,
+          valorRP: _m(1001),
           autorizacionId: autorizacionId,
         ),
         throwsA(isA<StateError>()),
@@ -263,7 +265,7 @@ void main() {
         actaNumero: 'ACTA-REC-01',
         fechaRecepcion: DateTime.now(),
         descripcion: 'Servicios recibidos sin obligacion presupuestal',
-        valor: 250,
+        valor: _m(250),
         soporte: 'hash:soporte-recibido',
         contratoId: 'CT-BLOQ',
         motivoSinObligacion: 'Falla excepcional reportada para regularizacion.',
@@ -290,7 +292,7 @@ void main() {
           bancoDestino: 'Banco',
           cuentaDestino: '123',
           tipoCuenta: 'corriente',
-          valorPago: 250,
+          valorPago: _m(250),
           funcionarioProgramo: 'Ordenador',
           tipoPago: TipoPago.transferenciaBancaria,
           mesPAC: 1,
@@ -352,7 +354,7 @@ Future<String> _crearRpFuturo({
   required String usuarioJefe,
   required String sufijo,
   required int anio,
-  required double valorRP,
+  required MoneyValue valorRP,
   String? autorizacionId,
 }) async {
   final apropiacion = await presupuesto.crearApropiacion(
@@ -361,7 +363,7 @@ Future<String> _crearRpFuturo({
     vigencia: anio.toString(),
     codigoRubro: 'RUBRO-$sufijo',
     nombreRubro: 'Proyecto plurianual $sufijo',
-    valorApropiado: 2000,
+    valorApropiado: _m(2000),
     fuenteFinanciacion: 'Recursos propios',
     sector: 'Administracion',
     programa: 'Inversion',
@@ -427,9 +429,9 @@ Future<String> _registrarAutorizacion({
     mfmpReferencia: 'MFMP-2026',
     anioInicio: anio,
     anioFin: anio,
-    montoTotal: 1000,
-    apropiacionVigenciaActual: 200,
-    distribucion: {anio: 1000},
+    montoTotal: _m(1000),
+    apropiacionVigenciaActual: _m(200),
+    distribucion: {anio: _m(1000)},
     confisAutoridad: 'CONFIS territorial',
     confisActoNumero: 'CONFIS-$entidadId-$sufijo',
     confisActoFecha: DateTime.now(),
@@ -444,3 +446,5 @@ Future<String> _registrarAutorizacion({
     actoDelegacionEse: actoDelegacionEse,
   );
 }
+
+MoneyValue _m(num value) => publicMoneyFromMajor(value.toString());

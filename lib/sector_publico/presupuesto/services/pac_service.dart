@@ -4,7 +4,9 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import '../models/pac.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
 import '../../models/registro_auditoria.dart';
@@ -48,7 +50,7 @@ class PACService {
     required String vigencia,
     required int mes,
     required String codigoRubro,
-    required double valorProgramado,
+    required MoneyValue valorProgramado,
     required String funcionarioProgramo,
   }) async {
     await _validarPermiso(entidadId: entidadId, usuarioId: usuarioId, permiso: Permiso.modificarPAC);
@@ -73,7 +75,7 @@ class PACService {
       mes: mes,
       codigoRubro: codigoRubro,
       valorProgramado: valorProgramado,
-      valorEjecutado: 0,
+      valorEjecutado: publicMoneyZero(),
       saldoDisponible: valorProgramado,
       fechaCreacion: fechaCreacion,
       estado: EstadoPAC.borrador,
@@ -156,7 +158,7 @@ class PACService {
     required String vigencia,
     required int mes,
     required String codigoRubro,
-    required double montoPago,
+    required MoneyValue montoPago,
   }) async {
     final pac = await db.query(
       'pac',
@@ -198,7 +200,7 @@ class PACService {
     required String vigencia,
     required int mes,
     required String codigoRubro,
-    required double montoPago,
+    required MoneyValue montoPago,
   }) async {
     final pac = await db.query(
       'pac',
@@ -215,9 +217,9 @@ class PACService {
     await db.update(
       'pac',
       {
-        'valor_ejecutado': nuevoValorEjecutado,
-        'saldo_disponible': nuevoSaldo,
-        'estado': nuevoSaldo == 0 
+        'valor_ejecutado': nuevoValorEjecutado.toSql(),
+        'saldo_disponible': nuevoSaldo.toSql(),
+        'estado': nuevoSaldo == publicMoneyZero()
             ? EstadoPAC.ejecutado.toString().split('.').last 
             : pacData.estado.toString().split('.').last,
       },
@@ -232,13 +234,13 @@ class PACService {
       modulo: 'tesoreria',
       accion: 'actualizacion_pac',
       valorAnterior: {
-        'valor_ejecutado_anterior': pacData.valorEjecutado,
-        'saldo_anterior': pacData.saldoDisponible,
+        'valor_ejecutado_anterior': pacData.valorEjecutado.toSql(),
+        'saldo_anterior': pacData.saldoDisponible.toSql(),
       },
       valorNuevo: {
-        'valor_ejecutado_nuevo': nuevoValorEjecutado,
-        'saldo_nuevo': nuevoSaldo,
-        'monto_pago': montoPago,
+        'valor_ejecutado_nuevo': nuevoValorEjecutado.toSql(),
+        'saldo_nuevo': nuevoSaldo.toSql(),
+        'monto_pago': montoPago.toSql(),
       },
       referenciaId: pacData.id,
     );
@@ -250,7 +252,7 @@ class PACService {
     required String entidadId,
     required String usuarioId,
     required String pacId,
-    required double nuevoValorProgramado,
+    required MoneyValue nuevoValorProgramado,
     required String funcionarioModifico,
     required String actoAdministrativo,
   }) async {
@@ -277,8 +279,8 @@ class PACService {
     await db.update(
       'pac',
       {
-        'valor_programado': nuevoValorProgramado,
-        'saldo_disponible': nuevoSaldo,
+        'valor_programado': nuevoValorProgramado.toSql(),
+        'saldo_disponible': nuevoSaldo.toSql(),
         'estado': EstadoPAC.modificado.toString().split('.').last,
         'acto_administrativo': actoAdministrativo,
       },
@@ -293,12 +295,12 @@ class PACService {
       modulo: 'tesoreria',
       accion: 'modificacion_pac',
       valorAnterior: {
-        'valor_anterior': pac.valorProgramado,
-        'saldo_anterior': pac.saldoDisponible,
+        'valor_anterior': pac.valorProgramado.toSql(),
+        'saldo_anterior': pac.saldoDisponible.toSql(),
       },
       valorNuevo: {
-        'valor_nuevo': nuevoValorProgramado,
-        'saldo_nuevo': nuevoSaldo,
+        'valor_nuevo': nuevoValorProgramado.toSql(),
+        'saldo_nuevo': nuevoSaldo.toSql(),
         'acto_administrativo': actoAdministrativo,
       },
       referenciaId: pacId,
@@ -321,7 +323,7 @@ class PACService {
     required String codigoRubro,
     required int mesOrigen,
     required int mesDestino,
-    required double montoTraslado,
+    required MoneyValue montoTraslado,
     required String funcionarioAutoriza,
     required String actoAdministrativo,
   }) async {
@@ -363,7 +365,7 @@ class PACService {
     await db.update(
       'pac',
       {
-        'saldo_disponible': pacOrigenData.saldoDisponible - montoTraslado,
+        'saldo_disponible': (pacOrigenData.saldoDisponible - montoTraslado).toSql(),
         'estado': EstadoPAC.modificado.toString().split('.').last,
       },
       where: 'id = ?',
@@ -374,8 +376,8 @@ class PACService {
     await db.update(
       'pac',
       {
-        'valor_programado': pacDestinoData.valorProgramado + montoTraslado,
-        'saldo_disponible': pacDestinoData.saldoDisponible + montoTraslado,
+        'valor_programado': (pacDestinoData.valorProgramado + montoTraslado).toSql(),
+        'saldo_disponible': (pacDestinoData.saldoDisponible + montoTraslado).toSql(),
         'estado': EstadoPAC.modificado.toString().split('.').last,
       },
       where: 'id = ?',
@@ -390,14 +392,14 @@ class PACService {
       accion: 'traslado_cupo_pac',
       valorAnterior: {
         'mes_origen': mesOrigen,
-        'saldo_origen_anterior': pacOrigenData.saldoDisponible,
+        'saldo_origen_anterior': pacOrigenData.saldoDisponible.toSql(),
         'mes_destino': mesDestino,
-        'saldo_destino_anterior': pacDestinoData.saldoDisponible,
+        'saldo_destino_anterior': pacDestinoData.saldoDisponible.toSql(),
       },
       valorNuevo: {
-        'monto_traslado': montoTraslado,
-        'saldo_origen_nuevo': pacOrigenData.saldoDisponible - montoTraslado,
-        'saldo_destino_nuevo': pacDestinoData.saldoDisponible + montoTraslado,
+        'monto_traslado': montoTraslado.toSql(),
+        'saldo_origen_nuevo': (pacOrigenData.saldoDisponible - montoTraslado).toSql(),
+        'saldo_destino_nuevo': (pacDestinoData.saldoDisponible + montoTraslado).toSql(),
         'acto_administrativo': actoAdministrativo,
       },
     );
@@ -412,7 +414,7 @@ class PACService {
     required String juzgado,
     String? terceroId,
     required String terceroNombre,
-    required double valorEmbargo,
+    required MoneyValue valorEmbargo,
   }) async {
     final id = _uuid.v4();
     final fechaRegistro = DateTime.now();
@@ -424,7 +426,7 @@ class PACService {
       'juzgado': juzgado,
       'tercero_id': terceroId,
       'tercero_nombre': terceroNombre,
-      'valor_embargo': valorEmbargo,
+      'valor_embargo': valorEmbargo.toSql(),
       'fecha_registro': fechaRegistro.toIso8601String(),
       'activo': 1,
     });
@@ -439,7 +441,7 @@ class PACService {
       valorNuevo: {
         'numero_proceso': numeroProceso,
         'juzgado': juzgado,
-        'valor_embargo': valorEmbargo,
+        'valor_embargo': valorEmbargo.toSql(),
         'nota': 'Registro informativo - Cuentas públicas inembargables (Art. 19 EOP)',
       },
       referenciaId: id,

@@ -2,6 +2,8 @@
 /// Segunda etapa del flujo: APROPIACIÓN → CDP → RP → OBLIGACIÓN → PAGO
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum EstadoCDP {
   vigente,
@@ -18,9 +20,9 @@ class CDP {
   final String vigencia;
   final String apropiacionId;
   final String codigoRubro;
-  final double valorCDP;
-  double valorComprometidoRP;
-  double saldoDisponible;
+  final MoneyValue valorCDP;
+  MoneyValue valorComprometidoRP;
+  MoneyValue saldoDisponible;
   final DateTime fechaExpedicion;
   final DateTime fechaVigencia; // Generalmente 6 meses desde expedición
   final String funcionarioExpedidor;
@@ -62,9 +64,9 @@ class CDP {
       vigencia: json['vigencia'] as String,
       apropiacionId: json['apropiacion_id'] as String,
       codigoRubro: json['codigo_rubro'] as String,
-      valorCDP: (json['valor_cdp'] as num).toDouble(),
-      valorComprometidoRP: (json['valor_comprometido_rp'] as num).toDouble(),
-      saldoDisponible: (json['saldo_disponible'] as num).toDouble(),
+      valorCDP: publicMoneyFromSql(json['valor_cdp']),
+      valorComprometidoRP: publicMoneyFromSql(json['valor_comprometido_rp']),
+      saldoDisponible: publicMoneyFromSql(json['saldo_disponible']),
       fechaExpedicion: DateTime.parse(json['fecha_expedicion'] as String),
       fechaVigencia: DateTime.parse(json['fecha_vigencia'] as String),
       funcionarioExpedidor: json['funcionario_expedidor'] as String,
@@ -90,9 +92,9 @@ class CDP {
       'vigencia': vigencia,
       'apropiacion_id': apropiacionId,
       'codigo_rubro': codigoRubro,
-      'valor_cdp': valorCDP,
-      'valor_comprometido_rp': valorComprometidoRP,
-      'saldo_disponible': saldoDisponible,
+      'valor_cdp': valorCDP.toSql(),
+      'valor_comprometido_rp': valorComprometidoRP.toSql(),
+      'saldo_disponible': saldoDisponible.toSql(),
       'fecha_expedicion': fechaExpedicion.toIso8601String(),
       'fecha_vigencia': fechaVigencia.toIso8601String(),
       'funcionario_expedidor': funcionarioExpedidor,
@@ -110,20 +112,20 @@ class CDP {
   bool estaVigente() {
     return estado == EstadoCDP.vigente &&
            DateTime.now().isBefore(fechaVigencia) &&
-           saldoDisponible > 0;
+           saldoDisponible > publicMoneyZero();
   }
 
   /// Verifica si hay saldo disponible para un RP
-  bool tieneSaldoParaRP(double montoRP) {
+  bool tieneSaldoParaRP(MoneyValue montoRP) {
     return saldoDisponible >= montoRP && estaVigente();
   }
 
   /// Actualiza el saldo después de un RP
-  void actualizarSaldoRP(double montoRP) {
+  void actualizarSaldoRP(MoneyValue montoRP) {
     valorComprometidoRP += montoRP;
     saldoDisponible -= montoRP;
     
-    if (saldoDisponible == 0) {
+    if (saldoDisponible == publicMoneyZero()) {
       estado = EstadoCDP.totalmenteComprometido;
     }
   }
@@ -140,9 +142,9 @@ class CDP {
     String? vigencia,
     String? apropiacionId,
     String? codigoRubro,
-    double? valorCDP,
-    double? valorComprometidoRP,
-    double? saldoDisponible,
+    MoneyValue? valorCDP,
+    MoneyValue? valorComprometidoRP,
+    MoneyValue? saldoDisponible,
     DateTime? fechaExpedicion,
     DateTime? fechaVigencia,
     String? funcionarioExpedidor,

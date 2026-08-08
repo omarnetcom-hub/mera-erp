@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/reporte_chip.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
@@ -181,12 +183,12 @@ class CHIPReporterService {
       whereArgs: [entidadId, vigencia],
     );
 
-    double sumar(String prefijo, {required bool acreedora}) => saldos
+    MoneyValue sumar(String prefijo, {required bool acreedora}) => saldos
         .where(
           (saldo) => (saldo['cuenta_codigo'] as String).startsWith(prefijo),
         )
-        .fold(0.0, (total, saldo) {
-          final neto = (saldo['saldo_neto'] as num).toDouble();
+        .fold<MoneyValue>(publicMoneyZero(), (total, saldo) {
+          final neto = publicMoneyFromSql(saldo['saldo_neto']);
           return total + (acreedora ? -neto : neto);
         });
 
@@ -211,22 +213,23 @@ class CHIPReporterService {
         totalGastos - gastosPersonal - gastosGenerales - transferencias;
 
     return DatosCGN2015_002(
-      ingresosTributarios: ingresosTributarios,
-      ingresosNoTributarios: ingresosNoTributarios,
-      transferenciasSGP: transferenciasSGP,
+      ingresosTributarios: ingresosTributarios.toMajorUnitsDoubleForDisplay(),
+      ingresosNoTributarios: ingresosNoTributarios.toMajorUnitsDoubleForDisplay(),
+      transferenciasSGP: transferenciasSGP.toMajorUnitsDoubleForDisplay(),
       // No existe una equivalencia CGC persistida para regalias; no se acepta
       // entrada manual. El valor queda pendiente de una taxonomia contable.
       regalias: 0,
-      otrosIngresos: otrosIngresos,
-      totalIngresos: totalIngresos,
-      gastosPersonal: gastosPersonal,
-      gastosGenerales: gastosGenerales,
-      transferencias: transferencias,
+      otrosIngresos: otrosIngresos.toMajorUnitsDoubleForDisplay(),
+      totalIngresos: totalIngresos.toMajorUnitsDoubleForDisplay(),
+      gastosPersonal: gastosPersonal.toMajorUnitsDoubleForDisplay(),
+      gastosGenerales: gastosGenerales.toMajorUnitsDoubleForDisplay(),
+      transferencias: transferencias.toMajorUnitsDoubleForDisplay(),
       // Presupuesto no conserva una clasificacion contable de inversion.
       gastosInversion: 0,
-      otrosGastos: otrosGastos,
-      totalGastos: totalGastos,
-      resultadoOperacional: totalIngresos - totalGastos,
+      otrosGastos: otrosGastos.toMajorUnitsDoubleForDisplay(),
+      totalGastos: totalGastos.toMajorUnitsDoubleForDisplay(),
+      resultadoOperacional:
+          (totalIngresos - totalGastos).toMajorUnitsDoubleForDisplay(),
     );
   }
 
@@ -257,7 +260,10 @@ class CHIPReporterService {
             '14',
           }.contains(renglon.codigoCuenta.substring(0, 2)),
         )
-        .fold(0.0, (total, renglon) => total + renglon.valor);
+        .fold<MoneyValue>(
+          publicMoneyZero(),
+          (total, renglon) => total + renglon.valor,
+        );
     final pasivoCorriente = estado.pasivos
         .where(
           (renglon) => const {
@@ -268,17 +274,23 @@ class CHIPReporterService {
             '25',
           }.contains(renglon.codigoCuenta.substring(0, 2)),
         )
-        .fold(0.0, (total, renglon) => total + renglon.valor);
+        .fold<MoneyValue>(
+          publicMoneyZero(),
+          (total, renglon) => total + renglon.valor,
+        );
 
     return DatosCGN2015_003(
-      activoCorriente: activoCorriente,
-      activoNoCorriente: estado.totalActivo - activoCorriente,
-      totalActivo: estado.totalActivo,
-      pasivoCorriente: pasivoCorriente,
-      pasivoNoCorriente: estado.totalPasivo - pasivoCorriente,
-      totalPasivo: estado.totalPasivo,
-      patrimonio: estado.totalPatrimonio,
-      totalPasivoPatrimonio: estado.totalPasivoPatrimonio,
+      activoCorriente: activoCorriente.toMajorUnitsDoubleForDisplay(),
+      activoNoCorriente:
+          (estado.totalActivo - activoCorriente).toMajorUnitsDoubleForDisplay(),
+      totalActivo: estado.totalActivo.toMajorUnitsDoubleForDisplay(),
+      pasivoCorriente: pasivoCorriente.toMajorUnitsDoubleForDisplay(),
+      pasivoNoCorriente:
+          (estado.totalPasivo - pasivoCorriente).toMajorUnitsDoubleForDisplay(),
+      totalPasivo: estado.totalPasivo.toMajorUnitsDoubleForDisplay(),
+      patrimonio: estado.totalPatrimonio.toMajorUnitsDoubleForDisplay(),
+      totalPasivoPatrimonio:
+          estado.totalPasivoPatrimonio.toMajorUnitsDoubleForDisplay(),
     );
   }
 

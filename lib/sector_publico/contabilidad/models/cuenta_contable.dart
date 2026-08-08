@@ -2,6 +2,8 @@
 /// Implementa estructura PUC Público según Resolución 533/2015 CGN
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 enum NaturalezaCuenta {
   deudora,
   acreedora,
@@ -183,9 +185,9 @@ class SaldoCuenta {
   final String cuentaId;
   final String cuentaCodigo;
   final String cuentaNombre;
-  final double saldoDeudor;
-  final double saldoAcreedor;
-  final double saldoNeto; // Positivo = deudor, Negativo = acreedor
+  final MoneyValue saldoDeudor;
+  final MoneyValue saldoAcreedor;
+  final MoneyValue saldoNeto; // Positivo = deudor, Negativo = acreedor
   final DateTime fechaUltimoMovimiento;
 
   SaldoCuenta({
@@ -203,9 +205,9 @@ class SaldoCuenta {
       cuentaId: json['cuenta_id'] as String,
       cuentaCodigo: json['cuenta_codigo'] as String,
       cuentaNombre: json['cuenta_nombre'] as String,
-      saldoDeudor: (json['saldo_deudor'] as num).toDouble(),
-      saldoAcreedor: (json['saldo_acreedor'] as num).toDouble(),
-      saldoNeto: (json['saldo_neto'] as num).toDouble(),
+      saldoDeudor: publicMoneyFromSql(json['saldo_deudor']),
+      saldoAcreedor: publicMoneyFromSql(json['saldo_acreedor']),
+      saldoNeto: publicMoneyFromSql(json['saldo_neto']),
       fechaUltimoMovimiento: DateTime.parse(json['fecha_ultimo_movimiento'] as String),
     );
   }
@@ -215,15 +217,15 @@ class SaldoCuenta {
       'cuenta_id': cuentaId,
       'cuenta_codigo': cuentaCodigo,
       'cuenta_nombre': cuentaNombre,
-      'saldo_deudor': saldoDeudor,
-      'saldo_acreedor': saldoAcreedor,
-      'saldo_neto': saldoNeto,
+      'saldo_deudor': saldoDeudor.toSql(),
+      'saldo_acreedor': saldoAcreedor.toSql(),
+      'saldo_neto': saldoNeto.toSql(),
       'fecha_ultimo_movimiento': fechaUltimoMovimiento.toIso8601String(),
     };
   }
 
   /// Obtiene el saldo según naturaleza
-  double getSaldoSegunNaturaleza(NaturalezaCuenta naturaleza) {
+  MoneyValue getSaldoSegunNaturaleza(NaturalezaCuenta naturaleza) {
     if (naturaleza == NaturalezaCuenta.deudora) {
       return saldoDeudor - saldoAcreedor;
     } else {

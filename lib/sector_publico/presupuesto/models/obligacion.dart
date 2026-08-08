@@ -2,6 +2,8 @@
 /// Cuarta etapa del flujo: APROPIACIÓN → CDP → RP → OBLIGACIÓN → PAGO
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum EstadoObligacion {
   pendiente,
@@ -23,9 +25,9 @@ class Obligacion {
   final String terceroId; // Proveedor/contratista
   final String terceroNombre;
   final String codigoRubro;
-  final double valorObligacion;
-  double valorPagado;
-  double saldoPendiente;
+  final MoneyValue valorObligacion;
+  MoneyValue valorPagado;
+  MoneyValue saldoPendiente;
   final DateTime fechaReconocimiento;
   final String funcionarioReconocio;
   final String objetoGasto;
@@ -75,9 +77,9 @@ class Obligacion {
       terceroId: json['tercero_id'] as String,
       terceroNombre: json['tercero_nombre'] as String,
       codigoRubro: json['codigo_rubro'] as String,
-      valorObligacion: (json['valor_obligacion'] as num).toDouble(),
-      valorPagado: (json['valor_pagado'] as num).toDouble(),
-      saldoPendiente: (json['saldo_pendiente'] as num).toDouble(),
+      valorObligacion: publicMoneyFromSql(json['valor_obligacion']),
+      valorPagado: publicMoneyFromSql(json['valor_pagado']),
+      saldoPendiente: publicMoneyFromSql(json['saldo_pendiente']),
       fechaReconocimiento: DateTime.parse(json['fecha_reconocimiento'] as String),
       funcionarioReconocio: json['funcionario_reconocio'] as String,
       objetoGasto: json['objeto_gasto'] as String,
@@ -109,9 +111,9 @@ class Obligacion {
       'tercero_id': terceroId,
       'tercero_nombre': terceroNombre,
       'codigo_rubro': codigoRubro,
-      'valor_obligacion': valorObligacion,
-      'valor_pagado': valorPagado,
-      'saldo_pendiente': saldoPendiente,
+      'valor_obligacion': valorObligacion.toSql(),
+      'valor_pagado': valorPagado.toSql(),
+      'saldo_pendiente': saldoPendiente.toSql(),
       'fecha_reconocimiento': fechaReconocimiento.toIso8601String(),
       'funcionario_reconocio': funcionarioReconocio,
       'objeto_gasto': objetoGasto,
@@ -137,16 +139,16 @@ class Obligacion {
   /// Verifica si se puede pagar (requiere acta de recibo o factura)
   bool sePuedePagar() {
     return (tieneActaRecibo() || tieneFacturaValida()) &&
-           saldoPendiente > 0 &&
+           saldoPendiente > publicMoneyZero() &&
            (estado == EstadoObligacion.pendiente || estado == EstadoObligacion.pagadaParcialmente);
   }
 
   /// Actualiza el saldo después de un pago
-  void actualizarSaldoPago(double montoPago) {
+  void actualizarSaldoPago(MoneyValue montoPago) {
     valorPagado += montoPago;
     saldoPendiente -= montoPago;
 
-    if (saldoPendiente == 0) {
+    if (saldoPendiente == publicMoneyZero()) {
       estado = EstadoObligacion.pagadaTotalmente;
     } else {
       estado = EstadoObligacion.pagadaParcialmente;
@@ -165,9 +167,9 @@ class Obligacion {
     String? terceroId,
     String? terceroNombre,
     String? codigoRubro,
-    double? valorObligacion,
-    double? valorPagado,
-    double? saldoPendiente,
+    MoneyValue? valorObligacion,
+    MoneyValue? valorPagado,
+    MoneyValue? saldoPendiente,
     DateTime? fechaReconocimiento,
     String? funcionarioReconocio,
     String? objetoGasto,

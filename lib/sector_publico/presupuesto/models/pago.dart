@@ -2,6 +2,8 @@
 /// Quinta y última etapa del flujo: APROPIACIÓN → CDP → RP → OBLIGACIÓN → PAGO
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum EstadoPago {
   programado,
@@ -33,7 +35,7 @@ class Pago {
   final String bancoDestino;
   final String cuentaDestino;
   final String tipoCuenta; // Ahorros, Corriente
-  final double valorPago;
+  final MoneyValue valorPago;
   final int mesPAC;
   final DateTime fechaProgramacion;
   final DateTime? fechaAprobacion;
@@ -91,7 +93,7 @@ class Pago {
       bancoDestino: json['banco_destino'] as String,
       cuentaDestino: json['cuenta_destino'] as String,
       tipoCuenta: json['tipo_cuenta'] as String,
-      valorPago: (json['valor_pago'] as num).toDouble(),
+      valorPago: publicMoneyFromSql(json['valor_pago']),
       mesPAC: (json['mes_pac'] as num?)?.toInt() ?? 0,
       fechaProgramacion: DateTime.parse(json['fecha_programacion'] as String),
       fechaAprobacion: json['fecha_aprobacion'] != null
@@ -130,7 +132,7 @@ class Pago {
       'banco_destino': bancoDestino,
       'cuenta_destino': cuentaDestino,
       'tipo_cuenta': tipoCuenta,
-      'valor_pago': valorPago,
+      'valor_pago': valorPago.toSql(),
       'mes_pac': mesPAC,
       'fecha_programacion': fechaProgramacion.toIso8601String(),
       'fecha_aprobacion': fechaAprobacion?.toIso8601String(),
@@ -178,7 +180,7 @@ class Pago {
     String? bancoDestino,
     String? cuentaDestino,
     String? tipoCuenta,
-    double? valorPago,
+    MoneyValue? valorPago,
     int? mesPAC,
     DateTime? fechaProgramacion,
     DateTime? fechaAprobacion,

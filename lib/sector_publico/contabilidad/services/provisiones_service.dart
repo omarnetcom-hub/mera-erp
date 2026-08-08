@@ -5,6 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
@@ -27,13 +29,19 @@ class ProvisionesService {
     required this.auditoriaService,
   });
 
+  MoneyValue _moneyCriterion(Object? value) {
+    if (value == null) return publicMoneyZero();
+    if (value is MoneyValue) return value;
+    return publicMoneyFromMajor(value.toString());
+  }
+
   /// Crea una provisión manual
   Future<Map<String, dynamic>> crearProvision({
     required String entidadId,
     required String usuarioId,
     required TipoProvision tipo,
     required String descripcion,
-    required double valorProvision,
+    required MoneyValue valorProvision,
     DateTime? fechaVencimiento,
     String? referenciaDocumento,
   }) async {
@@ -45,9 +53,9 @@ class ProvisionesService {
       'entidad_id': entidadId,
       'tipo_provision': tipo.toString().split('.').last,
       'descripcion': descripcion,
-      'valor_provision': valorProvision,
-      'valor_utilizado': 0,
-      'saldo_disponible': valorProvision,
+      'valor_provision': valorProvision.toSql(),
+      'valor_utilizado': publicMoneyZero().toSql(),
+      'saldo_disponible': valorProvision.toSql(),
       'fecha_creacion': fechaCreacion.toIso8601String(),
       'fecha_vencimiento': fechaVencimiento?.toIso8601String(),
       'estado': 'activa',
@@ -74,7 +82,7 @@ class ProvisionesService {
       valorNuevo: {
         'provision_id': id,
         'tipo': tipo.toString(),
-        'valor': valorProvision,
+        'valor': valorProvision.toSql(),
         'asiento_id': asientoId,
       },
       referenciaId: id,
@@ -83,8 +91,8 @@ class ProvisionesService {
     return {
       'provision_id': id,
       'tipo': tipo.toString(),
-      'valor': valorProvision,
-      'saldo_disponible': valorProvision,
+      'valor': valorProvision.toSql(),
+      'saldo_disponible': valorProvision.toSql(),
       'asiento_id': asientoId,
       'estado': 'activa',
     };
@@ -97,57 +105,57 @@ class ProvisionesService {
     required TipoProvision tipo,
     required Map<String, dynamic> criterios,
   }) async {
-    double valorCalculado = 0;
+    var valorCalculado = publicMoneyZero();
     String descripcion = '';
     String? referenciaDocumento;
 
     switch (tipo) {
       case TipoProvision.litigios:
         // Provisionar X% del valor de contratos en litigio
-        final valorContratos = criterios['valor_contratos_litigio'] as double? ?? 0;
+        final valorContratos = _moneyCriterion(criterios['valor_contratos_litigio']);
         final porcentaje = criterios['porcentaje_provision'] as double? ?? 0.1; // 10% por defecto
-        valorCalculado = valorContratos * porcentaje;
+        valorCalculado = valorContratos.multiplyDecimal(porcentaje.toString());
         descripcion = 'Provisión para litigios - ${porcentaje * 100}% de contratos en litigio';
         referenciaDocumento = criterios['referencia_contratos'];
         break;
 
       case TipoProvision.garantias:
         // Provisionar valor de garantías vigentes
-        valorCalculado = criterios['valor_garantias'] as double? ?? 0;
+        valorCalculado = _moneyCriterion(criterios['valor_garantias']);
         descripcion = 'Provisión para garantías vigentes';
         referenciaDocumento = criterios['referencia_garantias'];
         break;
 
       case TipoProvision.beneficiosEmpleados:
         // Provisionar vacaciones y primas acumuladas
-        valorCalculado = (criterios['vacaciones_acumuladas'] as double? ?? 0) +
-                         (criterios['primas_acumuladas'] as double? ?? 0);
+        valorCalculado = _moneyCriterion(criterios['vacaciones_acumuladas']) +
+            _moneyCriterion(criterios['primas_acumuladas']);
         descripcion = 'Provisión para beneficios a empleados (vacaciones + primas)';
         break;
 
       case TipoProvision.contratosOnerosos:
         // Provisionar pérdidas esperadas en contratos onerosos
-        valorCalculado = criterios['perdida_esperada'] as double? ?? 0;
+        valorCalculado = _moneyCriterion(criterios['perdida_esperada']);
         descripcion = 'Provisión para contratos onerosos';
         referenciaDocumento = criterios['referencia_contrato'];
         break;
 
       case TipoProvision.perdidasOperacionales:
         // Provisionar pérdidas operacionales esperadas
-        valorCalculado = criterios['perdida_esperada'] as double? ?? 0;
+        valorCalculado = _moneyCriterion(criterios['perdida_esperada']);
         descripcion = 'Provisión para pérdidas operacionales';
         break;
 
       case TipoProvision.otros:
-        valorCalculado = criterios['valor'] as double? ?? 0;
+        valorCalculado = _moneyCriterion(criterios['valor']);
         descripcion = criterios['descripcion'] as String? ?? 'Provisión otros';
         break;
     }
 
-    if (valorCalculado <= 0) {
+    if (valorCalculado <= publicMoneyZero()) {
       return {
         'mensaje': 'No se generó provisión - valor calculado es 0 o negativo',
-        'valor_calculado': valorCalculado,
+        'valor_calculado': valorCalculado.toSql(),
       };
     }
 
@@ -169,7 +177,7 @@ class ProvisionesService {
     required String entidadId,
     required String usuarioId,
     required String provisionId,
-    required double valorUtilizar,
+    required MoneyValue valorUtilizar,
     required String motivo,
   }) async {
     final provisionResult = await db.query(
@@ -183,21 +191,22 @@ class ProvisionesService {
     }
 
     final provision = provisionResult.first;
-    final saldoDisponible = provision['saldo_disponible'] as double;
+    final saldoDisponible = publicMoneyFromSql(provision['saldo_disponible']);
 
     if (valorUtilizar > saldoDisponible) {
       throw Exception('El valor a utilizar excede el saldo disponible de la provisión');
     }
 
     final nuevoSaldo = saldoDisponible - valorUtilizar;
-    final valorUtilizadoActual = (provision['valor_utilizado'] as num).toDouble() + valorUtilizar;
+    final valorUtilizadoActual =
+        publicMoneyFromSql(provision['valor_utilizado']) + valorUtilizar;
 
     await db.update(
       'provisiones',
       {
-        'valor_utilizado': valorUtilizadoActual,
-        'saldo_disponible': nuevoSaldo,
-        if (nuevoSaldo == 0) 'estado': 'agotada',
+        'valor_utilizado': valorUtilizadoActual.toSql(),
+        'saldo_disponible': nuevoSaldo.toSql(),
+        if (nuevoSaldo == publicMoneyZero()) 'estado': 'agotada',
       },
       where: 'id = ?',
       whereArgs: [provisionId],
@@ -219,13 +228,13 @@ class ProvisionesService {
       modulo: 'contabilidad',
       accion: 'utilizacion_provision',
       valorAnterior: {
-        'saldo_anterior': saldoDisponible,
+        'saldo_anterior': saldoDisponible.toSql(),
         'utilizado_anterior': provision['valor_utilizado'],
       },
       valorNuevo: {
-        'saldo_nuevo': nuevoSaldo,
-        'utilizado_nuevo': valorUtilizadoActual,
-        'valor_utilizado': valorUtilizar,
+        'saldo_nuevo': nuevoSaldo.toSql(),
+        'utilizado_nuevo': valorUtilizadoActual.toSql(),
+        'valor_utilizado': valorUtilizar.toSql(),
         'asiento_id': asientoId,
       },
       referenciaId: provisionId,
@@ -233,9 +242,9 @@ class ProvisionesService {
 
     return {
       'provision_id': provisionId,
-      'valor_utilizado': valorUtilizar,
-      'saldo_disponible': nuevoSaldo,
-      'estado': nuevoSaldo == 0 ? 'agotada' : 'activa',
+      'valor_utilizado': valorUtilizar.toSql(),
+      'saldo_disponible': nuevoSaldo.toSql(),
+      'estado': nuevoSaldo == publicMoneyZero() ? 'agotada' : 'activa',
       'asiento_id': asientoId,
     };
   }
@@ -258,9 +267,9 @@ class ProvisionesService {
     }
 
     final provision = provisionResult.first;
-    final saldoDisponible = provision['saldo_disponible'] as double;
+    final saldoDisponible = publicMoneyFromSql(provision['saldo_disponible']);
 
-    if (saldoDisponible <= 0) {
+    if (saldoDisponible <= publicMoneyZero()) {
       throw Exception('La provisión no tiene saldo disponible para revertir');
     }
 
@@ -268,7 +277,7 @@ class ProvisionesService {
       'provisiones',
       {
         'estado': 'revertida',
-        'saldo_disponible': 0,
+        'saldo_disponible': publicMoneyZero().toSql(),
       },
       where: 'id = ?',
       whereArgs: [provisionId],
@@ -290,11 +299,11 @@ class ProvisionesService {
       modulo: 'contabilidad',
       accion: 'reversion_provision',
       valorAnterior: {
-        'saldo_anterior': saldoDisponible,
+        'saldo_anterior': saldoDisponible.toSql(),
         'estado_anterior': provision['estado'],
       },
       valorNuevo: {
-        'saldo_nuevo': 0,
+        'saldo_nuevo': publicMoneyZero().toSql(),
         'estado_nuevo': 'revertida',
         'asiento_id': asientoId,
       },
@@ -303,7 +312,7 @@ class ProvisionesService {
 
     return {
       'provision_id': provisionId,
-      'saldo_revertido': saldoDisponible,
+      'saldo_revertido': saldoDisponible.toSql(),
       'estado': 'revertida',
       'asiento_id': asientoId,
     };
@@ -315,7 +324,7 @@ class ProvisionesService {
     required String usuarioId,
     required String provisionId,
     required TipoProvision tipo,
-    required double valor,
+    required MoneyValue valor,
     required String descripcion,
   }) async {
     final asientoId = _uuid.v4();
@@ -336,8 +345,8 @@ class ProvisionesService {
       'descripcion': 'Provisión - $descripcion',
       'tipo_asiento': 'automatico',
       'estado': 'aprobado',
-      'total_debito': valor,
-      'total_credito': valor,
+      'total_debito': valor.toSql(),
+      'total_credito': valor.toSql(),
       'usuario_creo': usuarioId,
       'usuario_reviso': usuarioId,
       'fecha_revision': DateTime.now().toIso8601String(),
@@ -351,8 +360,8 @@ class ProvisionesService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaGasto['codigo'],
       'cuenta_nombre': cuentaGasto['nombre'],
-      'debito': valor,
-      'credito': 0,
+      'debito': valor.toSql(),
+      'credito': publicMoneyZero().toSql(),
       'referencia_id': provisionId,
     });
 
@@ -361,8 +370,8 @@ class ProvisionesService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaProvision['codigo'],
       'cuenta_nombre': cuentaProvision['nombre'],
-      'debito': 0,
-      'credito': valor,
+      'debito': publicMoneyZero().toSql(),
+      'credito': valor.toSql(),
       'referencia_id': provisionId,
     });
 
@@ -374,7 +383,7 @@ class ProvisionesService {
     required String entidadId,
     required String usuarioId,
     required String provisionId,
-    required double valor,
+    required MoneyValue valor,
     required String motivo,
   }) async {
     final asientoId = _uuid.v4();
@@ -403,8 +412,8 @@ class ProvisionesService {
       'descripcion': 'Reversión de provisión - $motivo',
       'tipo_asiento': 'automatico',
       'estado': 'aprobado',
-      'total_debito': valor,
-      'total_credito': valor,
+      'total_debito': valor.toSql(),
+      'total_credito': valor.toSql(),
       'usuario_creo': usuarioId,
       'usuario_reviso': usuarioId,
       'fecha_revision': DateTime.now().toIso8601String(),
@@ -418,8 +427,8 @@ class ProvisionesService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaProvision['codigo'],
       'cuenta_nombre': cuentaProvision['nombre'],
-      'debito': valor,
-      'credito': 0,
+      'debito': valor.toSql(),
+      'credito': publicMoneyZero().toSql(),
       'referencia_id': provisionId,
     });
 
@@ -428,8 +437,8 @@ class ProvisionesService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaGasto['codigo'],
       'cuenta_nombre': cuentaGasto['nombre'],
-      'debito': 0,
-      'credito': valor,
+      'debito': publicMoneyZero().toSql(),
+      'credito': valor.toSql(),
       'referencia_id': provisionId,
     });
 

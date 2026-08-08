@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../currency/money_value.dart';
 
 class CurrencyFormatter {
   static final _formatter = NumberFormat.currency(
@@ -7,5 +8,11 @@ class CurrencyFormatter {
     decimalDigits: 0,
   );
 
-  static String format(num valor) => _formatter.format(valor);
+  /// Acepta valores legacy numericos y MoneyValue solo en el borde de UI.
+  static String format(Object valor) {
+    final majorUnits = valor is MoneyValue
+        ? valor.toMajorUnitsDoubleForDisplay()
+        : (valor as num).toDouble();
+    return _formatter.format(majorUnits);
+  }
 }

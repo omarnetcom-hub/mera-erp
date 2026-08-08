@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/currency/public_sector_money.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../services/conciliacion_reciprocas_service.dart';
 
@@ -74,10 +75,12 @@ class _ConciliacionReciprocaDialogState
   }
 
   String _etiqueta(Map<String, dynamic> partida) {
-    final debito = (partida['debito'] as num).toDouble();
-    final valor = debito > 0
-        ? debito
-        : (partida['credito'] as num).toDouble();
+    final debito = publicMoneyFromSql(partida['debito'], nullableAsZero: true);
+    final credito = publicMoneyFromSql(
+      partida['credito'],
+      nullableAsZero: true,
+    );
+    final valor = debito > publicMoneyZero() ? debito : credito;
     return '${partida['numero_asiento']} | ${partida['entidad_id']} | '
         '${partida['cuenta_codigo']} | ${CurrencyFormatter.format(valor)}';
   }
@@ -103,15 +106,16 @@ class _ConciliacionReciprocaDialogState
         partidas: [
           PartidaReciprocaInput(
             detalleAsientoId: _partidaAId!,
-            montoEliminar: double.parse(_montoAController.text),
+        montoEliminar: publicMoneyFromMajor(_montoAController.text),
           ),
           PartidaReciprocaInput(
             detalleAsientoId: _partidaBId!,
-            montoEliminar: double.parse(_montoBController.text),
+        montoEliminar: publicMoneyFromMajor(_montoBController.text),
           ),
         ],
-        toleranciaMonto:
-            double.tryParse(_toleranciaMontoController.text) ?? 0,
+        toleranciaMonto: publicMoneyFromMajor(
+          _toleranciaMontoController.text,
+        ),
         toleranciaDias: int.tryParse(_toleranciaDiasController.text) ?? 0,
         observaciones: _observacionesController.text.trim(),
       );

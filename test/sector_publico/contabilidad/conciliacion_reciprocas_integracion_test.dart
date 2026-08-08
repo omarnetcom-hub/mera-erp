@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/contabilidad/database/schema_contabilidad.dart';
 import 'package:merka_erp/sector_publico/contabilidad/services/conciliacion_reciprocas_service.dart';
 import 'package:merka_erp/sector_publico/contabilidad/services/consolidacion_jerarquica_service.dart';
@@ -109,8 +111,8 @@ void main() {
             entidadIdPadre: 'GOB-01',
             vigencia: '2026',
           );
-      expect(sinConciliar['clases']['5']['neto'], 100.0);
-      expect(sinConciliar['clases']['4']['neto'], -100.0);
+      expect(sinConciliar['clases']['5']['neto'], _m(100));
+      expect(sinConciliar['clases']['4']['neto'], _m(-100));
       expect(
         sinConciliar['eliminaciones_reciprocas']['conciliaciones_aplicadas'],
         0,
@@ -121,17 +123,17 @@ void main() {
           entidadConsolidadoraId: 'GOB-01',
           vigencia: '2026',
           usuarioId: 'USR-CONTROL',
-          partidas: const [
+          partidas: [
             PartidaReciprocaInput(
               detalleAsientoId: 'DET-GOB-GASTO',
-              montoEliminar: 100,
+              montoEliminar: _m(100),
             ),
             PartidaReciprocaInput(
               detalleAsientoId: 'DET-MUN-INGRESO',
-              montoEliminar: 100,
+              montoEliminar: _m(100),
             ),
           ],
-          toleranciaMonto: 0,
+          toleranciaMonto: _m(0),
           toleranciaDias: 0,
         ),
         throwsA(isA<StateError>()),
@@ -141,17 +143,17 @@ void main() {
         entidadConsolidadoraId: 'GOB-01',
         vigencia: '2026',
         usuarioId: 'USR-CONTADOR',
-        partidas: const [
+        partidas: [
           PartidaReciprocaInput(
             detalleAsientoId: 'DET-GOB-GASTO',
-            montoEliminar: 100,
+            montoEliminar: _m(100),
           ),
           PartidaReciprocaInput(
             detalleAsientoId: 'DET-MUN-INGRESO',
-            montoEliminar: 100,
+            montoEliminar: _m(100),
           ),
         ],
-        toleranciaMonto: 0,
+        toleranciaMonto: _m(0),
         toleranciaDias: 0,
         observaciones: 'Transferencia intragrupo soportada por acto 001.',
       );
@@ -162,26 +164,26 @@ void main() {
         whereArgs: [conciliacionId],
       )).single;
       expect(conciliacion['aprobado_por'], 'USR-CONTADOR');
-      expect(conciliacion['tolerancia_monto'], 0.0);
+      expect(conciliacion['tolerancia_monto'], 0);
       expect(conciliacion['tolerancia_dias'], 0);
-      expect(conciliacion['diferencia_monto_validada'], 0.0);
+      expect(conciliacion['diferencia_monto_validada'], 0);
       expect(conciliacion['diferencia_dias_validada'], 0);
 
       final conciliado = await consolidacionService.obtenerConsolidadoContable(
         entidadIdPadre: 'GOB-01',
         vigencia: '2026',
       );
-      expect(conciliado['clases']['5']['neto'], 0.0);
-      expect(conciliado['clases']['4']['neto'], 0.0);
-      expect(conciliado['clases']['1']['neto'], 0.0);
+      expect(conciliado['clases']['5']['neto'], _m(0));
+      expect(conciliado['clases']['4']['neto'], _m(0));
+      expect(conciliado['clases']['1']['neto'], _m(0));
       expect(
         conciliado['eliminaciones_reciprocas']['conciliaciones_aplicadas'],
         1,
       );
-      expect(conciliado['eliminaciones_reciprocas']['debito_eliminado'], 100.0);
+      expect(conciliado['eliminaciones_reciprocas']['debito_eliminado'], _m(100));
       expect(
         conciliado['eliminaciones_reciprocas']['credito_eliminado'],
-        100.0,
+        _m(100),
       );
 
       expect(
@@ -207,8 +209,8 @@ class _Detalle {
   final String id;
   final String cuenta;
   final String nombre;
-  final double debito;
-  final double credito;
+  final int debito;
+  final int credito;
 }
 
 Future<void> _insertarAsiento(
@@ -226,8 +228,8 @@ Future<void> _insertarAsiento(
     'descripcion': 'Transferencia intragrupo',
     'tipo_asiento': 'manual',
     'estado': 'registrado',
-    'total_debito': 100.0,
-    'total_credito': 100.0,
+    'total_debito': 10000,
+    'total_credito': 10000,
     'usuario_creo': 'USR-CONTADOR',
   });
   for (final detalle in detalles) {
@@ -247,8 +249,8 @@ Future<void> _insertarSaldo(
   String id,
   String entidadId,
   String cuenta,
-  double debito,
-  double credito,
+  int debito,
+  int credito,
 ) {
   return db.insert('saldos_cuentas', {
     'id': id,
@@ -262,3 +264,5 @@ Future<void> _insertarSaldo(
     'vigencia': '2026',
   });
 }
+
+MoneyValue _m(num pesos) => publicMoneyFromMajor(pesos.toString());

@@ -7,6 +7,7 @@ import '../services/secop_service.dart';
 import '../models/proceso_contratacion.dart';
 import '../models/contrato.dart';
 import '../models/poliza.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 
@@ -1090,7 +1091,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               try {
                 await _contratacionService!.asociarRPAContrato(
                   entidadId: widget.entidadId, usuarioId: widget.usuarioId,
-                  contratoId: contrato.id, valorRP: double.parse(valorController.text),
+                  contratoId: contrato.id,
+                  valorRP: publicMoneyFromMajor(valorController.text),
                   funcionarioExpedidor: expedidorController.text,
                   funcionarioSolicitante: solicitanteController.text,
                   objetoGasto: objetoController.text,

@@ -8,6 +8,8 @@ import '../models/asiento_contable.dart';
 import '../models/cuenta_contable.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/currency/public_sector_money.dart';
+import '../../../core/currency/money_value.dart';
 
 class ContabilidadNICSPPage extends StatefulWidget {
   final String entidadId;
@@ -97,15 +99,17 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
         whereArgs: [widget.entidadId],
         orderBy: 'cuenta_codigo',
       );
-      _saldos = saldosResult.map((r) => SaldoCuenta(
-        cuentaId: r['id'] as String,
-        cuentaCodigo: r['cuenta_codigo'] as String,
-        cuentaNombre: r['cuenta_nombre'] as String,
-        saldoDeudor: (r['saldo_deudor'] as num).toDouble(),
-        saldoAcreedor: (r['saldo_acreedor'] as num).toDouble(),
-        saldoNeto: (r['saldo_neto'] as num).toDouble(),
-        fechaUltimoMovimiento: DateTime.parse(r['fecha_ultimo_movimiento'] as String),
-      )).toList();
+      _saldos = saldosResult
+          .map((r) => SaldoCuenta.fromJson({
+                'cuenta_id': r['id'],
+                'cuenta_codigo': r['cuenta_codigo'],
+                'cuenta_nombre': r['cuenta_nombre'],
+                'saldo_deudor': r['saldo_deudor'],
+                'saldo_acreedor': r['saldo_acreedor'],
+                'saldo_neto': r['saldo_neto'],
+                'fecha_ultimo_movimiento': r['fecha_ultimo_movimiento'],
+              }))
+          .toList();
     } catch (e) {
       _mostrarError('Error al cargar datos: $e');
     }
@@ -223,7 +227,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${CurrencyFormatter.format(asiento.totalDebito)}',
+                  '${CurrencyFormatter.format(publicMoneyForDisplay(asiento.totalDebito))}',
                   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
                 ),
                 Text(
@@ -249,7 +253,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                               Expanded(
                                 flex: 1,
                                 child: Text(
-                                  d.debito > 0 ? '${CurrencyFormatter.format(d.debito)}' : '',
+                                  d.debito > publicMoneyZero() ? '${CurrencyFormatter.format(publicMoneyForDisplay(d.debito))}' : '',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(color: Colors.green),
                                 ),
@@ -257,7 +261,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                               Expanded(
                                 flex: 1,
                                 child: Text(
-                                  d.credito > 0 ? '${CurrencyFormatter.format(d.credito)}' : '',
+                                  d.credito > publicMoneyZero() ? '${CurrencyFormatter.format(publicMoneyForDisplay(d.credito))}' : '',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(color: Colors.red),
                                 ),
@@ -312,7 +316,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               '${CurrencyFormatter.format(saldo.saldoNeto)}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: saldo.saldoNeto >= 0 ? Colors.green : Colors.red,
+                color: saldo.saldoNeto.minorUnits >= 0 ? Colors.green : Colors.red,
               ),
             ),
           ),
@@ -535,13 +539,13 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
               Text('Periodo: ${estado['periodo']}'),
               Text('Metodo: ${estado['metodo']}'),
               const Divider(),
-              Text('Efectivo inicial: ${CurrencyFormatter.format((estado['efectivo_inicial'] as num).toDouble())}'),
-              Text('Operacion: ${CurrencyFormatter.format((estado['actividades_operacion'] as num).toDouble())}'),
-              Text('Inversion: ${CurrencyFormatter.format((estado['actividades_inversion'] as num).toDouble())}'),
-              Text('Financiacion: ${CurrencyFormatter.format((estado['actividades_financiacion'] as num).toDouble())}'),
+              Text('Efectivo inicial: ${CurrencyFormatter.format(estado['efectivo_inicial'])}'),
+              Text('Operacion: ${CurrencyFormatter.format(estado['actividades_operacion'])}'),
+              Text('Inversion: ${CurrencyFormatter.format(estado['actividades_inversion'])}'),
+              Text('Financiacion: ${CurrencyFormatter.format(estado['actividades_financiacion'])}'),
               const Divider(),
               Text(
-                'Efectivo final: ${CurrencyFormatter.format((estado['efectivo_final'] as num).toDouble())}',
+                'Efectivo final: ${CurrencyFormatter.format(estado['efectivo_final'])}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
@@ -1028,8 +1032,8 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                     motivo: motivoController.text,
                   );
                   _mostrarExito(
-                    'Cierre ejecutado: Reservas ${CurrencyFormatter.format((resultado['reservas'] as double))}, '
-                    'Cuentas por pagar ${CurrencyFormatter.format((resultado['cuentas_por_pagar'] as double))}',
+                    'Cierre ejecutado: Reservas ${CurrencyFormatter.format(resultado['reservas'])}, '
+                    'Cuentas por pagar ${CurrencyFormatter.format(resultado['cuentas_por_pagar'])}',
                   );
                   await _cargarDatos();
                 } catch (e) {
@@ -1107,16 +1111,20 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
     });
   }
 
-  double get _totalDebitos {
-    return _detalles.fold(0.0, (sum, row) {
-      final val = double.tryParse(row.debitoController.text) ?? 0.0;
+  MoneyValue get _totalDebitos {
+    return _detalles.fold<MoneyValue>(publicMoneyZero(), (sum, row) {
+      final val = row.debitoController.text.trim().isEmpty
+          ? publicMoneyZero()
+          : publicMoneyFromMajor(row.debitoController.text);
       return sum + val;
     });
   }
 
-  double get _totalCreditos {
-    return _detalles.fold(0.0, (sum, row) {
-      final val = double.tryParse(row.creditoController.text) ?? 0.0;
+  MoneyValue get _totalCreditos {
+    return _detalles.fold<MoneyValue>(publicMoneyZero(), (sum, row) {
+      final val = row.creditoController.text.trim().isEmpty
+          ? publicMoneyZero()
+          : publicMoneyFromMajor(row.creditoController.text);
       return sum + val;
     });
   }
@@ -1124,7 +1132,7 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if ((_totalDebitos - _totalCreditos).abs() >= 0.01) {
+    if (_totalDebitos != _totalCreditos) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1149,8 +1157,8 @@ class _AsientoManualFormDialogState extends State<_AsientoManualFormDialog> {
           id: '', // Se genera en el servicio
           cuentaCodigo: cuenta['codigo_cuenta'] as String,
           cuentaNombre: cuenta['nombre_cuenta'] as String,
-          debito: double.parse(row.debitoController.text),
-          credito: double.parse(row.creditoController.text),
+          debito: publicMoneyFromMajor(row.debitoController.text),
+          credito: publicMoneyFromMajor(row.creditoController.text),
         );
       }).toList();
 

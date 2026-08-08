@@ -2,6 +2,8 @@
 /// Define el monto máximo mensual de fondos disponibles para pagos
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum EstadoPAC {
   borrador,
@@ -17,9 +19,9 @@ class PAC {
   final String vigencia;
   final int mes; // 1-12
   final String codigoRubro;
-  final double valorProgramado;
-  double valorEjecutado;
-  double saldoDisponible;
+  final MoneyValue valorProgramado;
+  MoneyValue valorEjecutado;
+  MoneyValue saldoDisponible;
   final DateTime fechaCreacion;
   final DateTime? fechaAprobacion;
   final String? funcionarioAprobo;
@@ -51,9 +53,9 @@ class PAC {
       vigencia: json['vigencia'] as String,
       mes: json['mes'] as int,
       codigoRubro: json['codigo_rubro'] as String,
-      valorProgramado: (json['valor_programado'] as num).toDouble(),
-      valorEjecutado: (json['valor_ejecutado'] as num).toDouble(),
-      saldoDisponible: (json['saldo_disponible'] as num).toDouble(),
+      valorProgramado: publicMoneyFromSql(json['valor_programado']),
+      valorEjecutado: publicMoneyFromSql(json['valor_ejecutado']),
+      saldoDisponible: publicMoneyFromSql(json['saldo_disponible']),
       fechaCreacion: DateTime.parse(json['fecha_creacion'] as String),
       fechaAprobacion: json['fecha_aprobacion'] != null
           ? DateTime.parse(json['fecha_aprobacion'] as String)
@@ -74,9 +76,9 @@ class PAC {
       'vigencia': vigencia,
       'mes': mes,
       'codigo_rubro': codigoRubro,
-      'valor_programado': valorProgramado,
-      'valor_ejecutado': valorEjecutado,
-      'saldo_disponible': saldoDisponible,
+      'valor_programado': valorProgramado.toSql(),
+      'valor_ejecutado': valorEjecutado.toSql(),
+      'saldo_disponible': saldoDisponible.toSql(),
       'fecha_creacion': fechaCreacion.toIso8601String(),
       'fecha_aprobacion': fechaAprobacion?.toIso8601String(),
       'funcionario_aprobo': funcionarioAprobo,
@@ -95,12 +97,12 @@ class PAC {
   }
 
   /// Verifica si hay cupo PAC para un pago
-  bool tieneCupoParaPago(double montoPago) {
+  bool tieneCupoParaPago(MoneyValue montoPago) {
     return estaAprobado() && saldoDisponible >= montoPago;
   }
 
   /// Actualiza el saldo después de un pago
-  void actualizarSaldoPago(double montoPago) {
+  void actualizarSaldoPago(MoneyValue montoPago) {
     valorEjecutado += montoPago;
     saldoDisponible -= montoPago;
   }
@@ -120,9 +122,9 @@ class PAC {
     String? vigencia,
     int? mes,
     String? codigoRubro,
-    double? valorProgramado,
-    double? valorEjecutado,
-    double? saldoDisponible,
+    MoneyValue? valorProgramado,
+    MoneyValue? valorEjecutado,
+    MoneyValue? saldoDisponible,
     DateTime? fechaCreacion,
     DateTime? fechaAprobacion,
     String? funcionarioAprobo,
@@ -157,7 +159,7 @@ class EmbargoJudicial {
   final String juzgado;
   final String? terceroId;
   final String terceroNombre;
-  final double valorEmbargo;
+  final MoneyValue valorEmbargo;
   final DateTime fechaRegistro;
   final DateTime? fechaLevantamiento;
   final bool activo;
@@ -185,7 +187,7 @@ class EmbargoJudicial {
       juzgado: json['juzgado'] as String,
       terceroId: json['tercero_id'] as String?,
       terceroNombre: json['tercero_nombre'] as String,
-      valorEmbargo: (json['valor_embargo'] as num).toDouble(),
+      valorEmbargo: publicMoneyFromSql(json['valor_embargo']),
       fechaRegistro: DateTime.parse(json['fecha_registro'] as String),
       fechaLevantamiento: json['fecha_levantamiento'] != null
           ? DateTime.parse(json['fecha_levantamiento'] as String)
@@ -203,7 +205,7 @@ class EmbargoJudicial {
       'juzgado': juzgado,
       'tercero_id': terceroId,
       'tercero_nombre': terceroNombre,
-      'valor_embargo': valorEmbargo,
+      'valor_embargo': valorEmbargo.toSql(),
       'fecha_registro': fechaRegistro.toIso8601String(),
       'fecha_levantamiento': fechaLevantamiento?.toIso8601String(),
       'activo': activo,

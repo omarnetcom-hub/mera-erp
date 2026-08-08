@@ -2,6 +2,8 @@
 /// Primera etapa del flujo: APROPIACIÓN → CDP → RP → OBLIGACIÓN → PAGO
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 class Apropiacion {
   final String id;
@@ -9,13 +11,13 @@ class Apropiacion {
   final String vigencia; // Año fiscal (ej. "2026")
   final String codigoRubro; // Código del rubro presupuestal
   final String nombreRubro;
-  final double valorInicial;
-  double valorApropiado;
-  double valorCDP;
-  double valorRP;
-  double valorObligado;
-  double valorPagado;
-  double saldoDisponible;
+  final MoneyValue valorInicial;
+  MoneyValue valorApropiado;
+  MoneyValue valorCDP;
+  MoneyValue valorRP;
+  MoneyValue valorObligado;
+  MoneyValue valorPagado;
+  MoneyValue saldoDisponible;
   final String fuenteFinanciacion;
   final String sector;
   final String programa;
@@ -63,13 +65,13 @@ class Apropiacion {
       vigencia: json['vigencia'] as String,
       codigoRubro: json['codigo_rubro'] as String,
       nombreRubro: json['nombre_rubro'] as String,
-      valorInicial: (json['valor_inicial'] as num).toDouble(),
-      valorApropiado: (json['valor_apropiado'] as num).toDouble(),
-      valorCDP: (json['valor_cdp'] as num).toDouble(),
-      valorRP: (json['valor_rp'] as num).toDouble(),
-      valorObligado: (json['valor_obligado'] as num).toDouble(),
-      valorPagado: (json['valor_pagado'] as num).toDouble(),
-      saldoDisponible: (json['saldo_disponible'] as num).toDouble(),
+      valorInicial: publicMoneyFromSql(json['valor_inicial']),
+      valorApropiado: publicMoneyFromSql(json['valor_apropiado']),
+      valorCDP: publicMoneyFromSql(json['valor_cdp']),
+      valorRP: publicMoneyFromSql(json['valor_rp']),
+      valorObligado: publicMoneyFromSql(json['valor_obligado']),
+      valorPagado: publicMoneyFromSql(json['valor_pagado']),
+      saldoDisponible: publicMoneyFromSql(json['saldo_disponible']),
       fuenteFinanciacion: json['fuente_financiacion'] as String,
       sector: json['sector'] as String,
       programa: json['programa'] as String,
@@ -92,13 +94,13 @@ class Apropiacion {
       'vigencia': vigencia,
       'codigo_rubro': codigoRubro,
       'nombre_rubro': nombreRubro,
-      'valor_inicial': valorInicial,
-      'valor_apropiado': valorApropiado,
-      'valor_cdp': valorCDP,
-      'valor_rp': valorRP,
-      'valor_obligado': valorObligado,
-      'valor_pagado': valorPagado,
-      'saldo_disponible': saldoDisponible,
+      'valor_inicial': valorInicial.toSql(),
+      'valor_apropiado': valorApropiado.toSql(),
+      'valor_cdp': valorCDP.toSql(),
+      'valor_rp': valorRP.toSql(),
+      'valor_obligado': valorObligado.toSql(),
+      'valor_pagado': valorPagado.toSql(),
+      'saldo_disponible': saldoDisponible.toSql(),
       'fuente_financiacion': fuenteFinanciacion,
       'sector': sector,
       'programa': programa,
@@ -116,26 +118,26 @@ class Apropiacion {
 
   /// Calcula el saldo disponible para expedir CDP
   /// Saldo = Valor Apropiado - Valor CDP - Valor RP
-  double calcularSaldoDisponibleCDP() {
+  MoneyValue calcularSaldoDisponibleCDP() {
     return valorApropiado - valorCDP - valorRP;
   }
 
   /// Verifica si hay disponibilidad para un monto específico
-  bool tieneDisponibilidad(double monto) {
+  bool tieneDisponibilidad(MoneyValue monto) {
     return calcularSaldoDisponibleCDP() >= monto;
   }
 
   /// Actualiza los valores después de una operación
   void actualizarValores({
-    double? valorCDPAdicional,
-    double? valorRPAdicional,
-    double? valorObligadoAdicional,
-    double? valorPagadoAdicional,
+    MoneyValue? valorCDPAdicional,
+    MoneyValue? valorRPAdicional,
+    MoneyValue? valorObligadoAdicional,
+    MoneyValue? valorPagadoAdicional,
   }) {
-    valorCDP += valorCDPAdicional ?? 0;
-    valorRP += valorRPAdicional ?? 0;
-    valorObligado += valorObligadoAdicional ?? 0;
-    valorPagado += valorPagadoAdicional ?? 0;
+    valorCDP += valorCDPAdicional ?? publicMoneyZero();
+    valorRP += valorRPAdicional ?? publicMoneyZero();
+    valorObligado += valorObligadoAdicional ?? publicMoneyZero();
+    valorPagado += valorPagadoAdicional ?? publicMoneyZero();
     saldoDisponible = calcularSaldoDisponibleCDP();
   }
 
@@ -145,13 +147,13 @@ class Apropiacion {
     String? vigencia,
     String? codigoRubro,
     String? nombreRubro,
-    double? valorInicial,
-    double? valorApropiado,
-    double? valorCDP,
-    double? valorRP,
-    double? valorObligado,
-    double? valorPagado,
-    double? saldoDisponible,
+    MoneyValue? valorInicial,
+    MoneyValue? valorApropiado,
+    MoneyValue? valorCDP,
+    MoneyValue? valorRP,
+    MoneyValue? valorObligado,
+    MoneyValue? valorPagado,
+    MoneyValue? saldoDisponible,
     String? fuenteFinanciacion,
     String? sector,
     String? programa,

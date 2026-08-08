@@ -4,6 +4,7 @@ import '../../security/auditoria_service.dart';
 import '../services/pac_service.dart';
 import '../models/pac.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../../core/utils/date_formatter.dart';
 
 class PACTesoreriaPage extends StatefulWidget {
@@ -98,7 +99,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
         juzgado: r['juzgado'] as String,
         terceroId: r['tercero_id'] as String?,
         terceroNombre: r['tercero_nombre'] as String,
-        valorEmbargo: (r['valor_embargo'] as num).toDouble(),
+        valorEmbargo: publicMoneyFromSql(r['valor_embargo']),
         fechaRegistro: DateTime.parse(r['fecha_registro'] as String),
         fechaLevantamiento: r['fecha_levantamiento'] != null
             ? DateTime.parse(r['fecha_levantamiento'] as String)
@@ -251,8 +252,8 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Programado: ${CurrencyFormatter.format(pac.valorProgramado)}'),
-                Text('Saldo Disponible: ${CurrencyFormatter.format(pac.saldoDisponible)}'),
+                Text('Programado: ${CurrencyFormatter.format(publicMoneyForDisplay(pac.valorProgramado))}'),
+                Text('Saldo Disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(pac.saldoDisponible))}'),
                 if (pac.actoAdministrativo != null)
                   Text('Acto Administrativo: ${pac.actoAdministrativo}'),
                 const SizedBox(height: 4),
@@ -319,16 +320,16 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
               'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
               'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
             ];
-            final totalProgramado = (row['total_programado'] as num).toDouble();
-            final totalEjecutado = (row['total_ejecutado'] as num).toDouble();
-            final totalSaldo = (row['total_saldo'] as num).toDouble();
+            final totalProgramado = publicMoneyFromSql(row['total_programado']);
+            final totalEjecutado = publicMoneyFromSql(row['total_ejecutado']);
+            final totalSaldo = publicMoneyFromSql(row['total_saldo']);
 
             return TableRow(
               children: [
                 Padding(padding: const EdgeInsets.all(8), child: Text(nombresMeses[mes - 1])),
-                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(totalProgramado)}')),
-                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(totalEjecutado)}')),
-                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(totalSaldo)}')),
+                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(publicMoneyForDisplay(totalProgramado))}')),
+                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(publicMoneyForDisplay(totalEjecutado))}')),
+                Padding(padding: const EdgeInsets.all(8), child: Text('${CurrencyFormatter.format(publicMoneyForDisplay(totalSaldo))}')),
               ],
             );
           }),
@@ -420,7 +421,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
               ],
             ),
             trailing: Text(
-              '${CurrencyFormatter.format(embargo.valorEmbargo)}',
+              '${CurrencyFormatter.format(publicMoneyForDisplay(embargo.valorEmbargo))}',
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
             ),
           ),
@@ -510,7 +511,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                       vigencia: vigenciaController.text,
                       mes: mesSeleccionado,
                       codigoRubro: rubroSeleccionado!,
-                      valorProgramado: double.parse(valorController.text),
+                      valorProgramado: publicMoneyFromMajor(valorController.text),
                       funcionarioProgramo: funcionarioController.text,
                     );
                     _mostrarExito('PAC programado exitosamente');
@@ -549,7 +550,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Mes: ${pac.nombreMes} | Rubro: ${pac.codigoRubro}'),
-              Text('Valor: ${CurrencyFormatter.format(pac.valorProgramado)}'),
+              Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(pac.valorProgramado))}'),
               const Divider(),
               TextFormField(
                 controller: funcionarioController,
@@ -653,7 +654,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
                     pacId: pac.id,
-                    nuevoValorProgramado: double.parse(valorController.text),
+                    nuevoValorProgramado: publicMoneyFromMajor(valorController.text),
                     funcionarioModifico: funcionarioController.text,
                     actoAdministrativo: actoController.text,
                   );
@@ -780,7 +781,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                       codigoRubro: rubroSeleccionado!,
                       mesOrigen: mesOrigen,
                       mesDestino: mesDestino,
-                      montoTraslado: double.parse(montoController.text),
+                    montoTraslado: publicMoneyFromMajor(montoController.text),
                       funcionarioAutoriza: funcionarioController.text,
                       actoAdministrativo: actoController.text,
                     );
@@ -862,7 +863,7 @@ class _PACTesoreriaPageState extends State<PACTesoreriaPage> {
                     numeroProceso: procesoController.text,
                     juzgado: juzgadoController.text,
                     terceroNombre: demandanteController.text,
-                    valorEmbargo: double.parse(montoController.text),
+                    valorEmbargo: publicMoneyFromMajor(montoController.text),
                   );
                   _mostrarExito('Embargo registrado exitosamente');
                   await _cargarDatos();
