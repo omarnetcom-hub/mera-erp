@@ -1253,6 +1253,7 @@ flutter build windows
 ### Cierre de la subtarea contabilidad
 
 Estado: **Parcial**. Los seis consumidores contables priorizados quedaron
+convertidos en el commit `b65b763`.
 convertidos y los 25 tests dirigidos pasaron. Quedan 32 consumidores
 comerciales del inventario de 38, y la validacion de partida doble a nivel SQL
 queda pendiente de una migracion/transaccion especifica. No se toco el
