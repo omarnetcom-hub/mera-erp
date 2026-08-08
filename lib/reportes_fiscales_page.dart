@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'numeric_input.dart';
 
@@ -15,7 +16,7 @@ class ReportesFiscalesPage extends StatefulWidget {
 class _ReportesFiscalesPageState extends State<ReportesFiscalesPage> {
   int anio = DateTime.now().year;
   int mes = DateTime.now().month;
-  Map<String, double> reporte = {};
+  Map<String, MoneyValue> reporte = {};
 
   @override
   void initState() {
@@ -36,21 +37,37 @@ class _ReportesFiscalesPageState extends State<ReportesFiscalesPage> {
     setState(() => reporte = data);
   }
 
-  String _fmt(num valor) => '\$${valor.toStringAsFixed(2)}';
+  String _fmt(MoneyValue? valor) => valor?.format() ?? '-';
 
   @override
   Widget build(BuildContext context) {
     final filas = [
-      ['Ventas gravadas/reportadas', reporte['ventas'] ?? 0, 'ventas'],
-      ['Compras y costos', reporte['compras'] ?? 0, 'compras'],
-      ['IVA generado', reporte['iva_generado'] ?? 0, 'iva_generado'],
-      ['IVA descontable', reporte['iva_descontable'] ?? 0, 'iva_descontable'],
-      ['IVA estimado por pagar', reporte['iva_por_pagar'] ?? 0, 'iva_por_pagar'],
-      ['Retefuente practicada', reporte['retefuente_practicada'] ?? 0, 'retefuente_practicada'],
-      ['ReteIVA practicada', reporte['reteiva_practicada'] ?? 0, 'reteiva_practicada'],
-      ['ReteICA practicada', reporte['reteica_practicada'] ?? 0, 'reteica_practicada'],
-      ['Retefuente recibida (compras)', reporte['retefuente_recibida'] ?? 0, 'retefuente_recibida'],
-      ['Nómina pagada', reporte['nomina'] ?? 0, 'nomina'],
+      ['Ventas gravadas/reportadas', reporte['ventas'], 'ventas'],
+      ['Compras y costos', reporte['compras'], 'compras'],
+      ['IVA generado', reporte['iva_generado'], 'iva_generado'],
+      ['IVA descontable', reporte['iva_descontable'], 'iva_descontable'],
+      ['IVA estimado por pagar', reporte['iva_por_pagar'], 'iva_por_pagar'],
+      [
+        'Retefuente practicada',
+        reporte['retefuente_practicada'],
+        'retefuente_practicada',
+      ],
+      [
+        'ReteIVA practicada',
+        reporte['reteiva_practicada'],
+        'reteiva_practicada',
+      ],
+      [
+        'ReteICA practicada',
+        reporte['reteica_practicada'],
+        'reteica_practicada',
+      ],
+      [
+        'Retefuente recibida (compras)',
+        reporte['retefuente_recibida'],
+        'retefuente_recibida',
+      ],
+      ['Nómina pagada', reporte['nomina'], 'nomina'],
     ];
 
     final body = ListView(
@@ -63,18 +80,26 @@ class _ReportesFiscalesPageState extends State<ReportesFiscalesPage> {
                 controller: TextEditingController(text: '$anio'),
                 keyboardType: TextInputType.number,
                 inputFormatters: [NumericInput.integer],
-                decoration: const InputDecoration(labelText: 'Año', isDense: true),
-                onChanged: (value) => anio = int.tryParse(value) ?? DateTime.now().year,
+                decoration: const InputDecoration(
+                  labelText: 'Año',
+                  isDense: true,
+                ),
+                onChanged: (value) =>
+                    anio = int.tryParse(value) ?? DateTime.now().year,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: DropdownButtonFormField<int>(
                 initialValue: mes,
-                decoration: const InputDecoration(labelText: 'Mes', isDense: true),
+                decoration: const InputDecoration(
+                  labelText: 'Mes',
+                  isDense: true,
+                ),
                 items: List.generate(
                   12,
-                  (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                  (i) =>
+                      DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
                 ),
                 onChanged: (value) {
                   if (value == null) return;
@@ -101,7 +126,7 @@ class _ReportesFiscalesPageState extends State<ReportesFiscalesPage> {
             child: ListTile(
               title: Text(f[0] as String),
               trailing: Text(
-                _fmt(f[1] as num),
+                _fmt(f[1] as MoneyValue?),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
@@ -110,7 +135,7 @@ class _ReportesFiscalesPageState extends State<ReportesFiscalesPage> {
                   builder: (_) => AlertDialog(
                     title: Text(f[0] as String),
                     content: Text(
-                      'Total del período $mes/$anio: ${_fmt(f[1] as num)}\n\n'
+                      'Total del período $mes/$anio: ${_fmt(f[1] as MoneyValue?)}\n\n'
                       'Este valor se calcula desde ventas, compras y nómina registradas en el sistema.',
                     ),
                     actions: [

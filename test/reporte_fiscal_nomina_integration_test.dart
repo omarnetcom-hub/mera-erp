@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/money_currency_resolver.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/db_helper.dart';
 import 'package:merka_erp/features/company_configuration_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -30,14 +32,14 @@ void main() {
   });
 
   test(
-    'obtenerReporteFiscal suma neto_pagar de una liquidacion real',
+    'reporte fiscal usa neto_pagar e intereses de cesantias al 12% anual',
     () async {
       final now = DateTime.now();
       await db.insert('payroll_parameters', {
         'company_id': companyId,
         'year': now.year,
-        'smmlv': 1423500,
-        'uvt': 52374,
+        'smmlv': 142350000,
+        'uvt': 5237400,
         'transportation_allowance': 0,
         'created_at': now.toIso8601String(),
       });
@@ -59,7 +61,13 @@ void main() {
 
       final employeeId = await DatabaseHelper.instance.guardarEmpleado(
         nombre: 'Empleado reporte fiscal',
-        salarioBase: 1000000,
+        salarioBase: MoneyValue(
+          minorUnits: 100000000,
+          currency: await MoneyCurrencyResolver.resolve(
+            db,
+            companyId: companyId,
+          ),
+        ),
       );
       final payrollId = await DatabaseHelper.instance.liquidarNomina(
         empleadoId: employeeId,
@@ -69,32 +77,28 @@ void main() {
 
       final payrollRows = await db.query(
         'nomina_liquidaciones',
-        columns: ['neto_pagar'],
+        columns: ['neto_pagar', 'cesantias', 'intereses_cesantias'],
         where: 'id = ?',
         whereArgs: [payrollId],
       );
-      expect((payrollRows.single['neto_pagar'] as num).toDouble(), 920000);
+      expect(payrollRows.single['neto_pagar'], 92000000);
+      expect(payrollRows.single['cesantias'], 8330000);
+      expect(payrollRows.single['intereses_cesantias'], 999600);
 
       final report = await DatabaseHelper.instance.obtenerReporteFiscal(
         anio: now.year,
         mes: now.month,
       );
-      expect(report['nomina'], 920000);
+      expect(report['nomina']?.minorUnits, 92000000);
 
       final payrollHistory = await DatabaseHelper.instance.obtenerNomina();
       expect(
         payrollHistory.single['periodo'],
         '${now.year}-${now.month.toString().padLeft(2, '0')}',
       );
-      expect(
-        (payrollHistory.single['total_devengado'] as num).toDouble(),
-        1000000,
-      );
-      expect(
-        (payrollHistory.single['total_deducciones'] as num).toDouble(),
-        80000,
-      );
-      expect((payrollHistory.single['neto_pagar'] as num).toDouble(), 920000);
+      expect(payrollHistory.single['total_devengado'], 100000000);
+      expect(payrollHistory.single['total_deducciones'], 8000000);
+      expect(payrollHistory.single['neto_pagar'], 92000000);
     },
   );
 }

@@ -13,6 +13,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
+import 'core/currency/currency.dart';
+import 'core/currency/money_schema_manifest.g.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 
 class ExportarExcel {
@@ -60,6 +63,60 @@ class ExportarExcel {
       final extractos = await DatabaseHelper.instance
           .obtenerExtractosBancarios();
       final adjuntos = await DatabaseHelper.instance.obtenerAdjuntos();
+      final currency = saldoCaja.currency;
+      final productosVista = _displayRows('productos', productos, currency);
+      final movimientosVista = _displayRows(
+        'movimientos_caja',
+        movimientos,
+        currency,
+      );
+      final ventasVista = _displayRows('ventas', ventas, currency);
+      final comprasVista = _displayRows('compras', compras, currency);
+      final balanceVista = _displayRows(
+        'asiento_lineas',
+        balance,
+        currency,
+        extraColumns: const {'saldo'},
+      );
+      final asientosVista = _displayRows('asiento_lineas', asientos, currency);
+      final carteraVista = _displayRows(
+        'cuentas_por_cobrar',
+        cuentasPorCobrar,
+        currency,
+      );
+      final pagarVista = _displayRows(
+        'cuentas_por_pagar',
+        cuentasPorPagar,
+        currency,
+      );
+      final cierresVista = _displayRows('cierres_caja', cierres, currency);
+      final comprobantesVista = _displayRows(
+        'comprobantes_contables',
+        comprobantes,
+        currency,
+      );
+      final conciliacionesVista = _displayRows(
+        'conciliaciones_bancarias',
+        conciliaciones,
+        currency,
+      );
+      final presupuestosVista = _displayRows(
+        'presupuestos',
+        presupuestos,
+        currency,
+      );
+      final empleadosVista = _displayRows('empleados', empleados, currency);
+      final nominaVista = _displayRows(
+        'nomina_liquidaciones',
+        nomina,
+        currency,
+      );
+      final activosVista = _displayRows('activos_fijos', activos, currency);
+      final extractosVista = _displayRows(
+        'extractos_bancarios',
+        extractos,
+        currency,
+      );
 
       // 2. Crear el libro de Excel
       final excel = Excel.createExcel();
@@ -70,35 +127,43 @@ class ExportarExcel {
       // 3. Construir cada hoja
       _construirHojaResumen(
         excel,
-        productos: productos,
-        movimientos: movimientos,
-        ventas: ventas,
-        saldo: saldoCaja,
-        totalVentas: totalVentas,
+        productos: productosVista,
+        movimientos: movimientosVista,
+        ventas: ventasVista,
+        saldo: saldoCaja.toMajorUnitsDoubleForDisplay(),
+        totalVentas: totalVentas.toMajorUnitsDoubleForDisplay(),
       );
 
-      _construirHojaInventario(excel, productos);
-      _construirHojaCaja(excel, movimientos, saldoCaja);
-      _construirHojaVentas(excel, ventas, totalVentas);
-      _construirHojaCompras(excel, compras);
-      _construirHojaBalance(excel, balance);
-      _construirHojaDiario(excel, asientos);
-      _construirHojaCartera(excel, cuentasPorCobrar);
-      _construirHojaCuentasPorPagar(excel, cuentasPorPagar);
-      _construirHojaCierres(excel, cierres);
+      _construirHojaInventario(excel, productosVista);
+      _construirHojaCaja(
+        excel,
+        movimientosVista,
+        saldoCaja.toMajorUnitsDoubleForDisplay(),
+      );
+      _construirHojaVentas(
+        excel,
+        ventasVista,
+        totalVentas.toMajorUnitsDoubleForDisplay(),
+      );
+      _construirHojaCompras(excel, comprasVista);
+      _construirHojaBalance(excel, balanceVista);
+      _construirHojaDiario(excel, asientosVista);
+      _construirHojaCartera(excel, carteraVista);
+      _construirHojaCuentasPorPagar(excel, pagarVista);
+      _construirHojaCierres(excel, cierresVista);
       _construirHojaAuditoria(excel, auditoria);
       _construirHojaEstados(excel, estados);
       _construirHojaEmpresa(excel, empresa);
-      _construirHojaComprobantes(excel, comprobantes);
+      _construirHojaComprobantes(excel, comprobantesVista);
       _construirHojaPeriodos(excel, periodos);
-      _construirHojaConciliaciones(excel, conciliaciones);
-      _construirHojaPresupuestos(excel, presupuestos);
+      _construirHojaConciliaciones(excel, conciliacionesVista);
+      _construirHojaPresupuestos(excel, presupuestosVista);
       _construirHojaUsuarios(excel, usuarios);
       _construirHojaFacturasElectronicas(excel, facturasElectronicas);
-      _construirHojaEmpleados(excel, empleados);
-      _construirHojaNomina(excel, nomina);
-      _construirHojaActivos(excel, activos);
-      _construirHojaExtractos(excel, extractos);
+      _construirHojaEmpleados(excel, empleadosVista);
+      _construirHojaNomina(excel, nominaVista);
+      _construirHojaActivos(excel, activosVista);
+      _construirHojaExtractos(excel, extractosVista);
       _construirHojaAdjuntos(excel, adjuntos);
 
       // 4. Codificar el libro a bytes
@@ -110,7 +175,8 @@ class ExportarExcel {
       // 5. Guardar en ruta elegida por el usuario
       final savePath = await FilePicker.platform.saveFile(
         dialogTitle: 'Guardar reporte Excel',
-        fileName: 'reporte_${ahora.year}${_pad(ahora.month)}${_pad(ahora.day)}.xlsx',
+        fileName:
+            'reporte_${ahora.year}${_pad(ahora.month)}${_pad(ahora.day)}.xlsx',
         type: FileType.custom,
         allowedExtensions: ['xlsx'],
       );
@@ -609,17 +675,20 @@ class ExportarExcel {
     }
   }
 
-  static void _construirHojaEstados(Excel excel, Map<String, double> estados) {
+  static void _construirHojaEstados(
+    Excel excel,
+    Map<String, MoneyValue> estados,
+  ) {
     final hoja = excel['Estados financieros'];
     final filas = [
-      ['Activos', estados['activos'] ?? 0],
-      ['Pasivos', estados['pasivos'] ?? 0],
-      ['Patrimonio', estados['patrimonio'] ?? 0],
-      ['Ingresos', estados['ingresos'] ?? 0],
-      ['Costos', estados['costos'] ?? 0],
-      ['Gastos', estados['gastos'] ?? 0],
-      ['Utilidad', estados['utilidad'] ?? 0],
-      ['Cuadre', estados['cuadre'] ?? 0],
+      ['Activos', estados['activos']],
+      ['Pasivos', estados['pasivos']],
+      ['Patrimonio', estados['patrimonio']],
+      ['Ingresos', estados['ingresos']],
+      ['Costos', estados['costos']],
+      ['Gastos', estados['gastos']],
+      ['Utilidad', estados['utilidad']],
+      ['Cuadre', estados['cuadre']],
     ];
 
     hoja.appendRow([TextCellValue('Concepto'), TextCellValue('Valor')]);
@@ -627,9 +696,30 @@ class ExportarExcel {
     for (final fila in filas) {
       hoja.appendRow([
         TextCellValue(fila[0] as String),
-        DoubleCellValue(fila[1] as double),
+        TextCellValue((fila[1] as MoneyValue?)?.toMajorUnitsString() ?? '0'),
       ]);
     }
+  }
+
+  static List<Map<String, dynamic>> _displayRows(
+    String table,
+    List<Map<String, dynamic>> rows,
+    Currency currency, {
+    Set<String> extraColumns = const {},
+  }) {
+    final columns = <String>{...?moneySchemaColumns[table], ...extraColumns};
+    return rows.map((row) {
+      final result = Map<String, dynamic>.from(row);
+      for (final column in columns) {
+        final value = result[column];
+        if (value == null) continue;
+        result[column] = MoneyValue.fromSql(
+          value,
+          currency: currency,
+        ).toMajorUnitsDoubleForDisplay();
+      }
+      return result;
+    }).toList();
   }
 
   // ── Helpers internos ─────────────────────────────────────

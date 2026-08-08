@@ -3,6 +3,9 @@ import '../../core/branch/branch_context.dart';
 import '../../core/events/event_dispatcher.dart';
 import '../../core/events/event_store.dart';
 import '../../core/database/data_health_service.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../core/release/release_readiness.dart';
 import '../../cqrs/application/dashboard_projection.dart';
 import '../../db_helper.dart';
@@ -47,7 +50,11 @@ typedef CreatePurchaseHandler =
     Future<CreatePurchaseResult> Function(CreatePurchaseRequest request);
 typedef CompanyListHandler = Future<List<Map<String, Object?>>> Function();
 typedef TaxReportHandler =
-    Future<Map<String, double>> Function({required int anio, required int mes});
+    Future<Map<String, MoneyValue>> Function({
+      required int anio,
+      required int mes,
+    });
+typedef ApiCurrencyResolver = Future<Currency> Function();
 
 class ApiRequest {
   const ApiRequest({
@@ -129,6 +136,7 @@ class ApiDispatcher {
     FinalEnterpriseQueryHandlers? finalEnterpriseQueries,
     CompanyListHandler? companies,
     TaxReportHandler? taxReport,
+    ApiCurrencyResolver? currencyResolver,
     DomainEventPublisher events = const NoopDomainEventPublisher(),
   }) : _products = products,
        _sales = sales,
@@ -188,6 +196,7 @@ class ApiDispatcher {
            ),
        _companies = companies ?? _defaultCompanies,
        _taxReport = taxReport ?? DatabaseHelper.instance.obtenerReporteFiscal,
+       _currencyResolver = currencyResolver ?? _defaultCurrencyResolver,
        _eventDispatcher =
            eventDispatcher ??
            EventDispatcher(
@@ -229,6 +238,7 @@ class ApiDispatcher {
   final FinalEnterpriseQueryHandlers _finalEnterpriseQueries;
   final CompanyListHandler _companies;
   final TaxReportHandler _taxReport;
+  final ApiCurrencyResolver _currencyResolver;
   final DomainEventPublisher _events;
 
   static Future<List<Map<String, Object?>>> _defaultCompanies() async {
@@ -242,6 +252,12 @@ class ApiDispatcher {
     return rows
         .map((row) => row.map((key, value) => MapEntry(key, value)))
         .toList();
+  }
+
+  static Future<Currency> _defaultCurrencyResolver() async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    return MoneyCurrencyResolver.resolve(db, companyId: companyId);
   }
 
   Future<ApiResponse> dispatch(ApiRequest request) async {
@@ -273,7 +289,9 @@ class ApiDispatcher {
             request.query,
           );
         case (ApiMethod.post, '/api/v1/sales'):
-          final result = await _createSale(_saleRequestFromBody(request.body));
+          final result = await _createSale(
+            await _saleRequestFromBody(request.body),
+          );
           await _events.publish(
             IntegrationEvent(
               name: 'sales.created',
@@ -329,7 +347,7 @@ class ApiDispatcher {
           );
         case (ApiMethod.post, '/api/v1/purchases'):
           final result = await _createPurchase(
-            _purchaseRequestFromBody(request.body),
+            await _purchaseRequestFromBody(request.body),
           );
           await _events.publish(
             IntegrationEvent(
@@ -405,10 +423,13 @@ class ApiDispatcher {
           final year = _int(request.query['year'], fallback: now.year);
           final month = _int(request.query['month'], fallback: now.month);
           final totals = await _taxReport(anio: year, mes: month);
+          final wireTotals = totals.map(
+            (key, value) => MapEntry(key, value.toWireMap()),
+          );
           return ApiResponse.ok({
             'period': {'year': year, 'month': month},
-            'totals': totals,
-            'tax_payable': totals['iva_por_pagar'] ?? 0,
+            'totals': wireTotals,
+            'tax_payable': totals['iva_por_pagar']?.toWireMap(),
           });
         case (ApiMethod.get, '/api/v1/accounting/trial-balance'):
           return ApiResponse.ok(
@@ -674,6 +695,8 @@ class ApiDispatcher {
   Future<Map<String, Object?>> _summary() async {
     final products = await _products.findAll();
     final inventory = InventorySummary.fromProducts(products);
+    final salesTotal = await _sales.totalSales();
+    final purchasesTotal = await _purchases.totalPurchases();
     return {
       'inventory': {
         'products': inventory.productCount,
@@ -681,23 +704,39 @@ class ApiDispatcher {
         'cost_value': inventory.costValue,
         'sale_value': inventory.saleValue,
       },
-      'sales_total': await _sales.totalSales(),
-      'purchases_total': await _purchases.totalPurchases(),
+      'sales_total': _moneyWire(salesTotal),
+      'purchases_total': _moneyWire(purchasesTotal),
     };
   }
 
-  CreateSaleRequest _saleRequestFromBody(Map<String, dynamic> body) {
+  Future<CreateSaleRequest> _saleRequestFromBody(
+    Map<String, dynamic> body,
+  ) async {
+    final currency = await _currencyResolver();
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
     return CreateSaleRequest(
-      items: _list(body['items']).map((item) => _saleItem(_map(item))).toList(),
+      items: _list(
+        body['items'],
+      ).map((item) => _saleItem(_map(item), currency)).toList(),
       paymentMethodId: _int(body['payment_method_id'], fallback: 1),
       paymentMethodName: body['payment_method']?.toString() ?? 'EFECTIVO',
       clientId: _nullableInt(body['client_id']),
       clientName: body['client']?.toString() ?? 'Cliente general',
       date: _date(body['date']),
+      efectivo: _apiMoney(body['cash'], currency, fallback: zero),
+      transferencia: _apiMoney(body['bank'], currency, fallback: zero),
+      credito: _apiMoney(body['credit'], currency, fallback: zero),
+      retefuente: _apiMoney(body['retefuente'], currency, fallback: zero),
+      reteiva: _apiMoney(body['reteiva'], currency, fallback: zero),
+      reteica: _apiMoney(body['reteica'], currency, fallback: zero),
     );
   }
 
-  CreatePurchaseRequest _purchaseRequestFromBody(Map<String, dynamic> body) {
+  Future<CreatePurchaseRequest> _purchaseRequestFromBody(
+    Map<String, dynamic> body,
+  ) async {
+    final currency = await _currencyResolver();
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
     return CreatePurchaseRequest(
       supplierId: _int(body['supplier_id'], fallback: 0),
       supplierName: body['supplier']?.toString() ?? 'Sin proveedor',
@@ -706,12 +745,15 @@ class ApiDispatcher {
       paymentMethodId: _int(body['payment_method_id'], fallback: 1),
       paymentMethodName: body['payment_method']?.toString() ?? 'EFECTIVO',
       taxRate: _double(body['tax_rate']),
-      manualCash: _double(body['cash']),
-      manualBank: _double(body['bank']),
-      manualCredit: _double(body['credit']),
+      manualCash: _apiMoney(body['cash'], currency, fallback: zero),
+      manualBank: _apiMoney(body['bank'], currency, fallback: zero),
+      manualCredit: _apiMoney(body['credit'], currency, fallback: zero),
+      retefuente: _apiMoney(body['retefuente'], currency, fallback: zero),
+      reteiva: _apiMoney(body['reteiva'], currency, fallback: zero),
+      reteica: _apiMoney(body['reteica'], currency, fallback: zero),
       items: _list(
         body['items'],
-      ).map((item) => _purchaseItem(_map(item))).toList(),
+      ).map((item) => _purchaseItem(_map(item), currency)).toList(),
       date: _date(body['date']),
     );
   }
@@ -797,46 +839,52 @@ class ApiDispatcher {
     );
   }
 
-  SaleItemInput _saleItem(Map<String, dynamic> item) {
+  SaleItemInput _saleItem(Map<String, dynamic> item, Currency currency) {
     return SaleItemInput(
       productId: _int(item['product_id'] ?? item['producto_id'], fallback: 0),
       productName: (item['product'] ?? item['producto'] ?? '').toString(),
       quantity: _double(item['quantity'] ?? item['cantidad']),
-      unitPrice: _double(item['unit_price'] ?? item['precio']),
-      unitCost: _double(item['unit_cost'] ?? item['costo']),
-      subtotal: _double(item['subtotal']),
+      unitPrice: _apiMoney(item['unit_price'] ?? item['precio'], currency),
+      unitCost: _apiMoney(item['unit_cost'] ?? item['costo'], currency),
+      subtotal: _apiMoney(item['subtotal'], currency),
       taxRate: _double(item['tax_rate'] ?? item['impuesto_pct']),
-      taxTotal: _double(item['tax_total'] ?? item['impuesto_total']),
+      taxTotal: _apiMoney(
+        item['tax_total'] ?? item['impuesto_total'],
+        currency,
+      ),
     );
   }
 
-  PurchaseItemInput _purchaseItem(Map<String, dynamic> item) {
+  PurchaseItemInput _purchaseItem(
+    Map<String, dynamic> item,
+    Currency currency,
+  ) {
     return PurchaseItemInput(
       productId: _int(item['product_id'] ?? item['producto_id'], fallback: 0),
       productName: (item['product'] ?? item['producto'] ?? '').toString(),
       quantity: _double(item['quantity'] ?? item['cantidad']),
-      unitCost: _double(item['unit_cost'] ?? item['costo']),
-      subtotal: _double(item['subtotal']),
+      unitCost: _apiMoney(item['unit_cost'] ?? item['costo'], currency),
+      subtotal: _apiMoney(item['subtotal'], currency),
     );
   }
 
   Map<String, Object?> _saleResultToMap(CreateSaleResult result) => {
     'sale_id': result.saleId,
-    'subtotal': result.subtotal,
-    'tax': result.tax,
-    'total': result.total,
-    'cost_of_sale': result.costOfSale,
+    'subtotal': _moneyWire(result.subtotal),
+    'tax': _moneyWire(result.tax),
+    'total': _moneyWire(result.total),
+    'cost_of_sale': _moneyWire(result.costOfSale),
   };
 
   Map<String, Object?> _purchaseResultToMap(CreatePurchaseResult result) => {
     'purchase_id': result.purchaseId,
-    'subtotal': result.subtotal,
-    'tax': result.tax,
-    'total': result.total,
+    'subtotal': _moneyWire(result.subtotal),
+    'tax': _moneyWire(result.tax),
+    'total': _moneyWire(result.total),
     'payment': {
-      'cash': result.payment.cash,
-      'bank': result.payment.bank,
-      'credit': result.payment.credit,
+      'cash': _moneyWire(result.payment.cash),
+      'bank': _moneyWire(result.payment.bank),
+      'credit': _moneyWire(result.payment.credit),
     },
   };
 
@@ -950,6 +998,40 @@ class ApiDispatcher {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString().replaceAll(',', '.') ?? '') ?? 0;
   }
+
+  MoneyValue _apiMoney(
+    Object? value,
+    Currency currency, {
+    MoneyValue? fallback,
+  }) {
+    if (value == null) {
+      return fallback ?? MoneyValue(minorUnits: 0, currency: currency);
+    }
+    if (value is Map) {
+      final map = _map(value);
+      final code = map['currency']?.toString();
+      final scale = _nullableInt(map['scale']);
+      if (code != currency.code || scale != currency.decimalPlaces) {
+        throw StateError(
+          'La moneda/escala del payload no coincide con la empresa.',
+        );
+      }
+      return MoneyValue(
+        minorUnits: _int(map['minor_units'], fallback: 0),
+        currency: currency,
+      );
+    }
+    return MoneyValue.fromMajorUnits(
+      value.toString().replaceAll(',', '.'),
+      currency: currency,
+    );
+  }
+
+  Map<String, Object> _moneyWire(MoneyValue value) => {
+    'minor_units': value.minorUnits,
+    'currency': value.currencyCode,
+    'scale': value.decimalPlaces,
+  };
 
   DateTime? _date(Object? value) {
     final text = value?.toString();

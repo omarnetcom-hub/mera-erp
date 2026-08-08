@@ -1,3 +1,5 @@
+import '../../core/currency/money_value.dart';
+
 class AccountingLineDraft {
   const AccountingLineDraft({
     required this.accountCode,
@@ -8,15 +10,15 @@ class AccountingLineDraft {
   });
 
   final String accountCode;
-  final double debit;
-  final double credit;
+  final MoneyValue debit;
+  final MoneyValue credit;
   final String description;
   final String? thirdParty;
 
   Map<String, dynamic> toLegacyMap() => {
     'codigo': accountCode,
-    'debito': debit,
-    'credito': credit,
+    'debito': debit.toSql(),
+    'credito': credit.toSql(),
     'descripcion': description,
     'tercero': thirdParty,
   };
@@ -91,135 +93,106 @@ class AccountingEngine {
 
   AccountingEntryDraft sale({
     required int saleId,
-    required double total,
-    required double cashPayment,
-    required double bankPayment,
-    required double credit,
-    double costOfSale = 0,
-    double tax = 0,
-    double retefuente = 0,
-    double reteiva = 0,
-    double reteica = 0,
+    required MoneyValue total,
+    required MoneyValue cashPayment,
+    required MoneyValue bankPayment,
+    required MoneyValue credit,
+    required MoneyValue costOfSale,
+    required MoneyValue tax,
+    required MoneyValue retefuente,
+    required MoneyValue reteiva,
+    required MoneyValue reteica,
     String? client,
   }) {
-    final subtotal = total - tax;
-    final totalRetenciones = retefuente + reteiva + reteica;
-    final totalACobrar = total - totalRetenciones;
-    
+    final zero = MoneyValue(minorUnits: 0, currency: total.currency);
+    final subtotal = total - tax + retefuente + reteiva + reteica;
+    final totalPayments = cashPayment + bankPayment + credit;
+    if (totalPayments != total) {
+      throw StateError('Los medios de pago no coinciden con el total neto.');
+    }
+
     final lines = <AccountingLineDraft>[
       AccountingLineDraft(
         accountCode: rules.salesRevenueAccount,
-        debit: 0,
+        debit: zero,
         credit: subtotal,
         description: 'Ingreso por venta #$saleId',
         thirdParty: client,
       ),
     ];
 
-    if (tax > 0) {
+    if (tax.minorUnits > 0) {
       lines.add(
         AccountingLineDraft(
           accountCode: rules.taxPayableAccount,
-          debit: 0,
+          debit: zero,
           credit: tax,
           description: 'Impuesto generado venta #$saleId',
           thirdParty: client,
         ),
       );
     }
+    _addDebitIfPositive(
+      lines,
+      amount: retefuente,
+      zero: zero,
+      account: '135515',
+      description: 'Anticipo Retefuente venta #$saleId',
+      thirdParty: client,
+    );
+    _addDebitIfPositive(
+      lines,
+      amount: reteiva,
+      zero: zero,
+      account: '135517',
+      description: 'Anticipo ReteIVA venta #$saleId',
+      thirdParty: client,
+    );
+    _addDebitIfPositive(
+      lines,
+      amount: reteica,
+      zero: zero,
+      account: '135518',
+      description: 'Anticipo ReteICA venta #$saleId',
+      thirdParty: client,
+    );
+    _addDebitIfPositive(
+      lines,
+      amount: cashPayment,
+      zero: zero,
+      account: rules.cashAccount,
+      description: 'Cobro por caja venta #$saleId',
+      thirdParty: client,
+    );
+    _addDebitIfPositive(
+      lines,
+      amount: bankPayment,
+      zero: zero,
+      account: rules.bankAccount,
+      description: 'Cobro por banco venta #$saleId',
+      thirdParty: client,
+    );
+    _addDebitIfPositive(
+      lines,
+      amount: credit,
+      zero: zero,
+      account: rules.accountsReceivableAccount,
+      description: 'Cuenta por cobrar venta #$saleId',
+      thirdParty: client,
+    );
 
-    if (retefuente > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: '135515',
-          debit: retefuente,
-          credit: 0,
-          description: 'Anticipo Retefuente venta #$saleId',
-          thirdParty: client,
-        ),
-      );
-    }
-    if (reteiva > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: '135517',
-          debit: reteiva,
-          credit: 0,
-          description: 'Anticipo ReteIVA venta #$saleId',
-          thirdParty: client,
-        ),
-      );
-    }
-    if (reteica > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: '135518',
-          debit: reteica,
-          credit: 0,
-          description: 'Anticipo ReteICA venta #$saleId',
-          thirdParty: client,
-        ),
-      );
-    }
-
-    // Distribuir el total a cobrar entre los métodos de pago
-    final totalPagos = cashPayment + bankPayment + credit;
-    if (totalPagos > 0) {
-      final proporcionCaja = totalPagos > 0 ? cashPayment / totalPagos : 0;
-      final proporcionBanco = totalPagos > 0 ? bankPayment / totalPagos : 0;
-      final proporcionCredito = totalPagos > 0 ? credit / totalPagos : 0;
-      
-      final montoCaja = totalACobrar * proporcionCaja;
-      final montoBanco = totalACobrar * proporcionBanco;
-      final montoCredito = totalACobrar * proporcionCredito;
-      
-      if (montoCaja > 0) {
-        lines.add(
-          AccountingLineDraft(
-            accountCode: rules.cashAccount,
-            debit: montoCaja,
-            credit: 0,
-            description: 'Cobro por caja venta #$saleId',
-            thirdParty: client,
-          ),
-        );
-      }
-      if (montoBanco > 0) {
-        lines.add(
-          AccountingLineDraft(
-            accountCode: rules.bankAccount,
-            debit: montoBanco,
-            credit: 0,
-            description: 'Cobro por banco venta #$saleId',
-            thirdParty: client,
-          ),
-        );
-      }
-      if (montoCredito > 0) {
-        lines.add(
-          AccountingLineDraft(
-            accountCode: rules.accountsReceivableAccount,
-            debit: montoCredito,
-            credit: 0,
-            description: 'Cuenta por cobrar venta #$saleId',
-            thirdParty: client,
-          ),
-        );
-      }
-    }
-
-    if (costOfSale > 0) {
+    if (costOfSale.minorUnits > 0) {
       lines.addAll([
         AccountingLineDraft(
           accountCode: rules.costOfSalesAccount,
           debit: costOfSale,
-          credit: 0,
+          credit: zero,
           description: 'Costo de venta #$saleId',
           thirdParty: client,
         ),
         AccountingLineDraft(
           accountCode: rules.inventoryAccount,
-          debit: 0,
+          debit: zero,
           credit: costOfSale,
           description: 'Salida de inventario por venta #$saleId',
           thirdParty: client,
@@ -237,112 +210,130 @@ class AccountingEngine {
 
   AccountingEntryDraft purchase({
     required int purchaseId,
-    required double total,
-    required double cashPayment,
-    required double bankPayment,
-    required double credit,
+    required MoneyValue total,
+    required MoneyValue cashPayment,
+    required MoneyValue bankPayment,
+    required MoneyValue credit,
+    required MoneyValue tax,
+    required MoneyValue retefuente,
+    required MoneyValue reteiva,
+    required MoneyValue reteica,
     String? supplier,
-    double tax = 0,
-    double retefuente = 0,
-    double reteiva = 0,
-    double reteica = 0,
   }) {
-    final subtotal = total - tax;
+    final zero = MoneyValue(minorUnits: 0, currency: total.currency);
+    final subtotal = total - tax + retefuente + reteiva + reteica;
     final lines = <AccountingLineDraft>[
       AccountingLineDraft(
         accountCode: rules.inventoryAccount,
         debit: subtotal,
-        credit: 0,
+        credit: zero,
         description: 'Compra de inventario #$purchaseId',
         thirdParty: supplier,
       ),
     ];
 
-    if (tax > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: rules.taxDeductibleAccount,
-          debit: tax,
-          credit: 0,
-          description: 'Impuesto descontable compra #$purchaseId',
-          thirdParty: supplier,
-        ),
-      );
-    }
-
-    if (retefuente > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: '2365',
-          debit: 0,
-          credit: retefuente,
-          description: 'Retefuente practicada compra #$purchaseId',
-          thirdParty: supplier,
-        ),
-      );
-    }
-    if (reteiva > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: '2367',
-          debit: 0,
-          credit: reteiva,
-          description: 'ReteIVA practicado compra #$purchaseId',
-          thirdParty: supplier,
-        ),
-      );
-    }
-    if (reteica > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: '2368',
-          debit: 0,
-          credit: reteica,
-          description: 'ReteICA practicado compra #$purchaseId',
-          thirdParty: supplier,
-        ),
-      );
-    }
-
-    if (cashPayment > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: rules.cashAccount,
-          debit: 0,
-          credit: cashPayment,
-          description: 'Pago de compra #$purchaseId por caja',
-          thirdParty: supplier,
-        ),
-      );
-    }
-    if (bankPayment > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: rules.bankAccount,
-          debit: 0,
-          credit: bankPayment,
-          description: 'Pago de compra #$purchaseId por banco',
-          thirdParty: supplier,
-        ),
-      );
-    }
-    if (credit > 0) {
-      lines.add(
-        AccountingLineDraft(
-          accountCode: rules.accountsPayableAccount,
-          debit: 0,
-          credit: credit,
-          description: 'Cuenta por pagar compra #$purchaseId',
-          thirdParty: supplier,
-        ),
-      );
-    }
+    _addDebitIfPositive(
+      lines,
+      amount: tax,
+      zero: zero,
+      account: rules.taxDeductibleAccount,
+      description: 'Impuesto descontable compra #$purchaseId',
+      thirdParty: supplier,
+    );
+    _addCreditIfPositive(
+      lines,
+      amount: retefuente,
+      zero: zero,
+      account: '2365',
+      description: 'Retefuente practicada compra #$purchaseId',
+      thirdParty: supplier,
+    );
+    _addCreditIfPositive(
+      lines,
+      amount: reteiva,
+      zero: zero,
+      account: '2367',
+      description: 'ReteIVA practicado compra #$purchaseId',
+      thirdParty: supplier,
+    );
+    _addCreditIfPositive(
+      lines,
+      amount: reteica,
+      zero: zero,
+      account: '2368',
+      description: 'ReteICA practicado compra #$purchaseId',
+      thirdParty: supplier,
+    );
+    _addCreditIfPositive(
+      lines,
+      amount: cashPayment,
+      zero: zero,
+      account: rules.cashAccount,
+      description: 'Pago de compra #$purchaseId por caja',
+      thirdParty: supplier,
+    );
+    _addCreditIfPositive(
+      lines,
+      amount: bankPayment,
+      zero: zero,
+      account: rules.bankAccount,
+      description: 'Pago de compra #$purchaseId por banco',
+      thirdParty: supplier,
+    );
+    _addCreditIfPositive(
+      lines,
+      amount: credit,
+      zero: zero,
+      account: rules.accountsPayableAccount,
+      description: 'Cuenta por pagar compra #$purchaseId',
+      thirdParty: supplier,
+    );
 
     return AccountingEntryDraft(
       concept: 'Compra #$purchaseId',
       reference: 'COMPRA-$purchaseId',
       origin: 'compras',
       lines: lines,
+    );
+  }
+
+  static void _addDebitIfPositive(
+    List<AccountingLineDraft> lines, {
+    required MoneyValue amount,
+    required MoneyValue zero,
+    required String account,
+    required String description,
+    String? thirdParty,
+  }) {
+    if (amount.minorUnits <= 0) return;
+    lines.add(
+      AccountingLineDraft(
+        accountCode: account,
+        debit: amount,
+        credit: zero,
+        description: description,
+        thirdParty: thirdParty,
+      ),
+    );
+  }
+
+  static void _addCreditIfPositive(
+    List<AccountingLineDraft> lines, {
+    required MoneyValue amount,
+    required MoneyValue zero,
+    required String account,
+    required String description,
+    String? thirdParty,
+  }) {
+    if (amount.minorUnits <= 0) return;
+    lines.add(
+      AccountingLineDraft(
+        accountCode: account,
+        debit: zero,
+        credit: amount,
+        description: description,
+        thirdParty: thirdParty,
+      ),
     );
   }
 }

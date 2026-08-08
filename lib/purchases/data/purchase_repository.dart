@@ -1,6 +1,9 @@
 import '../../core/company/company_context.dart';
 import '../../core/database/database_gateway.dart';
 import '../../core/database/tenant_database_gateway.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
 import '../domain/purchase.dart';
@@ -12,7 +15,7 @@ abstract class PurchaseRepository {
 
   Future<List<PurchaseLine>> findDetails(int purchaseId);
 
-  Future<double> totalPurchases();
+  Future<MoneyValue> totalPurchases();
 
   Future<int> createHeader(Map<String, dynamic> values);
 
@@ -25,6 +28,7 @@ class SqlitePurchaseRepository implements PurchaseRepository {
     DatabaseGateway gateway = const SqliteDatabaseGateway(),
     CompanyContextProvider? companyContext,
     Future<void> Function(String featureKey)? validateFeature,
+    Future<Currency> Function(int companyId)? resolveCurrency,
   }) : _db = db ?? DatabaseHelper.instance,
        _gateway = gateway,
        _tenantGateway = TenantDatabaseGateway(
@@ -32,12 +36,22 @@ class SqlitePurchaseRepository implements PurchaseRepository {
          companyContext: companyContext ?? CompanyContextService.instance,
        ),
        _validateFeature =
-           validateFeature ?? DatabaseHelper.instance.validarFeatureHabilitada;
+           validateFeature ?? DatabaseHelper.instance.validarFeatureHabilitada,
+       _resolveCurrency =
+           resolveCurrency ??
+           ((companyId) async {
+             final database = await (db ?? DatabaseHelper.instance).database;
+             return MoneyCurrencyResolver.resolve(
+               database,
+               companyId: companyId,
+             );
+           });
 
   final DatabaseHelper _db;
   final DatabaseGateway _gateway;
   final TenantDatabaseGateway _tenantGateway;
   final Future<void> Function(String featureKey) _validateFeature;
+  final Future<Currency> Function(int companyId) _resolveCurrency;
 
   @override
   Future<void> cancel(int purchaseId) async {
@@ -52,6 +66,8 @@ class SqlitePurchaseRepository implements PurchaseRepository {
 
   @override
   Future<List<Purchase>> findActive() async {
+    final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _tenantGateway.query(
       'compras',
       query: const TenantQuery(
@@ -59,21 +75,28 @@ class SqlitePurchaseRepository implements PurchaseRepository {
         orderBy: 'fecha DESC',
       ),
     );
-    return rows.map(Purchase.fromMap).toList();
+    return rows
+        .map((row) => Purchase.fromMap(row, currency: currency))
+        .toList();
   }
 
   @override
   Future<List<Purchase>> findAll() async {
+    final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _tenantGateway.query(
       'compras',
       query: const TenantQuery(orderBy: 'fecha DESC'),
     );
-    return rows.map(Purchase.fromMap).toList();
+    return rows
+        .map((row) => Purchase.fromMap(row, currency: currency))
+        .toList();
   }
 
   @override
   Future<List<PurchaseLine>> findDetails(int purchaseId) async {
     final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _gateway.rawQuery(
       '''
       SELECT
@@ -88,17 +111,24 @@ class SqlitePurchaseRepository implements PurchaseRepository {
       ''',
       [purchaseId, companyId],
     );
-    return rows.map(PurchaseLine.fromMap).toList();
+    return rows
+        .map((row) => PurchaseLine.fromMap(row, currency: currency))
+        .toList();
   }
 
   @override
-  Future<double> totalPurchases() async {
+  Future<MoneyValue> totalPurchases() async {
     final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _gateway.rawQuery(
       "SELECT COALESCE(SUM(total), 0) AS total FROM compras WHERE company_id = ? AND COALESCE(estado, 'pagada') != 'anulada'",
       [companyId],
     );
-    if (rows.isEmpty) return 0;
-    return (rows.first['total'] as num?)?.toDouble() ?? 0;
+    if (rows.isEmpty) return MoneyValue(minorUnits: 0, currency: currency);
+    return MoneyValue.fromSql(
+      rows.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
   }
 }

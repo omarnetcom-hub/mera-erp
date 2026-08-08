@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'core/financial/financial_ui_helpers.dart';
 import 'db_helper.dart';
 import 'numeric_input.dart';
@@ -13,6 +16,7 @@ class CuentasPorCobrarPage extends StatefulWidget {
 
 class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
   List<Map<String, dynamic>> cuentas = [];
+  Currency? _currency;
 
   @override
   void initState() {
@@ -25,13 +29,30 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
   }
 
   Future<void> cargar() async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final data = await DatabaseHelper.instance.obtenerCuentasPorCobrar();
 
     if (!mounted) return;
 
     setState(() {
       cuentas = data;
+      _currency = currency;
     });
+  }
+
+  String _formatSql(Object? value) {
+    final currency = _currency;
+    if (currency == null) return '-';
+    return MoneyValue.fromSql(
+      value,
+      currency: currency,
+      nullableAsZero: true,
+    ).format();
   }
 
   Color colorEstado(String estado) {
@@ -56,7 +77,7 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Saldo actual: ${FinancialUiHelpers.formatCurrency(cuenta['saldo'] as num? ?? 0)}'),
+            Text('Saldo actual: ${_formatSql(cuenta['saldo'])}'),
             const SizedBox(height: 12),
             TextField(
               controller: montoCtrl,
@@ -98,10 +119,18 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final monto =
-                  double.tryParse(montoCtrl.text.replaceAll(',', '.')) ?? 0;
-
-              if (monto <= 0) return;
+              final currency = _currency;
+              if (currency == null) return;
+              MoneyValue monto;
+              try {
+                monto = MoneyValue.fromMajorUnits(
+                  montoCtrl.text.replaceAll(',', '.'),
+                  currency: currency,
+                );
+              } on FormatException {
+                return;
+              }
+              if (monto.minorUnits <= 0) return;
 
               try {
                 await DatabaseHelper.instance.registrarAbonoCXC(
@@ -171,7 +200,7 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
                           Icons.payments,
                           color: Colors.green,
                         ),
-                        title: Text(FinancialUiHelpers.formatCurrency(a['monto'] as num? ?? 0)),
+                        title: Text(_formatSql(a['monto'])),
                         subtitle: Text('${a['metodo_pago']} · ${a['fecha']}'),
                       );
                     },
@@ -198,7 +227,6 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
               itemCount: cuentas.length,
               itemBuilder: (context, i) {
                 final c = cuentas[i];
-                final saldo = (c['saldo'] as num?)?.toDouble() ?? 0;
                 final estado = c['estado']?.toString() ?? '';
 
                 return Card(
@@ -224,8 +252,10 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Venta: #${c['venta_id'] ?? '-'}'),
-                        Text('Saldo: ${FinancialUiHelpers.formatCurrency(saldo)}'),
-                        Text('Estado: ${FinancialUiHelpers.accountStatusLabel(estado)}'),
+                        Text('Saldo: ${_formatSql(c['saldo'])}'),
+                        Text(
+                          'Estado: ${FinancialUiHelpers.accountStatusLabel(estado)}',
+                        ),
                       ],
                     ),
                     trailing: PopupMenuButton<String>(

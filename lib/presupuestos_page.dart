@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'numeric_input.dart';
 
@@ -12,6 +15,7 @@ class PresupuestosPage extends StatefulWidget {
 
 class _PresupuestosPageState extends State<PresupuestosPage> {
   List<Map<String, dynamic>> presupuestos = [];
+  Currency? _currency;
 
   @override
   void initState() {
@@ -24,11 +28,18 @@ class _PresupuestosPageState extends State<PresupuestosPage> {
   }
 
   Future<void> _cargar() async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     await DatabaseHelper.instance.recalcularPresupuestos();
     final data = await DatabaseHelper.instance.obtenerPresupuestos();
     if (!mounted) return;
     setState(() {
       presupuestos = data;
+      _currency = currency;
     });
   }
 
@@ -153,9 +164,16 @@ class _PresupuestosPageState extends State<PresupuestosPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final valor =
-                    double.tryParse(valorCtrl.text.replaceAll(',', '.')) ?? 0;
-                if (valor <= 0 || categoriaCtrl.text.trim().isEmpty) return;
+                final currency = _currency;
+                if (currency == null) return;
+                final valor = MoneyValue.fromMajorUnits(
+                  valorCtrl.text.replaceAll(',', '.'),
+                  currency: currency,
+                );
+                if (valor.minorUnits <= 0 ||
+                    categoriaCtrl.text.trim().isEmpty) {
+                  return;
+                }
                 await DatabaseHelper.instance.guardarPresupuesto(
                   anio: anio,
                   mes: mes,
@@ -179,7 +197,8 @@ class _PresupuestosPageState extends State<PresupuestosPage> {
     }
   }
 
-  String _fmt(num valor) => '\$${valor.toStringAsFixed(2)}';
+  MoneyValue _money(Object? value) =>
+      MoneyValue.fromSql(value, currency: _currency, nullableAsZero: true);
 
   @override
   Widget build(BuildContext context) {
@@ -197,11 +216,10 @@ class _PresupuestosPageState extends State<PresupuestosPage> {
               itemCount: presupuestos.length,
               itemBuilder: (context, index) {
                 final p = presupuestos[index];
-                final presupuestado = (p['valor_presupuestado'] as num)
-                    .toDouble();
-                final real = (p['valor_real'] as num).toDouble();
-                final diferencia = (p['diferencia'] as num).toDouble();
-                final favorable = diferencia >= 0;
+                final presupuestado = _money(p['valor_presupuestado']);
+                final real = _money(p['valor_real']);
+                final diferencia = _money(p['diferencia']);
+                final favorable = diferencia.minorUnits >= 0;
 
                 return Card(
                   child: ListTile(
@@ -214,10 +232,10 @@ class _PresupuestosPageState extends State<PresupuestosPage> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      '${p['tipo']} | Presupuesto: ${_fmt(presupuestado)} | Real: ${_fmt(real)}\n${p['observacion'] ?? ''}',
+                      '${p['tipo']} | Presupuesto: ${presupuestado.format()} | Real: ${real.format()}\n${p['observacion'] ?? ''}',
                     ),
                     trailing: Text(
-                      _fmt(diferencia),
+                      diferencia.format(),
                       style: TextStyle(
                         color: favorable ? Colors.green : Colors.red,
                         fontWeight: FontWeight.bold,

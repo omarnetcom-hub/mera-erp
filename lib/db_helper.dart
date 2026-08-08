@@ -15,8 +15,11 @@ import 'package:path_provider/path_provider.dart';
 import 'accounting/application/accounting_engine.dart';
 import 'catalog/domain/master_catalog.dart';
 import 'core/branch/branch_context.dart';
+import 'core/currency/currency.dart';
 import 'core/currency/currency_service.dart';
+import 'core/currency/money_currency_resolver.dart';
 import 'core/currency/money_schema_migration.dart';
+import 'core/currency/money_value.dart';
 import 'core/payments/payment_service.dart';
 import 'core/webhooks/webhook_service.dart';
 import 'features/feature_registry.dart';
@@ -4831,6 +4834,10 @@ class DatabaseHelper {
   Future<void> anularVenta(int ventaId) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
 
     await db.transaction((txn) async {
       final ventas = await txn.query(
@@ -4893,7 +4900,11 @@ class DatabaseHelper {
       final nombreMetodo = metodo.isEmpty
           ? ''
           : metodo.first['nombre'].toString().toUpperCase().trim();
-      final total = (venta['total'] as num?)?.toDouble() ?? 0;
+      final total = MoneyValue.fromSql(
+        venta['total'],
+        currency: currency,
+        nullableAsZero: true,
+      );
 
       if (nombreMetodo == 'CREDITO') {
         await txn.update(
@@ -4906,7 +4917,7 @@ class DatabaseHelper {
           'company_id': companyId,
           'tipo': 'egreso',
           'concepto': 'Anulacion cuenta por cobrar venta #$ventaId',
-          'monto': total,
+          'monto': total.toSql(),
           'fecha': DateTime.now().toIso8601String(),
           'origen': 'cartera',
         });
@@ -4922,7 +4933,7 @@ class DatabaseHelper {
           'company_id': companyId,
           'tipo': 'egreso',
           'concepto': 'Anulacion venta #$ventaId',
-          'monto': total,
+          'monto': total.toSql(),
           'fecha': DateTime.now().toIso8601String(),
           'origen': origen,
         });
@@ -4950,6 +4961,10 @@ class DatabaseHelper {
     try {
       final db = await instance.database;
       final companyId = await obtenerEmpresaActivaId();
+      final currency = await MoneyCurrencyResolver.resolve(
+        db,
+        companyId: companyId,
+      );
 
       await db.transaction((txn) async {
         // 🔥 OBTENER COMPRA
@@ -4968,11 +4983,22 @@ class DatabaseHelper {
           throw Exception('La compra ya fue anulada.');
         }
 
-        final total = (compra['total'] as num).toDouble();
-        final efectivo = (compra['efectivo'] as num?)?.toDouble() ?? 0;
-        final transferencia =
-            (compra['transferencia'] as num?)?.toDouble() ?? 0;
-        final credito = (compra['credito'] as num?)?.toDouble() ?? 0;
+        final total = MoneyValue.fromSql(compra['total'], currency: currency);
+        final efectivo = MoneyValue.fromSql(
+          compra['efectivo'],
+          currency: currency,
+          nullableAsZero: true,
+        );
+        final transferencia = MoneyValue.fromSql(
+          compra['transferencia'],
+          currency: currency,
+          nullableAsZero: true,
+        );
+        final credito = MoneyValue.fromSql(
+          compra['credito'],
+          currency: currency,
+          nullableAsZero: true,
+        );
         final metodoPagoId = compra['metodo_pago_id'];
 
         // 🔥 OBTENER MÉTODO DE PAGO
@@ -5056,30 +5082,30 @@ class DatabaseHelper {
 
         final metodoUpper = nombreMetodo.toString().trim().toUpperCase();
 
-        if (efectivo > 0) {
+        if (efectivo.minorUnits > 0) {
           await txn.insert('movimientos_caja', {
             'company_id': companyId,
             'tipo': 'ingreso',
             'concepto': 'Anulacion compra #$compraId (Caja)',
-            'monto': efectivo,
+            'monto': efectivo.toSql(),
             'fecha': DateTime.now().toIso8601String(),
             'origen': 'caja',
           });
         }
-        if (transferencia > 0) {
+        if (transferencia.minorUnits > 0) {
           await txn.insert('movimientos_caja', {
             'company_id': companyId,
             'tipo': 'ingreso',
             'concepto': 'Anulacion compra #$compraId (Banco)',
-            'monto': transferencia,
+            'monto': transferencia.toSql(),
             'fecha': DateTime.now().toIso8601String(),
             'origen': 'banco',
           });
         }
 
-        if (efectivo == 0 &&
-            transferencia == 0 &&
-            credito == 0 &&
+        if (efectivo.minorUnits == 0 &&
+            transferencia.minorUnits == 0 &&
+            credito.minorUnits == 0 &&
             (metodoUpper == 'EFECTIVO' ||
                 metodoUpper == 'TRANSFERENCIA' ||
                 metodoUpper == 'TARJETA' ||
@@ -5097,14 +5123,14 @@ class DatabaseHelper {
             'company_id': companyId,
             'tipo': 'ingreso',
             'concepto': 'Anulación compra #$compraId',
-            'monto': total,
+            'monto': total.toSql(),
             'fecha': DateTime.now().toIso8601String(),
             'origen': cuenta,
           });
         }
 
         // 🔥 SI ERA CRÉDITO → CANCELAR DEUDA
-        if (metodoUpper == 'CREDITO' || credito > 0) {
+        if (metodoUpper == 'CREDITO' || credito.minorUnits > 0) {
           await txn.update(
             'cuentas_por_pagar',
             {'estado': 'anulada', 'saldo': 0},
@@ -5149,16 +5175,25 @@ class DatabaseHelper {
   Future<int> insertarMovimiento(Map<String, dynamic> row) async {
     await validarFeatureHabilitada(FeatureKey.cash);
     final tipo = row['tipo']?.toString() ?? '';
-    final monto = (row['monto'] as num?)?.toDouble() ?? 0;
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final monto = MoneyValue.fromSql(
+      row['monto'],
+      currency: currency,
+      nullableAsZero: true,
+    );
     final origen = row['origen']?.toString() ?? 'caja';
-    if ((tipo == 'egreso' || tipo == 'transferencia') && monto > 0) {
+    if ((tipo == 'egreso' || tipo == 'transferencia') && monto.minorUnits > 0) {
       await validarSaldoSuficiente(
         origen: origen,
         monto: monto,
         bancoId: row['banco_id'] as int?,
       );
     }
-    final db = await instance.database;
     return await db.insert('movimientos_caja', await _conEmpresa(row));
   }
 
@@ -5202,11 +5237,11 @@ class DatabaseHelper {
   /// Valida que haya fondos suficientes antes de un egreso.
   Future<void> validarSaldoSuficiente({
     required String origen,
-    required double monto,
+    required MoneyValue monto,
     int? bancoId,
   }) async {
     if (origen == 'cartera') return;
-    double saldo;
+    MoneyValue saldo;
     if (bancoId != null) {
       saldo = await obtenerSaldoBanco(bancoId);
     } else {
@@ -5214,7 +5249,7 @@ class DatabaseHelper {
     }
     if (saldo < monto) {
       throw Exception(
-        'Fondos insuficientes. Saldo disponible: \$${saldo.toStringAsFixed(2)}',
+        'Fondos insuficientes. Saldo disponible: ${saldo.format()}',
       );
     }
   }
@@ -5233,7 +5268,7 @@ class DatabaseHelper {
   Future<void> transferirEntreCuentas({
     required String origen,
     required String destino,
-    required double monto,
+    required MoneyValue monto,
     required String concepto,
   }) async {
     final db = await instance.database;
@@ -5253,7 +5288,7 @@ class DatabaseHelper {
       'company_id': companyId,
       'tipo': 'transferencia',
       'concepto': 'Transferencia: $origen → $destino',
-      'monto': monto,
+      'monto': monto.toSql(),
       'fecha': now,
       'origen': origen,
     });
@@ -5263,7 +5298,7 @@ class DatabaseHelper {
       'company_id': companyId,
       'tipo': 'ingreso',
       'concepto': concepto,
-      'monto': monto,
+      'monto': monto.toSql(),
       'fecha': now,
       'origen': destino,
     });
@@ -5276,9 +5311,14 @@ class DatabaseHelper {
     );
   }
 
-  Future<double> obtenerSaldoPorCuenta(String cuenta) async {
+  Future<MoneyValue> obtenerSaldoPorCuenta(String cuenta) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
 
     // 🟢 Caja y Banco funcionan normal
     if (cuenta == 'caja' || cuenta == 'banco') {
@@ -5298,8 +5338,14 @@ class DatabaseHelper {
         [companyId, cuenta],
       );
 
-      final ingresos = (resIngresos.first['total'] as num).toDouble();
-      final egresos = (resEgresos.first['total'] as num).toDouble();
+      final ingresos = MoneyValue.fromSql(
+        resIngresos.first['total'],
+        currency: currency,
+      );
+      final egresos = MoneyValue.fromSql(
+        resEgresos.first['total'],
+        currency: currency,
+      );
 
       return ingresos - egresos;
     }
@@ -5315,26 +5361,34 @@ class DatabaseHelper {
         [companyId],
       );
 
-      return (res.first['total'] as num).toDouble();
+      return MoneyValue.fromSql(res.first['total'], currency: currency);
     }
 
-    return 0;
+    return zero;
   }
 
   /// Suma el total de todas las ventas registradas.
-  Future<double> obtenerTotalVentas() async {
+  Future<MoneyValue> obtenerTotalVentas() async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final res = await db.rawQuery(
       "SELECT COALESCE(SUM(total), 0) AS total FROM ventas WHERE company_id = ? AND COALESCE(estado, 'emitida') != 'anulada'",
       [companyId],
     );
-    return (res.first['total'] as num).toDouble();
+    return MoneyValue.fromSql(res.first['total'], currency: currency);
   }
 
-  Future<double> obtenerSaldoPorOrigen(String origen) async {
+  Future<MoneyValue> obtenerSaldoPorOrigen(String origen) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
 
     final res = await db.rawQuery(
       '''
@@ -5345,7 +5399,7 @@ class DatabaseHelper {
       [companyId, origen],
     );
 
-    return (res.first['total'] as num).toDouble();
+    return MoneyValue.fromSql(res.first['total'], currency: currency);
   }
   // ── Proveedores ───────────────────────────────────────────
 
@@ -5452,7 +5506,7 @@ class DatabaseHelper {
 
   Future<int> registrarCuentaPorCobrar({
     required int ventaId,
-    required double total,
+    required MoneyValue total,
     int? clienteId,
     String cliente = 'Cliente general',
     String descripcion = '',
@@ -5464,8 +5518,8 @@ class DatabaseHelper {
       'cliente_id': clienteId,
       'cliente': cliente,
       'venta_id': ventaId,
-      'total': total,
-      'saldo': total,
+      'total': total.toSql(),
+      'saldo': total.toSql(),
       'estado': 'pendiente',
       'fecha': DateTime.now().toIso8601String(),
       'descripcion': descripcion.isEmpty
@@ -5487,7 +5541,7 @@ class DatabaseHelper {
 
   Future<void> registrarAbonoCXC({
     required int cuentaId,
-    required double monto,
+    required MoneyValue monto,
     required String metodoPago,
     String observacion = '',
   }) async {
@@ -5503,20 +5557,24 @@ class DatabaseHelper {
     if (cuentas.isEmpty) return;
 
     final cuenta = cuentas.first;
-    final saldoActual = (cuenta['saldo'] as num).toDouble();
-    if (monto <= 0) {
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final saldoActual = MoneyValue.fromSql(cuenta['saldo'], currency: currency);
+    if (monto.minorUnits <= 0) {
       throw Exception('El abono debe ser mayor que cero.');
     }
     if (monto > saldoActual) {
       throw Exception('El abono no puede superar el saldo pendiente.');
     }
     final nuevoSaldo = saldoActual - monto;
-    final nuevoEstado = nuevoSaldo <= 0 ? 'pagada' : 'parcial';
+    final nuevoEstado = nuevoSaldo.minorUnits == 0 ? 'pagada' : 'parcial';
 
     await db.insert('abonos_cxc', {
       'company_id': companyId,
       'cuenta_id': cuentaId,
-      'monto': monto,
+      'monto': monto.toSql(),
       'metodo_pago': metodoPago,
       'observacion': observacion,
       'fecha': DateTime.now().toIso8601String(),
@@ -5524,7 +5582,7 @@ class DatabaseHelper {
 
     await db.update(
       'cuentas_por_cobrar',
-      {'saldo': nuevoSaldo <= 0 ? 0 : nuevoSaldo, 'estado': nuevoEstado},
+      {'saldo': nuevoSaldo.toSql(), 'estado': nuevoEstado},
       where: 'id = ? AND company_id = ?',
       whereArgs: [cuentaId, companyId],
     );
@@ -5535,7 +5593,7 @@ class DatabaseHelper {
       'company_id': companyId,
       'tipo': 'ingreso',
       'concepto': 'Abono cuenta por cobrar #$cuentaId',
-      'monto': monto,
+      'monto': monto.toSql(),
       'fecha': DateTime.now().toIso8601String(),
       'origen': origen,
     });
@@ -5549,12 +5607,14 @@ class DatabaseHelper {
         limit: 1,
       );
       if (cuentasBancarias.isNotEmpty) {
-        final saldoActual =
-            (cuentasBancarias.first['current_balance'] as num?)?.toDouble() ??
-            0;
+        final saldoActual = MoneyValue.fromSql(
+          cuentasBancarias.first['current_balance'],
+          currency: currency,
+          nullableAsZero: true,
+        );
         await db.update(
           'treasury_bank_accounts',
-          {'current_balance': saldoActual + monto},
+          {'current_balance': (saldoActual + monto).toSql()},
           where: 'id = ?',
           whereArgs: [cuentasBancarias.first['id']],
         );
@@ -5602,11 +5662,11 @@ class DatabaseHelper {
           final payload = {
             'payment_id': idAbono,
             'account_id': cuentaId,
-            'amount': monto,
+            'amount': monto.toWireMap(),
             'payment_method': metodoPago,
             'observation': observacion,
             'date': DateTime.now().toIso8601String(),
-            'new_balance': nuevoSaldo,
+            'new_balance': nuevoSaldo.toWireMap(),
             'status': nuevoEstado,
             'sale_id': ventaId,
           };
@@ -5625,9 +5685,9 @@ class DatabaseHelper {
   }
 
   Future<int> registrarCierreCaja({
-    required double efectivoContado,
+    required MoneyValue efectivoContado,
     String observacion = '',
-    double baseAperturaSiguiente = 0,
+    required MoneyValue baseAperturaSiguiente,
     bool arqueoCiego = true,
   }) async {
     final db = await instance.database;
@@ -5635,22 +5695,25 @@ class DatabaseHelper {
     final saldoSistema = await obtenerSaldoPorCuenta('caja');
     final diferencia = efectivoContado - saldoSistema;
     final excedente = efectivoContado - baseAperturaSiguiente;
-    var retiroBanco = 0.0;
+    var retiroBanco = MoneyValue(
+      minorUnits: 0,
+      currency: efectivoContado.currency,
+    );
 
-    if (baseAperturaSiguiente > 0 && excedente > 0) {
+    if (baseAperturaSiguiente.minorUnits > 0 && excedente.minorUnits > 0) {
       retiroBanco = excedente;
       await insertarMovimiento({
         'tipo': 'transferencia',
         'concepto':
-            'Retiro cierre caja → Bancos (base \$${baseAperturaSiguiente.toStringAsFixed(0)})',
-        'monto': retiroBanco,
+            'Retiro cierre caja → Bancos (base ${baseAperturaSiguiente.format()})',
+        'monto': retiroBanco.toSql(),
         'fecha': DateTime.now().toIso8601String(),
         'origen': 'caja',
       });
       await insertarMovimiento({
         'tipo': 'ingreso',
         'concepto': 'Depósito desde cierre de caja',
-        'monto': retiroBanco,
+        'monto': retiroBanco.toSql(),
         'fecha': DateTime.now().toIso8601String(),
         'origen': 'banco',
       });
@@ -5665,13 +5728,13 @@ class DatabaseHelper {
     final id = await db.insert('cierres_caja', {
       'company_id': companyId,
       'fecha': DateTime.now().toIso8601String(),
-      'saldo_sistema': saldoSistema,
-      'efectivo_contado': efectivoContado,
-      'diferencia': diferencia,
+      'saldo_sistema': saldoSistema.toSql(),
+      'efectivo_contado': efectivoContado.toSql(),
+      'diferencia': diferencia.toSql(),
       'observacion': observacion,
       'estado': 'cerrado',
-      'base_apertura_siguiente': baseAperturaSiguiente,
-      'retiro_banco': retiroBanco,
+      'base_apertura_siguiente': baseAperturaSiguiente.toSql(),
+      'retiro_banco': retiroBanco.toSql(),
       'arqueo_ciego': arqueoCiego ? 1 : 0,
     });
 
@@ -5700,7 +5763,7 @@ class DatabaseHelper {
 
   Future<int> registrarConciliacionBancaria({
     required String cuenta,
-    required double saldoExtracto,
+    required MoneyValue saldoExtracto,
     String observacion = '',
   }) async {
     final db = await instance.database;
@@ -5711,9 +5774,9 @@ class DatabaseHelper {
     final id = await db.insert('conciliaciones_bancarias', {
       'fecha': DateTime.now().toIso8601String(),
       'cuenta': cuentaNormalizada,
-      'saldo_libros': saldoLibros,
-      'saldo_extracto': saldoExtracto,
-      'diferencia': diferencia,
+      'saldo_libros': saldoLibros.toSql(),
+      'saldo_extracto': saldoExtracto.toSql(),
+      'diferencia': diferencia.toSql(),
       'observacion': observacion,
       'estado': 'registrada',
     });
@@ -5739,7 +5802,7 @@ class DatabaseHelper {
     required int mes,
     required String categoria,
     required String tipo,
-    required double valorPresupuestado,
+    required MoneyValue valorPresupuestado,
     String observacion = '',
   }) async {
     final db = await instance.database;
@@ -5758,9 +5821,9 @@ class DatabaseHelper {
       'mes': mes,
       'categoria': categoria.trim(),
       'tipo': tipo.trim().toLowerCase(),
-      'valor_presupuestado': valorPresupuestado,
-      'valor_real': valorReal,
-      'diferencia': diferencia,
+      'valor_presupuestado': valorPresupuestado.toSql(),
+      'valor_real': valorReal.toSql(),
+      'diferencia': diferencia.toSql(),
       'observacion': observacion,
       'fecha': DateTime.now().toIso8601String(),
     };
@@ -5792,6 +5855,11 @@ class DatabaseHelper {
 
   Future<void> recalcularPresupuestos() async {
     final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final presupuestos = await obtenerPresupuestos();
     for (final p in presupuestos) {
       final valorReal = await _calcularValorRealPresupuesto(
@@ -5800,7 +5868,10 @@ class DatabaseHelper {
         categoria: p['categoria'].toString(),
         tipo: p['tipo'].toString(),
       );
-      final valorPresupuestado = (p['valor_presupuestado'] as num).toDouble();
+      final valorPresupuestado = MoneyValue.fromSql(
+        p['valor_presupuestado'],
+        currency: currency,
+      );
       final tipo = p['tipo'].toString();
       final diferencia = tipo == 'ingreso'
           ? valorReal - valorPresupuestado
@@ -5808,14 +5879,14 @@ class DatabaseHelper {
 
       await db.update(
         'presupuestos',
-        {'valor_real': valorReal, 'diferencia': diferencia},
+        {'valor_real': valorReal.toSql(), 'diferencia': diferencia.toSql()},
         where: 'id = ?',
         whereArgs: [p['id']],
       );
     }
   }
 
-  Future<double> _calcularValorRealPresupuesto({
+  Future<MoneyValue> _calcularValorRealPresupuesto({
     required int anio,
     required int mes,
     required String categoria,
@@ -5823,6 +5894,10 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final inicio = DateTime(anio, mes, 1).toIso8601String();
     final fin = DateTime(anio, mes + 1, 1).toIso8601String();
     final categoriaNormalizada = categoria.trim().toLowerCase();
@@ -5837,7 +5912,7 @@ class DatabaseHelper {
           ''',
           [companyId, inicio, fin],
         );
-        return (res.first['total'] as num).toDouble();
+        return MoneyValue.fromSql(res.first['total'], currency: currency);
       }
 
       final res = await db.rawQuery(
@@ -5848,7 +5923,7 @@ class DatabaseHelper {
         ''',
         [companyId, inicio, fin],
       );
-      return (res.first['total'] as num).toDouble();
+      return MoneyValue.fromSql(res.first['total'], currency: currency);
     }
 
     if (categoriaNormalizada.contains('compra') ||
@@ -5861,7 +5936,7 @@ class DatabaseHelper {
         ''',
         [companyId, inicio, fin],
       );
-      return (res.first['total'] as num).toDouble();
+      return MoneyValue.fromSql(res.first['total'], currency: currency);
     }
 
     final res = await db.rawQuery(
@@ -5872,7 +5947,7 @@ class DatabaseHelper {
       ''',
       [companyId, inicio, fin],
     );
-    return (res.first['total'] as num).toDouble();
+    return MoneyValue.fromSql(res.first['total'], currency: currency);
   }
 
   Future<List<Map<String, dynamic>>> obtenerUsuarios() async {
@@ -6012,7 +6087,12 @@ class DatabaseHelper {
       whereArgs: [ventaId],
     );
     final venta = ventas.isEmpty ? <String, dynamic>{} : ventas.first;
-    final xml = _generarXmlFacturaElectronica(consecutivo, venta);
+    final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final xml = _generarXmlFacturaElectronica(consecutivo, venta, currency);
 
     final id = await db.insert('facturas_electronicas', {
       'venta_id': ventaId,
@@ -6037,17 +6117,26 @@ class DatabaseHelper {
   String _generarXmlFacturaElectronica(
     String consecutivo,
     Map<String, dynamic> venta,
+    Currency currency,
   ) {
-    final total = (venta['total'] as num?)?.toDouble() ?? 0;
-    final impuesto = (venta['impuesto_total'] as num?)?.toDouble() ?? 0;
+    final total = MoneyValue.fromSql(
+      venta['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final impuesto = MoneyValue.fromSql(
+      venta['impuesto_total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
     final cliente = venta['cliente']?.toString() ?? 'Cliente general';
     return '''
 <Invoice>
   <ID>$consecutivo</ID>
   <IssueDate>${DateTime.now().toIso8601String()}</IssueDate>
   <AccountingCustomerParty>$cliente</AccountingCustomerParty>
-  <TaxTotal>$impuesto</TaxTotal>
-  <PayableAmount>$total</PayableAmount>
+  <TaxTotal>${impuesto.toMajorUnitsString()}</TaxTotal>
+  <PayableAmount>${total.toMajorUnitsString()}</PayableAmount>
   <Note>Borrador interno. Requiere validacion previa DIAN/proveedor tecnologico.</Note>
 </Invoice>
 ''';
@@ -6082,7 +6171,7 @@ class DatabaseHelper {
 
   Future<int> guardarEmpleado({
     required String nombre,
-    required double salarioBase,
+    required MoneyValue salarioBase,
     String documento = '',
     String tipoDocumento = 'CC',
     String cargo = '',
@@ -6102,7 +6191,7 @@ class DatabaseHelper {
       'documento': documento,
       'tipo_documento': tipoDocumento,
       'cargo': cargo,
-      'salario_base': salarioBase,
+      'salario_base': salarioBase.toSql(),
       'auxilio_transporte': auxilioTransporte,
       'cuenta_bancaria': cuentaBancaria,
       'codigo_banco': codigoBanco,
@@ -6121,7 +6210,7 @@ class DatabaseHelper {
   Future<int> actualizarEmpleado({
     required int id,
     required String nombre,
-    required double salarioBase,
+    required MoneyValue salarioBase,
     required String documento,
     String tipoDocumento = 'CC',
     required String cargo,
@@ -6143,7 +6232,7 @@ class DatabaseHelper {
         'documento': documento,
         'tipo_documento': tipoDocumento,
         'cargo': cargo,
-        'salario_base': salarioBase,
+        'salario_base': salarioBase.toSql(),
         'auxilio_transporte': auxilioTransporte,
         'cuenta_bancaria': cuentaBancaria,
         'codigo_banco': codigoBanco,
@@ -6163,12 +6252,20 @@ class DatabaseHelper {
     required int empleadoId,
     required int anio,
     required int mes,
-    double horasExtra = 0,
-    double bonificaciones = 0,
-    double otrasDeducciones = 0,
+    MoneyValue? horasExtra,
+    MoneyValue? bonificaciones,
+    MoneyValue? otrasDeducciones,
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+    final horasExtraValue = horasExtra ?? zero;
+    final bonificacionesValue = bonificaciones ?? zero;
+    final otrasDeduccionesValue = otrasDeducciones ?? zero;
 
     // Obtener parámetros de nómina del año
     final params = await db.query(
@@ -6185,7 +6282,7 @@ class DatabaseHelper {
     }
 
     final param = params.first;
-    final smmlv = (param['smmlv'] as num).toDouble();
+    final smmlv = MoneyValue.fromSql(param['smmlv'], currency: currency);
     final healthEmployeeRate = (param['health_employee_rate'] as num)
         .toDouble();
     final healthEmployerRate = (param['health_employer_rate'] as num)
@@ -6205,8 +6302,6 @@ class DatabaseHelper {
     final cajaRate = (param['parafiscal_caja_rate'] as num).toDouble();
     final severanceRate = (param['severance_rate'] as num).toDouble();
     final serviceBonusRate = (param['service_bonus_rate'] as num).toDouble();
-    final severanceInterestRate = (param['severance_interest_rate'] as num)
-        .toDouble();
     final vacationRate = (param['vacation_rate'] as num).toDouble();
 
     final empleados = await db.query(
@@ -6217,73 +6312,88 @@ class DatabaseHelper {
     if (empleados.isEmpty) throw Exception('Empleado no encontrado');
 
     final empleado = empleados.first;
-    final salario = (empleado['salario_base'] as num).toDouble();
+    final salario = MoneyValue.fromSql(
+      empleado['salario_base'],
+      currency: currency,
+    );
     final auxilioFlag = (empleado['auxilio_transporte'] as int) == 1;
     final nivelArl = empleado['nivel_arl']?.toString() ?? 'I';
 
     // Calcular auxilio de transporte si aplica
     final auxilio = auxilioFlag && salario < (smmlv * 2)
-        ? (param['transportation_allowance'] as num).toDouble()
-        : 0;
+        ? MoneyValue.fromSql(
+            param['transportation_allowance'],
+            currency: currency,
+          )
+        : zero;
 
     // Cálculos de aportes del empleado
-    final saludEmpleado = salario * healthEmployeeRate;
-    final pensionEmpleado = salario * pensionEmployeeRate;
+    final saludEmpleado = salario.multiplyDecimal(
+      healthEmployeeRate.toString(),
+    );
+    final pensionEmpleado = salario.multiplyDecimal(
+      pensionEmployeeRate.toString(),
+    );
 
     // Cálculo de FSP (Fondo de Solidaridad Pensional)
-    final baseFsp = salario + horasExtra + bonificaciones;
-    double fsp = 0;
-    if (baseFsp > smmlv * fspTrigger) {
-      final smmlvCount = baseFsp / smmlv;
-      if (smmlvCount > 4 && smmlvCount <= 6) {
-        fsp = baseFsp * (param['fsp_rate_1'] as num).toDouble();
-      } else if (smmlvCount > 6 && smmlvCount <= 8) {
-        fsp = baseFsp * (param['fsp_rate_2'] as num).toDouble();
-      } else if (smmlvCount > 8 && smmlvCount <= 10) {
-        fsp = baseFsp * (param['fsp_rate_3'] as num).toDouble();
-      } else if (smmlvCount > 10 && smmlvCount <= 12) {
-        fsp = baseFsp * (param['fsp_rate_4'] as num).toDouble();
-      } else if (smmlvCount > 12 && smmlvCount <= 14) {
-        fsp = baseFsp * (param['fsp_rate_5'] as num).toDouble();
-      } else if (smmlvCount > 14) {
-        fsp = baseFsp * (param['fsp_rate_6'] as num).toDouble();
+    final baseFsp = salario + horasExtraValue + bonificacionesValue;
+    var fsp = zero;
+    if (baseFsp > smmlv.multiplyDecimal(fspTrigger.toString())) {
+      if (baseFsp > smmlv * 4 && baseFsp <= smmlv * 6) {
+        fsp = baseFsp.multiplyDecimal((param['fsp_rate_1'] as num).toString());
+      } else if (baseFsp > smmlv * 6 && baseFsp <= smmlv * 8) {
+        fsp = baseFsp.multiplyDecimal((param['fsp_rate_2'] as num).toString());
+      } else if (baseFsp > smmlv * 8 && baseFsp <= smmlv * 10) {
+        fsp = baseFsp.multiplyDecimal((param['fsp_rate_3'] as num).toString());
+      } else if (baseFsp > smmlv * 10 && baseFsp <= smmlv * 12) {
+        fsp = baseFsp.multiplyDecimal((param['fsp_rate_4'] as num).toString());
+      } else if (baseFsp > smmlv * 12 && baseFsp <= smmlv * 14) {
+        fsp = baseFsp.multiplyDecimal((param['fsp_rate_5'] as num).toString());
+      } else if (baseFsp > smmlv * 14) {
+        fsp = baseFsp.multiplyDecimal((param['fsp_rate_6'] as num).toString());
       }
     }
 
     // Cálculos de aportes del empleador
-    final saludEmpleador = salario * healthEmployerRate;
-    final pensionEmpleador = salario * pensionEmployerRate;
+    final saludEmpleador = salario.multiplyDecimal(
+      healthEmployerRate.toString(),
+    );
+    final pensionEmpleador = salario.multiplyDecimal(
+      pensionEmployerRate.toString(),
+    );
 
     // ARL según nivel
-    double arl = 0;
+    var arl = zero;
     switch (nivelArl.toUpperCase()) {
       case 'I':
-        arl = salario * arlLevel1;
+        arl = salario.multiplyDecimal(arlLevel1.toString());
         break;
       case 'II':
-        arl = salario * arlLevel2;
+        arl = salario.multiplyDecimal(arlLevel2.toString());
         break;
       case 'III':
-        arl = salario * arlLevel3;
+        arl = salario.multiplyDecimal(arlLevel3.toString());
         break;
       case 'IV':
-        arl = salario * arlLevel4;
+        arl = salario.multiplyDecimal(arlLevel4.toString());
         break;
       case 'V':
-        arl = salario * arlLevel5;
+        arl = salario.multiplyDecimal(arlLevel5.toString());
         break;
     }
 
     // Parafiscales
-    final parafiscalSena = salario * senaRate;
-    final parafiscalIcbf = salario * icbfRate;
-    final parafiscalCaja = salario * cajaRate;
+    final parafiscalSena = salario.multiplyDecimal(senaRate.toString());
+    final parafiscalIcbf = salario.multiplyDecimal(icbfRate.toString());
+    final parafiscalCaja = salario.multiplyDecimal(cajaRate.toString());
 
     // Provisiones mensuales
-    final cesantias = salario * severanceRate;
-    final primaServicios = salario * serviceBonusRate;
-    final interesesCesantias = cesantias * severanceInterestRate;
-    final vacaciones = salario * vacationRate;
+    final cesantias = salario.multiplyDecimal(severanceRate.toString());
+    final primaServicios = salario.multiplyDecimal(serviceBonusRate.toString());
+    // Ley 52 de 1975: 12 % anual sobre el saldo de cesantias. El valor
+    // historico 0.01 era mensual y aqui se aplicaba una sola vez.
+    final interesesCesantias = cesantias.percent('12');
+    final vacaciones = salario.multiplyDecimal(vacationRate.toString());
 
     // Total aportes empleador
     final parafiscales = parafiscalSena + parafiscalIcbf + parafiscalCaja;
@@ -6293,9 +6403,10 @@ class DatabaseHelper {
         saludEmpleador + pensionEmpleador + arl + parafiscales + provisiones;
 
     // Totales
-    final totalDevengado = salario + auxilio + horasExtra + bonificaciones;
+    final totalDevengado =
+        salario + auxilio + horasExtraValue + bonificacionesValue;
     final totalDeducciones =
-        saludEmpleado + pensionEmpleado + fsp + otrasDeducciones;
+        saludEmpleado + pensionEmpleado + fsp + otrasDeduccionesValue;
     final netoPagar = totalDevengado - totalDeducciones;
 
     // Retefuente (simplificado - debería usar tabla UVT)
@@ -6311,7 +6422,7 @@ class DatabaseHelper {
       'company_id': companyId,
       'tipo': 'egreso',
       'concepto': 'Nómina $mes/$anio - ${empleado['nombre']}',
-      'monto': netoPagar,
+      'monto': netoPagar.toSql(),
       'fecha': DateTime.now().toIso8601String(),
       'origen': origenCaja,
     });
@@ -6323,63 +6434,63 @@ class DatabaseHelper {
       lineas: [
         {
           'codigo': '510506',
-          'debito': salario,
+          'debito': salario.toSql(),
           'credito': 0,
           'descripcion': 'Gasto Sueldo: ${empleado['nombre']}',
         },
-        if (auxilio > 0)
+        if (auxilio.minorUnits > 0)
           {
             'codigo': '510527',
-            'debito': auxilio,
+            'debito': auxilio.toSql(),
             'credito': 0,
             'descripcion': 'Auxilio transporte: ${empleado['nombre']}',
           },
-        if (horasExtra > 0)
+        if (horasExtraValue.minorUnits > 0)
           {
             'codigo': '510515',
-            'debito': horasExtra,
+            'debito': horasExtraValue.toSql(),
             'credito': 0,
             'descripcion': 'Horas extras: ${empleado['nombre']}',
           },
-        if (bonificaciones > 0)
+        if (bonificacionesValue.minorUnits > 0)
           {
             'codigo': '510548',
-            'debito': bonificaciones,
+            'debito': bonificacionesValue.toSql(),
             'credito': 0,
             'descripcion': 'Bonificaciones: ${empleado['nombre']}',
           },
         {
           'codigo': '237005',
           'debito': 0,
-          'credito': saludEmpleado,
+          'credito': saludEmpleado.toSql(),
           'descripcion':
               'Retención Salud ${healthEmployeeRate * 100}%: ${empleado['nombre']}',
         },
         {
           'codigo': '238030',
           'debito': 0,
-          'credito': pensionEmpleado,
+          'credito': pensionEmpleado.toSql(),
           'descripcion':
               'Retención Pensión ${pensionEmployeeRate * 100}%: ${empleado['nombre']}',
         },
-        if (fsp > 0)
+        if (fsp.minorUnits > 0)
           {
             'codigo': '238035',
             'debito': 0,
-            'credito': fsp,
+            'credito': fsp.toSql(),
             'descripcion': 'FSP: ${empleado['nombre']}',
           },
-        if (otrasDeducciones > 0)
+        if (otrasDeduccionesValue.minorUnits > 0)
           {
             'codigo': '237095',
             'debito': 0,
-            'credito': otrasDeducciones,
+            'credito': otrasDeduccionesValue.toSql(),
             'descripcion': 'Otras deducciones: ${empleado['nombre']}',
           },
         {
           'codigo': cuentaDinero,
           'debito': 0,
-          'credito': netoPagar,
+          'credito': netoPagar.toSql(),
           'descripcion': 'Pago neto nómina: ${empleado['nombre']}',
         },
       ],
@@ -6387,24 +6498,24 @@ class DatabaseHelper {
 
     final periodo = '$anio-${mes.toString().padLeft(2, '0')}';
     final calculoJson = {
-      'salario_base': salario,
-      'auxilio_transporte': auxilio,
-      'horas_extra': horasExtra,
-      'bonificaciones': bonificaciones,
-      'otras_deducciones': otrasDeducciones,
-      'salud_empleado': saludEmpleado,
-      'salud_empleador': saludEmpleador,
-      'pension_empleado': pensionEmpleado,
-      'pension_empleador': pensionEmpleador,
-      'fsp': fsp,
-      'arl': arl,
-      'parafiscal_sena': parafiscalSena,
-      'parafiscal_icbf': parafiscalIcbf,
-      'parafiscal_caja': parafiscalCaja,
-      'cesantias': cesantias,
-      'prima_servicios': primaServicios,
-      'intereses_cesantias': interesesCesantias,
-      'vacaciones': vacaciones,
+      'salario_base': salario.toWireMap(),
+      'auxilio_transporte': auxilio.toWireMap(),
+      'horas_extra': horasExtraValue.toWireMap(),
+      'bonificaciones': bonificacionesValue.toWireMap(),
+      'otras_deducciones': otrasDeduccionesValue.toWireMap(),
+      'salud_empleado': saludEmpleado.toWireMap(),
+      'salud_empleador': saludEmpleador.toWireMap(),
+      'pension_empleado': pensionEmpleado.toWireMap(),
+      'pension_empleador': pensionEmpleador.toWireMap(),
+      'fsp': fsp.toWireMap(),
+      'arl': arl.toWireMap(),
+      'parafiscal_sena': parafiscalSena.toWireMap(),
+      'parafiscal_icbf': parafiscalIcbf.toWireMap(),
+      'parafiscal_caja': parafiscalCaja.toWireMap(),
+      'cesantias': cesantias.toWireMap(),
+      'prima_servicios': primaServicios.toWireMap(),
+      'intereses_cesantias': interesesCesantias.toWireMap(),
+      'vacaciones': vacaciones.toWireMap(),
       'retefuente': retefuente,
     };
 
@@ -6413,24 +6524,24 @@ class DatabaseHelper {
       'empleado_id': empleadoId,
       'empleado': empleado['nombre'],
       'periodo': periodo,
-      'salario_base': salario,
-      'total_devengado': totalDevengado,
-      'total_deducciones': totalDeducciones,
-      'neto_pagar': netoPagar,
-      'aportes_empleador': aportesEmpleador,
-      'salud_empleado': saludEmpleado,
-      'salud_empleador': saludEmpleador,
-      'pension_empleado': pensionEmpleado,
-      'pension_empleador': pensionEmpleador,
-      'fsp': fsp,
-      'arl': arl,
-      'parafiscal_sena': parafiscalSena,
-      'parafiscal_icbf': parafiscalIcbf,
-      'parafiscal_caja': parafiscalCaja,
-      'cesantias': cesantias,
-      'prima_servicios': primaServicios,
-      'intereses_cesantias': interesesCesantias,
-      'vacaciones': vacaciones,
+      'salario_base': salario.toSql(),
+      'total_devengado': totalDevengado.toSql(),
+      'total_deducciones': totalDeducciones.toSql(),
+      'neto_pagar': netoPagar.toSql(),
+      'aportes_empleador': aportesEmpleador.toSql(),
+      'salud_empleado': saludEmpleado.toSql(),
+      'salud_empleador': saludEmpleador.toSql(),
+      'pension_empleado': pensionEmpleado.toSql(),
+      'pension_empleador': pensionEmpleador.toSql(),
+      'fsp': fsp.toSql(),
+      'arl': arl.toSql(),
+      'parafiscal_sena': parafiscalSena.toSql(),
+      'parafiscal_icbf': parafiscalIcbf.toSql(),
+      'parafiscal_caja': parafiscalCaja.toSql(),
+      'cesantias': cesantias.toSql(),
+      'prima_servicios': primaServicios.toSql(),
+      'intereses_cesantias': interesesCesantias.toSql(),
+      'vacaciones': vacaciones.toSql(),
       'retefuente': retefuente,
       'estado': 'liquidada',
       'calculo_json': calculoJson.toString(),
@@ -6485,8 +6596,8 @@ class DatabaseHelper {
           .map(
             (l) => {
               'codigo': l['codigo'].toString(),
-              'debito': (l['credito'] as num).toDouble(),
-              'credito': (l['debito'] as num).toDouble(),
+              'debito': l['credito'] as int,
+              'credito': l['debito'] as int,
               'descripcion': 'Reversión: ${l['descripcion']}',
             },
           )
@@ -6573,7 +6684,7 @@ class DatabaseHelper {
     required String cuenta,
     required String fecha,
     required String descripcion,
-    required double valor,
+    required MoneyValue valor,
     String referencia = '',
   }) async {
     final db = await instance.database;
@@ -6581,8 +6692,8 @@ class DatabaseHelper {
       'cuenta': cuenta,
       'fecha': fecha,
       'descripcion': descripcion,
-      'valor': valor.abs(),
-      'tipo': valor >= 0 ? 'ingreso' : 'egreso',
+      'valor': valor.abs().toSql(),
+      'tipo': valor.minorUnits >= 0 ? 'ingreso' : 'egreso',
       'conciliado': 0,
       'referencia': referencia,
       'creado': DateTime.now().toIso8601String(),
@@ -6617,18 +6728,26 @@ class DatabaseHelper {
     return await db.query('adjuntos_documentos', orderBy: 'fecha DESC');
   }
 
-  Future<Map<String, double>> obtenerReporteFiscal({
+  Future<Map<String, MoneyValue>> obtenerReporteFiscal({
     required int anio,
     required int mes,
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final inicio = DateTime(anio, mes, 1).toIso8601String();
     final fin = DateTime(anio, mes + 1, 1).toIso8601String();
 
-    Future<double> total(String sql) async {
+    Future<MoneyValue> total(String sql) async {
       final res = await db.rawQuery(sql, [companyId, inicio, fin]);
-      return (res.first['total'] as num).toDouble();
+      return MoneyValue.fromSql(
+        res.first['total'],
+        currency: currency,
+        nullableAsZero: true,
+      );
     }
 
     final ventas = await total(
@@ -6760,6 +6879,10 @@ class DatabaseHelper {
   Future<Map<String, dynamic>> conciliarBancosAutomaticamente() async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
 
     // Obtener extractos bancarios no conciliados
     final extractos = await db.query(
@@ -6777,11 +6900,14 @@ class DatabaseHelper {
 
     int conciliados = 0;
     int noConciliados = 0;
-    double totalConciliado = 0;
+    var totalConciliado = MoneyValue(minorUnits: 0, currency: currency);
 
     for (final extracto in extractos) {
       final extractoFecha = extracto['fecha']?.toString() ?? '';
-      final extractoValor = (extracto['valor'] as num).toDouble();
+      final extractoValor = MoneyValue.fromSql(
+        extracto['valor'],
+        currency: currency,
+      );
       final extractoTipo = extracto['tipo']?.toString() ?? '';
 
       // Solo conciliar ingresos (abonos)
@@ -6791,11 +6917,13 @@ class DatabaseHelper {
 
       for (final abono in abonos) {
         final abonoFecha = abono['fecha']?.toString() ?? '';
-        final abonoMonto = (abono['monto'] as num).toDouble();
+        final abonoMonto = MoneyValue.fromSql(
+          abono['monto'],
+          currency: currency,
+        );
 
         // Emparejamiento exacto: fecha y monto
-        if (abonoFecha == extractoFecha &&
-            (abonoMonto - extractoValor).abs() < 0.01) {
+        if (abonoFecha == extractoFecha && abonoMonto == extractoValor) {
           // Conciliar
           await db.update(
             'extractos_bancarios',
@@ -6812,7 +6940,7 @@ class DatabaseHelper {
           );
 
           conciliados++;
-          totalConciliado += extractoValor;
+          totalConciliado = totalConciliado + extractoValor;
           encontrado = true;
           break;
         }
@@ -6833,7 +6961,7 @@ class DatabaseHelper {
     return {
       'conciliados': conciliados,
       'no_conciliados': noConciliados,
-      'total_conciliado': totalConciliado,
+      'total_conciliado': totalConciliado.toWireMap(),
     };
   }
 
@@ -6842,6 +6970,10 @@ class DatabaseHelper {
   Future<void> actualizarComisionesPorRecaudo(int ventaId) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
 
     // Verificar si la factura está totalmente pagada
     final cuentas = await db.query(
@@ -6852,8 +6984,12 @@ class DatabaseHelper {
 
     bool facturaPagada = true;
     for (final cuenta in cuentas) {
-      final saldo = (cuenta['saldo'] as num?)?.toDouble() ?? 0;
-      if (saldo > 0) {
+      final saldo = MoneyValue.fromSql(
+        cuenta['saldo'],
+        currency: currency,
+        nullableAsZero: true,
+      );
+      if (saldo.minorUnits > 0) {
         facturaPagada = false;
         break;
       }
@@ -7200,18 +7336,29 @@ class DatabaseHelper {
     return await db.query('auditoria_eventos', orderBy: 'fecha DESC');
   }
 
-  Future<Map<String, double>> obtenerEstadosFinancieros() async {
+  Future<Map<String, MoneyValue>> obtenerEstadosFinancieros() async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final balance = await obtenerBalanceComprobacion();
-    double activos = 0;
-    double pasivos = 0;
-    double patrimonio = 0;
-    double ingresos = 0;
-    double gastos = 0;
-    double costos = 0;
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+    var activos = zero;
+    var pasivos = zero;
+    var patrimonio = zero;
+    var ingresos = zero;
+    var gastos = zero;
+    var costos = zero;
 
     for (final cuenta in balance) {
       final tipo = cuenta['tipo'].toString();
-      final saldo = (cuenta['saldo'] as num?)?.toDouble() ?? 0;
+      final saldo = MoneyValue.fromSql(
+        cuenta['saldo'],
+        currency: currency,
+        nullableAsZero: true,
+      );
 
       switch (tipo) {
         case 'activo':
@@ -7687,7 +7834,7 @@ class DatabaseHelper {
     required int asientoId,
     required String tipo,
     required String concepto,
-    required double total,
+    required MoneyValue total,
     String? tercero,
     DateTime? fecha,
   }) async {
@@ -7713,7 +7860,7 @@ class DatabaseHelper {
       'fecha': (fecha ?? DateTime.now()).toIso8601String(),
       'concepto': concepto,
       'tercero': tercero,
-      'total': total,
+      'total': total.toSql(),
       'estado': 'emitido',
     });
   }
@@ -7840,7 +7987,7 @@ class DatabaseHelper {
 
   Future<void> registrarAbonoCXP({
     required int cuentaId,
-    required double monto,
+    required MoneyValue monto,
     required String metodoPago,
     String observacion = '',
   }) async {
@@ -7857,9 +8004,12 @@ class DatabaseHelper {
     if (cuentas.isEmpty) return;
 
     final cuenta = cuentas.first;
-
-    final saldoActual = (cuenta['saldo'] as num).toDouble();
-    if (monto <= 0) {
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final saldoActual = MoneyValue.fromSql(cuenta['saldo'], currency: currency);
+    if (monto.minorUnits <= 0) {
       throw Exception('El abono debe ser mayor que cero.');
     }
     if (monto > saldoActual) {
@@ -7871,7 +8021,7 @@ class DatabaseHelper {
     // 🔥 nuevo estado
     String nuevoEstado = 'parcial';
 
-    if (nuevoSaldo <= 0) {
+    if (nuevoSaldo.minorUnits == 0) {
       nuevoEstado = 'pagada';
     }
 
@@ -7879,7 +8029,7 @@ class DatabaseHelper {
     await db.insert('abonos_cxp', {
       'company_id': companyId,
       'cuenta_id': cuentaId,
-      'monto': monto,
+      'monto': monto.toSql(),
       'metodo_pago': metodoPago,
       'observacion': observacion,
       'fecha': DateTime.now().toIso8601String(),
@@ -7888,7 +8038,7 @@ class DatabaseHelper {
     // 🔥 actualizar saldo
     await db.update(
       'cuentas_por_pagar',
-      {'saldo': nuevoSaldo <= 0 ? 0 : nuevoSaldo, 'estado': nuevoEstado},
+      {'saldo': nuevoSaldo.toSql(), 'estado': nuevoEstado},
       where: 'id = ? AND company_id = ?',
       whereArgs: [cuentaId, companyId],
     );
@@ -7900,7 +8050,7 @@ class DatabaseHelper {
       'company_id': companyId,
       'tipo': 'egreso',
       'concepto': 'Abono cuenta por pagar #$cuentaId',
-      'monto': monto,
+      'monto': monto.toSql(),
       'fecha': DateTime.now().toIso8601String(),
       'origen': origen,
     });
@@ -7937,27 +8087,44 @@ class DatabaseHelper {
       throw Exception('Un asiento necesita al menos dos líneas.');
     }
 
-    final totalDebito = lineas.fold<double>(
-      0,
-      (sum, linea) => sum + ((linea['debito'] as num?)?.toDouble() ?? 0),
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
     );
-    final totalCredito = lineas.fold<double>(
-      0,
-      (sum, linea) => sum + ((linea['credito'] as num?)?.toDouble() ?? 0),
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+    final totalDebito = lineas.fold<MoneyValue>(
+      zero,
+      (sum, linea) =>
+          sum +
+          MoneyValue.fromSql(
+            linea['debito'],
+            currency: currency,
+            nullableAsZero: true,
+          ),
+    );
+    final totalCredito = lineas.fold<MoneyValue>(
+      zero,
+      (sum, linea) =>
+          sum +
+          MoneyValue.fromSql(
+            linea['credito'],
+            currency: currency,
+            nullableAsZero: true,
+          ),
     );
 
-    if ((totalDebito - totalCredito).abs() > 0.01) {
+    if (totalDebito != totalCredito) {
       throw Exception('El asiento no está balanceado.');
     }
-    if (totalDebito <= 0) {
+    if (totalDebito.minorUnits <= 0) {
       throw Exception('El asiento debe tener valor.');
     }
 
     final fechaAsiento = fecha ?? DateTime.now();
     await _validarPeriodoAbierto(fechaAsiento);
 
-    final db = await instance.database;
-    final companyId = await obtenerEmpresaActivaId();
     return await db.transaction((txn) async {
       final asientoId = await txn.insert('asientos_contables', {
         'company_id': companyId,
@@ -7969,10 +8136,20 @@ class DatabaseHelper {
       });
 
       for (final linea in lineas) {
-        final debito = ((linea['debito'] as num?)?.toDouble() ?? 0);
-        final credito = ((linea['credito'] as num?)?.toDouble() ?? 0);
+        final debito = MoneyValue.fromSql(
+          linea['debito'],
+          currency: currency,
+          nullableAsZero: true,
+        );
+        final credito = MoneyValue.fromSql(
+          linea['credito'],
+          currency: currency,
+          nullableAsZero: true,
+        );
 
-        if (debito < 0 || credito < 0 || (debito > 0 && credito > 0)) {
+        if (debito.minorUnits < 0 ||
+            credito.minorUnits < 0 ||
+            (debito.minorUnits > 0 && credito.minorUnits > 0)) {
           throw Exception('Cada línea debe tener débito o crédito, no ambos.');
         }
 
@@ -8007,8 +8184,8 @@ class DatabaseHelper {
           'asiento_id': asientoId,
           'cuenta_id': linea['cuenta_id'],
           'descripcion': linea['descripcion'] ?? concepto,
-          'debito': debito,
-          'credito': credito,
+          'debito': debito.toSql(),
+          'credito': credito.toSql(),
           'tercero': linea['tercero'],
         });
       }
@@ -8128,6 +8305,12 @@ class DatabaseHelper {
     final fechaAsiento = fecha ?? DateTime.now();
     await _validarPeriodoAbierto(fechaAsiento, txn);
     final companyId = await obtenerEmpresaActivaId(txn);
+    final executor = txn ?? await instance.database;
+    final currency = await MoneyCurrencyResolver.resolve(
+      executor,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
 
     Future<int> performRegistration(Transaction t) async {
       final lineasConCuenta = <Map<String, dynamic>>[];
@@ -8139,16 +8322,28 @@ class DatabaseHelper {
         });
       }
 
-      final totalDebito = lineasConCuenta.fold<double>(
-        0,
-        (sum, linea) => sum + ((linea['debito'] as num?)?.toDouble() ?? 0),
+      final totalDebito = lineasConCuenta.fold<MoneyValue>(
+        zero,
+        (sum, linea) =>
+            sum +
+            MoneyValue.fromSql(
+              linea['debito'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
       );
-      final totalCredito = lineasConCuenta.fold<double>(
-        0,
-        (sum, linea) => sum + ((linea['credito'] as num?)?.toDouble() ?? 0),
+      final totalCredito = lineasConCuenta.fold<MoneyValue>(
+        zero,
+        (sum, linea) =>
+            sum +
+            MoneyValue.fromSql(
+              linea['credito'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
       );
 
-      if ((totalDebito - totalCredito).abs() > 0.01) {
+      if (totalDebito != totalCredito) {
         throw Exception('El asiento automático no está balanceado.');
       }
 
@@ -8167,8 +8362,16 @@ class DatabaseHelper {
           'asiento_id': asientoId,
           'cuenta_id': linea['cuenta_id'],
           'descripcion': linea['descripcion'] ?? concepto,
-          'debito': ((linea['debito'] as num?)?.toDouble() ?? 0),
-          'credito': ((linea['credito'] as num?)?.toDouble() ?? 0),
+          'debito': MoneyValue.fromSql(
+            linea['debito'],
+            currency: currency,
+            nullableAsZero: true,
+          ).toSql(),
+          'credito': MoneyValue.fromSql(
+            linea['credito'],
+            currency: currency,
+            nullableAsZero: true,
+          ).toSql(),
           'tercero': linea['tercero'],
         });
       }
@@ -8210,13 +8413,19 @@ class DatabaseHelper {
 
   Future<int> registrarAsientoVenta({
     required int ventaId,
-    required double total,
+    required MoneyValue total,
     required String metodoPago,
-    double costoVenta = 0,
-    double impuesto = 0,
+    required MoneyValue costoVenta,
+    required MoneyValue impuesto,
     Transaction? txn,
   }) async {
     final companyId = await obtenerEmpresaActivaId(txn);
+    final executor = txn ?? await instance.database;
+    final currency = await MoneyCurrencyResolver.resolve(
+      executor,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
     List<Map<String, dynamic>> saleRows;
 
     if (txn != null) {
@@ -8236,26 +8445,50 @@ class DatabaseHelper {
       );
     }
 
-    double cashPayment = 0;
-    double bankPayment = 0;
-    double credit = 0;
-    double retefuente = 0;
-    double reteiva = 0;
-    double reteica = 0;
+    var cashPayment = zero;
+    var bankPayment = zero;
+    var credit = zero;
+    var retefuente = zero;
+    var reteiva = zero;
+    var reteica = zero;
     String clientName = 'Cliente general';
 
     if (saleRows.isNotEmpty) {
       final sale = saleRows.first;
-      cashPayment = (sale['efectivo'] as num?)?.toDouble() ?? 0;
-      bankPayment = (sale['transferencia'] as num?)?.toDouble() ?? 0;
-      credit = (sale['credito'] as num?)?.toDouble() ?? 0;
-      retefuente = (sale['retefuente'] as num?)?.toDouble() ?? 0;
-      reteiva = (sale['reteiva'] as num?)?.toDouble() ?? 0;
-      reteica = (sale['reteica'] as num?)?.toDouble() ?? 0;
+      cashPayment = MoneyValue.fromSql(
+        sale['efectivo'],
+        currency: currency,
+        nullableAsZero: true,
+      );
+      bankPayment = MoneyValue.fromSql(
+        sale['transferencia'],
+        currency: currency,
+        nullableAsZero: true,
+      );
+      credit = MoneyValue.fromSql(
+        sale['credito'],
+        currency: currency,
+        nullableAsZero: true,
+      );
+      retefuente = MoneyValue.fromSql(
+        sale['retefuente'],
+        currency: currency,
+        nullableAsZero: true,
+      );
+      reteiva = MoneyValue.fromSql(
+        sale['reteiva'],
+        currency: currency,
+        nullableAsZero: true,
+      );
+      reteica = MoneyValue.fromSql(
+        sale['reteica'],
+        currency: currency,
+        nullableAsZero: true,
+      );
       clientName = sale['cliente']?.toString() ?? 'Cliente general';
     }
 
-    if (cashPayment == 0 && bankPayment == 0 && credit == 0) {
+    if ((cashPayment + bankPayment + credit).minorUnits == 0) {
       final normalized = metodoPago.toUpperCase().trim();
       if (normalized == 'CREDITO') {
         credit = total;
@@ -8295,14 +8528,15 @@ class DatabaseHelper {
 
   Future<int> registrarAsientoCompra({
     required int compraId,
-    required double total,
-    required double pagoCaja,
-    required double pagoBanco,
-    required double credito,
+    required MoneyValue total,
+    required MoneyValue pagoCaja,
+    required MoneyValue pagoBanco,
+    required MoneyValue credito,
     String? proveedor,
-    double impuesto = 0,
+    required MoneyValue impuesto,
     Transaction? txn,
   }) async {
+    final zero = MoneyValue(minorUnits: 0, currency: total.currency);
     final rules = await _reglasContablesActivas(txn);
     final draft = AccountingEngine(rules: rules).purchase(
       purchaseId: compraId,
@@ -8312,6 +8546,9 @@ class DatabaseHelper {
       credit: credito,
       supplier: proveedor,
       tax: impuesto,
+      retefuente: zero,
+      reteiva: zero,
+      reteica: zero,
     );
 
     return await _registrarAsientoConCodigos(
@@ -8343,7 +8580,7 @@ class DatabaseHelper {
   Future<int> registrarAsientoMovimientoCaja({
     required String tipo,
     required String concepto,
-    required double monto,
+    required MoneyValue monto,
     required String origen,
   }) async {
     final cuentaDinero = _codigoCuentaDinero(origen);
@@ -8355,14 +8592,14 @@ class DatabaseHelper {
       lineas: [
         {
           'codigo': esIngreso ? cuentaDinero : '5135',
-          'debito': monto,
+          'debito': monto.toSql(),
           'credito': 0,
           'descripcion': concepto,
         },
         {
           'codigo': esIngreso ? '4135' : cuentaDinero,
           'debito': 0,
-          'credito': monto,
+          'credito': monto.toSql(),
           'descripcion': concepto,
         },
       ],
@@ -8372,7 +8609,7 @@ class DatabaseHelper {
   Future<int> registrarAsientoTransferencia({
     required String origen,
     required String destino,
-    required double monto,
+    required MoneyValue monto,
     required String concepto,
   }) async {
     return await _registrarAsientoConCodigos(
@@ -8381,14 +8618,14 @@ class DatabaseHelper {
       lineas: [
         {
           'codigo': _codigoCuentaDinero(destino),
-          'debito': monto,
+          'debito': monto.toSql(),
           'credito': 0,
           'descripcion': concepto,
         },
         {
           'codigo': _codigoCuentaDinero(origen),
           'debito': 0,
-          'credito': monto,
+          'credito': monto.toSql(),
           'descripcion': concepto,
         },
       ],
@@ -8397,7 +8634,7 @@ class DatabaseHelper {
 
   Future<int> registrarAsientoAbonoCXP({
     required int cuentaId,
-    required double monto,
+    required MoneyValue monto,
     required String metodoPago,
   }) async {
     final cuentaDinero = metodoPago.toUpperCase().trim() == 'EFECTIVO'
@@ -8411,14 +8648,14 @@ class DatabaseHelper {
       lineas: [
         {
           'codigo': '2205',
-          'debito': monto,
+          'debito': monto.toSql(),
           'credito': 0,
           'descripcion': 'Disminución de cuenta por pagar #$cuentaId',
         },
         {
           'codigo': cuentaDinero,
           'debito': 0,
-          'credito': monto,
+          'credito': monto.toSql(),
           'descripcion': 'Pago de cuenta por pagar #$cuentaId',
         },
       ],
@@ -8427,7 +8664,7 @@ class DatabaseHelper {
 
   Future<int> registrarAsientoAbonoCXC({
     required int cuentaId,
-    required double monto,
+    required MoneyValue monto,
     required String metodoPago,
   }) async {
     final cuentaDinero = metodoPago.toUpperCase().trim() == 'EFECTIVO'
@@ -8441,14 +8678,14 @@ class DatabaseHelper {
       lineas: [
         {
           'codigo': cuentaDinero,
-          'debito': monto,
+          'debito': monto.toSql(),
           'credito': 0,
           'descripcion': 'Cobro de cartera #$cuentaId',
         },
         {
           'codigo': '1305',
           'debito': 0,
-          'credito': monto,
+          'credito': monto.toSql(),
           'descripcion': 'Disminución de cuenta por cobrar #$cuentaId',
         },
       ],
@@ -8472,7 +8709,7 @@ class DatabaseHelper {
     required String nombre,
     required String numeroCuenta,
     required String tipo,
-    required double saldoInicial,
+    required MoneyValue saldoInicial,
     required String cuentaPuc,
   }) async {
     final db = await instance.database;
@@ -8482,7 +8719,7 @@ class DatabaseHelper {
       'nombre': nombre,
       'numero_cuenta': numeroCuenta,
       'tipo': tipo,
-      'saldo_inicial': saldoInicial,
+      'saldo_inicial': saldoInicial.toSql(),
       'cuenta_puc': cuentaPuc,
       'fecha': DateTime.now().toIso8601String(),
     });
@@ -8495,9 +8732,13 @@ class DatabaseHelper {
 
   // ── VALIDACIÓN Y OBTENCIÓN DE SALDO REAL ───────────────────
 
-  Future<double> obtenerSaldoDisponible(String metodo) async {
+  Future<MoneyValue> obtenerSaldoDisponible(String metodo) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final codigoPuc = metodo.toUpperCase().trim() == 'EFECTIVO'
         ? '1105%'
         : '1110%';
@@ -8509,18 +8750,27 @@ class DatabaseHelper {
     ''',
       [companyId, codigoPuc],
     );
-    return (res.first['saldo'] as num?)?.toDouble() ?? 0.0;
+    return MoneyValue.fromSql(
+      res.first['saldo'],
+      currency: currency,
+      nullableAsZero: true,
+    );
   }
 
-  Future<double> obtenerSaldoBanco(int bancoId) async {
+  Future<MoneyValue> obtenerSaldoBanco(int bancoId) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
     final bancos = await db.query(
       'bancos',
       where: 'id = ?',
       whereArgs: [bancoId],
     );
-    if (bancos.isEmpty) return 0.0;
+    if (bancos.isEmpty) return zero;
     final banco = bancos.first;
     final cuentaPuc = banco['cuenta_puc']?.toString() ?? '111005';
     final List<Map<String, dynamic>> res = await db.rawQuery(
@@ -8531,8 +8781,17 @@ class DatabaseHelper {
     ''',
       [companyId, '$cuentaPuc%'],
     );
-    final saldoInicial = (banco['saldo_inicial'] as num?)?.toDouble() ?? 0.0;
-    return saldoInicial + ((res.first['saldo'] as num?)?.toDouble() ?? 0.0);
+    final saldoInicial = MoneyValue.fromSql(
+      banco['saldo_inicial'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final movimientos = MoneyValue.fromSql(
+      res.first['saldo'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    return saldoInicial + movimientos;
   }
 
   // ── ANULACIÓN DE MOVIMIENTO DE CAJA/BANCOS ──────────────────
@@ -8555,7 +8814,12 @@ class DatabaseHelper {
     );
 
     final concepto = 'Reversión: ${mov['concepto']}';
-    final monto = (mov['monto'] as num).toDouble();
+    final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final monto = MoneyValue.fromSql(mov['monto'], currency: currency);
     final esIngreso = mov['tipo'].toString().toLowerCase() == 'ingreso';
 
     final bancoId = mov['banco_id'] as int?;
@@ -8577,14 +8841,14 @@ class DatabaseHelper {
       lineas: [
         {
           'codigo': esIngreso ? '4135' : cuentaDinero,
-          'debito': monto,
+          'debito': monto.toSql(),
           'credito': 0,
           'descripcion': concepto,
         },
         {
           'codigo': esIngreso ? cuentaDinero : '5135',
           'debito': 0,
-          'credito': monto,
+          'credito': monto.toSql(),
           'descripcion': concepto,
         },
       ],
@@ -8597,19 +8861,21 @@ class DatabaseHelper {
     required int bancoId,
     required String fecha,
     required String descripcion,
-    required double monto,
+    required MoneyValue monto,
     required String referencia,
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
     return await db.insert('extractos_bancarios', {
       'company_id': companyId,
-      'banco_id': bancoId,
+      'cuenta': bancoId.toString(),
       'fecha': fecha,
       'descripcion': descripcion,
-      'monto': monto,
+      'valor': monto.abs().toSql(),
+      'tipo': monto.minorUnits >= 0 ? 'ingreso' : 'egreso',
       'referencia': referencia,
       'conciliado': 0,
+      'creado': DateTime.now().toIso8601String(),
     });
   }
 
@@ -8620,8 +8886,8 @@ class DatabaseHelper {
     final companyId = await obtenerEmpresaActivaId();
     return await db.query(
       'extractos_bancarios',
-      where: 'company_id = ? AND banco_id = ?',
-      whereArgs: [companyId, bancoId],
+      where: 'company_id = ? AND cuenta = ?',
+      whereArgs: [companyId, bancoId.toString()],
       orderBy: 'fecha DESC',
     );
   }
@@ -8809,7 +9075,7 @@ class DatabaseHelper {
     required String nombre,
     required String numeroCuenta,
     required String tipo,
-    required double saldoInicial,
+    required MoneyValue saldoInicial,
     required String cuentaPuc,
   }) async {
     final db = await instance.database;
@@ -8819,7 +9085,7 @@ class DatabaseHelper {
         'nombre': nombre,
         'numero_cuenta': numeroCuenta,
         'tipo': tipo,
-        'saldo_inicial': saldoInicial,
+        'saldo_inicial': saldoInicial.toSql(),
         'cuenta_puc': cuentaPuc,
       },
       where: 'id = ?',
@@ -8828,49 +9094,62 @@ class DatabaseHelper {
   }
 
   /// Borrador Formulario 300 (IVA) - DIAN Colombia.
-  Future<Map<String, double>> obtenerBorradorFormulario300({
+  Future<Map<String, MoneyValue>> obtenerBorradorFormulario300({
     required int anio,
     required int mes,
   }) async {
     final fiscal = await obtenerReporteFiscal(anio: anio, mes: mes);
-    final baseGravada = (fiscal['ventas'] ?? 0) / 1.19;
+    final baseGravada = fiscal['ventas']!.divideDecimal('1.19');
     return {
-      'ingresos_gravados': fiscal['ventas'] ?? 0,
+      'ingresos_gravados': fiscal['ventas']!,
       'base_gravada': baseGravada,
-      'iva_generado': fiscal['iva_generado'] ?? 0,
-      'iva_descontable': fiscal['iva_descontable'] ?? 0,
-      'saldo_pagar': fiscal['iva_por_pagar'] ?? 0,
-      'reteiva_practicada': fiscal['reteiva_practicada'] ?? 0,
+      'iva_generado': fiscal['iva_generado']!,
+      'iva_descontable': fiscal['iva_descontable']!,
+      'saldo_pagar': fiscal['iva_por_pagar']!,
+      'reteiva_practicada': fiscal['reteiva_practicada']!,
     };
   }
 
   /// Borrador Formulario 350 (Retención en la Fuente) - DIAN.
-  Future<Map<String, double>> obtenerBorradorFormulario350({
+  Future<Map<String, MoneyValue>> obtenerBorradorFormulario350({
     required int anio,
     required int mes,
   }) async {
     final fiscal = await obtenerReporteFiscal(anio: anio, mes: mes);
     return {
-      'retefuente_compras': fiscal['retefuente_recibida'] ?? 0,
-      'retefuente_servicios': (fiscal['retefuente_practicada'] ?? 0) * 0.4,
-      'retefuente_honorarios': (fiscal['retefuente_practicada'] ?? 0) * 0.3,
-      'retefuente_arrendamientos': (fiscal['retefuente_practicada'] ?? 0) * 0.2,
-      'total_retenciones': fiscal['retefuente_practicada'] ?? 0,
+      'retefuente_compras': fiscal['retefuente_recibida']!,
+      'retefuente_servicios': fiscal['retefuente_practicada']!.multiplyDecimal(
+        '0.4',
+      ),
+      'retefuente_honorarios': fiscal['retefuente_practicada']!.multiplyDecimal(
+        '0.3',
+      ),
+      'retefuente_arrendamientos': fiscal['retefuente_practicada']!
+          .multiplyDecimal('0.2'),
+      'total_retenciones': fiscal['retefuente_practicada']!,
     };
   }
 
   /// Borrador Formulario 110 (Renta Personas Jurídicas) - resumen anual.
-  Future<Map<String, double>> obtenerBorradorFormulario110({
+  Future<Map<String, MoneyValue>> obtenerBorradorFormulario110({
     required int anio,
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final inicio = DateTime(anio, 1, 1).toIso8601String();
     final fin = DateTime(anio + 1, 1, 1).toIso8601String();
 
-    Future<double> sum(String sql) async {
+    Future<MoneyValue> sum(String sql) async {
       final res = await db.rawQuery(sql, [companyId, inicio, fin]);
-      return (res.first['total'] as num?)?.toDouble() ?? 0;
+      return MoneyValue.fromSql(
+        res.first['total'],
+        currency: currency,
+        nullableAsZero: true,
+      );
     }
 
     final ventas = await sum(
@@ -8882,18 +9161,18 @@ class DatabaseHelper {
     final estados = await obtenerEstadosFinancieros();
 
     return {
-      'patrimonio_bruto': estados['activos'] ?? 0,
-      'pasivos': estados['pasivos'] ?? 0,
-      'patrimonio_liquido': estados['patrimonio'] ?? 0,
+      'patrimonio_bruto': estados['activos']!,
+      'pasivos': estados['pasivos']!,
+      'patrimonio_liquido': estados['patrimonio']!,
       'ingresos_operacionales': ventas,
       'costos_ventas': compras,
-      'gastos_operativos': (estados['gastos'] ?? 0),
+      'gastos_operativos': estados['gastos']!,
       'utilidad_gravable': estados['utilidad'] ?? (ventas - compras),
     };
   }
 
   /// Borrador ICA municipal (bimestral/anual).
-  Future<Map<String, double>> obtenerBorradorICA({
+  Future<Map<String, Object>> obtenerBorradorICA({
     required int anio,
     required int mesInicio,
     required int mesFin,
@@ -8901,27 +9180,41 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final inicio = DateTime(anio, mesInicio, 1).toIso8601String();
     final fin = DateTime(anio, mesFin + 1, 1).toIso8601String();
     final res = await db.rawQuery(
       "SELECT COALESCE(SUM(total), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ? AND COALESCE(estado, 'emitida') != 'anulada'",
       [companyId, inicio, fin],
     );
-    final ingresosBrutos = (res.first['total'] as num?)?.toDouble() ?? 0;
-    final ingresosNetos = ingresosBrutos * 0.95;
-    final ica = ingresosNetos * (tarifaPorMil / 1000);
-    final avisosTableros = ica * 0.15;
+    final ingresosBrutos = MoneyValue.fromSql(
+      res.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final ingresosNetos = ingresosBrutos.multiplyDecimal('0.95');
+    final ica = ingresosNetos
+        .multiplyDecimal(tarifaPorMil.toString())
+        .divideDecimal('1000');
+    final avisosTableros = ica.percent('15');
 
     final reteica = await db.rawQuery(
       'SELECT COALESCE(SUM(reteica), 0) AS total FROM ventas WHERE company_id = ? AND fecha >= ? AND fecha < ?',
       [companyId, inicio, fin],
     );
-    final reteicaPracticada = (reteica.first['total'] as num?)?.toDouble() ?? 0;
+    final reteicaPracticada = MoneyValue.fromSql(
+      reteica.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
 
     return {
       'ingresos_brutos': ingresosBrutos,
       'ingresos_netos_gravables': ingresosNetos,
-      'tarifa_por_mil': tarifaPorMil,
+      'tarifa_por_mil': tarifaPorMil.toString(),
       'impuesto_ica': ica,
       'avisos_tableros': avisosTableros,
       'reteica_practicada': reteicaPracticada,

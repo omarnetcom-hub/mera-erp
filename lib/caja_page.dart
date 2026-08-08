@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'core/financial/financial_ui_helpers.dart';
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'logo_widget.dart';
 import 'numeric_input.dart';
@@ -17,9 +19,10 @@ class CajaPage extends StatefulWidget {
 class _CajaPageState extends State<CajaPage> {
   List<Map<String, dynamic>> _movimientos = [];
   List<Map<String, dynamic>> _bancos = [];
-  double _saldoCaja = 0;
-  double _saldoBanco = 0;
-  double _saldoCartera = 0;
+  Currency? _currency;
+  MoneyValue? _saldoCaja;
+  MoneyValue? _saldoBanco;
+  MoneyValue? _saldoCartera;
   String _filtroCuenta = 'todas';
   String _filtroTipo = 'todos';
 
@@ -34,6 +37,12 @@ class _CajaPageState extends State<CajaPage> {
   }
 
   Future<void> _cargarDatos() async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final movs = await DatabaseHelper.instance.obtenerMovimientos();
     final bancos = await DatabaseHelper.instance.obtenerBancos();
     final saldoCaja = await DatabaseHelper.instance.obtenerSaldoPorCuenta(
@@ -51,6 +60,7 @@ class _CajaPageState extends State<CajaPage> {
     setState(() {
       _movimientos = movs;
       _bancos = bancos;
+      _currency = currency;
       _saldoCaja = saldoCaja;
       _saldoBanco = saldoBanco;
       _saldoCartera = saldoCartera;
@@ -60,25 +70,28 @@ class _CajaPageState extends State<CajaPage> {
   Future<void> _agregarMovimiento({
     required String tipo,
     required String concepto,
-    required double monto,
+    required MoneyValue monto,
     required String origen,
     int? bancoId,
   }) async {
     if (concepto.trim().isEmpty) {
       throw Exception('El concepto es obligatorio.');
     }
-    if (monto <= 0) {
+    if (monto.minorUnits <= 0) {
       throw Exception('El monto debe ser mayor que cero.');
     }
 
     // Validación de saldo insuficiente para egresos
     if (tipo == 'egreso') {
       final cuentaOrigen = bancoId != null ? 'banco' : origen;
-      final saldoActual = await DatabaseHelper.instance.obtenerSaldoPorCuenta(cuentaOrigen);
-      
+      final saldoActual = await DatabaseHelper.instance.obtenerSaldoPorCuenta(
+        cuentaOrigen,
+      );
+
       if (saldoActual < monto) {
         throw Exception(
-          'Saldo insuficiente en $cuentaOrigen. Saldo actual: \$${saldoActual.toStringAsFixed(2)}, Monto requerido: \$${monto.toStringAsFixed(2)}',
+          'Saldo insuficiente en $cuentaOrigen. Saldo actual: '
+          '${saldoActual.format()}, monto requerido: ${monto.format()}',
         );
       }
     }
@@ -86,7 +99,7 @@ class _CajaPageState extends State<CajaPage> {
     await DatabaseHelper.instance.insertarMovimiento({
       'tipo': tipo,
       'concepto': concepto,
-      'monto': monto,
+      'monto': monto.toSql(),
       'fecha': DateTime.now().toIso8601String(),
       'origen': origen,
       'banco_id': bancoId,
@@ -160,10 +173,18 @@ class _CajaPageState extends State<CajaPage> {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: cuentaSel,
-                  decoration: const InputDecoration(labelText: 'Cuenta origen/destino'),
+                  decoration: const InputDecoration(
+                    labelText: 'Cuenta origen/destino',
+                  ),
                   items: [
-                    const DropdownMenuItem(value: 'caja', child: Text('Caja General')),
-                    const DropdownMenuItem(value: 'banco', child: Text('Banco (general)')),
+                    const DropdownMenuItem(
+                      value: 'caja',
+                      child: Text('Caja General'),
+                    ),
+                    const DropdownMenuItem(
+                      value: 'banco',
+                      child: Text('Banco (general)'),
+                    ),
                     ..._bancos.map(
                       (b) => DropdownMenuItem(
                         value: 'banco_${b['id']}',
@@ -211,8 +232,17 @@ class _CajaPageState extends State<CajaPage> {
             ),
             FilledButton.icon(
               onPressed: () async {
-                final monto =
-                    double.tryParse(montoCtrl.text.replaceAll(',', '.')) ?? 0;
+                final currency = _currency;
+                if (currency == null) return;
+                MoneyValue monto;
+                try {
+                  monto = MoneyValue.fromMajorUnits(
+                    montoCtrl.text.replaceAll(',', '.'),
+                    currency: currency,
+                  );
+                } on FormatException {
+                  return;
+                }
                 String origen = 'caja';
                 int? bancoId;
                 if (cuentaSel.startsWith('banco_')) {
@@ -267,7 +297,10 @@ class _CajaPageState extends State<CajaPage> {
           'Se marcará como anulado y se generará el contrasiento contable.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Anular'),
@@ -276,17 +309,17 @@ class _CajaPageState extends State<CajaPage> {
       ),
     );
     if (ok != true) return;
-    
+
     // Actualizar estado local inmediatamente para feedback visual
     setState(() {
       _movimientos.removeWhere((m) => m['id'] == id);
     });
-    
+
     await DatabaseHelper.instance.anularMovimientoCaja(id);
-    
+
     // Recargar datos completos para asegurar consistencia
     await _cargarDatos();
-    
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -296,21 +329,31 @@ class _CajaPageState extends State<CajaPage> {
     );
   }
 
-  String _moneda(double valor) => FinancialUiHelpers.formatCurrency(valor);
+  String _monedaSql(Object? value) {
+    final currency = _currency;
+    if (currency == null) return '-';
+    return MoneyValue.fromSql(
+      value,
+      currency: currency,
+      nullableAsZero: true,
+    ).format();
+  }
+
+  String _moneda(MoneyValue? value) => value?.format() ?? '-';
 
   @override
   Widget build(BuildContext context) {
     final movimientos = _movimientosFiltrados;
-    final ingresosVisibles = movimientos.fold<double>(
+    final ingresosVisibles = movimientos.fold<int>(
       0,
       (sum, movimiento) => movimiento['tipo'] == 'ingreso'
-          ? sum + ((movimiento['monto'] as num?)?.toDouble() ?? 0)
+          ? sum + (movimiento['monto'] as int? ?? 0)
           : sum,
     );
-    final egresosVisibles = movimientos.fold<double>(0, (sum, movimiento) {
+    final egresosVisibles = movimientos.fold<int>(0, (sum, movimiento) {
       final tipo = movimiento['tipo']?.toString();
       if (tipo != 'egreso' && tipo != 'transferencia') return sum;
-      return sum + ((movimiento['monto'] as num?)?.toDouble() ?? 0);
+      return sum + (movimiento['monto'] as int? ?? 0);
     });
 
     return Scaffold(
@@ -342,10 +385,12 @@ class _CajaPageState extends State<CajaPage> {
                   saldoCaja: _moneda(_saldoCaja),
                   saldoBanco: _moneda(_saldoBanco),
                   cartera: _moneda(_saldoCartera),
-                  disponible: _moneda(_saldoCaja + _saldoBanco),
+                  disponible: _saldoCaja == null || _saldoBanco == null
+                      ? '-'
+                      : _moneda(_saldoCaja! + _saldoBanco!),
                   movimientos: movimientos.length,
-                  ingresos: _moneda(ingresosVisibles),
-                  egresos: _moneda(egresosVisibles),
+                  ingresos: _monedaSql(ingresosVisibles),
+                  egresos: _monedaSql(egresosVisibles),
                   onNewMovement: _abrirFormulario,
                   onTransfer: _abrirTransferencia,
                   onRefresh: _cargarDatos,
@@ -412,8 +457,9 @@ class _CajaPageState extends State<CajaPage> {
                                   itemBuilder: (ctx, i) {
                                     return _MovimientoCajaTile(
                                       movimiento: movimientos[i],
-                                      moneda: _moneda,
-                                      onAnular: () => _anularMovimiento(movimientos[i]),
+                                      moneda: _monedaSql,
+                                      onAnular: () =>
+                                          _anularMovimiento(movimientos[i]),
                                     );
                                   },
                                 ),
@@ -473,18 +519,48 @@ class _CajaCommandPanel extends StatelessWidget {
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 1040;
           final isMobile = constraints.maxWidth < 600;
-          
+
           // En móvil, mostrar menos métricas
           final metrics = isMobile
               ? [
-                  _CajaMetric('Caja', saldoCaja, Icons.point_of_sale, AppBrand.success),
-                  _CajaMetric('Banco', saldoBanco, Icons.account_balance, AppBrand.secondary),
+                  _CajaMetric(
+                    'Caja',
+                    saldoCaja,
+                    Icons.point_of_sale,
+                    AppBrand.success,
+                  ),
+                  _CajaMetric(
+                    'Banco',
+                    saldoBanco,
+                    Icons.account_balance,
+                    AppBrand.secondary,
+                  ),
                 ]
               : [
-                  _CajaMetric('Caja', saldoCaja, Icons.point_of_sale, AppBrand.success),
-                  _CajaMetric('Banco', saldoBanco, Icons.account_balance, AppBrand.secondary),
-                  _CajaMetric('Disponible', disponible, Icons.account_balance_wallet, AppBrand.info),
-                  _CajaMetric('Cartera', cartera, Icons.person_pin, AppBrand.warning),
+                  _CajaMetric(
+                    'Caja',
+                    saldoCaja,
+                    Icons.point_of_sale,
+                    AppBrand.success,
+                  ),
+                  _CajaMetric(
+                    'Banco',
+                    saldoBanco,
+                    Icons.account_balance,
+                    AppBrand.secondary,
+                  ),
+                  _CajaMetric(
+                    'Disponible',
+                    disponible,
+                    Icons.account_balance_wallet,
+                    AppBrand.info,
+                  ),
+                  _CajaMetric(
+                    'Cartera',
+                    cartera,
+                    Icons.person_pin,
+                    AppBrand.warning,
+                  ),
                 ];
 
           return Column(
@@ -554,9 +630,15 @@ class _CajaCommandPanel extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: onNewMovement,
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Nuevo', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Nuevo',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                       ),
                     ),
@@ -565,9 +647,15 @@ class _CajaCommandPanel extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onTransfer,
                         icon: const Icon(Icons.swap_horiz, size: 18),
-                        label: const Text('Transferir', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Transferir',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                       ),
                     ),
@@ -588,7 +676,9 @@ class _CajaCommandPanel extends StatelessWidget {
                 children: [
                   EnterpriseStatusPill(
                     icon: Icons.receipt_long,
-                    label: isMobile ? '$movimientos' : '$movimientos movimientos',
+                    label: isMobile
+                        ? '$movimientos'
+                        : '$movimientos movimientos',
                     color: AppBrand.info,
                   ),
                   EnterpriseStatusPill(
@@ -610,10 +700,10 @@ class _CajaCommandPanel extends StatelessWidget {
                   final columns = grid.maxWidth >= 1100
                       ? 4
                       : grid.maxWidth >= 800
-                          ? 2
-                          : isMobile
-                              ? 2
-                              : 3;
+                      ? 2
+                      : isMobile
+                      ? 2
+                      : 3;
                   final width =
                       (grid.maxWidth - ((columns - 1) * EnterpriseSpacing.sm)) /
                       columns;
@@ -730,7 +820,7 @@ class _MovimientoCajaTile extends StatelessWidget {
   });
 
   final Map<String, dynamic> movimiento;
-  final String Function(double) moneda;
+  final String Function(Object?) moneda;
   final VoidCallback? onAnular;
 
   @override
@@ -748,7 +838,7 @@ class _MovimientoCajaTile extends StatelessWidget {
         : esIngreso
         ? Icons.south_west
         : Icons.north_east;
-    final monto = ((movimiento['monto'] as num?)?.toDouble() ?? 0);
+    final monto = movimiento['monto'] as int? ?? 0;
     final valor = esIngreso ? monto : -monto;
     final cuenta = movimiento['origen']?.toString() ?? 'caja';
     final fecha = movimiento['fecha']?.toString() ?? '';

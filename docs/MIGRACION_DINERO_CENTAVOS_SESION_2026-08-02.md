@@ -637,3 +637,136 @@ Estado: **Completa en nucleo y esquema; consumidores pendientes por diseno de fa
 La migracion v75 es atomica e idempotente y fue validada contra una copia del respaldo. No se modifico la base activa ni el respaldo inmutable. El build no falla por el tipado dinamico de SQLite, pero no debe considerarse funcionalmente compatible hasta convertir lectores/escritores comerciales y publicos.
 
 Commit: este commit de Fase 2 (ver `git log`).
+
+## Fase 3A - consumidores comerciales, primera entrega
+
+Fecha de cierre: 2026-08-08.
+
+### Inventario y decision de alcance
+
+El manifiesto v75 contiene 197 columnas monetarias comerciales en 74 tablas.
+La depuracion identifico 79 consumidores Dart directos y seis bordes de soporte
+adicionales encontrados al compilar. Se priorizo una entrega funcional de los
+flujos de mayor riesgo: ventas/POS, compras, caja, cartera, bancos, nomina y
+reportes fiscales. Esta entrega es parcial: convierte semanticamente 27 de los
+79 consumidores inventariados y los seis bordes de soporte; quedan 52
+consumidores inventariados en `MIGRACION_DINERO_CENTAVOS_FASE_3A_INVENTARIO.md`.
+
+### Archivos convertidos semanticamente
+
+- `lib/accounting/application/accounting_engine.dart`
+- `lib/bancos_page.dart`
+- `lib/caja_page.dart`
+- `lib/cierres_caja_page.dart`
+- `lib/commerce/application/payment_policy.dart`
+- `lib/compras_page.dart`
+- `lib/conciliacion_bancaria_page.dart`
+- `lib/core/api/api_dispatcher.dart`
+- `lib/core/currency/money_value.dart`
+- `lib/core/currency/money_currency_resolver.dart`
+- `lib/core/invoicing/cufe.dart`
+- `lib/cuentas_por_cobrar_page.dart`
+- `lib/cuentas_por_pagar_page.dart`
+- `lib/db_helper.dart`
+- `lib/declaraciones_tributarias_page.dart`
+- `lib/estados_financieros_page.dart`
+- `lib/exportar_excel.dart`
+- `lib/extracto_caja_page.dart`
+- `lib/extractos_bancarios_page.dart`
+- `lib/facturacion_electronica_page.dart`
+- `lib/financial_dashboard.dart`
+- `lib/nomina_page.dart`
+- `lib/presupuestos_page.dart`
+- `lib/purchases/application/create_purchase_use_case.dart`
+- `lib/purchases/data/purchase_repository.dart`
+- `lib/purchases/domain/purchase.dart`
+- `lib/reportes_fiscales_page.dart`
+- `lib/reportes_page.dart`
+- `lib/sales/application/create_sale_use_case.dart`
+- `lib/sales/data/sale_repository.dart`
+- `lib/sales/domain/sale.dart`
+- `lib/transferencias_page.dart`
+- `lib/ui/sales_mode_panel.dart`
+- `lib/ventas_page.dart`
+
+`order_service.dart`, `quote_service.dart`, `commission_service.dart`,
+`warranty_service.dart` y `order.dart` tuvieron formateo mecanico durante la
+compilacion incremental. Esos diffs se revirtieron antes del commit; no se
+cuentan como convertidos y sus importes siguen en el backlog de esta fase.
+
+### Bugs encontrados y corregidos
+
+1. Cesantias: `intereses_cesantias` aplicaba una sola tasa de 1 %. Ahora usa
+   `cesantias.percent('12')`, equivalente al 12 % anual exacto sobre el saldo.
+2. ReteICA: se verifico que sigue leyendo `reglas_retenciones_empresa` por
+   empresa, con `activo=1` y `aplica_ventas=1`; sin regla activa produce cero.
+3. Contabilizacion de venta: se elimino una doble resta de retenciones al
+   construir el ingreso y se validan medios de pago con `MoneyValue`.
+4. Extractos bancarios: se corrigio el consumidor que usaba nombres inexistentes
+   (`banco_id`/`monto`) frente al esquema real (`cuenta`/`valor`).
+5. Repositorios de venta/compra: el resolvedor de moneda ahora es inyectable;
+   una prueba con gateway aislado ya no abre el `DatabaseHelper` global.
+
+### Evidencia cruda
+
+Analisis:
+
+```text
+Comando: dart analyze lib test
+Linea base Fase 2: 189 issues, 0 errores
+Resultado intermedio: 188 issues, 3 errores (financial_dashboard.dart)
+Resultado final: 185 issues found, 0 errores
+```
+
+La salida cruda completa esta en
+`docs/evidencias/migracion_dinero_fase_3a/dart_analyze_lib_test.txt`.
+
+Regresion comercial focalizada:
+
+```text
+00:23 +47: All tests passed!
+```
+
+La salida cruda completa de las 47 pruebas esta en
+`docs/evidencias/migracion_dinero_fase_3a/flutter_test_comercial.txt`.
+Incluye MoneyValue, POS, ReteICA, cesantias al 12 %, F300/F350, CUFE, API,
+seguridad, repositorios y factura electronica.
+
+Suite completa:
+
+```text
+Suites     : 78
+Tests      : 213
+Passed     : 185
+Error      : 25
+Skipped    : 3
+RunnerDone : 1
+```
+
+Los 25 fallos restantes pertenecen a widgets generales o a fixtures/esquemas
+de sector publico pendientes de Fase 3B; no quedo ningun fallo en el lote
+comercial convertido. El listado crudo esta en
+`docs/evidencias/migracion_dinero_fase_3a/suite_completa_resumen.txt`.
+
+Build Windows:
+
+```text
+Building Windows application...                                    88.1s
+√ Built build\windows\x64\runner\Release\MerkaERP.exe
+```
+
+Salida completa en
+`docs/evidencias/migracion_dinero_fase_3a/flutter_build_windows.txt`.
+
+## Cierre de la Fase 3A
+
+Estado: **Parcial, compilable y respaldado por regresion comercial**.
+
+Los flujos comerciales de mayor riesgo operan sobre enteros de unidad menor y
+`MoneyValue`, el analizador queda en cero errores y el build Windows termina.
+No se declara completa la migracion comercial: quedan 52 consumidores directos,
+principalmente documentos enterprise de ventas/compras, inventario, libro
+contable, analitica, multiempresa e integraciones. Esos archivos no deben
+recibir adaptadores `double` temporales; continuan con la misma regla de borde.
+
+Commit: este commit de Fase 3A (ver `git log`).

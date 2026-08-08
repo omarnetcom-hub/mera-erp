@@ -33,9 +33,9 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
     if (!mounted) return;
 
     setState(() {
-      caja = c;
-      banco = b;
-      cartera = k;
+      caja = c.toMajorUnitsDoubleForDisplay();
+      banco = b.toMajorUnitsDoubleForDisplay();
+      cartera = k.toMajorUnitsDoubleForDisplay();
 
       // 💰 dinero realmente utilizable
       disponibleReal = caja + banco;

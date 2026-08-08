@@ -4,6 +4,8 @@ import 'package:merka_erp/purchases/domain/purchase.dart';
 import 'package:merka_erp/sales/domain/sale.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/test_money.dart';
+
 void main() {
   group('Product domain', () {
     test('calcula resumen de inventario por costo, venta y stock bajo', () {
@@ -51,11 +53,11 @@ void main() {
         'cliente_id': 5,
         'cliente': 'Cliente demo',
         'estado': 'anulada',
-      });
+      }, currency: testCop);
 
       expect(sale.id, 7);
       expect(sale.companyId, 2);
-      expect(sale.total, 23800);
+      expect(sale.total, testMoney('238.00'));
       expect(sale.isCanceled, isTrue);
       expect(sale.toMap()['cliente'], 'Cliente demo');
     });
@@ -79,11 +81,11 @@ void main() {
         'fecha': '2026-05-19T11:00:00',
         'metodo_pago_id': 4,
         'estado': 'pendiente',
-      });
+      }, currency: testCop);
 
       expect(purchase.id, 11);
       expect(purchase.supplierId, 9);
-      expect(purchase.total, 59500);
+      expect(purchase.total, testMoney('595.00'));
       expect(purchase.hasCredit, isTrue);
       expect(purchase.toMap()['proveedor'], 'Proveedor demo');
     });

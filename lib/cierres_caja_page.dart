@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'core/currency/currency.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'numeric_input.dart';
 
@@ -15,6 +17,7 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
   double saldoBanco = 0;
   double saldoCartera = 0;
   bool bloqueada = false;
+  Currency? _currency;
 
   @override
   void initState() {
@@ -30,14 +33,17 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
     final data = await DatabaseHelper.instance.obtenerCierresCaja();
     final saldo = await DatabaseHelper.instance.obtenerSaldoPorCuenta('caja');
     final banco = await DatabaseHelper.instance.obtenerSaldoPorCuenta('banco');
-    final cartera = await DatabaseHelper.instance.obtenerSaldoPorCuenta('cartera');
+    final cartera = await DatabaseHelper.instance.obtenerSaldoPorCuenta(
+      'cartera',
+    );
     final bloqueo = await DatabaseHelper.instance.operacionBloqueadaPorCierre();
     if (!mounted) return;
     setState(() {
       cierres = data;
-      saldoSistema = saldo;
-      saldoBanco = banco;
-      saldoCartera = cartera;
+      _currency = saldo.currency;
+      saldoSistema = saldo.toMajorUnitsDoubleForDisplay();
+      saldoBanco = banco.toMajorUnitsDoubleForDisplay();
+      saldoCartera = cartera.toMajorUnitsDoubleForDisplay();
       bloqueada = bloqueo;
     });
   }
@@ -47,7 +53,10 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
     await _cargar();
   }
 
-  Future<void> _abrirDesgloseCaja(TextEditingController contadoCtrl, TextEditingController obsCtrl) async {
+  Future<void> _abrirDesgloseCaja(
+    TextEditingController contadoCtrl,
+    TextEditingController obsCtrl,
+  ) async {
     final Map<int, TextEditingController> ctrls = {
       100000: TextEditingController(),
       50000: TextEditingController(),
@@ -80,15 +89,14 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
           }
 
           Widget denominationInput(int val, String type) {
-            final formattedVal = val >= 1000 ? '\$${(val / 1000).toStringAsFixed(0)}k' : '\$$val';
+            final formattedVal = val >= 1000
+                ? '\$${(val / 1000).toStringAsFixed(0)}k'
+                : '\$$val';
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text('$type de $formattedVal:'),
-                  ),
+                  Expanded(flex: 2, child: Text('$type de $formattedVal:')),
                   const SizedBox(width: 8),
                   Expanded(
                     child: SizedBox(
@@ -111,7 +119,10 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                     child: Text(
                       'Total: \$${((int.tryParse(ctrls[val]!.text) ?? 0) * val).toStringAsFixed(0)}',
                       textAlign: TextAlign.right,
-                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ],
@@ -128,7 +139,13 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Billetes', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                    const Text(
+                      'Billetes',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
                     const Divider(),
                     denominationInput(100000, 'Billete'),
                     denominationInput(50000, 'Billete'),
@@ -137,7 +154,13 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                     denominationInput(5000, 'Billete'),
                     denominationInput(2000, 'Billete'),
                     const SizedBox(height: 12),
-                    const Text('Monedas', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                    const Text(
+                      'Monedas',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
                     const Divider(),
                     denominationInput(1000, 'Moneda'),
                     denominationInput(500, 'Moneda'),
@@ -148,10 +171,20 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total Contado:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const Text(
+                          'Total Contado:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                         Text(
                           '\$${totalDesglose.toStringAsFixed(0)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.green,
+                          ),
                         ),
                       ],
                     ),
@@ -167,19 +200,22 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
               ElevatedButton(
                 onPressed: () {
                   contadoCtrl.text = totalDesglose.toStringAsFixed(0);
-                  
+
                   final List<String> detailList = [];
                   for (final entry in ctrls.entries) {
                     final qty = int.tryParse(entry.value.text) ?? 0;
                     if (qty > 0) {
-                      final fmt = entry.key >= 1000 ? '${entry.key ~/ 1000}k' : '${entry.key}';
+                      final fmt = entry.key >= 1000
+                          ? '${entry.key ~/ 1000}k'
+                          : '${entry.key}';
                       detailList.add('${qty}x\$$fmt');
                     }
                   }
                   if (detailList.isNotEmpty) {
-                    obsCtrl.text = 'Desglose: [${detailList.join(', ')}]. ${obsCtrl.text}';
+                    obsCtrl.text =
+                        'Desglose: [${detailList.join(', ')}]. ${obsCtrl.text}';
                   }
-                  
+
                   Navigator.pop(ctx);
                 },
                 child: const Text('Confirmar y Aplicar'),
@@ -202,9 +238,10 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
-          final contado = double.tryParse(contadoCtrl.text.replaceAll(',', '.')) ?? 0;
+          final contado =
+              double.tryParse(contadoCtrl.text.replaceAll(',', '.')) ?? 0;
           final diferencia = contado - saldoSistema;
-          
+
           return AlertDialog(
             title: const Text('Cierre de caja'),
             content: SizedBox(
@@ -221,13 +258,21 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Saldos por método de pago', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text(
+                              'Saldos por método de pago',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Caja (Efectivo):'),
-                                Text(_fmt(saldoSistema), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  _fmt(saldoSistema),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
@@ -235,7 +280,12 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Banco (Transferencias):'),
-                                Text(_fmt(saldoBanco), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  _fmt(saldoBanco),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
@@ -243,15 +293,31 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Cartera (Crédito):'),
-                                Text(_fmt(saldoCartera), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  _fmt(saldoCartera),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                             const Divider(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total:', style: TextStyle(fontWeight: FontWeight.bold)),
-                                Text(_fmt(saldoSistema + saldoBanco + saldoCartera), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                const Text(
+                                  'Total:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  _fmt(
+                                    saldoSistema + saldoBanco + saldoCartera,
+                                  ),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -259,7 +325,9 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text('Saldo sistema (Caja): \$${saldoSistema.toStringAsFixed(2)}'),
+                    Text(
+                      'Saldo sistema (Caja): \$${saldoSistema.toStringAsFixed(2)}',
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -281,25 +349,33 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                         IconButton(
                           tooltip: 'Desglosar billetes y monedas',
                           icon: const Icon(Icons.calculate, color: Colors.blue),
-                          onPressed: () => _abrirDesgloseCaja(contadoCtrl, obsCtrl),
+                          onPressed: () =>
+                              _abrirDesgloseCaja(contadoCtrl, obsCtrl),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     // Mostrar diferencia en tiempo real (Mejora 15)
                     Card(
-                      color: diferencia.abs() < 0.01 ? Colors.green.shade50 : Colors.orange.shade50,
+                      color: diferencia.abs() < 0.01
+                          ? Colors.green.shade50
+                          : Colors.orange.shade50,
                       child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Diferencia:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text(
+                              'Diferencia:',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             Text(
                               _fmt(diferencia),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: diferencia.abs() < 0.01 ? Colors.green : Colors.orange,
+                                color: diferencia.abs() < 0.01
+                                    ? Colors.green
+                                    : Colors.orange,
                               ),
                             ),
                           ],
@@ -309,12 +385,15 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: baseCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [NumericInput.decimal],
                       decoration: const InputDecoration(
                         labelText: 'Base apertura siguiente día (COP)',
                         border: OutlineInputBorder(),
-                        helperText: 'El excedente se trasladará automáticamente a bancos',
+                        helperText:
+                            'El excedente se trasladará automáticamente a bancos',
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -336,10 +415,16 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  final contado =
-                      double.tryParse(contadoCtrl.text.replaceAll(',', '.')) ?? 0;
-                  final base =
-                      double.tryParse(baseCtrl.text.replaceAll(',', '.')) ?? 0;
+                  final currency = _currency;
+                  if (currency == null) return;
+                  final contado = MoneyValue.fromMajorUnits(
+                    contadoCtrl.text.replaceAll(',', '.'),
+                    currency: currency,
+                  );
+                  final base = MoneyValue.fromMajorUnits(
+                    baseCtrl.text.replaceAll(',', '.'),
+                    currency: currency,
+                  );
                   await DatabaseHelper.instance.registrarCierreCaja(
                     efectivoContado: contado,
                     observacion: obsCtrl.text.trim(),
@@ -400,7 +485,11 @@ class _CierresCajaPageState extends State<CierresCajaPage> {
             )
           else
             ...cierres.map((c) {
-              final diferencia = (c['diferencia'] as num?)?.toDouble() ?? 0;
+              final diferencia = MoneyValue.fromSql(
+                c['diferencia'],
+                currency: _currency,
+                nullableAsZero: true,
+              ).toMajorUnitsDoubleForDisplay();
               return Card(
                 child: ListTile(
                   leading: Icon(

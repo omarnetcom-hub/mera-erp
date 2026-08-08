@@ -88,5 +88,20 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('serializa unidades menores SQLite sin conversion implicita', () {
+      final value = MoneyValue.fromSql(12345, currency: cop);
+
+      expect(value.toSql(), 12345);
+      expect(value.toMajorUnitsString(), '123.45');
+      expect(() => MoneyValue.fromSql(123.45, currency: cop), throwsStateError);
+    });
+
+    test('aplica factores decimales y porcentajes de forma exacta', () {
+      final base = MoneyValue.fromMajorUnits('10000.00', currency: cop);
+
+      expect(base.multiplyDecimal('99.99').minorUnits, 99990000);
+      expect(base.percent('12').toMajorUnitsString(), '1200.00');
+    });
   });
 }

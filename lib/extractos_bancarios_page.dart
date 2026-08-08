@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'ui/enterprise_design_system.dart';
 
@@ -19,6 +22,7 @@ class _ExtractosBancariosPageState extends State<ExtractosBancariosPage> {
   List<Map<String, dynamic>> _bancos = [];
   int? _bancoSel;
   List<Map<String, dynamic>> _extractos = [];
+  Currency? _currency;
 
   @override
   void initState() {
@@ -31,17 +35,26 @@ class _ExtractosBancariosPageState extends State<ExtractosBancariosPage> {
   }
 
   Future<void> _init() async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final bancos = await DatabaseHelper.instance.obtenerBancos();
     if (!mounted) return;
     setState(() {
       _bancos = bancos;
+      _currency = currency;
       if (bancos.isNotEmpty) _bancoSel = bancos.first['id'] as int;
     });
     if (_bancoSel != null) await _cargar(_bancoSel!);
   }
 
   Future<void> _cargar(int bancoId) async {
-    final data = await DatabaseHelper.instance.obtenerExtractosPorBanco(bancoId);
+    final data = await DatabaseHelper.instance.obtenerExtractosPorBanco(
+      bancoId,
+    );
     if (!mounted) return;
     setState(() => _extractos = data);
   }
@@ -69,7 +82,12 @@ class _ExtractosBancariosPageState extends State<ExtractosBancariosPage> {
       if (line.isEmpty || line.toLowerCase().startsWith('fecha')) continue;
       final parts = line.split(',');
       if (parts.length < 3) continue;
-      final valor = double.tryParse(parts[2].trim().replaceAll(',', '.')) ?? 0;
+      final currency = _currency;
+      if (currency == null) return;
+      final valor = MoneyValue.fromMajorUnits(
+        parts[2].trim().replaceAll(',', '.'),
+        currency: currency,
+      );
       await DatabaseHelper.instance.guardarExtractoBancario(
         bancoId: _bancoSel!,
         fecha: parts[0].trim(),
@@ -104,15 +122,24 @@ class _ExtractosBancariosPageState extends State<ExtractosBancariosPage> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () async {
               for (final raw in csvCtrl.text.split('\n')) {
                 final line = raw.trim();
-                if (line.isEmpty || line.toLowerCase().startsWith('fecha')) continue;
+                if (line.isEmpty || line.toLowerCase().startsWith('fecha'))
+                  continue;
                 final parts = line.split(',');
                 if (parts.length < 3) continue;
-                final valor = double.tryParse(parts[2].trim().replaceAll(',', '.')) ?? 0;
+                final currency = _currency;
+                if (currency == null) return;
+                final valor = MoneyValue.fromMajorUnits(
+                  parts[2].trim().replaceAll(',', '.'),
+                  currency: currency,
+                );
                 await DatabaseHelper.instance.guardarExtractoBancario(
                   bancoId: _bancoSel!,
                   fecha: parts[0].trim(),
@@ -132,7 +159,15 @@ class _ExtractosBancariosPageState extends State<ExtractosBancariosPage> {
     if (ok == true && _bancoSel != null) await _cargar(_bancoSel!);
   }
 
-  String _fmt(num v) => '\$${v.toStringAsFixed(2)}';
+  String _fmt(Object? value) {
+    final currency = _currency;
+    if (currency == null) return '-';
+    return MoneyValue.fromSql(
+      value,
+      currency: currency,
+      nullableAsZero: true,
+    ).format();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +180,10 @@ class _ExtractosBancariosPageState extends State<ExtractosBancariosPage> {
               Expanded(
                 child: DropdownButtonFormField<int>(
                   initialValue: _bancoSel,
-                  decoration: const InputDecoration(labelText: 'Banco', isDense: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Banco',
+                    isDense: true,
+                  ),
                   items: _bancos
                       .map(
                         (b) => DropdownMenuItem(
@@ -190,8 +228,10 @@ class _ExtractosBancariosPageState extends State<ExtractosBancariosPage> {
                           color: conciliado ? Colors.green : Colors.orange,
                         ),
                         title: Text(e['descripcion']?.toString() ?? ''),
-                        subtitle: Text('${e['fecha']} · ${e['referencia'] ?? ''}'),
-                        trailing: Text(_fmt((e['monto'] as num?) ?? 0)),
+                        subtitle: Text(
+                          '${e['fecha']} · ${e['referencia'] ?? ''}',
+                        ),
+                        trailing: Text(_fmt(e['valor'])),
                       ),
                     );
                   },

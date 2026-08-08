@@ -13,14 +13,14 @@ import 'dart:convert';
 ///
 /// Inputs:
 /// - ventaId: numeric id of the sale
-/// - total: numeric total amount (use same numeric formatting as the callers)
+/// - total: canonical decimal amount produced by MoneyValue
 /// - fechaIso: ISO-8601 datetime string (full, e.g. DateTime.toIso8601String())
 /// - pin: the technical PIN (must be the persisted value from app_config)
 ///
 /// Returns: the canonical CUFE string.
 String computeCufe({
   required int ventaId,
-  required double total,
+  required String total,
   required String fechaIso,
   required String pin,
 }) {
@@ -29,7 +29,14 @@ String computeCufe({
   String fechaCanonical;
   try {
     final dt = DateTime.parse(fechaIso);
-    final dtSec = DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+    final dtSec = DateTime(
+      dt.year,
+      dt.month,
+      dt.day,
+      dt.hour,
+      dt.minute,
+      dt.second,
+    );
     fechaCanonical = dtSec.toIso8601String();
   } catch (e) {
     // If parsing fails, fall back to the input string (best-effort). This keeps behavior
@@ -37,8 +44,11 @@ String computeCufe({
     fechaCanonical = fechaIso;
   }
 
-  final totalCanonical = total.toStringAsFixed(2);
-  final raw = 'Venta:$ventaId|Total:$totalCanonical|Fecha:$fechaCanonical|PIN:$pin';
-  final encoded = base64Encode(utf8.encode(raw)).replaceAll('=', '').toLowerCase();
+  final totalCanonical = total;
+  final raw =
+      'Venta:$ventaId|Total:$totalCanonical|Fecha:$fechaCanonical|PIN:$pin';
+  final encoded = base64Encode(
+    utf8.encode(raw),
+  ).replaceAll('=', '').toLowerCase();
   return '${encoded}fe2026dian';
 }

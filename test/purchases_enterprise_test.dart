@@ -3,6 +3,7 @@ import 'package:merka_erp/core/api/api_contract.dart';
 import 'package:merka_erp/core/api/api_dispatcher.dart';
 import 'package:merka_erp/core/branch/branch_context.dart';
 import 'package:merka_erp/core/events/domain_event.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/inventory/data/product_repository.dart';
 import 'package:merka_erp/inventory/domain/product.dart';
 import 'package:merka_erp/purchases/application/purchase_command_handlers.dart';
@@ -14,6 +15,8 @@ import 'package:merka_erp/purchases/domain/purchase.dart';
 import 'package:merka_erp/purchases/domain/purchase_document.dart';
 import 'package:merka_erp/sales/data/sale_repository.dart';
 import 'package:merka_erp/sales/domain/sale.dart';
+
+import 'support/test_money.dart';
 
 class _Scope implements BranchScopeProvider {
   const _Scope();
@@ -180,7 +183,7 @@ class _Sales implements SaleRepository {
   Future<List<SaleLine>> findDetails(int saleId) async => const [];
 
   @override
-  Future<double> totalSales() async => 0;
+  Future<MoneyValue> totalSales() async => zeroTestMoney;
 }
 
 class _Purchases implements PurchaseRepository {
@@ -200,7 +203,7 @@ class _Purchases implements PurchaseRepository {
   Future<List<PurchaseLine>> findDetails(int purchaseId) async => const [];
 
   @override
-  Future<double> totalPurchases() async => 0;
+  Future<MoneyValue> totalPurchases() async => zeroTestMoney;
 }
 
 void main() {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'logo_widget.dart';
 import 'pdf_output_dialog.dart';
@@ -21,9 +22,9 @@ class _ExtractoCajaPageState extends State<ExtractoCajaPage> {
   DateTime _hasta = DateTime.now();
   String _origen = 'todas';
   List<Map<String, dynamic>> _movimientos = [];
-  double _saldoInicial = 0;
-  double _ingresos = 0;
-  double _egresos = 0;
+  MoneyValue? _saldoInicial;
+  MoneyValue? _ingresos;
+  MoneyValue? _egresos;
   bool _cargando = false;
 
   Future<void> _generar() async {
@@ -33,19 +34,23 @@ class _ExtractoCajaPageState extends State<ExtractoCajaPage> {
       hasta: _hasta,
       origen: _origen == 'todas' ? null : _origen,
     );
-    var ing = 0.0;
-    var egr = 0.0;
-    for (final m in movs) {
-      final monto = (m['monto'] as num?)?.toDouble() ?? 0;
-      if (m['tipo'] == 'ingreso') {
-        ing += monto;
-      } else {
-        egr += monto;
-      }
-    }
     final saldoActual = await DatabaseHelper.instance.obtenerSaldoPorCuenta(
       _origen == 'todas' ? 'caja' : _origen,
     );
+    var ing = MoneyValue(minorUnits: 0, currency: saldoActual.currency);
+    var egr = MoneyValue(minorUnits: 0, currency: saldoActual.currency);
+    for (final m in movs) {
+      final monto = MoneyValue.fromSql(
+        m['monto'],
+        currency: saldoActual.currency,
+        nullableAsZero: true,
+      );
+      if (m['tipo'] == 'ingreso') {
+        ing = ing + monto;
+      } else {
+        egr = egr + monto;
+      }
+    }
     final saldoInicial = saldoActual - ing + egr;
     if (!mounted) return;
     setState(() {
@@ -57,7 +62,13 @@ class _ExtractoCajaPageState extends State<ExtractoCajaPage> {
     });
   }
 
-  String _moneda(double v) => '\$${v.toStringAsFixed(2)}';
+  String _moneda(MoneyValue? value) => value?.format() ?? '-';
+
+  MoneyValue? _fromSql(Object? value) {
+    final currency = _saldoInicial?.currency;
+    if (currency == null) return null;
+    return MoneyValue.fromSql(value, currency: currency, nullableAsZero: true);
+  }
 
   Future<void> _exportarPdf() async {
     await PdfOutputDialog.mostrar(
@@ -72,19 +83,27 @@ class _ExtractoCajaPageState extends State<ExtractoCajaPage> {
             build: (ctx) => [
               pw.Text(
                 empresa['nombre']?.toString() ?? 'MerkaERP',
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 18,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.Text('NIT: ${empresa['nit'] ?? ''}'),
               pw.SizedBox(height: 12),
               pw.Text(
                 'Extracto de caja ${_fmt(_desde)} - ${_fmt(_hasta)}',
-                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.SizedBox(height: 8),
               pw.Text('Saldo inicial: ${_moneda(_saldoInicial)}'),
               pw.Text('Total ingresos: ${_moneda(_ingresos)}'),
               pw.Text('Total egresos: ${_moneda(_egresos)}'),
-              pw.Text('Saldo final: ${_moneda(_saldoInicial + _ingresos - _egresos)}'),
+              pw.Text(
+                'Saldo final: ${_moneda(_saldoInicial! + _ingresos! - _egresos!)}',
+              ),
               pw.SizedBox(height: 12),
               pw.TableHelper.fromTextArray(
                 headers: ['Fecha', 'Concepto', 'Tipo', 'Monto'],
@@ -93,7 +112,7 @@ class _ExtractoCajaPageState extends State<ExtractoCajaPage> {
                     m['fecha']?.toString().substring(0, 10) ?? '',
                     m['concepto']?.toString() ?? '',
                     m['tipo']?.toString() ?? '',
-                    _moneda((m['monto'] as num?)?.toDouble() ?? 0),
+                    _moneda(_fromSql(m['monto'])),
                   ];
                 }).toList(),
               ),
@@ -127,7 +146,9 @@ class _ExtractoCajaPageState extends State<ExtractoCajaPage> {
 
   @override
   Widget build(BuildContext context) {
-    final saldoFinal = _saldoInicial + _ingresos - _egresos;
+    final saldoFinal = _saldoInicial == null
+        ? null
+        : _saldoInicial! + _ingresos! - _egresos!;
     final content = ListView(
       padding: const EdgeInsets.all(EnterpriseSpacing.md),
       children: [
@@ -199,7 +220,11 @@ class _ExtractoCajaPageState extends State<ExtractoCajaPage> {
               _MetricChip('Saldo inicial', _moneda(_saldoInicial)),
               _MetricChip('Ingresos', _moneda(_ingresos), color: Colors.green),
               _MetricChip('Egresos', _moneda(_egresos), color: Colors.red),
-              _MetricChip('Saldo final', _moneda(saldoFinal), color: AppBrand.secondary),
+              _MetricChip(
+                'Saldo final',
+                _moneda(saldoFinal),
+                color: AppBrand.secondary,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -211,9 +236,11 @@ class _ExtractoCajaPageState extends State<ExtractoCajaPage> {
                   color: m['tipo'] == 'ingreso' ? Colors.green : Colors.red,
                 ),
                 title: Text(m['concepto']?.toString() ?? ''),
-                subtitle: Text('${m['fecha']?.toString().substring(0, 16)} · ${m['origen']}'),
+                subtitle: Text(
+                  '${m['fecha']?.toString().substring(0, 16)} · ${m['origen']}',
+                ),
                 trailing: Text(
-                  _moneda((m['monto'] as num?)?.toDouble() ?? 0),
+                  _moneda(_fromSql(m['monto'])),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: m['tipo'] == 'ingreso' ? Colors.green : Colors.red,
@@ -244,7 +271,11 @@ class _MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Chip(
-      avatar: Icon(Icons.account_balance_wallet, color: color ?? AppBrand.info, size: 18),
+      avatar: Icon(
+        Icons.account_balance_wallet,
+        color: color ?? AppBrand.info,
+        size: 18,
+      ),
       label: Text('$label: $value'),
     );
   }

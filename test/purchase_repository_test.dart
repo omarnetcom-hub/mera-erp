@@ -4,6 +4,8 @@ import 'package:merka_erp/purchases/data/purchase_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'support/test_money.dart';
+
 class _FakeCompanyContext implements CompanyContextProvider {
   const _FakeCompanyContext(this.companyId);
 
@@ -111,6 +113,7 @@ void main() {
         gateway: gateway,
         companyContext: const _FakeCompanyContext(4),
         validateFeature: (_) async {},
+        resolveCurrency: (_) async => testCop,
       );
 
       final purchases = await repository.findAll();
@@ -129,6 +132,7 @@ void main() {
         gateway: gateway,
         companyContext: const _FakeCompanyContext(11),
         validateFeature: (_) async {},
+        resolveCurrency: (_) async => testCop,
       );
 
       final id = await repository.createHeader({
@@ -152,11 +156,12 @@ void main() {
         gateway: gateway,
         companyContext: const _FakeCompanyContext(2),
         validateFeature: (_) async {},
+        resolveCurrency: (_) async => testCop,
       );
 
       final total = await repository.totalPurchases();
 
-      expect(total, 77000);
+      expect(total, testMoney('770.00'));
       expect(gateway.lastSqlArgs, [2]);
       expect(gateway.lastSql, contains('company_id = ?'));
       expect(gateway.lastSql, contains("COALESCE(estado, 'pagada')"));

@@ -4,6 +4,9 @@ import 'app_session.dart';
 import 'catalog/application/catalog_service.dart';
 import 'catalog/domain/master_catalog.dart';
 import 'core/security/action_permission.dart';
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'detalle_compra_page.dart';
 import 'features/feature_key.dart';
@@ -32,6 +35,7 @@ class _ComprasPageState extends State<ComprasPage> {
   String _filtroEstado = 'todas';
   String _busqueda = '';
   bool _cargando = true;
+  Currency? _currency;
 
   @override
   void initState() {
@@ -44,6 +48,12 @@ class _ComprasPageState extends State<ComprasPage> {
   }
 
   Future<void> _cargarDatos() async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final compras = await _comprasRepo.findAll();
     final proveedores = await DatabaseHelper.instance.obtenerProveedores();
     final productos = await DatabaseHelper.instance.obtenerProductos();
@@ -64,6 +74,7 @@ class _ComprasPageState extends State<ComprasPage> {
     if (!mounted) return;
     setState(() {
       _compras = compras.map((compra) => compra.toMap()).toList();
+      _currency = currency;
       _proveedores = proveedores;
       _productos = productos;
       _impuestosDisponibles = impuestos;
@@ -201,7 +212,9 @@ class _ComprasPageState extends State<ComprasPage> {
     final observacionCtrl = TextEditingController();
     final cantidadCtrl = TextEditingController(text: '1');
     final costoCtrl = TextEditingController(
-      text: _fmtNum(_productoPorId(productoSelId)?['costo'] ?? 0),
+      text: _sqlMoney(
+        _productoPorId(productoSelId)?['costo'],
+      ).toMajorUnitsString(),
     );
     final impuestoCtrl = TextEditingController(
       text: _fmtNum(_productoPorId(productoSelId)?['impuesto_pct'] ?? 0),
@@ -215,17 +228,19 @@ class _ComprasPageState extends State<ComprasPage> {
     final carrito = <Map<String, dynamic>>[];
 
     double impuestoPct() => _parse(impuestoCtrl.text);
-    double subtotalCarrito() => carrito.fold<double>(
-      0,
-      (sum, item) => sum + (item['subtotal'] as num).toDouble(),
+    final zero = MoneyValue(minorUnits: 0, currency: _currency);
+    MoneyValue subtotalCarrito() => carrito.fold<MoneyValue>(
+      zero,
+      (sum, item) => sum + (item['subtotal'] as MoneyValue),
     );
-    double impuestoCarrito() => subtotalCarrito() * (impuestoPct() / 100);
-    double totalCarrito() => subtotalCarrito() + impuestoCarrito();
+    MoneyValue impuestoCarrito() =>
+        subtotalCarrito().percent(impuestoPct().toString());
+    MoneyValue totalCarrito() => subtotalCarrito() + impuestoCarrito();
 
     void agregarProducto(StateSetter setDlg) {
       final cantidad = _parse(cantidadCtrl.text);
-      final costo = _parse(costoCtrl.text);
-      if (cantidad <= 0 || costo <= 0) {
+      final costo = _moneyInput(costoCtrl.text);
+      if (cantidad <= 0 || costo.minorUnits <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Cantidad y costo deben ser mayores que cero.'),
@@ -255,7 +270,7 @@ class _ComprasPageState extends State<ComprasPage> {
           final nuevaCantidad = (item['cantidad'] as num).toDouble() + cantidad;
           item['cantidad'] = nuevaCantidad;
           item['costo'] = costo;
-          item['subtotal'] = nuevaCantidad * costo;
+          item['subtotal'] = costo.multiplyDecimal(nuevaCantidad.toString());
         } else {
           carrito.add({
             'producto_id': productoId,
@@ -263,7 +278,7 @@ class _ComprasPageState extends State<ComprasPage> {
             'unidad': productoSel['unidad_base'] ?? 'unid.',
             'cantidad': cantidad,
             'costo': costo,
-            'subtotal': cantidad * costo,
+            'subtotal': costo.multiplyDecimal(cantidad.toString()),
           });
         }
         cantidadCtrl.text = '1';
@@ -362,7 +377,9 @@ class _ComprasPageState extends State<ComprasPage> {
                         final producto = _productoPorId(value);
                         setDlg(() {
                           productoSelId = value;
-                          costoCtrl.text = _fmtNum(producto?['costo'] ?? 0);
+                          costoCtrl.text = _sqlMoney(
+                            producto?['costo'],
+                          ).toMajorUnitsString();
                           impuestoCtrl.text = _fmtNum(
                             producto?['impuesto_pct'] ?? 0,
                           );
@@ -498,14 +515,27 @@ class _ComprasPageState extends State<ComprasPage> {
                       ),
                     ],
                     const SizedBox(height: 10),
-                    const Text('Retenciones (opcional)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Retenciones (opcional)',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Row(
                       children: [
-                        Expanded(child: _moneyField(retefuenteCtrl, 'Retefuente', setDlg)),
+                        Expanded(
+                          child: _moneyField(
+                            retefuenteCtrl,
+                            'Retefuente',
+                            setDlg,
+                          ),
+                        ),
                         const SizedBox(width: 8),
-                        Expanded(child: _moneyField(reteivaCtrl, 'ReteIVA', setDlg)),
+                        Expanded(
+                          child: _moneyField(reteivaCtrl, 'ReteIVA', setDlg),
+                        ),
                         const SizedBox(width: 8),
-                        Expanded(child: _moneyField(reteicaCtrl, 'ReteICA', setDlg)),
+                        Expanded(
+                          child: _moneyField(reteicaCtrl, 'ReteICA', setDlg),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -543,12 +573,14 @@ class _ComprasPageState extends State<ComprasPage> {
                             metodoPagoId: metodoPagoId,
                             metodosPago: metodosPago,
                             impuestoPct: impuestoPct(),
-                            pagoCajaManual: _parse(pagoCajaCtrl.text),
-                            pagoBancoManual: _parse(pagoBancoCtrl.text),
-                            pagoCreditoManual: _parse(pagoCreditoCtrl.text),
-                            retefuente: _parse(retefuenteCtrl.text),
-                            reteiva: _parse(reteivaCtrl.text),
-                            reteica: _parse(reteicaCtrl.text),
+                            pagoCajaManual: _moneyInput(pagoCajaCtrl.text),
+                            pagoBancoManual: _moneyInput(pagoBancoCtrl.text),
+                            pagoCreditoManual: _moneyInput(
+                              pagoCreditoCtrl.text,
+                            ),
+                            retefuente: _moneyInput(retefuenteCtrl.text),
+                            reteiva: _moneyInput(reteivaCtrl.text),
+                            reteica: _moneyInput(reteicaCtrl.text),
                             carrito: carrito,
                           );
                         } catch (e) {
@@ -607,12 +639,12 @@ class _ComprasPageState extends State<ComprasPage> {
     required int metodoPagoId,
     required List<Map<String, dynamic>> metodosPago,
     required double impuestoPct,
-    required double pagoCajaManual,
-    required double pagoBancoManual,
-    required double pagoCreditoManual,
-    double retefuente = 0,
-    double reteiva = 0,
-    double reteica = 0,
+    required MoneyValue pagoCajaManual,
+    required MoneyValue pagoBancoManual,
+    required MoneyValue pagoCreditoManual,
+    required MoneyValue retefuente,
+    required MoneyValue reteiva,
+    required MoneyValue reteica,
     required List<Map<String, dynamic>> carrito,
   }) async {
     final metodo = _nombreMetodo(metodosPago, metodoPagoId);
@@ -636,7 +668,11 @@ class _ComprasPageState extends State<ComprasPage> {
         retefuente: retefuente,
         reteiva: reteiva,
         reteica: reteica,
-        items: carrito.map(PurchaseItemInput.fromCart).toList(),
+        items: carrito
+            .map(
+              (item) => PurchaseItemInput.fromCart(item, currency: _currency!),
+            )
+            .toList(),
       ),
     );
   }
@@ -695,8 +731,19 @@ class _ComprasPageState extends State<ComprasPage> {
     return d % 1 == 0 ? d.toInt().toString() : d.toString();
   }
 
-  String _moneda(double valor) =>
-      '\$${valor.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+  MoneyValue _moneyInput(String input) => MoneyValue.fromMajorUnits(
+    input.trim().isEmpty ? '0' : input.trim().replaceAll(',', '.'),
+    currency: _currency,
+  );
+
+  MoneyValue _sqlMoney(Object? value) =>
+      MoneyValue.fromSql(value, currency: _currency, nullableAsZero: true);
+
+  String _moneda(Object valor) {
+    if (valor is MoneyValue) return valor.format();
+    if (valor is int) return _sqlMoney(valor).format();
+    return _moneyInput(valor.toString()).format();
+  }
 
   String _fecha(String iso) {
     try {
@@ -720,13 +767,14 @@ class _ComprasPageState extends State<ComprasPage> {
       return texto.contains(_busqueda.toLowerCase().trim());
     }).toList();
 
-    final totalVisible = comprasVisibles.fold<double>(
-      0,
-      (sum, c) => sum + ((c['total'] as num?)?.toDouble() ?? 0),
+    final zero = MoneyValue(minorUnits: 0, currency: _currency);
+    final totalVisible = comprasVisibles.fold<MoneyValue>(
+      zero,
+      (sum, c) => sum + (c['total'] as MoneyValue),
     );
-    final pendienteVisible = comprasVisibles.fold<double>(
-      0,
-      (sum, c) => sum + ((c['credito'] as num?)?.toDouble() ?? 0),
+    final pendienteVisible = comprasVisibles.fold<MoneyValue>(
+      zero,
+      (sum, c) => sum + (c['credito'] as MoneyValue),
     );
     final productosComprados = comprasVisibles.fold<int>(
       0,
@@ -824,8 +872,7 @@ class _ComprasPageState extends State<ComprasPage> {
                           itemBuilder: (context, index) {
                             final compra = comprasVisibles[index];
                             final id = (compra['id'] as num).toInt();
-                            final total =
-                                (compra['total'] as num?)?.toDouble() ?? 0;
+                            final total = compra['total'] as MoneyValue;
                             final estado =
                                 compra['estado']?.toString() ?? 'pagada';
                             final anulada = estado == 'anulada';
@@ -918,7 +965,7 @@ class _CarritoCompra extends StatelessWidget {
   });
 
   final List<Map<String, dynamic>> items;
-  final String Function(double) moneda;
+  final String Function(Object) moneda;
   final void Function(int index) onRemove;
 
   @override
@@ -947,8 +994,8 @@ class _CarritoCompra extends StatelessWidget {
           final index = entry.key;
           final item = entry.value;
           final cantidad = (item['cantidad'] as num).toDouble();
-          final costo = (item['costo'] as num).toDouble();
-          final subtotal = (item['subtotal'] as num).toDouble();
+          final costo = item['costo'] as MoneyValue;
+          final subtotal = item['subtotal'] as MoneyValue;
           final cant = cantidad % 1 == 0
               ? cantidad.toInt().toString()
               : cantidad.toString();
@@ -991,10 +1038,10 @@ class _TotalesCompra extends StatelessWidget {
     required this.moneda,
   });
 
-  final double subtotal;
-  final double impuesto;
-  final double total;
-  final String Function(double) moneda;
+  final MoneyValue subtotal;
+  final MoneyValue impuesto;
+  final MoneyValue total;
+  final String Function(Object) moneda;
 
   @override
   Widget build(BuildContext context) {
@@ -1014,7 +1061,7 @@ class _TotalesCompra extends StatelessWidget {
     );
   }
 
-  Widget _row(String label, double value, {bool destacado = false}) {
+  Widget _row(String label, MoneyValue value, {bool destacado = false}) {
     return Row(
       children: [
         Expanded(child: Text(label)),

@@ -1,41 +1,57 @@
 import 'package:merka_erp/catalog/application/catalog_service.dart';
 import 'package:merka_erp/catalog/domain/master_catalog.dart';
 import 'package:merka_erp/commerce/application/payment_policy.dart';
+import 'package:merka_erp/core/currency/currency.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final cop = Currency(
+    code: 'COP',
+    name: 'Colombian Peso',
+    symbol: r'$',
+    decimalPlaces: 2,
+  );
+  MoneyValue money(String value) =>
+      MoneyValue.fromMajorUnits(value, currency: cop);
+  final zero = MoneyValue(minorUnits: 0, currency: cop);
   group('PaymentPolicy', () {
     test('asigna compra en efectivo completamente a caja', () {
       final allocation = PaymentPolicy.allocatePurchase(
-        total: 100,
+        total: money('100'),
         method: 'EFECTIVO',
+        manualCash: zero,
+        manualBank: zero,
+        manualCredit: zero,
       );
 
-      expect(allocation.cash, 100);
-      expect(allocation.bank, 0);
-      expect(allocation.credit, 0);
+      expect(allocation.cash, money('100'));
+      expect(allocation.bank, zero);
+      expect(allocation.credit, zero);
     });
 
     test('completa pago mixto parcial con credito automatico', () {
       final allocation = PaymentPolicy.allocatePurchase(
-        total: 100,
+        total: money('100'),
         method: 'PAGO MIXTO',
-        manualCash: 30,
-        manualBank: 20,
+        manualCash: money('30'),
+        manualBank: money('20'),
+        manualCredit: zero,
       );
 
-      expect(allocation.cash, 30);
-      expect(allocation.bank, 20);
-      expect(allocation.credit, 50);
+      expect(allocation.cash, money('30'));
+      expect(allocation.bank, money('20'));
+      expect(allocation.credit, money('50'));
     });
 
     test('rechaza pago mixto mayor al total', () {
       expect(
         () => PaymentPolicy.allocatePurchase(
-          total: 100,
+          total: money('100'),
           method: 'PAGO MIXTO',
-          manualCash: 80,
-          manualBank: 30,
+          manualCash: money('80'),
+          manualBank: money('30'),
+          manualCredit: zero,
         ),
         throwsException,
       );

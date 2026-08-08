@@ -4,10 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:merka_erp/db_helper.dart';
+import 'package:merka_erp/core/currency/currency.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/features/company_configuration_service.dart';
 import 'package:merka_erp/sales/application/create_sale_use_case.dart';
 
 void main() {
+  final cop = Currency(
+    code: 'COP',
+    name: 'Colombian Peso',
+    symbol: r'$',
+    decimalPlaces: 2,
+  );
   late final Directory dbDir;
   late final Database db;
   late final int companyId;
@@ -47,8 +55,8 @@ void main() {
         'nombre': productName,
         'unidad_base': 'unid.',
         'stock': 5,
-        'costo': 1000,
-        'precio': 2500,
+        'costo': 100000,
+        'precio': 250000,
         'impuesto_pct': 0,
         'codigo_barras': 'FLOW$suffix',
       });
@@ -60,20 +68,26 @@ void main() {
               productId: productId,
               productName: productName,
               quantity: 2,
-              unitPrice: 2500,
-              unitCost: 1000,
-              subtotal: 5000,
+              unitPrice: MoneyValue.fromMajorUnits('2500', currency: cop),
+              unitCost: MoneyValue.fromMajorUnits('1000', currency: cop),
+              subtotal: MoneyValue.fromMajorUnits('5000', currency: cop),
               taxRate: 0,
-              taxTotal: 0,
+              taxTotal: MoneyValue(minorUnits: 0, currency: cop),
             ),
           ],
           paymentMethodId: 1,
           paymentMethodName: 'EFECTIVO',
           clientName: 'Cliente general',
+          efectivo: MoneyValue(minorUnits: 0, currency: cop),
+          transferencia: MoneyValue(minorUnits: 0, currency: cop),
+          credito: MoneyValue(minorUnits: 0, currency: cop),
+          retefuente: MoneyValue(minorUnits: 0, currency: cop),
+          reteiva: MoneyValue(minorUnits: 0, currency: cop),
+          reteica: MoneyValue(minorUnits: 0, currency: cop),
         ),
       );
 
-      expect(result.total, 5000);
+      expect(result.total.toMajorUnitsString(), '5000.00');
 
       final saleRows = await db.query(
         'ventas',
@@ -154,7 +168,7 @@ void main() {
       'codigo': 'RTEICA_VENTAS_TEST',
       'nombre': 'ReteICA ventas de prueba',
       'tasa': 1.1,
-      'base_minima': 5000,
+      'base_minima': 500000,
       'cuenta_contable': '2367',
       'aplica_ventas': 1,
       'aplica_compras': 0,
@@ -169,8 +183,8 @@ void main() {
       'nombre': productName,
       'unidad_base': 'unid.',
       'stock': 2,
-      'costo': 4000,
-      'precio': 10000,
+      'costo': 400000,
+      'precio': 1000000,
       'impuesto_pct': 0,
       'codigo_barras': 'RTEICA$suffix',
     });
@@ -182,30 +196,33 @@ void main() {
             productId: productId,
             productName: productName,
             quantity: 1,
-            unitPrice: 10000,
-            unitCost: 4000,
-            subtotal: 10000,
+            unitPrice: MoneyValue.fromMajorUnits('10000', currency: cop),
+            unitCost: MoneyValue.fromMajorUnits('4000', currency: cop),
+            subtotal: MoneyValue.fromMajorUnits('10000', currency: cop),
             taxRate: 0,
-            taxTotal: 0,
+            taxTotal: MoneyValue(minorUnits: 0, currency: cop),
           ),
         ],
         paymentMethodId: 1,
         paymentMethodName: 'EFECTIVO',
         clientName: 'Cliente general',
+        efectivo: MoneyValue(minorUnits: 0, currency: cop),
+        transferencia: MoneyValue(minorUnits: 0, currency: cop),
+        credito: MoneyValue(minorUnits: 0, currency: cop),
+        retefuente: MoneyValue(minorUnits: 0, currency: cop),
+        reteiva: MoneyValue(minorUnits: 0, currency: cop),
+        reteica: MoneyValue(minorUnits: 0, currency: cop),
       ),
     );
 
-    expect(result.total, 9890);
+    expect(result.total.toMajorUnitsString(), '9890.00');
     final saleRows = await db.query(
       'ventas',
       columns: ['reteica'],
       where: 'id = ? AND company_id = ?',
       whereArgs: [result.saleId, companyId],
     );
-    expect(
-      (saleRows.single['reteica'] as num).toDouble(),
-      closeTo(110, 0.000000001),
-    );
+    expect(saleRows.single['reteica'], 11000);
   });
 
   tearDownAll(() async {

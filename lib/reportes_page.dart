@@ -5,6 +5,7 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -62,6 +63,11 @@ class _ReportesPageState extends State<ReportesPage> {
       'caja',
     );
     final totalVentas = await DatabaseHelper.instance.obtenerTotalVentas();
+    double amount(Object? value) => MoneyValue.fromSql(
+      value,
+      currency: saldoCaja.currency,
+      nullableAsZero: true,
+    ).toMajorUnitsDoubleForDisplay();
 
     // Separar ingresos y egresos de caja
     double totalIngresos = 0;
@@ -70,9 +76,9 @@ class _ReportesPageState extends State<ReportesPage> {
     egresosTotales = 0;
     for (final m in movimientos) {
       if (m['tipo'] == 'ingreso') {
-        totalIngresos += (m['monto'] as num).toDouble();
+        totalIngresos += amount(m['monto']);
       } else if (m['tipo'] == 'egreso') {
-        totalEgresos += (m['monto'] as num).toDouble();
+        totalEgresos += amount(m['monto']);
       }
     }
     ingresosTotales = totalIngresos;
@@ -81,8 +87,8 @@ class _ReportesPageState extends State<ReportesPage> {
     double valorCosto = 0;
     double valorPrecio = 0;
     for (final p in productos) {
-      valorCosto += (p['stock'] as num) * (p['costo'] as num);
-      valorPrecio += (p['stock'] as num) * (p['precio'] as num);
+      valorCosto += (p['stock'] as num) * amount(p['costo']);
+      valorPrecio += (p['stock'] as num) * amount(p['precio']);
     }
 
     // Ganancia bruta = suma de (precio_unitario - costo_unitario) × cantidad
@@ -96,12 +102,10 @@ class _ReportesPageState extends State<ReportesPage> {
       for (final item in detalle) {
         final nombre = item['producto'] as String;
         final cantidad = (item['cantidad'] as num).toDouble();
-        final precio = (item['precio_unitario'] as num?)?.toDouble() ?? 0;
-        final subtotal = (item['subtotal'] as num?)?.toDouble() ?? 0;
+        final precio = amount(item['precio_unitario']);
+        final subtotal = amount(item['subtotal']);
         final producto = productos.where((p) => p['id'] == item['producto_id']);
-        final costo = producto.isEmpty
-            ? 0.0
-            : ((producto.first['costo'] as num?)?.toDouble() ?? 0);
+        final costo = producto.isEmpty ? 0.0 : amount(producto.first['costo']);
         gananciaBruta += (precio - costo) * cantidad;
         ventasCant[nombre] = (ventasCant[nombre] ?? 0) + cantidad;
         ventasTotal[nombre] = (ventasTotal[nombre] ?? 0) + subtotal;
@@ -126,17 +130,19 @@ class _ReportesPageState extends State<ReportesPage> {
     setState(() {
       _productos = productos;
       _ventas = ventas;
-      _saldoCaja = saldoCaja;
-      _totalVentas = totalVentas;
+      _saldoCaja = saldoCaja.toMajorUnitsDoubleForDisplay();
+      _totalVentas = totalVentas.toMajorUnitsDoubleForDisplay();
       _totalIngresos = totalIngresos;
       _totalEgresos = totalEgresos;
       _valorInventarioCosto = valorCosto;
       _valorInventarioPrecio = valorPrecio;
       _gananciaBruta = gananciaBruta;
-      _ticketPromedio = ventas.isEmpty ? 0 : totalVentas / ventas.length;
-      _margenBrutoPct = totalVentas <= 0
+      _ticketPromedio = ventas.isEmpty
           ? 0
-          : (gananciaBruta / totalVentas) * 100;
+          : totalVentas.toMajorUnitsDoubleForDisplay() / ventas.length;
+      _margenBrutoPct = totalVentas.minorUnits <= 0
+          ? 0
+          : (gananciaBruta / totalVentas.toMajorUnitsDoubleForDisplay()) * 100;
       _topProductos = topProductos.take(5).toList();
       _cargando = false;
     });

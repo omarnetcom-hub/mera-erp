@@ -43,6 +43,26 @@ class MoneyValue implements Comparable<MoneyValue> {
     return MoneyValue._(units.toInt(), resolvedCurrency);
   }
 
+  /// Rehydrates an amount read from an INTEGER money column in SQLite.
+  factory MoneyValue.fromSql(
+    Object? value, {
+    required Currency? currency,
+    bool nullableAsZero = false,
+  }) {
+    if (value == null) {
+      if (!nullableAsZero) {
+        throw StateError('A NULL SQLite value cannot become MoneyValue');
+      }
+      return MoneyValue(minorUnits: 0, currency: currency);
+    }
+    if (value is! int) {
+      throw StateError(
+        'Expected INTEGER minor units from SQLite, got ${value.runtimeType}',
+      );
+    }
+    return MoneyValue(minorUnits: value, currency: currency);
+  }
+
   const MoneyValue._(this.minorUnits, this.currency);
 
   static final BigInt _minInt64 = BigInt.from(-9223372036854775808);
@@ -66,6 +86,8 @@ class MoneyValue implements Comparable<MoneyValue> {
 
   MoneyValue operator -() => _fromBigInt(-BigInt.from(minorUnits));
 
+  MoneyValue abs() => minorUnits < 0 ? -this : this;
+
   MoneyValue operator *(int multiplier) {
     return _fromBigInt(BigInt.from(minorUnits) * BigInt.from(multiplier));
   }
@@ -84,6 +106,37 @@ class MoneyValue implements Comparable<MoneyValue> {
     return _fromBigInt(rounded);
   }
 
+  /// Multiplies by an exact decimal factor without binary floating point.
+  MoneyValue multiplyDecimal(String factor) {
+    final parsed = _parseDecimalRatio(factor);
+    return multiplyRatio(numerator: parsed.$1, denominator: parsed.$2);
+  }
+
+  /// Divides by an exact decimal factor without binary floating point.
+  MoneyValue divideDecimal(String divisor) {
+    final parsed = _parseDecimalRatio(divisor);
+    if (parsed.$1 == 0) {
+      throw UnsupportedError('MoneyValue cannot be divided by zero');
+    }
+    return multiplyRatio(numerator: parsed.$2, denominator: parsed.$1);
+  }
+
+  /// Applies a percentage expressed as decimal text (for example `12.5`).
+  MoneyValue percent(String percentage) {
+    final parsed = _parseDecimalRatio(percentage);
+    return multiplyRatio(numerator: parsed.$1, denominator: parsed.$2 * 100);
+  }
+
+  /// INTEGER value persisted in a v75 monetary column.
+  int toSql() => minorUnits;
+
+  /// Explicit representation for APIs, audit payloads and persisted JSON.
+  Map<String, Object> toWireMap() => {
+    'minor_units': minorUnits,
+    'currency': currencyCode,
+    'scale': decimalPlaces,
+  };
+
   String toMajorUnitsString() {
     final factor = _pow10(decimalPlaces);
     final absolute = BigInt.from(minorUnits).abs();
@@ -93,6 +146,10 @@ class MoneyValue implements Comparable<MoneyValue> {
     if (decimalPlaces == 0) return '$sign$whole';
     return '$sign$whole.$fraction';
   }
+
+  /// Numeric adapter reserved for charting/legacy presentation libraries.
+  /// Domain calculations must keep using MoneyValue operators.
+  double toMajorUnitsDoubleForDisplay() => double.parse(toMajorUnitsString());
 
   String format({bool includeSymbol = true}) {
     final amount = toMajorUnitsString();
@@ -152,6 +209,21 @@ class MoneyValue implements Comparable<MoneyValue> {
   }
 
   static BigInt _pow10(int exponent) => BigInt.from(10).pow(exponent);
+
+  static (int, int) _parseDecimalRatio(String value) {
+    final input = value.trim();
+    final match = RegExp(r'^([+-]?)(\d+)(?:\.(\d+))?$').firstMatch(input);
+    if (match == null) {
+      throw FormatException('Invalid decimal factor: $value');
+    }
+    final fraction = match.group(3) ?? '';
+    final denominator = _pow10(fraction.length);
+    var numerator = BigInt.parse('${match.group(2)}$fraction');
+    if (match.group(1) == '-') numerator = -numerator;
+    _checkInt64(numerator);
+    _checkInt64(denominator);
+    return (numerator.toInt(), denominator.toInt());
+  }
 
   static BigInt _divideRounded(BigInt numerator, BigInt denominator) {
     var normalizedNumerator = numerator;

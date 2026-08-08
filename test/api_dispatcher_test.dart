@@ -5,6 +5,8 @@ import 'package:merka_erp/accounting/domain/trial_balance.dart';
 import 'package:merka_erp/core/api/api_contract.dart';
 import 'package:merka_erp/core/api/api_dispatcher.dart';
 import 'package:merka_erp/core/events/domain_event.dart';
+import 'package:merka_erp/core/currency/currency.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/inventory/data/product_repository.dart';
 import 'package:merka_erp/inventory/domain/product.dart';
 import 'package:merka_erp/purchases/application/create_purchase_use_case.dart';
@@ -14,6 +16,11 @@ import 'package:merka_erp/sales/application/create_sale_use_case.dart';
 import 'package:merka_erp/sales/data/sale_repository.dart';
 import 'package:merka_erp/sales/domain/sale.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+final _cop = Currency(code: 'COP', name: 'Peso colombiano', symbol: r'$');
+
+MoneyValue _money(int minorUnits) =>
+    MoneyValue(minorUnits: minorUnits, currency: _cop);
 
 class _Products implements ProductRepository {
   _Products(this.items);
@@ -50,15 +57,15 @@ class _Sales implements SaleRepository {
 
   @override
   Future<List<Sale>> findAll() async => [
-    const Sale(
+    Sale(
       id: 1,
       companyId: 7,
       product: 'Factura POS #1',
       quantity: 1,
-      subtotal: 10000,
+      subtotal: _money(10000),
       taxRate: 0,
-      taxTotal: 0,
-      total: 10000,
+      taxTotal: _money(0),
+      total: _money(10000),
       date: '2026-05-20T08:00:00',
       paymentMethodId: 1,
       client: 'Cliente general',
@@ -70,7 +77,7 @@ class _Sales implements SaleRepository {
   Future<List<SaleLine>> findDetails(int saleId) async => const [];
 
   @override
-  Future<double> totalSales() async => 10000;
+  Future<MoneyValue> totalSales() async => _money(10000);
 }
 
 class _Purchases implements PurchaseRepository {
@@ -85,17 +92,17 @@ class _Purchases implements PurchaseRepository {
 
   @override
   Future<List<Purchase>> findAll() async => [
-    const Purchase(
+    Purchase(
       id: 2,
       companyId: 7,
       supplier: 'Proveedor demo',
-      subtotal: 20000,
+      subtotal: _money(20000),
       taxRate: 0,
-      taxTotal: 0,
-      total: 20000,
-      cashPayment: 20000,
-      bankPayment: 0,
-      credit: 0,
+      taxTotal: _money(0),
+      total: _money(20000),
+      cashPayment: _money(20000),
+      bankPayment: _money(0),
+      credit: _money(0),
       date: '2026-05-20T09:00:00',
       paymentMethodId: 1,
       status: 'pagada',
@@ -106,7 +113,7 @@ class _Purchases implements PurchaseRepository {
   Future<List<PurchaseLine>> findDetails(int purchaseId) async => const [];
 
   @override
-  Future<double> totalPurchases() async => 20000;
+  Future<MoneyValue> totalPurchases() async => _money(20000);
 }
 
 class _AccountingReports implements AccountingReportRepository {
@@ -178,8 +185,8 @@ void main() {
       expect(response.ok, isTrue);
       expect(inventory['products'], 2);
       expect(inventory['low_stock'], 1);
-      expect(data['sales_total'], 10000);
-      expect(data['purchases_total'], 20000);
+      expect((data['sales_total'] as Map)['minor_units'], 10000);
+      expect((data['purchases_total'] as Map)['minor_units'], 20000);
     });
 
     test('pagina listados y expone metadatos de paginacion', () async {
@@ -279,14 +286,15 @@ void main() {
         sales: _Sales(),
         purchases: _Purchases(),
         events: events,
+        currencyResolver: () async => _cop,
         createSale: (request) async {
           captured = request;
-          return const CreateSaleResult(
+          return CreateSaleResult(
             saleId: 31,
-            subtotal: 10000,
-            tax: 1900,
-            total: 11900,
-            costOfSale: 6000,
+            subtotal: _money(10000),
+            tax: _money(1900),
+            total: _money(11900),
+            costOfSale: _money(6000),
           );
         },
       );
@@ -323,7 +331,7 @@ void main() {
       expect(data['sale_id'], 31);
       expect(captured?.clientName, 'Cliente API');
       expect(captured?.items.single.productId, 3);
-      expect(captured?.items.single.taxTotal, 1900);
+      expect(captured?.items.single.taxTotal.minorUnits, 190000);
       expect(events.events.single.name, 'sales.created');
       expect(events.events.single.payload['user_id'], 'user-1');
       expect(events.events.single.payload['request_id'], 'req-1');
@@ -339,14 +347,19 @@ void main() {
           sales: _Sales(),
           purchases: _Purchases(),
           events: events,
+          currencyResolver: () async => _cop,
           createPurchase: (request) async {
             captured = request;
-            return const CreatePurchaseResult(
+            return CreatePurchaseResult(
               purchaseId: 41,
-              subtotal: 30000,
-              tax: 0,
-              total: 30000,
-              payment: PaymentAllocation(cash: 10000, bank: 0, credit: 20000),
+              subtotal: _money(30000),
+              tax: _money(0),
+              total: _money(30000),
+              payment: PaymentAllocation(
+                cash: _money(10000),
+                bank: _money(0),
+                credit: _money(20000),
+              ),
             );
           },
         );
@@ -381,7 +394,7 @@ void main() {
         final payment = data['payment'] as Map<String, Object?>;
         expect(response.statusCode, 201);
         expect(data['purchase_id'], 41);
-        expect(payment['credit'], 20000);
+        expect((payment['credit'] as Map)['minor_units'], 20000);
         expect(captured?.supplierName, 'Proveedor API');
         expect(captured?.items.single.productId, 5);
         expect(events.events.single.name, 'purchases.created');
@@ -475,13 +488,13 @@ void main() {
         companies: () async => const [
           {'id': 7, 'name': 'MerkaERP Demo', 'active': 1},
         ],
-        taxReport: ({required anio, required mes}) async => const {
-          'ventas': 10000,
-          'compras': 4000,
-          'iva_generado': 1900,
-          'iva_descontable': 760,
-          'iva_por_pagar': 1140,
-          'nomina': 0,
+        taxReport: ({required anio, required mes}) async => {
+          'ventas': _money(10000),
+          'compras': _money(4000),
+          'iva_generado': _money(1900),
+          'iva_descontable': _money(760),
+          'iva_por_pagar': _money(1140),
+          'nomina': _money(0),
         },
       );
 
@@ -506,7 +519,7 @@ void main() {
       expect((companies.data as List).single['name'], 'MerkaERP Demo');
       expect(tax.ok, isTrue);
       expect(tax.statusCode, isNot(501));
-      expect((tax.data as Map)['tax_payable'], 1140);
+      expect(((tax.data as Map)['tax_payable'] as Map)['minor_units'], 1140);
       expect(((tax.data as Map)['period'] as Map)['year'], 2026);
     });
   });

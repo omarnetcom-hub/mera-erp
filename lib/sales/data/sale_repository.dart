@@ -1,6 +1,9 @@
 import '../../core/company/company_context.dart';
 import '../../core/database/database_gateway.dart';
 import '../../core/database/tenant_database_gateway.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
 import '../domain/sale.dart';
@@ -12,7 +15,7 @@ abstract class SaleRepository {
 
   Future<List<SaleLine>> findDetails(int saleId);
 
-  Future<double> totalSales();
+  Future<MoneyValue> totalSales();
 
   Future<int> createHeader(Map<String, dynamic> values);
 
@@ -25,6 +28,7 @@ class SqliteSaleRepository implements SaleRepository {
     DatabaseGateway gateway = const SqliteDatabaseGateway(),
     CompanyContextProvider? companyContext,
     Future<void> Function(String featureKey)? validateFeature,
+    Future<Currency> Function(int companyId)? resolveCurrency,
   }) : _db = db ?? DatabaseHelper.instance,
        _gateway = gateway,
        _tenantGateway = TenantDatabaseGateway(
@@ -32,12 +36,22 @@ class SqliteSaleRepository implements SaleRepository {
          companyContext: companyContext ?? CompanyContextService.instance,
        ),
        _validateFeature =
-           validateFeature ?? DatabaseHelper.instance.validarFeatureHabilitada;
+           validateFeature ?? DatabaseHelper.instance.validarFeatureHabilitada,
+       _resolveCurrency =
+           resolveCurrency ??
+           ((companyId) async {
+             final database = await (db ?? DatabaseHelper.instance).database;
+             return MoneyCurrencyResolver.resolve(
+               database,
+               companyId: companyId,
+             );
+           });
 
   final DatabaseHelper _db;
   final DatabaseGateway _gateway;
   final TenantDatabaseGateway _tenantGateway;
   final Future<void> Function(String featureKey) _validateFeature;
+  final Future<Currency> Function(int companyId) _resolveCurrency;
 
   @override
   Future<void> cancel(int saleId) async {
@@ -52,6 +66,8 @@ class SqliteSaleRepository implements SaleRepository {
 
   @override
   Future<List<Sale>> findActive() async {
+    final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _tenantGateway.query(
       'ventas',
       query: const TenantQuery(
@@ -59,21 +75,24 @@ class SqliteSaleRepository implements SaleRepository {
         orderBy: 'fecha DESC',
       ),
     );
-    return rows.map(Sale.fromMap).toList();
+    return rows.map((row) => Sale.fromMap(row, currency: currency)).toList();
   }
 
   @override
   Future<List<Sale>> findAll() async {
+    final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _tenantGateway.query(
       'ventas',
       query: const TenantQuery(orderBy: 'fecha DESC'),
     );
-    return rows.map(Sale.fromMap).toList();
+    return rows.map((row) => Sale.fromMap(row, currency: currency)).toList();
   }
 
   @override
   Future<List<SaleLine>> findDetails(int saleId) async {
     final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _gateway.rawQuery(
       '''
       SELECT
@@ -88,17 +107,24 @@ class SqliteSaleRepository implements SaleRepository {
       ''',
       [saleId, companyId],
     );
-    return rows.map(SaleLine.fromMap).toList();
+    return rows
+        .map((row) => SaleLine.fromMap(row, currency: currency))
+        .toList();
   }
 
   @override
-  Future<double> totalSales() async {
+  Future<MoneyValue> totalSales() async {
     final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _gateway.rawQuery(
       "SELECT COALESCE(SUM(total), 0) AS total FROM ventas WHERE company_id = ? AND COALESCE(estado, 'emitida') != 'anulada'",
       [companyId],
     );
-    if (rows.isEmpty) return 0;
-    return (rows.first['total'] as num?)?.toDouble() ?? 0;
+    if (rows.isEmpty) return MoneyValue(minorUnits: 0, currency: currency);
+    return MoneyValue.fromSql(
+      rows.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
   }
 }

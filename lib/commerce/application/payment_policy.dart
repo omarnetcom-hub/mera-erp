@@ -1,3 +1,5 @@
+import '../../core/currency/money_value.dart';
+
 class PaymentAllocation {
   const PaymentAllocation({
     required this.cash,
@@ -5,11 +7,11 @@ class PaymentAllocation {
     required this.credit,
   });
 
-  final double cash;
-  final double bank;
-  final double credit;
+  final MoneyValue cash;
+  final MoneyValue bank;
+  final MoneyValue credit;
 
-  double get total => cash + bank + credit;
+  MoneyValue get total => cash + bank + credit;
 }
 
 class PaymentPolicy {
@@ -35,37 +37,39 @@ class PaymentPolicy {
   }
 
   static PaymentAllocation allocatePurchase({
-    required double total,
+    required MoneyValue total,
     required String method,
-    double manualCash = 0,
-    double manualBank = 0,
-    double manualCredit = 0,
+    required MoneyValue manualCash,
+    required MoneyValue manualBank,
+    required MoneyValue manualCredit,
   }) {
     final normalized = method.toUpperCase().trim();
-    if (total < 0) {
+    final zero = MoneyValue(minorUnits: 0, currency: total.currency);
+    if (total.minorUnits < 0) {
       throw Exception('El total no puede ser negativo.');
     }
 
     if (normalized == 'PAGO MIXTO') {
       final distributed = manualCash + manualBank + manualCredit;
-      if (distributed - total > 0.01) {
+      if (distributed > total) {
         throw Exception('La distribucion del pago supera el total.');
       }
       return PaymentAllocation(
         cash: manualCash,
         bank: manualBank,
-        credit: manualCredit + (distributed < total ? total - distributed : 0),
+        credit:
+            manualCredit + (distributed < total ? total - distributed : zero),
       );
     }
 
     if (normalized == 'EFECTIVO') {
-      return PaymentAllocation(cash: total, bank: 0, credit: 0);
+      return PaymentAllocation(cash: total, bank: zero, credit: zero);
     }
 
     if (isCreditMethod(normalized)) {
-      return PaymentAllocation(cash: 0, bank: 0, credit: total);
+      return PaymentAllocation(cash: zero, bank: zero, credit: total);
     }
 
-    return PaymentAllocation(cash: 0, bank: total, credit: 0);
+    return PaymentAllocation(cash: zero, bank: total, credit: zero);
   }
 }

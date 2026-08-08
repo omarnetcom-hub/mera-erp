@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../commerce/application/payment_policy.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
 
@@ -19,22 +22,25 @@ class SaleItemInput {
   final int productId;
   final String productName;
   final double quantity;
-  final double unitPrice;
-  final double unitCost;
-  final double subtotal;
+  final MoneyValue unitPrice;
+  final MoneyValue unitCost;
+  final MoneyValue subtotal;
   final double taxRate;
-  final double taxTotal;
+  final MoneyValue taxTotal;
 
-  factory SaleItemInput.fromCart(Map<String, dynamic> item) {
+  factory SaleItemInput.fromCart(
+    Map<String, dynamic> item, {
+    required Currency currency,
+  }) {
     return SaleItemInput(
       productId: (item['producto_id'] as num).toInt(),
       productName: item['producto'].toString(),
       quantity: (item['cantidad'] as num).toDouble(),
-      unitPrice: (item['precio'] as num).toDouble(),
-      unitCost: (item['costo'] as num?)?.toDouble() ?? 0,
-      subtotal: (item['subtotal'] as num).toDouble(),
+      unitPrice: _moneyFromUiValue(item['precio'], currency),
+      unitCost: _moneyFromUiValue(item['costo'] ?? 0, currency),
+      subtotal: _moneyFromUiValue(item['subtotal'], currency),
       taxRate: (item['impuesto_pct'] as num?)?.toDouble() ?? 0,
-      taxTotal: (item['impuesto_total'] as num?)?.toDouble() ?? 0,
+      taxTotal: _moneyFromUiValue(item['impuesto_total'] ?? 0, currency),
     );
   }
 }
@@ -47,12 +53,12 @@ class CreateSaleRequest {
     required this.clientName,
     this.clientId,
     this.date,
-    this.efectivo = 0.0,
-    this.transferencia = 0.0,
-    this.credito = 0.0,
-    this.retefuente = 0.0,
-    this.reteiva = 0.0,
-    this.reteica = 0.0,
+    required this.efectivo,
+    required this.transferencia,
+    required this.credito,
+    required this.retefuente,
+    required this.reteiva,
+    required this.reteica,
   });
 
   final List<SaleItemInput> items;
@@ -61,12 +67,12 @@ class CreateSaleRequest {
   final int? clientId;
   final String clientName;
   final DateTime? date;
-  final double efectivo;
-  final double transferencia;
-  final double credito;
-  final double retefuente;
-  final double reteiva;
-  final double reteica;
+  final MoneyValue efectivo;
+  final MoneyValue transferencia;
+  final MoneyValue credito;
+  final MoneyValue retefuente;
+  final MoneyValue reteiva;
+  final MoneyValue reteica;
 }
 
 class CreateSaleResult {
@@ -79,10 +85,10 @@ class CreateSaleResult {
   });
 
   final int saleId;
-  final double subtotal;
-  final double tax;
-  final double total;
-  final double costOfSale;
+  final MoneyValue subtotal;
+  final MoneyValue tax;
+  final MoneyValue total;
+  final MoneyValue costOfSale;
 }
 
 class CreateSaleUseCase {
@@ -107,7 +113,12 @@ class CreateSaleUseCase {
 
     final database = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
-    
+    final currency = await MoneyCurrencyResolver.resolve(
+      database,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+
     // Obtener parámetros de impuestos del año actual
     final currentYear = saleDate.year;
     final taxParams = await database.query(
@@ -116,16 +127,16 @@ class CreateSaleUseCase {
       whereArgs: [currentYear, companyId],
       limit: 1,
     );
-    
-    final ivaGeneralRate = taxParams.isEmpty ? 0.19 : (taxParams.first['iva_general_rate'] as num).toDouble();
-    final ivaReducedRate = taxParams.isEmpty ? 0.05 : (taxParams.first['iva_reduced_rate'] as num).toDouble();
-    final retefuenteUvt = taxParams.isEmpty ? 1090 : (taxParams.first['retefuente_general_uvt'] as num).toDouble();
-    final retefuentePurchasesDeclaring = taxParams.isEmpty ? 0.025 : (taxParams.first['retefuente_purchases_declaring'] as num).toDouble();
-    final retefuentePurchasesNonDeclaring = taxParams.isEmpty ? 0.035 : (taxParams.first['retefuente_purchases_non_declaring'] as num).toDouble();
-    final retefuenteServices1 = taxParams.isEmpty ? 0.04 : (taxParams.first['retefuente_services_1'] as num).toDouble();
-    final retefuenteServices2 = taxParams.isEmpty ? 0.06 : (taxParams.first['retefuente_services_2'] as num).toDouble();
-    final retefuenteHonoraries1 = taxParams.isEmpty ? 0.10 : (taxParams.first['retefuente_honoraries_1'] as num).toDouble();
-    final retefuenteHonoraries2 = taxParams.isEmpty ? 0.11 : (taxParams.first['retefuente_honoraries_2'] as num).toDouble();
+
+    final retefuenteUvt = taxParams.isEmpty
+        ? '1090'
+        : taxParams.first['retefuente_general_uvt'].toString();
+    final retefuentePurchasesDeclaring = taxParams.isEmpty
+        ? '0.025'
+        : taxParams.first['retefuente_purchases_declaring'].toString();
+    final retefuentePurchasesNonDeclaring = taxParams.isEmpty
+        ? '0.035'
+        : taxParams.first['retefuente_purchases_non_declaring'].toString();
     final reteicaRules = await database.query(
       'reglas_retenciones_empresa',
       columns: ['tasa', 'base_minima'],
@@ -134,13 +145,16 @@ class CreateSaleUseCase {
       orderBy: 'id ASC',
       limit: 1,
     );
-    final reteicaBaseRate = reteicaRules.isEmpty
-        ? 0.0
-        : (reteicaRules.first['tasa'] as num).toDouble() / 100;
+    final reteicaRatePercent = reteicaRules.isEmpty
+        ? '0'
+        : reteicaRules.first['tasa'].toString();
     final reteicaMinimumBase = reteicaRules.isEmpty
-        ? 0.0
-        : (reteicaRules.first['base_minima'] as num).toDouble();
-    
+        ? zero
+        : MoneyValue.fromSql(
+            reteicaRules.first['base_minima'],
+            currency: currency,
+          );
+
     // Obtener banderas fiscales del cliente si existe
     bool isAutoretainer = false;
     bool isDeclarante = true;
@@ -156,51 +170,69 @@ class CreateSaleUseCase {
         isDeclarante = (clientRows.first['declarante'] as int?) != 0;
       }
     }
-    
+
     // Calcular retenciones automáticamente si el cliente no es autorretenedor
-    double calculatedRetefuente = request.retefuente;
-    double calculatedReteiva = request.reteiva;
-    double calculatedReteica = request.reteica;
-    
-    final subtotal = request.items.fold<double>(
-      0,
+    var calculatedRetefuente = request.retefuente;
+    final calculatedReteiva = request.reteiva;
+    var calculatedReteica = request.reteica;
+
+    final subtotal = request.items.fold<MoneyValue>(
+      zero,
       (sum, item) => sum + item.subtotal,
     );
-    
+
     if (!isAutoretainer) {
       // Calcular retefuente basado en el subtotal y tipo de cliente
       // (Simplificado - debería usar tabla UVT completa)
-      if (subtotal > retefuenteUvt * 47062) { // 47062 es valor UVT 2024
-        calculatedRetefuente = subtotal * (isDeclarante ? retefuentePurchasesDeclaring : retefuentePurchasesNonDeclaring);
+      final retentionThreshold = MoneyValue.fromMajorUnits(
+        '47062',
+        currency: currency,
+      ).multiplyDecimal(retefuenteUvt);
+      if (subtotal > retentionThreshold) {
+        calculatedRetefuente = subtotal.multiplyDecimal(
+          isDeclarante
+              ? retefuentePurchasesDeclaring
+              : retefuentePurchasesNonDeclaring,
+        );
       }
-      
+
       if (subtotal >= reteicaMinimumBase) {
-        calculatedReteica = subtotal * reteicaBaseRate;
+        calculatedReteica = subtotal.percent(reteicaRatePercent);
       }
     }
-    
-    final tax = request.items.fold<double>(
-      0,
+
+    final tax = request.items.fold<MoneyValue>(
+      zero,
       (sum, item) => sum + item.taxTotal,
     );
-    final total = subtotal + tax - calculatedRetefuente - calculatedReteiva - calculatedReteica;
-    final taxRate = subtotal <= 0 ? 0.0 : (tax / subtotal) * 100;
+    final total =
+        subtotal +
+        tax -
+        calculatedRetefuente -
+        calculatedReteiva -
+        calculatedReteica;
+    final taxRate = subtotal.minorUnits <= 0
+        ? 0.0
+        : (tax.minorUnits * 100) / subtotal.minorUnits;
     final paymentMethod = request.paymentMethodName.toUpperCase().trim();
 
     final ef = request.efectivo;
     final tf = request.transferencia;
     final cr = request.credito;
-    final isMixed = paymentMethod == 'PAGO MIXTO' || (ef + tf + cr) > 0;
+    final isMixed =
+        paymentMethod == 'PAGO MIXTO' || (ef + tf + cr).minorUnits > 0;
 
     if (isMixed) {
-      if ((ef + tf + cr - total).abs() > 0.01) {
-        throw Exception('La suma del pago mixto debe igualar el total de la factura.');
+      if (ef + tf + cr != total) {
+        throw Exception(
+          'La suma del pago mixto debe igualar el total de la factura.',
+        );
       }
     }
 
     final origin = PaymentPolicy.cashOriginForSale(paymentMethod);
     late int saleId;
-    var costOfSale = 0.0;
+    var costOfSale = zero;
 
     await database.transaction((txn) async {
       for (final item in request.items) {
@@ -224,21 +256,21 @@ class CreateSaleUseCase {
         'cantidad': request.items.length,
         'precio_unitario': 0,
         'costo_unitario': 0,
-        'subtotal': subtotal,
+        'subtotal': subtotal.toSql(),
         'impuesto_pct': taxRate,
-        'impuesto_total': tax,
-        'total': total,
+        'impuesto_total': tax.toSql(),
+        'total': total.toSql(),
         'fecha': saleDate.toIso8601String(),
         'metodo_pago_id': request.paymentMethodId,
         'cliente_id': request.clientId,
         'cliente': request.clientName,
         'estado': 'emitida',
-        'efectivo': request.efectivo,
-        'transferencia': request.transferencia,
-        'credito': request.credito,
-        'retefuente': calculatedRetefuente,
-        'reteiva': calculatedReteiva,
-        'reteica': calculatedReteica,
+        'efectivo': request.efectivo.toSql(),
+        'transferencia': request.transferencia.toSql(),
+        'credito': request.credito.toSql(),
+        'retefuente': calculatedRetefuente.toSql(),
+        'reteiva': calculatedReteiva.toSql(),
+        'reteica': calculatedReteica.toSql(),
       });
 
       await txn.update(
@@ -252,44 +284,44 @@ class CreateSaleUseCase {
       final tf = request.transferencia;
       final cr = request.credito;
 
-      if (ef == 0 && tf == 0 && cr == 0) {
+      if ((ef + tf + cr).minorUnits == 0) {
         await txn.insert('movimientos_caja', {
           'company_id': companyId,
           'tipo': 'ingreso',
           'concepto': origin == 'cartera'
               ? 'Cuenta por cobrar factura POS #$saleId'
               : 'Factura POS #$saleId',
-          'monto': total,
+          'monto': total.toSql(),
           'fecha': saleDate.toIso8601String(),
           'origen': origin,
         });
       } else {
-        if (ef > 0) {
+        if (ef.minorUnits > 0) {
           await txn.insert('movimientos_caja', {
             'company_id': companyId,
             'tipo': 'ingreso',
             'concepto': 'Factura POS #$saleId (Efectivo)',
-            'monto': ef,
+            'monto': ef.toSql(),
             'fecha': saleDate.toIso8601String(),
             'origen': 'caja',
           });
         }
-        if (tf > 0) {
+        if (tf.minorUnits > 0) {
           await txn.insert('movimientos_caja', {
             'company_id': companyId,
             'tipo': 'ingreso',
             'concepto': 'Factura POS #$saleId (Transferencia)',
-            'monto': tf,
+            'monto': tf.toSql(),
             'fecha': saleDate.toIso8601String(),
             'origen': 'banco',
           });
         }
-        if (cr > 0) {
+        if (cr.minorUnits > 0) {
           await txn.insert('movimientos_caja', {
             'company_id': companyId,
             'tipo': 'ingreso',
             'concepto': 'Cuenta por cobrar factura POS #$saleId',
-            'monto': cr,
+            'monto': cr.toSql(),
             'fecha': saleDate.toIso8601String(),
             'origen': 'cartera',
           });
@@ -302,8 +334,8 @@ class CreateSaleUseCase {
           'cliente_id': request.clientId,
           'cliente': request.clientName,
           'venta_id': saleId,
-          'total': total,
-          'saldo': total,
+          'total': total.toSql(),
+          'saldo': total.toSql(),
           'estado': 'pendiente',
           'fecha': saleDate.toIso8601String(),
           'descripcion': 'Factura POS #$saleId a credito',
@@ -311,7 +343,7 @@ class CreateSaleUseCase {
       }
 
       for (final item in request.items) {
-        costOfSale += item.unitCost * item.quantity;
+        costOfSale += item.unitCost.multiplyDecimal(item.quantity.toString());
         final productRows = await txn.query(
           'productos',
           where: 'id = ? AND company_id = ?',
@@ -319,13 +351,18 @@ class CreateSaleUseCase {
           limit: 1,
         );
         final currentStock = (productRows.first['stock'] as num).toDouble();
-        final currentCost = (productRows.first['costo'] as num?)?.toDouble() ?? 0;
+        final currentCost = MoneyValue.fromSql(
+          productRows.first['costo'],
+          currency: currency,
+          nullableAsZero: true,
+        );
         final newStock = currentStock - item.quantity;
 
         // Verificar si el producto tiene lotes
         final lotes = await txn.query(
           'lotes',
-          where: 'producto_id = ? AND company_id = ? AND status = ? AND cantidad > 0',
+          where:
+              'producto_id = ? AND company_id = ? AND status = ? AND cantidad > 0',
           whereArgs: [item.productId, companyId, 'active'],
           orderBy: 'fecha_vencimiento ASC', // FEFO: First Expired, First Out
         );
@@ -335,10 +372,10 @@ class CreateSaleUseCase {
           double cantidadRestante = item.quantity;
           for (final lote in lotes) {
             if (cantidadRestante <= 0) break;
-            
+
             final loteCantidad = (lote['cantidad'] as num).toDouble();
             final loteId = lote['id'] as int;
-            
+
             if (loteCantidad >= cantidadRestante) {
               // El lote tiene suficiente para cubrir todo lo restante
               await txn.update(
@@ -374,8 +411,8 @@ class CreateSaleUseCase {
           'cantidad': item.quantity,
           'stock_anterior': currentStock,
           'stock_nuevo': newStock,
-          'costo_anterior': currentCost,
-          'costo_nuevo': currentCost,
+          'costo_anterior': currentCost.toSql(),
+          'costo_nuevo': currentCost.toSql(),
           'motivo': 'FACTURA POS #$saleId',
           'fecha': saleDate.toIso8601String(),
         });
@@ -385,8 +422,8 @@ class CreateSaleUseCase {
           'producto_id': item.productId,
           'producto': item.productName,
           'cantidad': item.quantity,
-          'precio_unitario': item.unitPrice,
-          'subtotal': item.subtotal,
+          'precio_unitario': item.unitPrice.toSql(),
+          'subtotal': item.subtotal.toSql(),
         });
       }
       await _db.registrarAsientoVenta(
@@ -405,9 +442,9 @@ class CreateSaleUseCase {
       try {
         final payload = {
           'invoice_id': saleId,
-          'total': total,
-          'subtotal': subtotal,
-          'tax': tax,
+          'total': _wireMoney(total),
+          'subtotal': _wireMoney(subtotal),
+          'tax': _wireMoney(tax),
           'client_name': request.clientName,
           'client_id': request.clientId,
           'date': saleDate.toIso8601String(),
@@ -436,17 +473,18 @@ class CreateSaleUseCase {
             whereArgs: [item.productId, companyId],
             limit: 1,
           );
-          
+
           if (productRows.isNotEmpty) {
             final product = productRows.first;
             final hasWarranty = (product['has_warranty'] as int?) == 1;
             final warrantyDays = (product['warranty_days'] as int?) ?? 365;
-            
+
             if (hasWarranty) {
               await _db.registrarGarantia(
                 ventaId: saleId,
                 productoId: item.productId,
-                descripcionProblema: 'Garantía automática generada al momento de venta',
+                descripcionProblema:
+                    'Garantía automática generada al momento de venta',
                 diasGarantia: warrantyDays,
               );
             }
@@ -468,21 +506,25 @@ class CreateSaleUseCase {
       try {
         final payload = {
           'invoice_id': saleId,
-          'total': total,
-          'subtotal': subtotal,
-          'tax': tax,
+          'total': _wireMoney(total),
+          'subtotal': _wireMoney(subtotal),
+          'tax': _wireMoney(tax),
           'client_name': request.clientName,
           'client_id': request.clientId,
           'date': saleDate.toIso8601String(),
           'payment_method': paymentMethod,
           'status': 'emitida',
-          'items': request.items.map((item) => {
-            'product_id': item.productId,
-            'product_name': item.productName,
-            'quantity': item.quantity,
-            'unit_price': item.unitPrice,
-            'subtotal': item.subtotal,
-          }).toList(),
+          'items': request.items
+              .map(
+                (item) => {
+                  'product_id': item.productId,
+                  'product_name': item.productName,
+                  'quantity': item.quantity,
+                  'unit_price': _wireMoney(item.unitPrice),
+                  'subtotal': _wireMoney(item.subtotal),
+                },
+              )
+              .toList(),
         };
         await _db.enqueueSync(
           table: 'invoices',
@@ -505,3 +547,17 @@ class CreateSaleUseCase {
     );
   }
 }
+
+MoneyValue _moneyFromUiValue(Object? value, Currency currency) {
+  if (value is MoneyValue) return value;
+  return MoneyValue.fromMajorUnits(
+    value?.toString() ?? '0',
+    currency: currency,
+  );
+}
+
+Map<String, Object> _wireMoney(MoneyValue value) => {
+  'minor_units': value.minorUnits,
+  'currency': value.currencyCode,
+  'scale': value.decimalPlaces,
+};

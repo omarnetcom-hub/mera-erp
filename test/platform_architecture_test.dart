@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:merka_erp/core/branch/branch_context.dart';
 import 'package:merka_erp/core/api/api_contract.dart';
 import 'package:merka_erp/core/api/api_dispatcher.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/inventory/data/product_repository.dart';
 import 'package:merka_erp/inventory/domain/product.dart';
 import 'package:merka_erp/licensing/application/license_policy_service.dart';
@@ -18,6 +19,8 @@ import 'package:merka_erp/sync/domain/sync_models.dart';
 import 'package:merka_erp/telemetry/application/telemetry_service.dart';
 import 'package:merka_erp/workflows/application/workflow_engine.dart';
 import 'package:merka_erp/workflows/domain/workflow_models.dart';
+
+import 'support/test_money.dart';
 
 class _SyncRepo implements SyncEventRepository {
   final outbox = <SyncEnvelope>[];
@@ -134,7 +137,7 @@ class _Sales implements SaleRepository {
   Future<List<SaleLine>> findDetails(int saleId) async => const [];
 
   @override
-  Future<double> totalSales() async => 0;
+  Future<MoneyValue> totalSales() async => zeroTestMoney;
 }
 
 class _Purchases implements PurchaseRepository {
@@ -154,7 +157,7 @@ class _Purchases implements PurchaseRepository {
   Future<List<PurchaseLine>> findDetails(int purchaseId) async => const [];
 
   @override
-  Future<double> totalPurchases() async => 0;
+  Future<MoneyValue> totalPurchases() async => zeroTestMoney;
 }
 
 void main() {

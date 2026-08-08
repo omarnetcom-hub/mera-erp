@@ -9,6 +9,7 @@ import 'package:merka_erp/core/branch/branch_context.dart';
 import 'package:merka_erp/core/events/domain_event.dart';
 import 'package:merka_erp/core/events/event_dispatcher.dart' as eda;
 import 'package:merka_erp/core/events/event_store.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/cqrs/application/dashboard_projection.dart';
 import 'package:merka_erp/cqrs/domain/read_models.dart';
 import 'package:merka_erp/inventory/application/stock_ledger_service.dart';
@@ -20,6 +21,8 @@ import 'package:merka_erp/purchases/data/purchase_repository.dart';
 import 'package:merka_erp/purchases/domain/purchase.dart';
 import 'package:merka_erp/sales/data/sale_repository.dart';
 import 'package:merka_erp/sales/domain/sale.dart';
+
+import 'support/test_money.dart';
 
 void main() {
   group('Consolidacion arquitectonica', () {
@@ -377,7 +380,7 @@ class _Sales implements SaleRepository {
   Future<List<SaleLine>> findDetails(int saleId) async => const [];
 
   @override
-  Future<double> totalSales() async => 0;
+  Future<MoneyValue> totalSales() async => zeroTestMoney;
 }
 
 class _Purchases implements PurchaseRepository {
@@ -397,7 +400,7 @@ class _Purchases implements PurchaseRepository {
   Future<List<PurchaseLine>> findDetails(int purchaseId) async => const [];
 
   @override
-  Future<double> totalPurchases() async => 0;
+  Future<MoneyValue> totalPurchases() async => zeroTestMoney;
 }
 
 JournalEntry _journalEntry() {

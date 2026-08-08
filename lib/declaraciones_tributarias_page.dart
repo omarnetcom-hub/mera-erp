@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'numeric_input.dart';
 import 'ui/enterprise_design_system.dart';
@@ -17,7 +18,8 @@ class DeclaracionesTributariasPage extends StatefulWidget {
       _DeclaracionesTributariasPageState();
 }
 
-class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasPage>
+class _DeclaracionesTributariasPageState
+    extends State<DeclaracionesTributariasPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
   int _anio = DateTime.now().year;
@@ -25,10 +27,10 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
   final int _mesInicioIca = 1;
   final int _mesFinIca = 2;
   final double _tarifaIca = 11.04;
-  Map<String, double> _f300 = {};
-  Map<String, double> _f350 = {};
-  Map<String, double> _f110 = {};
-  Map<String, double> _ica = {};
+  Map<String, Object> _f300 = {};
+  Map<String, Object> _f350 = {};
+  Map<String, Object> _f110 = {};
+  Map<String, Object> _ica = {};
   bool _cargando = false;
 
   @override
@@ -58,7 +60,9 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
       anio: _anio,
       mes: _mes,
     );
-    final f110 = await DatabaseHelper.instance.obtenerBorradorFormulario110(anio: _anio);
+    final f110 = await DatabaseHelper.instance.obtenerBorradorFormulario110(
+      anio: _anio,
+    );
     final ica = await DatabaseHelper.instance.obtenerBorradorICA(
       anio: _anio,
       mesInicio: _mesInicioIca,
@@ -75,11 +79,18 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
     });
   }
 
-  String _fmt(num v) => '\$${v.toStringAsFixed(2)}';
+  String _fmt(Object? value) {
+    if (value is MoneyValue) return value.format();
+    return value?.toString() ?? '-';
+  }
 
-  Future<void> _exportarPDF(String nombreFormulario, Map<String, double> datos, Map<String, String> labels) async {
+  Future<void> _exportarPDF(
+    String nombreFormulario,
+    Map<String, Object> datos,
+    Map<String, String> labels,
+  ) async {
     final pdf = pw.Document();
-    
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -98,12 +109,14 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
                 context: context,
                 data: <List<String>>[
                   ['Concepto', 'Valor'],
-                  ...labels.entries.map((e) => [
-                    e.value,
-                    e.key.contains('tarifa')
-                        ? '${(datos[e.key] ?? 0).toStringAsFixed(2)} x1000'
-                        : _fmt(datos[e.key] ?? 0),
-                  ]),
+                  ...labels.entries.map(
+                    (e) => [
+                      e.value,
+                      e.key.contains('tarifa')
+                          ? '${datos[e.key] ?? '-'} x1000'
+                          : _fmt(datos[e.key] ?? 0),
+                    ],
+                  ),
                 ],
                 border: pw.TableBorder.all(),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -121,7 +134,10 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
       ),
     );
 
-    await Printing.sharePdf(bytes: await pdf.save(), filename: '${nombreFormulario}_$_anio-$_mes.pdf');
+    await Printing.sharePdf(
+      bytes: await pdf.save(),
+      filename: '${nombreFormulario}_$_anio-$_mes.pdf',
+    );
   }
 
   Widget _periodoSelector() {
@@ -135,7 +151,10 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
                 controller: TextEditingController(text: '$_anio'),
                 keyboardType: TextInputType.number,
                 inputFormatters: [NumericInput.integer],
-                decoration: const InputDecoration(labelText: 'Año', isDense: true),
+                decoration: const InputDecoration(
+                  labelText: 'Año',
+                  isDense: true,
+                ),
                 onChanged: (v) => _anio = int.tryParse(v) ?? _anio,
               ),
             ),
@@ -143,10 +162,14 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
             Expanded(
               child: DropdownButtonFormField<int>(
                 initialValue: _mes,
-                decoration: const InputDecoration(labelText: 'Mes', isDense: true),
+                decoration: const InputDecoration(
+                  labelText: 'Mes',
+                  isDense: true,
+                ),
                 items: List.generate(
                   12,
-                  (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                  (i) =>
+                      DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
                 ),
                 onChanged: (v) {
                   if (v != null) setState(() => _mes = v);
@@ -160,7 +183,11 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
     );
   }
 
-  Widget _filas(Map<String, double> data, Map<String, String> labels, String nombreFormulario) {
+  Widget _filas(
+    Map<String, Object> data,
+    Map<String, String> labels,
+    String nombreFormulario,
+  ) {
     return Column(
       children: [
         Padding(
@@ -196,7 +223,7 @@ class _DeclaracionesTributariasPageState extends State<DeclaracionesTributariasP
                   title: Text(e.value),
                   trailing: Text(
                     e.key.contains('tarifa')
-                        ? '${(data[e.key] ?? 0).toStringAsFixed(2)} x1000'
+                        ? '${data[e.key] ?? '-'} x1000'
                         : _fmt(data[e.key] ?? 0),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'numeric_input.dart';
 
@@ -17,7 +18,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
   final conceptoCtrl = TextEditingController();
 
   bool loading = false;
-  double saldoOrigen = 0;
+  MoneyValue? saldoOrigen;
 
   @override
   void initState() {
@@ -36,19 +37,34 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
   }
 
   Future<void> transferir() async {
-    final monto = double.tryParse(montoCtrl.text.replaceAll(',', '.')) ?? 0;
+    final saldo = saldoOrigen;
+    if (saldo == null) return;
+    MoneyValue monto;
+    try {
+      monto = MoneyValue.fromMajorUnits(
+        montoCtrl.text.replaceAll(',', '.'),
+        currency: saldo.currency,
+      );
+    } on FormatException {
+      return;
+    }
 
-    if (monto <= 0) {
+    if (monto.minorUnits <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El monto debe ser mayor a 0'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('El monto debe ser mayor a 0'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
 
-    if (monto > saldoOrigen) {
+    if (monto > saldo) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Saldo insuficiente en origen. Disponible: \$${saldoOrigen.toStringAsFixed(2)}'),
+          content: Text(
+            'Saldo insuficiente en origen. Disponible: ${saldo.format()}',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -57,7 +73,10 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
 
     if (origen == destino) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Origen y destino deben ser diferentes'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Origen y destino deben ser diferentes'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -95,7 +114,10 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
       setState(() => loading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -122,8 +144,11 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                 leading: const Icon(Icons.account_balance_wallet),
                 title: const Text('Saldo disponible en origen'),
                 trailing: Text(
-                  '\$${saldoOrigen.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  saldoOrigen?.format() ?? '-',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
               ),
             ),
@@ -132,8 +157,14 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
               initialValue: origen,
               items: const [
                 DropdownMenuItem(value: 'caja', child: Text('Caja (Efectivo)')),
-                DropdownMenuItem(value: 'banco', child: Text('Banco (Transferencias)')),
-                DropdownMenuItem(value: 'cartera', child: Text('Cartera (Crédito)')),
+                DropdownMenuItem(
+                  value: 'banco',
+                  child: Text('Banco (Transferencias)'),
+                ),
+                DropdownMenuItem(
+                  value: 'cartera',
+                  child: Text('Cartera (Crédito)'),
+                ),
               ],
               onChanged: (v) {
                 if (v != null) {
@@ -154,8 +185,14 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
               initialValue: destino,
               items: const [
                 DropdownMenuItem(value: 'caja', child: Text('Caja (Efectivo)')),
-                DropdownMenuItem(value: 'banco', child: Text('Banco (Transferencias)')),
-                DropdownMenuItem(value: 'cartera', child: Text('Cartera (Crédito)')),
+                DropdownMenuItem(
+                  value: 'banco',
+                  child: Text('Banco (Transferencias)'),
+                ),
+                DropdownMenuItem(
+                  value: 'cartera',
+                  child: Text('Cartera (Crédito)'),
+                ),
               ],
               onChanged: (v) => setState(() => destino = v as String),
               decoration: const InputDecoration(
@@ -176,7 +213,8 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
               decoration: InputDecoration(
                 labelText: 'Monto a transferir',
                 border: const OutlineInputBorder(),
-                helperText: 'Máximo disponible: \$${saldoOrigen.toStringAsFixed(2)}',
+                helperText:
+                    'Máximo disponible: ${saldoOrigen?.format() ?? '-'}',
                 suffixText: '\$',
               ),
             ),
@@ -205,7 +243,9 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.send),
-                label: Text(loading ? 'Procesando...' : 'Realizar transferencia'),
+                label: Text(
+                  loading ? 'Procesando...' : 'Realizar transferencia',
+                ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

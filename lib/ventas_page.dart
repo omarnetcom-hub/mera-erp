@@ -7,6 +7,9 @@ import 'app_session.dart';
 import 'catalog/application/catalog_service.dart';
 import 'catalog/domain/master_catalog.dart';
 import 'core/security/action_permission.dart';
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'control_center_agent.dart';
 import 'db_helper.dart';
 import 'logo_widget.dart';
@@ -32,7 +35,8 @@ class _VentasPageState extends State<VentasPage> {
   Map<int, String> _metodosPago = {};
   final Map<int, List<Map<String, dynamic>>> _detalles = {};
   final _busquedaController = TextEditingController();
-  double _totalVentas = 0;
+  Currency? _currency;
+  MoneyValue? _totalVentas;
   String _busqueda = '';
   String _filtroEstado = 'todos';
   String _filtroMetodo = 'todos';
@@ -73,6 +77,12 @@ class _VentasPageState extends State<VentasPage> {
   }
 
   Future<void> _cargarDatosInterna() async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final ventas = await _ventasRepo.findAll();
     final productos = await DatabaseHelper.instance.obtenerProductos();
     final metodos = await DatabaseHelper.instance.obtenerMetodosPago();
@@ -93,6 +103,7 @@ class _VentasPageState extends State<VentasPage> {
     if (!mounted) return;
     setState(() {
       _datosCargados = true;
+      _currency = currency;
       _ventas = ventas.map((venta) => venta.toMap()).toList();
       _productos = productos;
       _impuestosDisponibles = impuestos;
@@ -182,6 +193,13 @@ class _VentasPageState extends State<VentasPage> {
 
     await _asegurarDatosCargados();
     if (!mounted) return;
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
 
     final disponibles = _productos
         .where((p) => ((p['stock'] as num?)?.toDouble() ?? 0) > 0)
@@ -230,17 +248,17 @@ class _VentasPageState extends State<VentasPage> {
       return null;
     }
 
-    double subtotalCarrito() => carrito.fold<double>(
-      0,
-      (sum, item) => sum + (item['subtotal'] as num).toDouble(),
+    MoneyValue subtotalCarrito() => carrito.fold<MoneyValue>(
+      zero,
+      (sum, item) => sum + (item['subtotal'] as MoneyValue),
     );
 
-    double impuestoCarrito() => carrito.fold<double>(
-      0,
-      (sum, item) => sum + ((item['impuesto_total'] as num?)?.toDouble() ?? 0),
+    MoneyValue impuestoCarrito() => carrito.fold<MoneyValue>(
+      zero,
+      (sum, item) => sum + (item['impuesto_total'] as MoneyValue),
     );
 
-    double totalCarrito() {
+    MoneyValue totalCarrito() {
       return subtotalCarrito() + impuestoCarrito();
     }
 
@@ -269,18 +287,25 @@ class _VentasPageState extends State<VentasPage> {
         return;
       }
 
-      final precio = (producto['precio'] as num).toDouble();
-      final impuestoItem = precio * cantidad * (impuestoPct / 100);
+      final precio = MoneyValue.fromSql(producto['precio'], currency: currency);
+      final costo = MoneyValue.fromSql(
+        producto['costo'],
+        currency: currency,
+        nullableAsZero: true,
+      );
+      final subtotalItem = precio.multiplyDecimal(cantidad.toString());
+      final impuestoItem = subtotalItem.percent(impuestoPct.toString());
       final existente = carrito.where((i) => i['producto_id'] == productoId);
       setDlg(() {
         if (existente.isNotEmpty) {
           final item = existente.first;
           final nuevaCantidad = (item['cantidad'] as num).toDouble() + cantidad;
           item['cantidad'] = nuevaCantidad;
-          item['subtotal'] = nuevaCantidad * precio;
+          item['subtotal'] = precio.multiplyDecimal(nuevaCantidad.toString());
           item['impuesto_pct'] = impuestoPct;
-          item['impuesto_total'] =
-              (item['subtotal'] as num).toDouble() * (impuestoPct / 100);
+          item['impuesto_total'] = (item['subtotal'] as MoneyValue).percent(
+            impuestoPct.toString(),
+          );
         } else {
           carrito.add({
             'producto_id': productoId,
@@ -289,8 +314,8 @@ class _VentasPageState extends State<VentasPage> {
             'unidad': producto['unidad_base'] ?? 'unid.',
             'cantidad': cantidad,
             'precio': precio,
-            'costo': producto['costo'],
-            'subtotal': cantidad * precio,
+            'costo': costo,
+            'subtotal': subtotalItem,
             'impuesto_pct': impuestoPct,
             'impuesto_total': impuestoItem,
             'ubicacion_codigo': producto['ubicacion_codigo'] ?? '',
@@ -501,7 +526,9 @@ class _VentasPageState extends State<VentasPage> {
                       setDlg(() {
                         metodoPagoId = value;
                         final nombre = metodosPago
-                            .firstWhere((m) => (m['id'] as num).toInt() == value)['nombre']
+                            .firstWhere(
+                              (m) => (m['id'] as num).toInt() == value,
+                            )['nombre']
                             .toString();
                         esPagoMixto = nombre.toUpperCase() == 'PAGO MIXTO';
                         if (!esPagoMixto) {
@@ -558,7 +585,9 @@ class _VentasPageState extends State<VentasPage> {
                     ),
                   ],
                   // Campo para monto recibido en efectivo (para calcular cambio)
-                  if (!esPagoMixto && _nombreMetodo(metodosPago, metodoPagoId) == 'EFECTIVO') ...[
+                  if (!esPagoMixto &&
+                      _nombreMetodo(metodosPago, metodoPagoId) ==
+                          'EFECTIVO') ...[
                     const SizedBox(height: 10),
                     TextField(
                       controller: montoRecibidoCtrl,
@@ -573,7 +602,10 @@ class _VentasPageState extends State<VentasPage> {
                     ),
                   ],
                   const SizedBox(height: 10),
-                  const Text('Retenciones (opcional)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Retenciones (opcional)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -688,20 +720,28 @@ class _VentasPageState extends State<VentasPage> {
                     ),
                   ),
                   // Mostrar cambio si se ingresó monto recibido (Mejora 14 - destacado)
-                  if (!esPagoMixto && _nombreMetodo(metodosPago, metodoPagoId) == 'EFECTIVO') ...[
+                  if (!esPagoMixto &&
+                      _nombreMetodo(metodosPago, metodoPagoId) ==
+                          'EFECTIVO') ...[
                     const SizedBox(height: 8),
                     Builder(
                       builder: (context) {
                         final total = totalCarrito();
-                        final recibido = double.tryParse(montoRecibidoCtrl.text.replaceAll(',', '.')) ?? 0;
+                        final recibido = _moneyInput(
+                          montoRecibidoCtrl.text,
+                          currency,
+                        );
                         final cambio = recibido - total;
-                        if (recibido > 0 && cambio > 0) {
+                        if (recibido.minorUnits > 0 && cambio.minorUnits > 0) {
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.green.shade50,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green.shade300, width: 2),
+                              border: Border.all(
+                                color: Colors.green.shade300,
+                                width: 2,
+                              ),
                             ),
                             child: Column(
                               children: [
@@ -752,12 +792,18 @@ class _VentasPageState extends State<VentasPage> {
                           clienteId: clienteId,
                           clienteNombre: clienteNombre,
                           metodosPago: metodosPago,
-                          pagoCaja: double.tryParse(pagoCajaCtrl.text.replaceAll(',', '.')) ?? 0,
-                          pagoBanco: double.tryParse(pagoBancoCtrl.text.replaceAll(',', '.')) ?? 0,
-                          pagoCredito: double.tryParse(pagoCreditoCtrl.text.replaceAll(',', '.')) ?? 0,
-                          retefuente: double.tryParse(retefuenteCtrl.text.replaceAll(',', '.')) ?? 0,
-                          reteiva: double.tryParse(reteivaCtrl.text.replaceAll(',', '.')) ?? 0,
-                          reteica: double.tryParse(reteicaCtrl.text.replaceAll(',', '.')) ?? 0,
+                          pagoCaja: _moneyInput(pagoCajaCtrl.text, currency),
+                          pagoBanco: _moneyInput(pagoBancoCtrl.text, currency),
+                          pagoCredito: _moneyInput(
+                            pagoCreditoCtrl.text,
+                            currency,
+                          ),
+                          retefuente: _moneyInput(
+                            retefuenteCtrl.text,
+                            currency,
+                          ),
+                          reteiva: _moneyInput(reteivaCtrl.text, currency),
+                          reteica: _moneyInput(reteicaCtrl.text, currency),
                         );
                       } catch (e) {
                         if (!ctx.mounted) return;
@@ -797,20 +843,23 @@ class _VentasPageState extends State<VentasPage> {
     required int? clienteId,
     required String clienteNombre,
     required List<Map<String, dynamic>> metodosPago,
-    double pagoCaja = 0,
-    double pagoBanco = 0,
-    double pagoCredito = 0,
-    double retefuente = 0,
-    double reteiva = 0,
-    double reteica = 0,
+    required MoneyValue pagoCaja,
+    required MoneyValue pagoBanco,
+    required MoneyValue pagoCredito,
+    required MoneyValue retefuente,
+    required MoneyValue reteiva,
+    required MoneyValue reteica,
   }) async {
+    final currency = pagoCaja.currency;
     final metodo = metodosPago.firstWhere(
       (m) => (m['id'] as num).toInt() == metodoPagoId,
       orElse: () => {'nombre': 'DESCONOCIDO'},
     );
     final result = await _crearVenta.execute(
       CreateSaleRequest(
-        items: carrito.map(SaleItemInput.fromCart).toList(),
+        items: carrito
+            .map((item) => SaleItemInput.fromCart(item, currency: currency))
+            .toList(),
         paymentMethodId: metodoPagoId,
         paymentMethodName: metodo['nombre'].toString(),
         clientId: clienteId,
@@ -858,8 +907,8 @@ class _VentasPageState extends State<VentasPage> {
                 itemBuilder: (_, index) {
                   final item = detalles[index];
                   final cantidad = (item['cantidad'] as num).toDouble();
-                  final precio = (item['precio_unitario'] as num).toDouble();
-                  final subtotal = (item['subtotal'] as num).toDouble();
+                  final precio = item['precio_unitario'] as MoneyValue;
+                  final subtotal = item['subtotal'] as MoneyValue;
                   return ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -877,28 +926,30 @@ class _VentasPageState extends State<VentasPage> {
             ),
             const Divider(),
             // Mostrar desglose de métodos de pago (Bug 2)
-            if (venta['efectivo'] != null && (venta['efectivo'] as num).toDouble() > 0 ||
-                venta['transferencia'] != null && (venta['transferencia'] as num).toDouble() > 0 ||
-                venta['credito'] != null && (venta['credito'] as num).toDouble() > 0) ...[
+            if (_positiveMoney(venta['efectivo']) ||
+                _positiveMoney(venta['transferencia']) ||
+                _positiveMoney(venta['credito'])) ...[
               const Text(
                 'Formas de pago:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              if (venta['efectivo'] != null && (venta['efectivo'] as num).toDouble() > 0)
+              if (_positiveMoney(venta['efectivo']))
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
-                  child: Text('Efectivo: ${_moneda((venta['efectivo'] as num).toDouble())}'),
+                  child: Text('Efectivo: ${_moneda(venta['efectivo']!)}'),
                 ),
-              if (venta['transferencia'] != null && (venta['transferencia'] as num).toDouble() > 0)
+              if (_positiveMoney(venta['transferencia']))
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
-                  child: Text('Transferencia: ${_moneda((venta['transferencia'] as num).toDouble())}'),
+                  child: Text(
+                    'Transferencia: ${_moneda(venta['transferencia']!)}',
+                  ),
                 ),
-              if (venta['credito'] != null && (venta['credito'] as num).toDouble() > 0)
+              if (_positiveMoney(venta['credito']))
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
-                  child: Text('Crédito: ${_moneda((venta['credito'] as num).toDouble())}'),
+                  child: Text('Crédito: ${_moneda(venta['credito']!)}'),
                 ),
               const SizedBox(height: 8),
             ],
@@ -906,7 +957,7 @@ class _VentasPageState extends State<VentasPage> {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                'Total: ${_moneda((venta['total'] as num).toDouble())}',
+                'Total: ${_moneda(venta['total']!)}',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -943,8 +994,24 @@ class _VentasPageState extends State<VentasPage> {
     return metodo['nombre'].toString();
   }
 
-  String _moneda(double valor) =>
-      '\$${valor.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+  String _moneda(Object valor) {
+    if (valor is MoneyValue) return valor.format();
+    final currency = _currency;
+    if (currency == null) return 'Moneda no configurada';
+    if (valor is int) {
+      return MoneyValue.fromSql(valor, currency: currency).format();
+    }
+    return MoneyValue.fromMajorUnits(
+      valor.toString(),
+      currency: currency,
+    ).format();
+  }
+
+  bool _positiveMoney(Object? value) {
+    if (value is MoneyValue) return value.minorUnits > 0;
+    if (value is int) return value > 0;
+    return false;
+  }
 
   String _cantidad(double valor) =>
       valor % 1 == 0 ? valor.toInt().toString() : valor.toString();
@@ -990,7 +1057,8 @@ class _VentasPageState extends State<VentasPage> {
       if (fechaStr.isNotEmpty) {
         try {
           final fecha = DateTime.parse(fechaStr);
-          if (_filtroDesde != null && fecha.isBefore(_filtroDesde!)) return false;
+          if (_filtroDesde != null && fecha.isBefore(_filtroDesde!))
+            return false;
           if (_filtroHasta != null &&
               fecha.isAfter(_filtroHasta!.add(const Duration(days: 1)))) {
             return false;
@@ -999,13 +1067,14 @@ class _VentasPageState extends State<VentasPage> {
       }
       return true;
     }).toList();
-    final totalVisible = ventasVisibles.fold<double>(
-      0,
-      (sum, v) => sum + ((v['total'] as num?)?.toDouble() ?? 0),
+    final zero = MoneyValue(minorUnits: 0, currency: _currency);
+    final totalVisible = ventasVisibles.fold<MoneyValue>(
+      zero,
+      (sum, v) => sum + (v['total'] as MoneyValue),
     );
-    final impuestoVisible = ventasVisibles.fold<double>(
-      0,
-      (sum, v) => sum + ((v['impuesto_total'] as num?)?.toDouble() ?? 0),
+    final impuestoVisible = ventasVisibles.fold<MoneyValue>(
+      zero,
+      (sum, v) => sum + (v['impuesto_total'] as MoneyValue),
     );
     final anuladas = ventasVisibles
         .where(
@@ -1013,7 +1082,7 @@ class _VentasPageState extends State<VentasPage> {
         )
         .length;
     final emitidas = ventasVisibles.length - anuladas;
-    final ticketPromedio = emitidas == 0 ? 0.0 : totalVisible / emitidas;
+    final ticketPromedio = emitidas == 0 ? zero : totalVisible / emitidas;
     final productosConStock = _productos
         .where((producto) => ((producto['stock'] as num?)?.toDouble() ?? 0) > 0)
         .length;
@@ -1045,7 +1114,7 @@ class _VentasPageState extends State<VentasPage> {
               children: [
                 _VentasCommandPanel(
                   facturado: _moneda(
-                    _busqueda.isEmpty ? _totalVentas : totalVisible,
+                    _busqueda.isEmpty ? (_totalVentas ?? zero) : totalVisible,
                   ),
                   impuesto: _moneda(impuestoVisible),
                   facturas: '${ventasVisibles.length}',
@@ -1222,18 +1291,48 @@ class _VentasCommandPanel extends StatelessWidget {
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 980;
           final isMobile = constraints.maxWidth < 600;
-          
+
           // En móvil, mostrar menos métricas
           final metrics = isMobile
               ? [
-                  _VentasMetric('Facturado', facturado, Icons.payments, AppBrand.success),
-                  _VentasMetric('Facturas', facturas, Icons.receipt_long, AppBrand.warning),
+                  _VentasMetric(
+                    'Facturado',
+                    facturado,
+                    Icons.payments,
+                    AppBrand.success,
+                  ),
+                  _VentasMetric(
+                    'Facturas',
+                    facturas,
+                    Icons.receipt_long,
+                    AppBrand.warning,
+                  ),
                 ]
               : [
-                  _VentasMetric('Facturado', facturado, Icons.payments, AppBrand.success),
-                  _VentasMetric('Impuesto', impuesto, Icons.percent, AppBrand.info),
-                  _VentasMetric('Facturas', facturas, Icons.receipt_long, AppBrand.warning),
-                  _VentasMetric('Ticket promedio', ticketPromedio, Icons.trending_up, AppBrand.secondary),
+                  _VentasMetric(
+                    'Facturado',
+                    facturado,
+                    Icons.payments,
+                    AppBrand.success,
+                  ),
+                  _VentasMetric(
+                    'Impuesto',
+                    impuesto,
+                    Icons.percent,
+                    AppBrand.info,
+                  ),
+                  _VentasMetric(
+                    'Facturas',
+                    facturas,
+                    Icons.receipt_long,
+                    AppBrand.warning,
+                  ),
+                  _VentasMetric(
+                    'Ticket promedio',
+                    ticketPromedio,
+                    Icons.trending_up,
+                    AppBrand.secondary,
+                  ),
                 ];
 
           return Column(
@@ -1297,9 +1396,15 @@ class _VentasCommandPanel extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: onNewInvoice,
                         icon: const Icon(Icons.add_card, size: 18),
-                        label: const Text('Nueva', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Nueva',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                       ),
                     ),
@@ -1320,12 +1425,16 @@ class _VentasCommandPanel extends StatelessWidget {
                 children: [
                   EnterpriseStatusPill(
                     icon: Icons.receipt_long,
-                    label: isMobile ? '$emitidas emitidas' : '$emitidas emitidas, $anuladas anuladas',
+                    label: isMobile
+                        ? '$emitidas emitidas'
+                        : '$emitidas emitidas, $anuladas anuladas',
                     color: AppBrand.info,
                   ),
                   EnterpriseStatusPill(
                     icon: Icons.inventory,
-                    label: isMobile ? '$productosConStock productos' : '$productosConStock productos con stock',
+                    label: isMobile
+                        ? '$productosConStock productos'
+                        : '$productosConStock productos con stock',
                     color: AppBrand.success,
                   ),
                   if (!isMobile)
@@ -1342,10 +1451,10 @@ class _VentasCommandPanel extends StatelessWidget {
                   final columns = grid.maxWidth >= 1100
                       ? 4
                       : grid.maxWidth >= 800
-                          ? 2
-                          : isMobile
-                              ? 2
-                              : 3;
+                      ? 2
+                      : isMobile
+                      ? 2
+                      : 3;
                   final width =
                       (grid.maxWidth - ((columns - 1) * EnterpriseSpacing.sm)) /
                       columns;
@@ -1424,32 +1533,39 @@ class _VentasToolbar extends StatelessWidget {
               FilterChip(
                 label: const Text('Emitidas'),
                 selected: filtroEstado == 'emitidas',
-                onSelected: (_) => onEstado(filtroEstado == 'emitidas' ? 'todos' : 'emitidas'),
+                onSelected: (_) =>
+                    onEstado(filtroEstado == 'emitidas' ? 'todos' : 'emitidas'),
               ),
               const SizedBox(width: 6),
               FilterChip(
                 label: const Text('Anuladas'),
                 selected: filtroEstado == 'anuladas',
-                onSelected: (_) => onEstado(filtroEstado == 'anuladas' ? 'todos' : 'anuladas'),
+                onSelected: (_) =>
+                    onEstado(filtroEstado == 'anuladas' ? 'todos' : 'anuladas'),
               ),
               const SizedBox(width: 6),
               FilterChip(
                 label: const Text('Efectivo'),
                 selected: filtroMetodo == 'efectivo',
-                onSelected: (_) => onMetodo(filtroMetodo == 'efectivo' ? 'todos' : 'efectivo'),
+                onSelected: (_) =>
+                    onMetodo(filtroMetodo == 'efectivo' ? 'todos' : 'efectivo'),
               ),
               const SizedBox(width: 6),
               FilterChip(
                 label: const Text('Pago mixto'),
                 selected: filtroMetodo == 'mixto',
-                onSelected: (_) => onMetodo(filtroMetodo == 'mixto' ? 'todos' : 'mixto'),
+                onSelected: (_) =>
+                    onMetodo(filtroMetodo == 'mixto' ? 'todos' : 'mixto'),
               ),
               const SizedBox(width: 6),
               ActionChip(label: const Text('Desde'), onPressed: onFechaDesde),
               const SizedBox(width: 6),
               ActionChip(label: const Text('Hasta'), onPressed: onFechaHasta),
               const SizedBox(width: 6),
-              ActionChip(label: const Text('Limpiar filtros'), onPressed: onLimpiarFiltros),
+              ActionChip(
+                label: const Text('Limpiar filtros'),
+                onPressed: onLimpiarFiltros,
+              ),
             ],
           ),
         ),
@@ -1658,6 +1774,11 @@ class _VentasEmptyState extends StatelessWidget {
   }
 }
 
+MoneyValue _moneyInput(String input, Currency currency) {
+  final normalized = input.trim().isEmpty ? '0' : input.replaceAll(',', '.');
+  return MoneyValue.fromMajorUnits(normalized, currency: currency);
+}
+
 class _CarritoVenta extends StatelessWidget {
   const _CarritoVenta({
     required this.items,
@@ -1666,7 +1787,7 @@ class _CarritoVenta extends StatelessWidget {
   });
 
   final List<Map<String, dynamic>> items;
-  final String Function(double) moneda;
+  final String Function(Object) moneda;
   final void Function(int index) onRemove;
 
   @override
@@ -1695,8 +1816,8 @@ class _CarritoVenta extends StatelessWidget {
           final index = entry.key;
           final item = entry.value;
           final cantidad = (item['cantidad'] as num).toDouble();
-          final precio = (item['precio'] as num).toDouble();
-          final subtotal = (item['subtotal'] as num).toDouble();
+          final precio = item['precio'] as MoneyValue;
+          final subtotal = item['subtotal'] as MoneyValue;
           final impuestoPct = (item['impuesto_pct'] as num?)?.toDouble() ?? 0;
           final ubicacion = _ubicacionProducto(item);
           final lote = item['codigo_lote']?.toString().trim() ?? '';

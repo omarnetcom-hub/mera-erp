@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'pdf_output_dialog.dart';
 
@@ -17,7 +18,7 @@ class EstadosFinancierosPage extends StatefulWidget {
 }
 
 class _EstadosFinancierosPageState extends State<EstadosFinancierosPage> {
-  Map<String, double> estados = {};
+  Map<String, MoneyValue> estados = {};
   Map<String, dynamic> empresa = {};
   bool cargando = true;
 
@@ -42,10 +43,10 @@ class _EstadosFinancierosPageState extends State<EstadosFinancierosPage> {
     });
   }
 
-  String _fmt(double valor) => '\$${valor.toStringAsFixed(2)}';
+  String _fmt(MoneyValue? valor) => valor?.format() ?? '-';
 
   Widget _fila(String titulo, String clave, Color color) {
-    final valor = estados[clave] ?? 0;
+    final valor = estados[clave];
     return Card(
       child: ListTile(
         title: Text(titulo),
@@ -67,20 +68,30 @@ class _EstadosFinancierosPageState extends State<EstadosFinancierosPage> {
             empresa['nombre']?.toString() ?? 'MerkaERP',
             style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
           ),
-          pw.Text('NIT: ${empresa['nit'] ?? ''} · ${empresa['direccion'] ?? ''}'),
+          pw.Text(
+            'NIT: ${empresa['nit'] ?? ''} · ${empresa['direccion'] ?? ''}',
+          ),
           pw.SizedBox(height: 16),
-          pw.Text('BALANCE GENERAL', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-          pw.Text('Activos: ${_fmt(estados['activos'] ?? 0)}'),
-          pw.Text('Pasivos: ${_fmt(estados['pasivos'] ?? 0)}'),
-          pw.Text('Patrimonio: ${_fmt(estados['patrimonio'] ?? 0)}'),
+          pw.Text(
+            'BALANCE GENERAL',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
+          pw.Text('Activos: ${_fmt(estados['activos'])}'),
+          pw.Text('Pasivos: ${_fmt(estados['pasivos'])}'),
+          pw.Text('Patrimonio: ${_fmt(estados['patrimonio'])}'),
           pw.SizedBox(height: 12),
-          pw.Text('ESTADO DE RESULTADOS', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-          pw.Text('Ingresos: ${_fmt(estados['ingresos'] ?? 0)}'),
-          pw.Text('Costos: ${_fmt(estados['costos'] ?? 0)}'),
-          pw.Text('Gastos: ${_fmt(estados['gastos'] ?? 0)}'),
-          pw.Text('Utilidad: ${_fmt(estados['utilidad'] ?? 0)}'),
+          pw.Text(
+            'ESTADO DE RESULTADOS',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
+          pw.Text('Ingresos: ${_fmt(estados['ingresos'])}'),
+          pw.Text('Costos: ${_fmt(estados['costos'])}'),
+          pw.Text('Gastos: ${_fmt(estados['gastos'])}'),
+          pw.Text('Utilidad: ${_fmt(estados['utilidad'])}'),
           pw.SizedBox(height: 24),
-          pw.Text('_________________________          _________________________'),
+          pw.Text(
+            '_________________________          _________________________',
+          ),
           pw.Text('Contador                           Representante Legal'),
         ],
       ),
@@ -98,8 +109,8 @@ class _EstadosFinancierosPageState extends State<EstadosFinancierosPage> {
 
   @override
   Widget build(BuildContext context) {
-    final utilidad = estados['utilidad'] ?? 0;
-    final cuadre = estados['cuadre'] ?? 0;
+    final utilidad = estados['utilidad'];
+    final cuadre = estados['cuadre'];
 
     final listView = cargando
         ? const Center(child: CircularProgressIndicator())
@@ -117,29 +128,43 @@ class _EstadosFinancierosPageState extends State<EstadosFinancierosPage> {
                       label: const Text('Exportar PDF corporativo'),
                     ),
                   ),
-                const Text('Balance general', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Balance general',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 _fila('Activos', 'activos', Colors.green),
                 _fila('Pasivos', 'pasivos', Colors.red),
                 _fila('Patrimonio', 'patrimonio', Colors.blue),
                 Card(
                   child: ListTile(
                     leading: Icon(
-                      cuadre.abs() < 0.01 ? Icons.check_circle : Icons.error,
-                      color: cuadre.abs() < 0.01 ? Colors.green : Colors.red,
+                      cuadre?.minorUnits == 0
+                          ? Icons.check_circle
+                          : Icons.error,
+                      color: cuadre?.minorUnits == 0
+                          ? Colors.green
+                          : Colors.red,
                     ),
                     title: const Text('Cuadre contable'),
-                    subtitle: const Text('Activos - pasivos - patrimonio - utilidad'),
+                    subtitle: const Text(
+                      'Activos - pasivos - patrimonio - utilidad',
+                    ),
                     trailing: Text(
                       _fmt(cuadre),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: cuadre.abs() < 0.01 ? Colors.green : Colors.red,
+                        color: cuadre?.minorUnits == 0
+                            ? Colors.green
+                            : Colors.red,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('Estado de resultados', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Estado de resultados',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 _fila('Ingresos', 'ingresos', Colors.green),
                 _fila('Costos', 'costos', Colors.orange),
                 _fila('Gastos', 'gastos', Colors.red),
@@ -150,7 +175,9 @@ class _EstadosFinancierosPageState extends State<EstadosFinancierosPage> {
                       _fmt(utilidad),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: utilidad >= 0 ? Colors.green : Colors.red,
+                        color: (utilidad?.minorUnits ?? 0) >= 0
+                            ? Colors.green
+                            : Colors.red,
                       ),
                     ),
                   ),

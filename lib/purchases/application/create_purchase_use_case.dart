@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../commerce/application/payment_policy.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
 
@@ -16,16 +19,19 @@ class PurchaseItemInput {
   final int productId;
   final String productName;
   final double quantity;
-  final double unitCost;
-  final double subtotal;
+  final MoneyValue unitCost;
+  final MoneyValue subtotal;
 
-  factory PurchaseItemInput.fromCart(Map<String, dynamic> item) {
+  factory PurchaseItemInput.fromCart(
+    Map<String, dynamic> item, {
+    required Currency currency,
+  }) {
     return PurchaseItemInput(
       productId: (item['producto_id'] as num).toInt(),
       productName: item['producto'].toString(),
       quantity: (item['cantidad'] as num).toDouble(),
-      unitCost: (item['costo'] as num).toDouble(),
-      subtotal: (item['subtotal'] as num).toDouble(),
+      unitCost: _moneyFromInput(item['costo'], currency),
+      subtotal: _moneyFromInput(item['subtotal'], currency),
     );
   }
 }
@@ -40,13 +46,13 @@ class CreatePurchaseRequest {
     required this.paymentMethodName,
     required this.taxRate,
     required this.items,
-    this.manualCash = 0,
-    this.manualBank = 0,
-    this.manualCredit = 0,
+    required this.manualCash,
+    required this.manualBank,
+    required this.manualCredit,
     this.date,
-    this.retefuente = 0.0,
-    this.reteiva = 0.0,
-    this.reteica = 0.0,
+    required this.retefuente,
+    required this.reteiva,
+    required this.reteica,
   });
 
   final int supplierId;
@@ -56,14 +62,14 @@ class CreatePurchaseRequest {
   final int paymentMethodId;
   final String paymentMethodName;
   final double taxRate;
-  final double manualCash;
-  final double manualBank;
-  final double manualCredit;
+  final MoneyValue manualCash;
+  final MoneyValue manualBank;
+  final MoneyValue manualCredit;
   final List<PurchaseItemInput> items;
   final DateTime? date;
-  final double retefuente;
-  final double reteiva;
-  final double reteica;
+  final MoneyValue retefuente;
+  final MoneyValue reteiva;
+  final MoneyValue reteica;
 }
 
 class CreatePurchaseResult {
@@ -76,9 +82,9 @@ class CreatePurchaseResult {
   });
 
   final int purchaseId;
-  final double subtotal;
-  final double tax;
-  final double total;
+  final MoneyValue subtotal;
+  final MoneyValue tax;
+  final MoneyValue total;
   final PaymentAllocation payment;
 }
 
@@ -103,11 +109,18 @@ class CreatePurchaseUseCase {
       throw Exception('El periodo contable de la fecha actual esta cerrado.');
     }
 
-    final subtotal = request.items.fold<double>(
-      0,
+    final database = await _db.database;
+    final companyId = await _db.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      database,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+    final subtotal = request.items.fold<MoneyValue>(
+      zero,
       (sum, item) => sum + item.subtotal,
     );
-    final tax = subtotal * (request.taxRate / 100);
+    final tax = subtotal.percent(request.taxRate.toString());
     final total = subtotal + tax;
     final payment = PaymentPolicy.allocatePurchase(
       total: total,
@@ -117,23 +130,21 @@ class CreatePurchaseUseCase {
       manualCredit: request.manualCredit,
     );
 
-    if (payment.cash > 0) {
+    if (payment.cash.minorUnits > 0) {
       final cashBalance = await _db.obtenerSaldoPorCuenta('caja');
       if (cashBalance < payment.cash) {
         throw Exception('Saldo insuficiente en caja.');
       }
     }
-    if (payment.bank > 0) {
+    if (payment.bank.minorUnits > 0) {
       final bankBalance = await _db.obtenerSaldoPorCuenta('banco');
       if (bankBalance < payment.bank) {
         throw Exception('Saldo insuficiente en banco.');
       }
     }
 
-    final database = await _db.database;
-    final companyId = await _db.obtenerEmpresaActivaId();
     final now = purchaseDate.toIso8601String();
-    final status = payment.credit > 0 ? 'pendiente' : 'pagada';
+    final status = payment.credit.minorUnits > 0 ? 'pendiente' : 'pagada';
     late int purchaseId;
 
     await database.transaction((txn) async {
@@ -144,19 +155,19 @@ class CreatePurchaseUseCase {
         'numero_factura': request.invoiceNumber,
         'fecha_factura': now,
         'observacion': request.observation,
-        'subtotal': subtotal,
+        'subtotal': subtotal.toSql(),
         'impuesto_pct': request.taxRate,
-        'impuesto_total': tax,
-        'total': total,
-        'efectivo': payment.cash,
-        'transferencia': payment.bank,
-        'credito': payment.credit,
+        'impuesto_total': tax.toSql(),
+        'total': total.toSql(),
+        'efectivo': payment.cash.toSql(),
+        'transferencia': payment.bank.toSql(),
+        'credito': payment.credit.toSql(),
         'fecha': now,
         'metodo_pago_id': request.paymentMethodId,
         'estado': status,
-        'retefuente': request.retefuente,
-        'reteiva': request.reteiva,
-        'reteica': request.reteica,
+        'retefuente': request.retefuente.toSql(),
+        'reteiva': request.reteiva.toSql(),
+        'reteica': request.reteica.toSql(),
       });
 
       for (final item in request.items) {
@@ -170,13 +181,19 @@ class CreatePurchaseUseCase {
           throw Exception('Producto no encontrado: ${item.productName}');
         }
         final currentStock = (products.first['stock'] as num).toDouble();
-        final currentCost = (products.first['costo'] as num?)?.toDouble() ?? 0;
+        final currentCost = MoneyValue.fromSql(
+          products.first['costo'],
+          currency: currency,
+          nullableAsZero: true,
+        );
         final newStock = currentStock + item.quantity;
 
         // Costeo Promedio Ponderado
         // average_cost = ((Stock actual * Costo actual) + (Nueva cantidad * Nuevo costo)) / (Stock actual + Nueva cantidad)
-        final averageCost = newStock > 0 
-            ? ((currentStock * currentCost) + (item.quantity * item.unitCost)) / newStock
+        final averageCost = newStock > 0
+            ? (currentCost.multiplyDecimal(currentStock.toString()) +
+                      item.unitCost.multiplyDecimal(item.quantity.toString()))
+                  .divideDecimal(newStock.toString())
             : item.unitCost;
 
         await txn.insert('compras_detalle', {
@@ -185,12 +202,12 @@ class CreatePurchaseUseCase {
           'producto_id': item.productId,
           'producto': item.productName,
           'cantidad': item.quantity,
-          'costo_unitario': item.unitCost,
-          'subtotal': item.subtotal,
+          'costo_unitario': item.unitCost.toSql(),
+          'subtotal': item.subtotal.toSql(),
         });
         await txn.update(
           'productos',
-          {'stock': newStock, 'costo': averageCost},
+          {'stock': newStock, 'costo': averageCost.toSql()},
           where: 'id = ? AND company_id = ?',
           whereArgs: [item.productId, companyId],
         );
@@ -201,44 +218,44 @@ class CreatePurchaseUseCase {
           'cantidad': item.quantity,
           'stock_anterior': currentStock,
           'stock_nuevo': newStock,
-          'costo_anterior': currentCost,
-          'costo_nuevo': averageCost,
+          'costo_anterior': currentCost.toSql(),
+          'costo_nuevo': averageCost.toSql(),
           'motivo': 'COMPRA #$purchaseId',
           'fecha': now,
         });
       }
 
-      if (payment.credit > 0) {
+      if (payment.credit.minorUnits > 0) {
         await txn.insert('cuentas_por_pagar', {
           'company_id': companyId,
           'proveedor': request.supplierName,
           'proveedor_id': request.supplierId,
           'compra_id': purchaseId,
           'numero_factura': request.invoiceNumber,
-          'total': payment.credit,
-          'saldo': payment.credit,
+          'total': payment.credit.toSql(),
+          'saldo': payment.credit.toSql(),
           'estado': 'pendiente',
           'fecha': now,
           'descripcion': 'Credito desde compra #$purchaseId',
         });
       }
 
-      if (payment.cash > 0) {
+      if (payment.cash.minorUnits > 0) {
         await txn.insert('movimientos_caja', {
           'company_id': companyId,
           'tipo': 'egreso',
           'concepto': 'Compra #$purchaseId (Caja)',
-          'monto': payment.cash,
+          'monto': payment.cash.toSql(),
           'fecha': now,
           'origen': 'caja',
         });
       }
-      if (payment.bank > 0) {
+      if (payment.bank.minorUnits > 0) {
         await txn.insert('movimientos_caja', {
           'company_id': companyId,
           'tipo': 'egreso',
           'concepto': 'Compra #$purchaseId (Banco)',
-          'monto': payment.bank,
+          'monto': payment.bank.toSql(),
           'fecha': now,
           'origen': 'banco',
         });
@@ -260,22 +277,26 @@ class CreatePurchaseUseCase {
       try {
         final payload = {
           'purchase_id': purchaseId,
-          'total': total,
-          'subtotal': subtotal,
-          'tax': tax,
+          'total': _wireMoney(total),
+          'subtotal': _wireMoney(subtotal),
+          'tax': _wireMoney(tax),
           'supplier_name': request.supplierName,
           'supplier_id': request.supplierId,
           'invoice_number': request.invoiceNumber,
           'date': purchaseDate.toIso8601String(),
           'payment_method': request.paymentMethodName,
           'status': status,
-          'items': request.items.map((item) => {
-            'product_id': item.productId,
-            'product_name': item.productName,
-            'quantity': item.quantity,
-            'unit_cost': item.unitCost,
-            'subtotal': item.subtotal,
-          }).toList(),
+          'items': request.items
+              .map(
+                (item) => {
+                  'product_id': item.productId,
+                  'product_name': item.productName,
+                  'quantity': item.quantity,
+                  'unit_cost': _wireMoney(item.unitCost),
+                  'subtotal': _wireMoney(item.subtotal),
+                },
+              )
+              .toList(),
         };
         await _db.enqueueSync(
           table: 'purchases',
@@ -298,3 +319,17 @@ class CreatePurchaseUseCase {
     );
   }
 }
+
+MoneyValue _moneyFromInput(Object? value, Currency currency) {
+  if (value is MoneyValue) return value;
+  return MoneyValue.fromMajorUnits(
+    value?.toString() ?? '0',
+    currency: currency,
+  );
+}
+
+Map<String, Object> _wireMoney(MoneyValue value) => {
+  'minor_units': value.minorUnits,
+  'currency': value.currencyCode,
+  'scale': value.decimalPlaces,
+};

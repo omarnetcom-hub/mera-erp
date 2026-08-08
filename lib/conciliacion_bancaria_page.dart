@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'core/currency/currency.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'logo_widget.dart';
 import 'numeric_input.dart';
@@ -22,7 +24,8 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
   List<Map<String, dynamic>> _extractos = [];
   int? _lineaSel;
   int? _extractoSel;
-  double _diferencia = 0;
+  MoneyValue? _diferencia;
+  Currency? _currency;
 
   @override
   void initState() {
@@ -47,22 +50,47 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
   }
 
   Future<void> _cargarDatos(int bancoId) async {
+    final saldoBanco = await DatabaseHelper.instance.obtenerSaldoBanco(bancoId);
+    final currency = saldoBanco.currency;
     final lineas = await DatabaseHelper.instance
         .obtenerLineasContablesBancariasNoConciliadas(bancoId);
-    final extractos = await DatabaseHelper.instance.obtenerExtractosPorBanco(bancoId);
-    final pendientes = extractos.where((e) => (e['conciliado'] as int? ?? 0) == 0).toList();
-    final sumLibro = lineas.fold<double>(
-      0,
-      (s, l) => s + ((l['debito'] as num?)?.toDouble() ?? 0) - ((l['credito'] as num?)?.toDouble() ?? 0),
+    final extractos = await DatabaseHelper.instance.obtenerExtractosPorBanco(
+      bancoId,
     );
-    final sumExtracto = pendientes.fold<double>(
-      0,
-      (s, e) => s + ((e['monto'] as num?)?.toDouble() ?? 0),
+    final pendientes = extractos
+        .where((e) => (e['conciliado'] as int? ?? 0) == 0)
+        .toList();
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+    final sumLibro = lineas.fold<MoneyValue>(
+      zero,
+      (s, l) =>
+          s +
+          MoneyValue.fromSql(
+            l['debito'],
+            currency: currency,
+            nullableAsZero: true,
+          ) -
+          MoneyValue.fromSql(
+            l['credito'],
+            currency: currency,
+            nullableAsZero: true,
+          ),
+    );
+    final sumExtracto = pendientes.fold<MoneyValue>(
+      zero,
+      (s, e) =>
+          s +
+          MoneyValue.fromSql(
+            e['valor'],
+            currency: currency,
+            nullableAsZero: true,
+          ),
     );
     if (!mounted) return;
     setState(() {
       _lineasLibro = lineas;
       _extractos = pendientes;
+      _currency = currency;
       _diferencia = sumExtracto - sumLibro;
       _lineaSel = null;
       _extractoSel = null;
@@ -72,27 +100,39 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
   Future<void> _conciliar() async {
     if (_lineaSel == null || _extractoSel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Seleccione una línea del libro y una del extracto')),
+        const SnackBar(
+          content: Text('Seleccione una línea del libro y una del extracto'),
+        ),
       );
       return;
     }
-    await DatabaseHelper.instance.conciliarTransacciones(_extractoSel!, _lineaSel!);
+    await DatabaseHelper.instance.conciliarTransacciones(
+      _extractoSel!,
+      _lineaSel!,
+    );
     if (_bancoSel != null) await _cargarDatos(_bancoSel!);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Transacciones conciliadas'), backgroundColor: Colors.green),
+      const SnackBar(
+        content: Text('Transacciones conciliadas'),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 
-  String _fmt(num v) => '\$${v.toStringAsFixed(2)}';
+  String _fmt(MoneyValue? value) => value?.format() ?? '-';
 
   Future<void> _registrarConciliacionSimple() async {
     var cuenta = 'banco';
     final extractoCtrl = TextEditingController();
     final obsCtrl = TextEditingController();
-    final saldoCaja = await DatabaseHelper.instance.obtenerSaldoPorCuenta('caja');
-    final saldoBanco = await DatabaseHelper.instance.obtenerSaldoPorCuenta('banco');
-    extractoCtrl.text = saldoBanco.toStringAsFixed(0);
+    final saldoCaja = await DatabaseHelper.instance.obtenerSaldoPorCuenta(
+      'caja',
+    );
+    final saldoBanco = await DatabaseHelper.instance.obtenerSaldoPorCuenta(
+      'banco',
+    );
+    extractoCtrl.text = saldoBanco.toMajorUnitsString();
 
     final guardado = await showDialog<bool>(
       context: context,
@@ -112,19 +152,25 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
                   selected: {cuenta},
                   onSelectionChanged: (s) => setDlg(() {
                     cuenta = s.first;
-                    extractoCtrl.text = (cuenta == 'banco' ? saldoBanco : saldoCaja)
-                        .toStringAsFixed(0);
+                    extractoCtrl.text =
+                        (cuenta == 'banco' ? saldoBanco : saldoCaja)
+                            .toMajorUnitsString();
                   }),
                 ),
                 const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Saldo en libros'),
-                  trailing: Text(_fmt(saldoLibros), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  trailing: Text(
+                    _fmt(saldoLibros),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 TextField(
                   controller: extractoCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   inputFormatters: [NumericInput.decimal],
                   decoration: const InputDecoration(
                     labelText: 'Saldo según extracto',
@@ -138,11 +184,16 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar'),
+              ),
               FilledButton(
                 onPressed: () async {
-                  final saldoExtracto =
-                      double.tryParse(extractoCtrl.text.replaceAll(',', '.')) ?? 0;
+                  final saldoExtracto = MoneyValue.fromMajorUnits(
+                    extractoCtrl.text.replaceAll(',', '.'),
+                    currency: saldoLibros.currency,
+                  );
                   await DatabaseHelper.instance.registrarConciliacionBancaria(
                     cuenta: cuenta,
                     saldoExtracto: saldoExtracto,
@@ -159,9 +210,9 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
       ),
     );
     if (guardado == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Conciliación registrada')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Conciliación registrada')));
     }
   }
 
@@ -179,7 +230,10 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
           children: [
             Padding(
               padding: const EdgeInsets.all(EnterpriseSpacing.sm),
-              child: Text(titulo, style: Theme.of(context).textTheme.titleSmall),
+              child: Text(
+                titulo,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
             ),
             const Divider(height: 1),
             Expanded(
@@ -191,22 +245,46 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
                         final item = items[i];
                         final id = item['id'] as int;
                         final sel = seleccion == id;
-                        final monto = esLibro
-                            ? ((item['debito'] as num?)?.toDouble() ?? 0) -
-                                ((item['credito'] as num?)?.toDouble() ?? 0)
-                            : (item['monto'] as num?)?.toDouble() ?? 0;
+                        final currency = _currency;
+                        final monto = currency == null
+                            ? null
+                            : esLibro
+                            ? MoneyValue.fromSql(
+                                    item['debito'],
+                                    currency: currency,
+                                    nullableAsZero: true,
+                                  ) -
+                                  MoneyValue.fromSql(
+                                    item['credito'],
+                                    currency: currency,
+                                    nullableAsZero: true,
+                                  )
+                            : MoneyValue.fromSql(
+                                item['valor'],
+                                currency: currency,
+                                nullableAsZero: true,
+                              );
                         return ListTile(
                           selected: sel,
-                          selectedTileColor: AppBrand.secondary.withValues(alpha: 0.12),
+                          selectedTileColor: AppBrand.secondary.withValues(
+                            alpha: 0.12,
+                          ),
                           title: Text(
                             esLibro
-                                ? item['concepto_asiento']?.toString() ?? item['descripcion']?.toString() ?? ''
+                                ? item['concepto_asiento']?.toString() ??
+                                      item['descripcion']?.toString() ??
+                                      ''
                                 : item['descripcion']?.toString() ?? '',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(item['fecha']?.toString().substring(0, 10) ?? ''),
-                          trailing: Text(_fmt(monto), style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                            item['fecha']?.toString().substring(0, 10) ?? '',
+                          ),
+                          trailing: Text(
+                            _fmt(monto),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           onTap: () => onSelect(id),
                         );
                       },
@@ -251,7 +329,7 @@ class _ConciliacionBancariaPageState extends State<ConciliacionBancariaPage> {
               const SizedBox(width: 8),
               Chip(
                 label: Text('Diferencia: ${_fmt(_diferencia)}'),
-                backgroundColor: _diferencia.abs() < 0.01
+                backgroundColor: (_diferencia?.minorUnits ?? 0) == 0
                     ? Colors.green.withValues(alpha: 0.15)
                     : Colors.orange.withValues(alpha: 0.15),
               ),
