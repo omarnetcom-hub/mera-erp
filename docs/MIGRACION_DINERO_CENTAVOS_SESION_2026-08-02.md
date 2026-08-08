@@ -770,3 +770,102 @@ contable, analitica, multiempresa e integraciones. Esos archivos no deben
 recibir adaptadores `double` temporales; continuan con la misma regla de borde.
 
 Commit: este commit de Fase 3A (ver `git log`).
+
+## Correccion de regresion de carga de moneda - 2026-08-08
+
+### Diagnostico y decision
+
+La regresion no estaba en `MoneyValue`: `VentasPage.build()` intentaba crear
+el acumulador `MoneyValue(minorUnits: 0, currency: _currency)` en la linea
+1070 mientras `_currency` todavia era nulo. La moneda se resuelve en
+`_cargarDatosInterna()` despues de `await MoneyCurrencyResolver.resolve()` y
+se asigna en el `setState` final. `ComprasPage.build()` tenia el mismo defecto
+en la linea 770, aunque su cuerpo visual ya tenia un flag `_cargando`.
+
+La correccion conservadora fue retornar un `CircularProgressIndicator` antes
+de cualquier acumulacion monetaria cuando la carga no termino o la moneda no
+esta resuelta. No se modifico `MoneyValue` ni se agrego una moneda por defecto.
+`caja_page.dart`, `cuentas_por_cobrar_page.dart`,
+`cuentas_por_pagar_page.dart` y `nomina_page.dart` fueron inspeccionadas: sus
+constructores estan protegidos por guardas null o por el estado de carga. En
+`ui/sales_mode_panel.dart`, el `build()` ya retorna loading antes de acceder a
+`_zero`. No se detecto otro punto equivalente en esas paginas.
+
+### Evidencia cruda de regresion
+
+Comando:
+
+```text
+flutter test test/commercial_currency_loading_regression_test.dart test/module_smoke_test.dart --reporter expanded
+```
+
+Salida completa:
+
+```text
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/commercial_currency_loading_regression_test.dart
+00:00 +0: C:/Users/PC/Desktop/Caja_simple/test/commercial_currency_loading_regression_test.dart: Ventas muestra carga mientras la moneda aún no está resuelta
+00:00 +1: C:/Users/PC/Desktop/Caja_simple/test/commercial_currency_loading_regression_test.dart: Compras muestra carga mientras la moneda aún no está resuelta
+00:00 +2: C:/Users/PC/Desktop/Caja_simple/test/commercial_currency_loading_regression_test.dart: MoneyValue conserva el fail-closed sin moneda resuelta
+00:00 +3: loading C:/Users/PC/Desktop/Caja_simple/test/module_smoke_test.dart
+00:02 +3: C:/Users/PC/Desktop/Caja_simple/test/module_smoke_test.dart: (setUpAll)
+Inicializando tablas del Sector Público para nueva instalación...
+00:06 +3: C:/Users/PC/Desktop/Caja_simple/test/module_smoke_test.dart: todos los modulos principales abren sin excepciones
+00:08 +4: C:/Users/PC/Desktop/Caja_simple/test/module_smoke_test.dart: (tearDownAll)
+00:08 +4: All tests passed!
+```
+
+### Suite completa v2
+
+Comando exacto:
+
+```text
+flutter test --reporter silent --file-reporter json:phase3a_audit_suite_v2.json --concurrency=4
+```
+
+El archivo JSON registro todos los eventos, aunque el runner no cerro y la
+ejecucion fue terminada despues de que dejaron de avanzar los procesos
+huérfanos. Conteo extraido del archivo, no del eco del terminal:
+
+```text
+Tests procesados: 351 eventos testDone
+Passed: 334
+Errors: 17
+Skipped: 3
+module_smoke_test.dart: ya no aparece entre los errores
+```
+
+Las 17 fallas restantes pertenecen a login/widget y fixtures o esquemas del
+sector publico: `login_widget_test.dart`, `acta_responsabilidad_service_test.dart`,
+`fut_territorial_service_test.dart`, `sia_observa_service_test.dart`,
+`configuracion_general_service_test.dart`, `onboarding_legado_migracion_test.dart`,
+los dos tests de `presupuesto_pago_integracion_test.dart`,
+`sicodis_service_test.dart`, `exportacion_declaraciones_test.dart`,
+`predial_ica_page_test.dart`, `facturacion_salud_service_test.dart`,
+el test de apropiacion de `presupuesto_publico_page_test.dart`,
+`salud_publica_page_test.dart`, `siif_service_test.dart` y los dos tests de
+`widget_test.dart`.
+
+El conteo sigue siendo 17, pero la lista no fue textualmente identica a la
+auditoria previa: antes `presupuesto_publico_page_test.dart` fallaba en
+`pumpAndSettle timed out`; ahora fallo `Crear apropiación y verificar en base
+de datos`. Por la regla de la sesion, esta variacion se reporta y bloquea el
+avance a los 52 consumidores hasta una confirmacion/auditoria posterior.
+
+### Verificacion adicional
+
+```text
+flutter analyze 1> phase3a_regression_analyze.txt 2> phase3a_regression_analyze_error.txt
+Resultado: timeout del entorno tras 300 segundos; ambos archivos quedaron vacios.
+No se declara un analyze global limpio.
+```
+
+### Cierre de la correccion de regresion
+
+Estado: **correccion implementada y pruebas dirigidas limpias; avance a los 52
+consumidores detenido** por la variacion en la lista de fallas ajenas y por el
+timeout del analyze global.
+
+Archivos corregidos: `lib/ventas_page.dart`, `lib/compras_page.dart`.
+Test agregado: `test/commercial_currency_loading_regression_test.dart`.
+El fail-closed de `MoneyValue` conserva exactamente el mensaje
+`A resolved currency is required for MoneyValue`.

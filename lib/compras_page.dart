@@ -757,6 +757,13 @@ class _ComprasPageState extends State<ComprasPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_cargando || _currency == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Compras')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final comprasVisibles = _compras.where((compra) {
       final estado = compra['estado']?.toString() ?? 'pagada';
       if (_filtroEstado != 'todas' && estado != _filtroEstado) return false;

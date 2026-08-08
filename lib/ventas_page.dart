@@ -1034,6 +1034,13 @@ class _VentasPageState extends State<VentasPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_datosCargados || _currency == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Ventas')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final ventasVisibles = _ventas.where((venta) {
       final id = (venta['id'] as num).toInt();
       final texto =
