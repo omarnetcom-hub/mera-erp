@@ -1375,3 +1375,77 @@ Estado: **Completo en el alcance comercial de la fase**. La suite dirigida
 paso y la suite completa mantuvo exactamente las 17 fallas sectoriales/widget
 conocidas. Queda pendiente solo la verificacion global manual de analyze/build
 y el trabajo separado de garantia SQL de partida doble.
+
+## Fase 3B - cierre del bloque presupuesto y contabilidad
+
+### Alcance trabajado
+
+Se incorporo `public_sector_money.dart` como borde explicito COP con escala
+fija 2 para el sector publico. El bloque convertido queda compuesto por:
+
+- Presupuesto: `apropiacion.dart`, `cdp.dart`, `rp.dart`, `obligacion.dart`,
+  `pac.dart`, `pago.dart`, `pac_service.dart`, `presupuesto_service.dart`,
+  `vigencias_futuras_service.dart`, `presupuesto_publico_page.dart` y
+  `pac_tesoreria_page.dart`.
+- Contabilidad: `asiento_contable.dart`, `cuenta_contable.dart`,
+  `estado_financiero.dart`, `contabilidad_nicsp_service.dart`,
+  `cierre_vigencia_service.dart`, `flujo_efectivo_service.dart`,
+  `provisiones_service.dart`, `depreciacion_job_service.dart`,
+  `consolidacion_jerarquica_service.dart`,
+  `conciliacion_reciprocas_service.dart`,
+  `contabilidad_nicsp_page.dart` y `conciliacion_reciproca_dialog.dart`.
+- Integraciones que dependian de firmas cambiadas: `chip_reporter_service.dart`,
+  `contratacion_service.dart` y `contratacion_publica_page.dart`.
+- Pruebas ajustadas a INTEGER/MoneyValue: `catalogo_cgc_test.dart`,
+  `conciliacion_reciprocas_integracion_test.dart`,
+  `estado_financiero_nicsp1_integracion_test.dart`,
+  `presupuesto_service_test.dart`, `presupuesto_pago_integracion_test.dart` y
+  `vigencias_futuras_integracion_test.dart`.
+
+Los porcentajes de configuracion de depreciacion y provision, y los valores
+que salen como texto de UI/exportacion, permanecen en `double` solo en esos
+bordes; las columnas monetarias y los calculos del dominio usan `MoneyValue`.
+
+### Evidencia cruda del bloque
+
+```text
+dart format --output=none --set-exit-if-changed [archivos del bloque]
+Changed ...
+Formatted 13 files (12 changed) in 0.16 seconds.
+Exit code: 1 (el comando reporta cambios de formato; el parser procesa los archivos)
+
+dart analyze lib/sector_publico/contabilidad lib/sector_publico/presupuesto lib/core/currency/public_sector_money.dart
+command timed out after 120329 milliseconds
+
+dart analyze lib/core/currency/public_sector_money.dart
+command timed out after 60337 milliseconds
+
+dart test test/sector_publico/contabilidad/estado_financiero_nicsp1_integracion_test.dart test/sector_publico/contabilidad/conciliacion_reciprocas_integracion_test.dart test/sector_publico/contabilidad/catalogo_cgc_test.dart --reporter expanded
+command timed out after 90314 milliseconds; no test output was produced
+```
+
+No se afirma que los tests pasaron: el bloqueo ocurre antes de que el runner
+publique resultados. `flutter analyze` y `flutter build windows` siguen
+pendientes para Omar, con los comandos exactos:
+
+```text
+flutter analyze
+flutter build windows
+```
+
+### Decisiones y pendientes
+
+- Se mantuvo COP fijo a 2 decimales para este dominio; no se usa la moneda de
+  empresa del lado comercial.
+- La validacion de partida doble SQL sigue fuera del alcance de este bloque;
+  la capa NICSP valida igualdad exacta con `MoneyValue`.
+- Este commit no cierra Fase 3B: quedan consumidores de activos, contratacion
+  completa, nomina, planeacion, regalias, rentas, salud, SIIF/FUT/CHIP y
+  transparencia por inventariar/convertir y probar.
+
+### Cierre del bloque presupuesto y contabilidad
+
+Commit publicado: `2531602` (`feat(dinero): convertir presupuesto y contabilidad
+publicos a unidad menor`). Fase 3B permanece **en progreso**; no se declara
+`X/X COMPLETA` hasta reconciliar y convertir los consumidores restantes del
+inventario congelado.
