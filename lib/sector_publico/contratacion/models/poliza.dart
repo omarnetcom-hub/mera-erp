@@ -2,6 +2,8 @@
 /// Ley 80 de 1993 - Pólizas obligatorias según tipo de contrato
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum TipoPoliza {
   cumplimiento,
@@ -13,13 +15,7 @@ enum TipoPoliza {
   prestacionesSociales,
 }
 
-enum EstadoPoliza {
-  vigente,
-  reclamada,
-  pagada,
-  anulada,
-  vencida,
-}
+enum EstadoPoliza { vigente, reclamada, pagada, anulada, vencida }
 
 class Poliza {
   final String id;
@@ -29,7 +25,7 @@ class Poliza {
   final String numeroPoliza;
   final TipoPoliza tipoPoliza;
   final String aseguradora;
-  final double valorAsegurado;
+  final MoneyValue valorAsegurado;
   final DateTime fechaEmision;
   final DateTime fechaInicioVigencia;
   final DateTime fechaFinVigencia;
@@ -67,9 +63,11 @@ class Poliza {
         (e) => e.toString() == 'TipoPoliza.${json['tipo_poliza']}',
       ),
       aseguradora: json['aseguradora'] as String,
-      valorAsegurado: (json['valor_asegurado'] as num).toDouble(),
+      valorAsegurado: publicMoneyFromSql(json['valor_asegurado']),
       fechaEmision: DateTime.parse(json['fecha_emision'] as String),
-      fechaInicioVigencia: DateTime.parse(json['fecha_inicio_vigencia'] as String),
+      fechaInicioVigencia: DateTime.parse(
+        json['fecha_inicio_vigencia'] as String,
+      ),
       fechaFinVigencia: DateTime.parse(json['fecha_fin_vigencia'] as String),
       estado: EstadoPoliza.values.firstWhere(
         (e) => e.toString() == 'EstadoPoliza.${json['estado']}',
@@ -93,7 +91,7 @@ class Poliza {
       'numero_poliza': numeroPoliza,
       'tipo_poliza': tipoPoliza.toString().split('.').last,
       'aseguradora': aseguradora,
-      'valor_asegurado': valorAsegurado,
+      'valor_asegurado': valorAsegurado.toSql(),
       'fecha_emision': fechaEmision.toIso8601String(),
       'fecha_inicio_vigencia': fechaInicioVigencia.toIso8601String(),
       'fecha_fin_vigencia': fechaFinVigencia.toIso8601String(),
@@ -107,13 +105,14 @@ class Poliza {
   /// Verifica si la póliza está vigente
   bool estaVigente() {
     return estado == EstadoPoliza.vigente &&
-           DateTime.now().isBefore(fechaFinVigencia) &&
-           DateTime.now().isAfter(fechaInicioVigencia);
+        DateTime.now().isBefore(fechaFinVigencia) &&
+        DateTime.now().isAfter(fechaInicioVigencia);
   }
 
   /// Verifica si está vencida
   bool estaVencida() {
-    return DateTime.now().isAfter(fechaFinVigencia) && estado != EstadoPoliza.pagada;
+    return DateTime.now().isAfter(fechaFinVigencia) &&
+        estado != EstadoPoliza.pagada;
   }
 
   /// Verifica si se puede reclamar
@@ -129,7 +128,7 @@ class Poliza {
     String? numeroPoliza,
     TipoPoliza? tipoPoliza,
     String? aseguradora,
-    double? valorAsegurado,
+    MoneyValue? valorAsegurado,
     DateTime? fechaEmision,
     DateTime? fechaInicioVigencia,
     DateTime? fechaFinVigencia,

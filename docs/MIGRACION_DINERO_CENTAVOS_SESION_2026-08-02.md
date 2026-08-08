@@ -1741,3 +1741,58 @@ revisadas. La evidencia de tests queda **pendiente de ejecucion** por el crash
 reproducible de assets nativos; por ello Fase 3B continua en progreso y no se
 declara `X/X COMPLETA`. Commit de este bloque: el commit que contiene esta
 seccion de cierre.
+
+## Fase 3B - cierre del bloque de contratacion publica
+
+### Cambios
+
+Se convirtieron los modelos y consumidores monetarios de contratacion:
+
+- `lib/sector_publico/contratacion/models/contrato.dart`
+- `lib/sector_publico/contratacion/models/poliza.dart`
+- `lib/sector_publico/contratacion/models/proceso_contratacion.dart`
+- `lib/sector_publico/contratacion/services/contratacion_service.dart`
+- `lib/sector_publico/contratacion/services/interventoria_liquidacion_service.dart`
+- `lib/sector_publico/contratacion/services/secop_service.dart`
+- `lib/sector_publico/contratacion/pages/contratacion_publica_page.dart`
+- `test/sector_publico/contratacion/contratacion_flujo_rp_integracion_test.dart`
+
+Los valores de contrato, proceso, poliza, adjudicacion y liquidacion usan
+`MoneyValue` COP; SQL recibe enteros con `toSql()`, y la pagina/los payloads
+externos convierten a pesos solo en el borde. La tolerancia de liquidacion de
+$1,000 se expreso como 100,000 centavos. El modelo SICODIS no se cambio: su
+campo `datos` es un JSON opaco sin campos monetarios directos que convertir.
+
+### Evidencia cruda
+
+```text
+dart format [8 archivos del bloque]
+Formatted 8 files (7 changed) in 0.14 seconds.
+Exit code: 0
+
+flutter test test/sector_publico/contratacion/contratacion_flujo_rp_integracion_test.dart test/sector_publico/contratacion/contratacion_service_test.dart --reporter expanded
+This crash may already be reported.
+PathExistsException: Cannot copy file to 'C:\\Users\\PC\\Desktop\\Caja_simple\\build\\native_assets\\windows\\sqlite3.dll'
+path = 'C:\\Users\\PC\\Desktop\\Caja_simple\\.dart_tool\\hooks_runner\\shared\\sqlite3\\build\\download-7970568\\sqlite3.dll'
+OS Error: No se puede crear un archivo que ya existe, errno = 183
+Stack relevante: _File.copy -> _copyNativeCodeAssetsToBundleOnWindowsLinux ->
+_copyNativeCodeAssetsForOS -> installCodeAssets -> testCompilerBuildNativeAssets ->
+TestCommand.runCommand.
+Exit code: 1; ningun test llego a compilar o ejecutar aserciones.
+```
+
+### Bugs y decisiones
+
+- Se elimino el ultimo paso de UI que serializaba saldos de CDP como `double`.
+- SECOP conserva su cliente HTTP; solo sus payloads monetarios cruzan el borde
+  en pesos, porque ese es el formato externo esperado.
+- La validacion SQL de partida doble sigue fuera del alcance.
+- El submodulo `backend` conserva sus cambios locales preexistentes y no fue
+  tocado.
+
+### Cierre de la subtarea contratacion publica
+
+El bloque contractual queda convertido a nivel de codigo y esquema. La
+evidencia de tests queda **pendiente de ejecucion** por el crash de assets
+nativos de Windows. Fase 3B continua en progreso; no se declara `X/X COMPLETA`.
+Commit de este bloque: el commit que contiene esta seccion de cierre.

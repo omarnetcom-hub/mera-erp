@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/contratacion/database/schema_contratacion.dart';
 import 'package:merka_erp/sector_publico/contratacion/models/contrato.dart';
 import 'package:merka_erp/sector_publico/contratacion/models/poliza.dart';
@@ -90,7 +91,7 @@ void main() {
         numeroContrato: asociado.numeroContrato,
         tipoPoliza: TipoPoliza.cumplimiento,
         aseguradora: 'Aseguradora de Prueba',
-        valorAsegurado: 600,
+        valorAsegurado: publicMoneyFromMajor('600'),
         fechaInicioVigencia: DateTime.now().subtract(const Duration(days: 1)),
         fechaFinVigencia: DateTime.now().add(const Duration(days: 365)),
       );

@@ -8,7 +8,6 @@ import '../models/proceso_contratacion.dart';
 import '../models/contrato.dart';
 import '../models/poliza.dart';
 import '../../../core/currency/public_sector_money.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 
 class ContratacionPublicaPage extends StatefulWidget {
@@ -24,7 +23,8 @@ class ContratacionPublicaPage extends StatefulWidget {
   });
 
   @override
-  State<ContratacionPublicaPage> createState() => _ContratacionPublicaPageState();
+  State<ContratacionPublicaPage> createState() =>
+      _ContratacionPublicaPageState();
 }
 
 class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
@@ -57,7 +57,10 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
     try {
       final db = await DatabaseHelper.instance.database;
       final auditoriaService = AuditoriaService(db);
-      final presupuestoService = PresupuestoService(db: db, auditoriaService: auditoriaService);
+      final presupuestoService = PresupuestoService(
+        db: db,
+        auditoriaService: auditoriaService,
+      );
 
       _contratacionService = ContratacionService(
         db: db,
@@ -65,14 +68,13 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         auditoriaService: auditoriaService,
       );
 
-      _secopService = SECOPService(
-        db: db,
-        auditoriaService: auditoriaService,
-      );
+      _secopService = SECOPService(db: db, auditoriaService: auditoriaService);
 
       await _cargarDatos();
     } catch (e) {
-      _mostrarError('No se pudo inicializar el módulo de Contratación. Verifica la conexión e intenta de nuevo.');
+      _mostrarError(
+        'No se pudo inicializar el módulo de Contratación. Verifica la conexión e intenta de nuevo.',
+      );
       debugPrint('Error al inicializar servicios de Contratación: $e');
     } finally {
       setState(() => _loading = false);
@@ -91,7 +93,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         whereArgs: [widget.entidadId],
         orderBy: 'fecha_inicio DESC',
       );
-      _procesos = procesosResult.map((r) => ProcesoContratacion.fromJson(r)).toList();
+      _procesos = procesosResult
+          .map((r) => ProcesoContratacion.fromJson(r))
+          .toList();
 
       // 2. Cargar Contratos
       _contratos = await _contratacionService!.consultarContratos(
@@ -113,7 +117,6 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         where: 'entidad_id = ?',
         whereArgs: [widget.entidadId],
       );
-
     } catch (e) {
       _mostrarError('Error al cargar datos: $e');
     }
@@ -158,18 +161,12 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.gavel),
-            label: 'Procesos',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.gavel), label: 'Procesos'),
           BottomNavigationBarItem(
             icon: Icon(Icons.description),
             label: 'Contratos',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.security),
-            label: 'Pólizas',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.security), label: 'Pólizas'),
           BottomNavigationBarItem(
             icon: Icon(Icons.cloud_upload),
             label: 'SECOP II',
@@ -183,18 +180,18 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               child: Icon(Icons.add),
             )
           : _selectedIndex == 1
-              ? FloatingActionButton(
-                  onPressed: _crearContrato,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Icon(Icons.add),
-                )
-              : _selectedIndex == 2
-                  ? FloatingActionButton(
-                      onPressed: _registrarPoliza,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Icon(Icons.add),
-                    )
-                  : null,
+          ? FloatingActionButton(
+              onPressed: _crearContrato,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
+            )
+          : _selectedIndex == 2
+          ? FloatingActionButton(
+              onPressed: _registrarPoliza,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -234,9 +231,13 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             title: Text(proceso.numeroProceso),
-            subtitle: Text('${proceso.objetoContrato} | ${CurrencyFormatter.format(proceso.valorEstimado)}'),
+            subtitle: Text(
+              '${proceso.objetoContrato} | ${publicMoneyForDisplay(proceso.valorEstimado)}',
+            ),
             trailing: Chip(
-              label: Text(proceso.estado.toString().split('.').last.toUpperCase()),
+              label: Text(
+                proceso.estado.toString().split('.').last.toUpperCase(),
+              ),
               backgroundColor: _getEstadoColor(proceso.estado),
               labelStyle: const TextStyle(color: Colors.white, fontSize: 10),
             ),
@@ -246,14 +247,24 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Modalidad: ${proceso.modalidad.toString().split('.').last}'),
+                    Text(
+                      'Modalidad: ${proceso.modalidad.toString().split('.').last}',
+                    ),
                     Text('Tipo Contrato: ${proceso.tipoContrato}'),
-                    Text('Dependencia Solicitante: ${proceso.dependenciaSolicitante}'),
+                    Text(
+                      'Dependencia Solicitante: ${proceso.dependenciaSolicitante}',
+                    ),
                     Text('Responsable: ${proceso.responsableProceso}'),
                     if (proceso.numeroCDP != null)
-                      Text('CDP Asociado: ${proceso.numeroCDP}', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        'CDP Asociado: ${proceso.numeroCDP}',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     if (proceso.secopId != null)
-                      Text('ID SECOP II: ${proceso.secopId}', style: TextStyle(color: Colors.blue)),
+                      Text(
+                        'ID SECOP II: ${proceso.secopId}',
+                        style: TextStyle(color: Colors.blue),
+                      ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -264,7 +275,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                             label: const Text('Asociar CDP'),
                             onPressed: () => _asociarCDP(proceso),
                           ),
-                        if (proceso.estado == EstadoProceso.estudioPrevio && proceso.cdpId != null)
+                        if (proceso.estado == EstadoProceso.estudioPrevio &&
+                            proceso.cdpId != null)
                           TextButton.icon(
                             icon: Icon(Icons.cloud_upload),
                             label: const Text('Publicar SECOP'),
@@ -280,13 +292,14 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                           TextButton.icon(
                             icon: Icon(Icons.description),
                             label: const Text('Crear Contrato'),
-                            onPressed: () => _crearContratoDesdeProceso(proceso),
+                            onPressed: () =>
+                                _crearContratoDesdeProceso(proceso),
                           ),
                       ],
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         );
@@ -330,9 +343,13 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             title: Text(contrato.numeroContrato),
-            subtitle: Text('${contrato.contratistaNombre} | ${CurrencyFormatter.format(contrato.valorContrato)}'),
+            subtitle: Text(
+              '${contrato.contratistaNombre} | ${publicMoneyForDisplay(contrato.valorContrato)}',
+            ),
             trailing: Chip(
-              label: Text(contrato.estado.toString().split('.').last.toUpperCase()),
+              label: Text(
+                contrato.estado.toString().split('.').last.toUpperCase(),
+              ),
               backgroundColor: _getEstadoContratoColor(contrato.estado),
               labelStyle: const TextStyle(color: Colors.white, fontSize: 10),
             ),
@@ -343,23 +360,33 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Objeto: ${contrato.objetoContrato}'),
-                    Text('Contratista Identificación: ${contrato.contratistaIdentificacion}'),
-                    Text('CDP: ${contrato.numeroCDP} | RP: ${contrato.numeroRP ?? 'Pendiente de asociación'}'),
+                    Text(
+                      'Contratista Identificación: ${contrato.contratistaIdentificacion}',
+                    ),
+                    Text(
+                      'CDP: ${contrato.numeroCDP} | RP: ${contrato.numeroRP ?? 'Pendiente de asociación'}',
+                    ),
                     Text('Firma: ${DateFormatter.format(contrato.fechaFirma)}'),
-                    Text('Ejecución: ${DateFormatter.format(contrato.fechaInicioEjecucion)} a ${DateFormatter.format(contrato.fechaFinEjecucion)} (${contrato.duracionDias} días)'),
+                    Text(
+                      'Ejecución: ${DateFormatter.format(contrato.fechaInicioEjecucion)} a ${DateFormatter.format(contrato.fechaFinEjecucion)} (${contrato.duracionDias} días)',
+                    ),
                     if (contrato.fechaLegalizacion != null)
-                      Text('Legalizado el: ${DateFormatter.format(contrato.fechaLegalizacion!)}'),
+                      Text(
+                        'Legalizado el: ${DateFormatter.format(contrato.fechaLegalizacion!)}',
+                      ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (contrato.estado == EstadoContrato.firmado && contrato.rpId == null)
+                        if (contrato.estado == EstadoContrato.firmado &&
+                            contrato.rpId == null)
                           TextButton.icon(
                             icon: Icon(Icons.link),
                             label: const Text('Expedir y asociar RP'),
                             onPressed: () => _asociarRPAContrato(contrato),
                           ),
-                        if (contrato.estado == EstadoContrato.firmado && contrato.rpId != null)
+                        if (contrato.estado == EstadoContrato.firmado &&
+                            contrato.rpId != null)
                           TextButton.icon(
                             icon: Icon(Icons.verified),
                             label: const Text('Legalizar Contrato'),
@@ -369,7 +396,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         );
@@ -412,14 +439,21 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
-            leading: Icon(Icons.security, color: Theme.of(context).colorScheme.primary),
-            title: Text('Póliza: ${poliza.numeroPoliza} (${poliza.tipoPoliza.toString().split('.').last})'),
+            leading: Icon(
+              Icons.security,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: Text(
+              'Póliza: ${poliza.numeroPoliza} (${poliza.tipoPoliza.toString().split('.').last})',
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Contrato: ${poliza.numeroContrato}'),
                 Text('Aseguradora: ${poliza.aseguradora}'),
-                Text('Vigencia: ${DateFormatter.format(poliza.fechaInicioVigencia)} a ${DateFormatter.format(poliza.fechaFinVigencia)}'),
+                Text(
+                  'Vigencia: ${DateFormatter.format(poliza.fechaInicioVigencia)} a ${DateFormatter.format(poliza.fechaFinVigencia)}',
+                ),
               ],
             ),
             trailing: Column(
@@ -427,7 +461,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${CurrencyFormatter.format(poliza.valorAsegurado)}',
+                  '${publicMoneyForDisplay(poliza.valorAsegurado)}',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
@@ -435,7 +469,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   poliza.estado.toString().split('.').last.toUpperCase(),
                   style: TextStyle(
                     fontSize: 10,
-                    color: poliza.estado == EstadoPoliza.vigente ? Colors.green : Colors.red,
+                    color: poliza.estado == EstadoPoliza.vigente
+                        ? Colors.green
+                        : Colors.red,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -448,7 +484,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   }
 
   Widget _buildSECOPTab() {
-    final contratosNoSincronizados = _contratos.where((c) => c.estado == EstadoContrato.legalizado).toList();
+    final contratosNoSincronizados = _contratos
+        .where((c) => c.estado == EstadoContrato.legalizado)
+        .toList();
 
     return Column(
       children: [
@@ -460,12 +498,19 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  Icon(Icons.info, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.info,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Sincronización con el Sistema Electrónico de Contratación Pública SECOP II a través de la pasarela gubernamental X-Road.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSecondaryContainer),
+                      style: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
+                      ),
                     ),
                   ),
                 ],
@@ -476,7 +521,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         Expanded(
           child: contratosNoSincronizados.isEmpty
               ? const Center(
-                  child: Text('Todos los contratos legalizados están sincronizados con SECOP II'),
+                  child: Text(
+                    'Todos los contratos legalizados están sincronizados con SECOP II',
+                  ),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -486,13 +533,17 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     return Card(
                       child: ListTile(
                         title: Text(contrato.numeroContrato),
-                        subtitle: Text('Valor: ${CurrencyFormatter.format(contrato.valorContrato)} | Contratista: ${contrato.contratistaNombre}'),
+                        subtitle: Text(
+                          'Valor: ${publicMoneyForDisplay(contrato.valorContrato)} | Contratista: ${contrato.contratistaNombre}',
+                        ),
                         trailing: ElevatedButton.icon(
                           onPressed: () => _sincronizarContrato(contrato),
                           icon: Icon(Icons.sync, size: 16),
                           label: const Text('Sincronizar'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                             foregroundColor: Colors.white,
                           ),
                         ),
@@ -541,13 +592,17 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _crearProceso() {
     if (_contratacionService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
     final formKey = GlobalKey<FormState>();
     final objetoController = TextEditingController();
     final valorEstimadoController = TextEditingController();
-    final tipoContratoController = TextEditingController(text: 'prestacion_servicios');
+    final tipoContratoController = TextEditingController(
+      text: 'prestacion_servicios',
+    );
     final dependenciaController = TextEditingController();
     final responsableController = TextEditingController();
     ModalidadSeleccion modalidadSeleccionada = ModalidadSeleccion.minimaCuantia;
@@ -565,14 +620,22 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 children: [
                   TextFormField(
                     controller: objetoController,
-                    decoration: const InputDecoration(labelText: 'Objeto del Contrato'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Objeto del Contrato',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   DropdownButtonFormField<ModalidadSeleccion>(
                     initialValue: modalidadSeleccionada,
-                    decoration: const InputDecoration(labelText: 'Modalidad de Selección'),
+                    decoration: const InputDecoration(
+                      labelText: 'Modalidad de Selección',
+                    ),
                     items: ModalidadSeleccion.values.map((m) {
-                      return DropdownMenuItem(value: m, child: Text(m.toString().split('.').last));
+                      return DropdownMenuItem(
+                        value: m,
+                        child: Text(m.toString().split('.').last),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -582,24 +645,39 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   ),
                   TextFormField(
                     controller: valorEstimadoController,
-                    decoration: const InputDecoration(labelText: 'Valor Estimado'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Valor Estimado',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: tipoContratoController,
-                    decoration: const InputDecoration(labelText: 'Tipo de Contrato (ej. obra, suministro, consultoria)'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText:
+                          'Tipo de Contrato (ej. obra, suministro, consultoria)',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: dependenciaController,
-                    decoration: const InputDecoration(labelText: 'Dependencia Solicitante'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Dependencia Solicitante',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: responsableController,
-                    decoration: const InputDecoration(labelText: 'Responsable del Proceso'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Responsable del Proceso',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                 ],
               ),
@@ -621,7 +699,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                       usuarioId: widget.usuarioId,
                       objetoContrato: objetoController.text,
                       modalidad: modalidadSeleccionada,
-                      valorEstimado: double.parse(valorEstimadoController.text),
+                      valorEstimado: publicMoneyFromMajor(
+                        valorEstimadoController.text,
+                      ),
                       tipoContrato: tipoContratoController.text,
                       dependenciaSolicitante: dependenciaController.text,
                       responsableProceso: responsableController.text,
@@ -649,7 +729,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _asociarCDP(ProcesoContratacion proceso) {
     if (_contratacionService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
     if (_cdpsDisponibles.isEmpty) {
@@ -673,7 +755,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               items: _cdpsDisponibles.map((c) {
                 return DropdownMenuItem<String>(
                   value: c['id'] as String,
-                  child: Text('CDP #${c['numero_cdp']} - Saldo: ${CurrencyFormatter.format((c['saldo_disponible'] as num).toDouble())}'),
+                  child: Text(
+                    'CDP #${c['numero_cdp']} - Saldo: ${publicMoneyForDisplay(publicMoneyFromSql(c['saldo_disponible']))}',
+                  ),
                 );
               }).toList(),
               onChanged: (val) {
@@ -690,7 +774,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
             ElevatedButton(
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
-                  final cdp = _cdpsDisponibles.firstWhere((c) => c['id'] == cdpSeleccionado);
+                  final cdp = _cdpsDisponibles.firstWhere(
+                    (c) => c['id'] == cdpSeleccionado,
+                  );
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
@@ -724,7 +810,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _publicarSECOP(ProcesoContratacion proceso) {
     if (_secopService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
     final formKey = GlobalKey<FormState>();
@@ -739,12 +827,17 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Se publicará el pliego en SECOP II vía pasarela X-Road.'),
+              const Text(
+                'Se publicará el pliego en SECOP II vía pasarela X-Road.',
+              ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: nitController,
-                decoration: const InputDecoration(labelText: 'NIT de la Entidad Pública'),
-                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'NIT de la Entidad Pública',
+                ),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
               ),
             ],
           ),
@@ -788,17 +881,23 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _adjudicarProceso(ProcesoContratacion proceso) {
     if (_secopService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
     if (proceso.secopId == null || proceso.secopId!.isEmpty) {
-      _mostrarError('Este proceso no tiene ID de SECOP II asociado, debe publicarlo primero.');
+      _mostrarError(
+        'Este proceso no tiene ID de SECOP II asociado, debe publicarlo primero.',
+      );
       return;
     }
 
     final formKey = GlobalKey<FormState>();
     final proveedorController = TextEditingController();
-    final valorController = TextEditingController(text: proceso.valorEstimado.toString());
+    final valorController = TextEditingController(
+      text: publicMoneyForDisplay(proceso.valorEstimado),
+    );
 
     showDialog(
       context: context,
@@ -814,14 +913,22 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               const Divider(),
               TextFormField(
                 controller: proveedorController,
-                decoration: const InputDecoration(labelText: 'Proveedor / Contratista Adjudicado (ID)'),
-                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Proveedor / Contratista Adjudicado (ID)',
+                ),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: valorController,
-                decoration: const InputDecoration(labelText: 'Valor de Adjudicación'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Valor de Adjudicación',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
               ),
             ],
           ),
@@ -843,7 +950,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     procesoId: proceso.id,
                     secopId: proceso.secopId!,
                     proveedorId: proveedorController.text,
-                    valorAdjudicacion: double.parse(valorController.text),
+                    valorAdjudicacion: publicMoneyFromMajor(
+                      valorController.text,
+                    ),
                   );
                   _mostrarExito('Proceso adjudicado exitosamente');
                   await _cargarDatos();
@@ -871,12 +980,18 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _crearContrato() {
     if (_contratacionService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
-    final adjudicados = _procesos.where((p) => p.estado == EstadoProceso.adjudicado).toList();
+    final adjudicados = _procesos
+        .where((p) => p.estado == EstadoProceso.adjudicado)
+        .toList();
     if (adjudicados.isEmpty) {
-      _mostrarError('No hay procesos adjudicados disponibles para crear contratos.');
+      _mostrarError(
+        'No hay procesos adjudicados disponibles para crear contratos.',
+      );
       return;
     }
     _mostrarFormularioContrato();
@@ -893,7 +1008,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
     DateTime fechaInicio = DateTime.now();
     DateTime fechaFin = DateTime.now().add(const Duration(days: 30));
 
-    final adjudicados = _procesos.where((p) => p.estado == EstadoProceso.adjudicado).toList();
+    final adjudicados = _procesos
+        .where((p) => p.estado == EstadoProceso.adjudicado)
+        .toList();
 
     showDialog(
       context: context,
@@ -909,9 +1026,14 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   if (proceso == null)
                     DropdownButtonFormField<ProcesoContratacion>(
                       initialValue: procesoSeleccionado,
-                      decoration: const InputDecoration(labelText: 'Proceso Adjudicado'),
+                      decoration: const InputDecoration(
+                        labelText: 'Proceso Adjudicado',
+                      ),
                       items: adjudicados.map((p) {
-                        return DropdownMenuItem(value: p, child: Text(p.numeroProceso));
+                        return DropdownMenuItem(
+                          value: p,
+                          child: Text(p.numeroProceso),
+                        );
                       }).toList(),
                       onChanged: (val) {
                         setDialogState(() {
@@ -923,23 +1045,35 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('Proceso: ${proceso.numeroProceso}', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text(
+                        'Proceso: ${proceso.numeroProceso}',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: contratistaIdController,
-                    decoration: const InputDecoration(labelText: 'ID de Contratista'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'ID de Contratista',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: contratistaNombreController,
-                    decoration: const InputDecoration(labelText: 'Nombre / Razón Social Contratista'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre / Razón Social Contratista',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: contratistaIdentificacionController,
-                    decoration: const InputDecoration(labelText: 'Identificación NIT/CC'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Identificación NIT/CC',
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1013,7 +1147,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (formKey.currentState!.validate() && procesoSeleccionado != null) {
+                if (formKey.currentState!.validate() &&
+                    procesoSeleccionado != null) {
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
@@ -1023,14 +1158,17 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                       procesoId: procesoSeleccionado!.id,
                       contratistaId: contratistaIdController.text,
                       contratistaNombre: contratistaNombreController.text,
-                      contratistaIdentificacion: contratistaIdentificacionController.text,
+                      contratistaIdentificacion:
+                          contratistaIdentificacionController.text,
                       cdpId: procesoSeleccionado!.cdpId!,
                       numeroCDP: procesoSeleccionado!.numeroCDP!,
                       fechaFirma: fechaFirma,
                       fechaInicioEjecucion: fechaInicio,
                       fechaFinEjecucion: fechaFin,
                     );
-                    _mostrarExito('Contrato firmado registrado. Expida y asocie el RP como segundo paso.');
+                    _mostrarExito(
+                      'Contrato firmado registrado. Expida y asocie el RP como segundo paso.',
+                    );
                     await _cargarDatos();
                   } catch (e) {
                     _mostrarError('Error al crear contrato: $e');
@@ -1053,14 +1191,20 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _asociarRPAContrato(Contrato contrato) {
     if (_contratacionService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
     final formKey = GlobalKey<FormState>();
-    final valorController = TextEditingController(text: contrato.valorContrato.toString());
+    final valorController = TextEditingController(
+      text: publicMoneyForDisplay(contrato.valorContrato),
+    );
     final expedidorController = TextEditingController();
     final solicitanteController = TextEditingController();
-    final objetoController = TextEditingController(text: contrato.objetoContrato);
+    final objetoController = TextEditingController(
+      text: contrato.objetoContrato,
+    );
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1073,16 +1217,49 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               children: [
                 Text('Contrato: ${contrato.numeroContrato}'),
                 Text('CDP: ${contrato.numeroCDP}'),
-                TextFormField(controller: valorController, decoration: const InputDecoration(labelText: 'Valor del RP'), keyboardType: const TextInputType.numberWithOptions(decimal: true), validator: (value) => double.tryParse(value ?? '') == null ? 'Ingrese un valor válido' : null),
-                TextFormField(controller: expedidorController, decoration: const InputDecoration(labelText: 'Funcionario expedidor'), validator: (value) => value == null || value.isEmpty ? 'Requerido' : null),
-                TextFormField(controller: solicitanteController, decoration: const InputDecoration(labelText: 'Funcionario solicitante'), validator: (value) => value == null || value.isEmpty ? 'Requerido' : null),
-                TextFormField(controller: objetoController, decoration: const InputDecoration(labelText: 'Objeto del gasto'), validator: (value) => value == null || value.isEmpty ? 'Requerido' : null),
+                TextFormField(
+                  controller: valorController,
+                  decoration: const InputDecoration(labelText: 'Valor del RP'),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  validator: (value) => double.tryParse(value ?? '') == null
+                      ? 'Ingrese un valor válido'
+                      : null,
+                ),
+                TextFormField(
+                  controller: expedidorController,
+                  decoration: const InputDecoration(
+                    labelText: 'Funcionario expedidor',
+                  ),
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Requerido' : null,
+                ),
+                TextFormField(
+                  controller: solicitanteController,
+                  decoration: const InputDecoration(
+                    labelText: 'Funcionario solicitante',
+                  ),
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Requerido' : null,
+                ),
+                TextFormField(
+                  controller: objetoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Objeto del gasto',
+                  ),
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Requerido' : null,
+                ),
               ],
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
@@ -1090,7 +1267,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
               setState(() => _loading = true);
               try {
                 await _contratacionService!.asociarRPAContrato(
-                  entidadId: widget.entidadId, usuarioId: widget.usuarioId,
+                  entidadId: widget.entidadId,
+                  usuarioId: widget.usuarioId,
                   contratoId: contrato.id,
                   valorRP: publicMoneyFromMajor(valorController.text),
                   funcionarioExpedidor: expedidorController.text,
@@ -1114,7 +1292,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _legalizarContrato(Contrato contrato) async {
     if (_contratacionService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
     setState(() => _loading = true);
@@ -1135,7 +1315,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _registrarPoliza() {
     if (_contratacionService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
     if (_contratos.isEmpty) {
@@ -1165,9 +1347,14 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                 children: [
                   DropdownButtonFormField<Contrato>(
                     initialValue: contratoSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Contrato Asociado'),
+                    decoration: const InputDecoration(
+                      labelText: 'Contrato Asociado',
+                    ),
                     items: _contratos.map((c) {
-                      return DropdownMenuItem(value: c, child: Text(c.numeroContrato));
+                      return DropdownMenuItem(
+                        value: c,
+                        child: Text(c.numeroContrato),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       setDialogState(() => contratoSeleccionado = val);
@@ -1176,9 +1363,14 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   ),
                   DropdownButtonFormField<TipoPoliza>(
                     initialValue: tipoPolizaSeleccionada,
-                    decoration: const InputDecoration(labelText: 'Tipo de Póliza'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de Póliza',
+                    ),
                     items: TipoPoliza.values.map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t.toString().split('.').last));
+                      return DropdownMenuItem(
+                        value: t,
+                        child: Text(t.toString().split('.').last),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -1189,13 +1381,19 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   TextFormField(
                     controller: aseguradoraController,
                     decoration: const InputDecoration(labelText: 'Aseguradora'),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   TextFormField(
                     controller: valorAseguradoController,
-                    decoration: const InputDecoration(labelText: 'Valor Asegurado'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Valor Asegurado',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1249,7 +1447,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (formKey.currentState!.validate() && contratoSeleccionado != null) {
+                if (formKey.currentState!.validate() &&
+                    contratoSeleccionado != null) {
                   Navigator.pop(context);
                   setState(() => _loading = true);
                   try {
@@ -1260,7 +1459,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                       numeroContrato: contratoSeleccionado!.numeroContrato,
                       tipoPoliza: tipoPolizaSeleccionada,
                       aseguradora: aseguradoraController.text,
-                      valorAsegurado: double.parse(valorAseguradoController.text),
+                      valorAsegurado: publicMoneyFromMajor(
+                        valorAseguradoController.text,
+                      ),
                       fechaInicioVigencia: fechaInicio,
                       fechaFinVigencia: fechaFin,
                     );
@@ -1287,7 +1488,9 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
 
   void _sincronizarContrato(Contrato contrato) async {
     if (_secopService == null) {
-      _mostrarError('El módulo de Contratación no está listo. Intenta de nuevo.');
+      _mostrarError(
+        'El módulo de Contratación no está listo. Intenta de nuevo.',
+      );
       return;
     }
     setState(() => _loading = true);
@@ -1296,7 +1499,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
         contratoId: contrato.id,
-        secopId: contrato.numeroContrato, // Usar número de contrato como identificador SECOP
+        secopId: contrato
+            .numeroContrato, // Usar número de contrato como identificador SECOP
       );
       _mostrarExito('Contrato sincronizado exitosamente con SECOP II');
       await _cargarDatos();

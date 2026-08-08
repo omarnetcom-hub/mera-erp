@@ -2,6 +2,8 @@
 /// Ley 80 de 1993 - Requiere CDP, RP, pólizas, legalización
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum EstadoContrato {
   enFirma,
@@ -32,7 +34,7 @@ class Contrato {
   final String numeroProceso;
   final String objetoContrato;
   final TipoContrato tipoContrato;
-  final double valorContrato;
+  final MoneyValue valorContrato;
   final String contratistaId;
   final String contratistaNombre;
   final String contratistaIdentificacion;
@@ -96,7 +98,7 @@ class Contrato {
       tipoContrato: TipoContrato.values.firstWhere(
         (e) => e.toString() == 'TipoContrato.${json['tipo_contrato']}',
       ),
-      valorContrato: (json['valor_contrato'] as num).toDouble(),
+      valorContrato: publicMoneyFromSql(json['valor_contrato']),
       contratistaId: json['contratista_id'] as String,
       contratistaNombre: json['contratista_nombre'] as String,
       contratistaIdentificacion: json['contratista_identificacion'] as String,
@@ -105,7 +107,9 @@ class Contrato {
       rpId: json['rp_id'] as String?,
       numeroRP: json['numero_rp'] as String?,
       fechaFirma: DateTime.parse(json['fecha_firma'] as String),
-      fechaInicioEjecucion: DateTime.parse(json['fecha_inicio_ejecucion'] as String),
+      fechaInicioEjecucion: DateTime.parse(
+        json['fecha_inicio_ejecucion'] as String,
+      ),
       fechaFinEjecucion: DateTime.parse(json['fecha_fin_ejecucion'] as String),
       duracionDias: json['duracion_dias'] as int,
       estado: EstadoContrato.values.firstWhere(
@@ -137,7 +141,7 @@ class Contrato {
       'numero_proceso': numeroProceso,
       'objeto_contrato': objetoContrato,
       'tipo_contrato': tipoContrato.toString().split('.').last,
-      'valor_contrato': valorContrato,
+      'valor_contrato': valorContrato.toSql(),
       'contratista_id': contratistaId,
       'contratista_nombre': contratistaNombre,
       'contratista_identificacion': contratistaIdentificacion,
@@ -204,7 +208,7 @@ class Contrato {
     String? numeroProceso,
     String? objetoContrato,
     TipoContrato? tipoContrato,
-    double? valorContrato,
+    MoneyValue? valorContrato,
     String? contratistaId,
     String? contratistaNombre,
     String? contratistaIdentificacion,
@@ -237,7 +241,8 @@ class Contrato {
       valorContrato: valorContrato ?? this.valorContrato,
       contratistaId: contratistaId ?? this.contratistaId,
       contratistaNombre: contratistaNombre ?? this.contratistaNombre,
-      contratistaIdentificacion: contratistaIdentificacion ?? this.contratistaIdentificacion,
+      contratistaIdentificacion:
+          contratistaIdentificacion ?? this.contratistaIdentificacion,
       cdpId: cdpId ?? this.cdpId,
       numeroCDP: numeroCDP ?? this.numeroCDP,
       rpId: rpId ?? this.rpId,

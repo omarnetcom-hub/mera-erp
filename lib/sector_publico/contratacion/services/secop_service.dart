@@ -7,6 +7,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/proceso_contratacion.dart';
 import '../models/contrato.dart';
 import '../../security/auditoria_service.dart';
@@ -18,13 +20,14 @@ class SECOPService {
   final Dio _dio;
   final Dio _soda3Dio;
   final Uuid _uuid = const Uuid();
-  
+
   // Configuración de SECOP II (X-Road)
   static const String _secopBaseUrl = 'https://www.secop.gov.co';
   static const String _xroadServicePath = '/r1/SECOP-II/contratacion';
-  
+
   // Configuración de API SODA3 (datos.gov.co)
-  static const String _soda3BaseUrl = 'https://datos.gov.co/resource/p6dx-8zbt.json';
+  static const String _soda3BaseUrl =
+      'https://datos.gov.co/resource/p6dx-8zbt.json';
   static const Duration _timeout = Duration(seconds: 30);
 
   SECOPService({
@@ -32,25 +35,30 @@ class SECOPService {
     required this.auditoriaService,
     String? apiKey,
     String? xroadClientId,
-  }) : _dio = Dio(BaseOptions(
-    baseUrl: _secopBaseUrl,
-    connectTimeout: _timeout,
-    receiveTimeout: _timeout,
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (apiKey != null) 'Authorization': 'Bearer $apiKey',
-      if (xroadClientId != null) 'X-Road-Client': xroadClientId,
-    },
-  )), _soda3Dio = Dio(BaseOptions(
-    connectTimeout: _timeout,
-    receiveTimeout: _timeout,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-App-Token': _safeEnv('SOCRATA_APP_TOKEN'),
-      'Authorization': _safeEnv('SOCRATA_AUTH_HEADER'),
-    },
-  ));
+  }) : _dio = Dio(
+         BaseOptions(
+           baseUrl: _secopBaseUrl,
+           connectTimeout: _timeout,
+           receiveTimeout: _timeout,
+           headers: {
+             'Content-Type': 'application/json',
+             'Accept': 'application/json',
+             if (apiKey != null) 'Authorization': 'Bearer $apiKey',
+             if (xroadClientId != null) 'X-Road-Client': xroadClientId,
+           },
+         ),
+       ),
+       _soda3Dio = Dio(
+         BaseOptions(
+           connectTimeout: _timeout,
+           receiveTimeout: _timeout,
+           headers: {
+             'Content-Type': 'application/json',
+             'X-App-Token': _safeEnv('SOCRATA_APP_TOKEN'),
+             'Authorization': _safeEnv('SOCRATA_AUTH_HEADER'),
+           },
+         ),
+       );
 
   /// Lee una variable de entorno sin lanzar NotInitializedError si dotenv no cargó.
   static String _safeEnv(String key) {
@@ -91,7 +99,7 @@ class SECOPService {
         'tipo_proceso': proceso.tipoContrato.toString().split('.').last,
         'modalidad_seleccion': proceso.modalidad.toString().split('.').last,
         'objeto_contrato': proceso.objetoContrato,
-        'valor_estimado': proceso.valorEstimado,
+        'valor_estimado': publicMoneyForDisplay(proceso.valorEstimado),
         'fecha_inicio': proceso.fechaInicio.toIso8601String(),
         'fecha_fin': proceso.fechaCierre?.toIso8601String(),
         'nit_entidad': nitEntidad,
@@ -105,7 +113,9 @@ class SECOPService {
       );
 
       if (response.statusCode != 201) {
-        throw Exception('Error al publicar en SECOP II: ${response.statusCode}');
+        throw Exception(
+          'Error al publicar en SECOP II: ${response.statusCode}',
+        );
       }
 
       final secopId = response.data['id_proceso_secop'];
@@ -158,7 +168,9 @@ class SECOPService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al recibir ofertas de SECOP II: ${response.statusCode}');
+        throw Exception(
+          'Error al recibir ofertas de SECOP II: ${response.statusCode}',
+        );
       }
 
       return List<Map<String, dynamic>>.from(response.data['ofertas']);
@@ -174,12 +186,12 @@ class SECOPService {
     required String procesoId,
     required String secopId,
     required String proveedorId,
-    required double valorAdjudicacion,
+    required MoneyValue valorAdjudicacion,
   }) async {
     try {
       final payload = {
         'proveedor_id': proveedorId,
-        'valor_adjudicacion': valorAdjudicacion,
+        'valor_adjudicacion': publicMoneyForDisplay(valorAdjudicacion),
         'fecha_adjudicacion': DateTime.now().toIso8601String(),
       };
 
@@ -189,7 +201,9 @@ class SECOPService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al publicar adjudicación en SECOP II: ${response.statusCode}');
+        throw Exception(
+          'Error al publicar adjudicación en SECOP II: ${response.statusCode}',
+        );
       }
 
       final procesoResult = await db.query(
@@ -202,9 +216,7 @@ class SECOPService {
 
       await db.update(
         'procesos_contratacion',
-        {
-          'estado': EstadoProceso.adjudicado.toString().split('.').last,
-        },
+        {'estado': EstadoProceso.adjudicado.toString().split('.').last},
         where: 'id = ?',
         whereArgs: [procesoId],
       );
@@ -219,7 +231,7 @@ class SECOPService {
         valorNuevo: {
           'estado_nuevo': EstadoProceso.adjudicado.toString(),
           'proveedor_id': proveedorId,
-          'valor_adjudicacion': valorAdjudicacion,
+          'valor_adjudicacion': valorAdjudicacion.toWireMap(),
         },
         referenciaId: procesoId,
       );
@@ -252,7 +264,7 @@ class SECOPService {
     try {
       final payload = {
         'numero_contrato': contrato.numeroContrato,
-        'valor_contrato': contrato.valorContrato,
+        'valor_contrato': publicMoneyForDisplay(contrato.valorContrato),
         'fecha_firma': contrato.fechaFirma.toIso8601String(),
         'fecha_inicio': contrato.fechaInicioEjecucion.toIso8601String(),
         'fecha_fin': contrato.fechaFinEjecucion.toIso8601String(),
@@ -264,7 +276,9 @@ class SECOPService {
       );
 
       if (response.statusCode != 201) {
-        throw Exception('Error al sincronizar contrato con SECOP II: ${response.statusCode}');
+        throw Exception(
+          'Error al sincronizar contrato con SECOP II: ${response.statusCode}',
+        );
       }
 
       await auditoriaService.registrarEvento(
@@ -274,10 +288,7 @@ class SECOPService {
         modulo: 'contratacion',
         accion: 'sincronizacion_contrato_secop_xroad',
         valorAnterior: {'contrato_id': contratoId},
-        valorNuevo: {
-          'secop_id': secopId,
-          'respuesta_api': response.data,
-        },
+        valorNuevo: {'secop_id': secopId, 'respuesta_api': response.data},
         referenciaId: contratoId,
       );
 
@@ -318,13 +329,17 @@ class SECOPService {
       whereArgs: [entidadId, '$vigencia%'],
     );
 
+    var valorTotalContratos = publicMoneyZero();
+    for (final contrato in contratos) {
+      valorTotalContratos += publicMoneyFromSql(contrato['valor_contrato']);
+    }
+
     return {
       'entidad_id': entidadId,
       'vigencia': vigencia,
       'total_procesos': procesos.length,
       'total_contratos': contratos.length,
-      'valor_total_contratos': contratos.fold(
-0.0, (sum, r) => sum + (r['valor_contrato'] as num).toDouble()),
+      'valor_total_contratos': publicMoneyForDisplay(valorTotalContratos),
       'procesos': procesos.map((r) => r['numero_proceso']).toList(),
       'contratos': contratos.map((r) => r['numero_contrato']).toList(),
     };
@@ -341,23 +356,23 @@ class SECOPService {
     try {
       // Construir parámetros de consulta
       final queryParams = <String, dynamic>{};
-      
+
       if (nitEntidad != null) {
         queryParams['nit_entidad'] = nitEntidad;
       }
-      
+
       if (limit != null) {
         queryParams['\$limit'] = limit;
       }
-      
+
       if (offset != null) {
         queryParams['\$offset'] = offset;
       }
-      
+
       if (soqlFilter != null) {
         queryParams['\$where'] = soqlFilter;
       }
-      
+
       // Ordenar por fecha de publicación descendente
       queryParams['\$order'] = 'fecha_publicacion DESC';
 
@@ -367,7 +382,9 @@ class SECOPService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar SECOP II vía SODA3: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar SECOP II vía SODA3: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
@@ -384,14 +401,13 @@ class SECOPService {
     try {
       final response = await _soda3Dio.get(
         _soda3BaseUrl,
-        queryParameters: {
-          'id_proceso': idProceso,
-          '\$limit': 1,
-        },
+        queryParameters: {'id_proceso': idProceso, '\$limit': 1},
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar contrato vía SODA3: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar contrato vía SODA3: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
@@ -411,7 +427,8 @@ class SECOPService {
   }) async {
     try {
       final queryParams = <String, dynamic>{
-        '\$where': "fecha_publicacion >= '${fechaInicio.toIso8601String()}' AND fecha_publicacion <= '${fechaFin.toIso8601String()}'",
+        '\$where':
+            "fecha_publicacion >= '${fechaInicio.toIso8601String()}' AND fecha_publicacion <= '${fechaFin.toIso8601String()}'",
         '\$order': 'fecha_publicacion DESC',
       };
 
@@ -429,7 +446,9 @@ class SECOPService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar contratos por fecha vía SODA3: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar contratos por fecha vía SODA3: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;

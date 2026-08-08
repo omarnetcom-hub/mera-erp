@@ -2,6 +2,8 @@
 /// Ley 80 de 1993 + Ley 1150 de 2007 + Decreto 1082 de 2015
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum ModalidadSeleccion {
   licitacionPublica,
@@ -30,7 +32,7 @@ class ProcesoContratacion {
   final String numeroProceso; // Formato: PC-YYYY-NNNNNN
   final String objetoContrato;
   final ModalidadSeleccion modalidad;
-  final double valorEstimado;
+  final MoneyValue valorEstimado;
   final String tipoContrato;
   final String dependenciaSolicitante;
   final String responsableProceso;
@@ -72,7 +74,7 @@ class ProcesoContratacion {
       modalidad: ModalidadSeleccion.values.firstWhere(
         (e) => e.toString() == 'ModalidadSeleccion.${json['modalidad']}',
       ),
-      valorEstimado: (json['valor_estimado'] as num).toDouble(),
+      valorEstimado: publicMoneyFromSql(json['valor_estimado']),
       tipoContrato: json['tipo_contrato'] as String,
       dependenciaSolicitante: json['dependencia_solicitante'] as String,
       responsableProceso: json['responsable_proceso'] as String,
@@ -100,7 +102,7 @@ class ProcesoContratacion {
       'numero_proceso': numeroProceso,
       'objeto_contrato': objetoContrato,
       'modalidad': modalidad.toString().split('.').last,
-      'valor_estimado': valorEstimado,
+      'valor_estimado': valorEstimado.toSql(),
       'tipo_contrato': tipoContrato,
       'dependencia_solicitante': dependenciaSolicitante,
       'responsable_proceso': responsableProceso,
@@ -137,7 +139,7 @@ class ProcesoContratacion {
     String? numeroProceso,
     String? objetoContrato,
     ModalidadSeleccion? modalidad,
-    double? valorEstimado,
+    MoneyValue? valorEstimado,
     String? tipoContrato,
     String? dependenciaSolicitante,
     String? responsableProceso,
@@ -158,7 +160,8 @@ class ProcesoContratacion {
       modalidad: modalidad ?? this.modalidad,
       valorEstimado: valorEstimado ?? this.valorEstimado,
       tipoContrato: tipoContrato ?? this.tipoContrato,
-      dependenciaSolicitante: dependenciaSolicitante ?? this.dependenciaSolicitante,
+      dependenciaSolicitante:
+          dependenciaSolicitante ?? this.dependenciaSolicitante,
       responsableProceso: responsableProceso ?? this.responsableProceso,
       fechaInicio: fechaInicio ?? this.fechaInicio,
       fechaPublicacion: fechaPublicacion ?? this.fechaPublicacion,

@@ -4,15 +4,12 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
-enum TipoInforme {
-  inicial,
-  mensual,
-  finalInforme,
-  especial,
-}
+enum TipoInforme { inicial, mensual, finalInforme, especial }
 
 enum TipoAlerta {
   retrasoEjecucion,
@@ -168,10 +165,10 @@ class InterventoriaLiquidacionService {
     required DateTime fechaLiquidacion,
     required String elaboradoPor,
     required String revisadoPor,
-    required double valorContrato,
-    required double valorEjecutado,
-    required double saldoFavorContratista,
-    required double saldoFavorEntidad,
+    required MoneyValue valorContrato,
+    required MoneyValue valorEjecutado,
+    required MoneyValue saldoFavorContratista,
+    required MoneyValue saldoFavorEntidad,
     required List<String> observaciones,
     required List<Map<String, dynamic>> saldosCuentas,
   }) async {
@@ -190,12 +187,16 @@ class InterventoriaLiquidacionService {
 
     final estadoContrato = contrato.first['estado'];
     if (estadoContrato != 'ejecucion' && estadoContrato != 'terminado') {
-      throw Exception('El contrato debe estar en ejecución o terminado para liquidar');
+      throw Exception(
+        'El contrato debe estar en ejecución o terminado para liquidar',
+      );
     }
 
     // Verificar cuadre de saldos
-    final cuadreSaldos = valorEjecutado - (saldoFavorContratista - saldoFavorEntidad);
-    if ((cuadreSaldos - valorContrato).abs() > 1000) { // Tolerancia de $1,000
+    final cuadreSaldos =
+        valorEjecutado - (saldoFavorContratista - saldoFavorEntidad);
+    if ((cuadreSaldos - valorContrato).minorUnits.abs() > 100000) {
+      // Tolerancia de $1,000 = 100,000 centavos.
       throw Exception('Los saldos no cuadran con el valor del contrato');
     }
 
@@ -207,10 +208,10 @@ class InterventoriaLiquidacionService {
       'fecha_liquidacion': fechaLiquidacion.toIso8601String(),
       'elaborado_por': elaboradoPor,
       'revisado_por': revisadoPor,
-      'valor_contrato': valorContrato,
-      'valor_ejecutado': valorEjecutado,
-      'saldo_favor_contratista': saldoFavorContratista,
-      'saldo_favor_entidad': saldoFavorEntidad,
+      'valor_contrato': valorContrato.toSql(),
+      'valor_ejecutado': valorEjecutado.toSql(),
+      'saldo_favor_contratista': saldoFavorContratista.toSql(),
+      'saldo_favor_entidad': saldoFavorEntidad.toSql(),
       'observaciones': observaciones.join('\n'),
       'saldos_cuentas': saldosCuentas.toString(),
       'fecha_registro': DateTime.now().toIso8601String(),
@@ -250,9 +251,9 @@ class InterventoriaLiquidacionService {
       'acta_id': id,
       'contrato_id': contratoId,
       'fecha_liquidacion': fechaLiquidacion.toIso8601String(),
-      'valor_ejecutado': valorEjecutado,
-      'saldo_favor_contratista': saldoFavorContratista,
-      'saldo_favor_entidad': saldoFavorEntidad,
+      'valor_ejecutado': publicMoneyForDisplay(valorEjecutado),
+      'saldo_favor_contratista': publicMoneyForDisplay(saldoFavorContratista),
+      'saldo_favor_entidad': publicMoneyForDisplay(saldoFavorEntidad),
       'estado': 'aprobado',
     };
   }
@@ -281,7 +282,9 @@ class InterventoriaLiquidacionService {
 
     final estadoContrato = contrato.first['estado'];
     if (estadoContrato != 'liquidado') {
-      throw Exception('El contrato debe estar liquidado para cerrar el expediente');
+      throw Exception(
+        'El contrato debe estar liquidado para cerrar el expediente',
+      );
     }
 
     await db.update(
@@ -304,9 +307,7 @@ class InterventoriaLiquidacionService {
       tipoEvento: TipoEventoAuditoria.modificacionRegistro,
       modulo: 'contratacion',
       accion: 'cierre_expediente_contractual',
-      valorAnterior: {
-        'estado_anterior': estadoContrato,
-      },
+      valorAnterior: {'estado_anterior': estadoContrato},
       valorNuevo: {
         'estado_nuevo': 'expediente_cerrado',
         'fecha_cierre': fechaCierre.toIso8601String(),
@@ -399,8 +400,12 @@ class InterventoriaLiquidacionService {
     );
 
     // Alertas por estado
-    final alertasPendientes = alertas.where((a) => a['estado'] == 'pendiente').length;
-    final alertasResueltas = alertas.where((a) => a['estado'] == 'resuelto').length;
+    final alertasPendientes = alertas
+        .where((a) => a['estado'] == 'pendiente')
+        .length;
+    final alertasResueltas = alertas
+        .where((a) => a['estado'] == 'resuelto')
+        .length;
 
     // Porcentaje de ejecución actual
     final contrato = await db.query(
@@ -420,7 +425,9 @@ class InterventoriaLiquidacionService {
       'alertas_pendientes': alertasPendientes,
       'alertas_resueltas': alertasResueltas,
       'porcentaje_ejecucion': porcentajeEjecucion,
-      'estado_contrato': contrato.isNotEmpty ? contrato.first['estado'] : 'no_encontrado',
+      'estado_contrato': contrato.isNotEmpty
+          ? contrato.first['estado']
+          : 'no_encontrado',
     };
   }
 }
