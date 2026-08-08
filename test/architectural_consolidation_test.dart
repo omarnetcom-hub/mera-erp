@@ -412,24 +412,24 @@ JournalEntry _journalEntry() {
     reference: 'FV-1',
     origin: 'sales',
     correlationId: 'corr-1',
-    lines: const [
+    lines: [
       JournalLine(
         accountCode: '110505',
         description: 'Caja',
-        debit: 119000,
-        credit: 0,
+        debit: testMoney('1190.00'),
+        credit: zeroTestMoney,
       ),
       JournalLine(
         accountCode: '413505',
         description: 'Ingresos',
-        debit: 0,
-        credit: 100000,
+        debit: zeroTestMoney,
+        credit: testMoney('1000.00'),
       ),
       JournalLine(
         accountCode: '240805',
         description: 'IVA generado',
-        debit: 0,
-        credit: 19000,
+        debit: zeroTestMoney,
+        credit: testMoney('190.00'),
       ),
     ],
   );

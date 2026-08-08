@@ -1,4 +1,5 @@
 import '../domain/journal_entry.dart';
+import '../../core/currency/money_value.dart';
 
 class LedgerAccountBalance {
   const LedgerAccountBalance({
@@ -8,16 +9,16 @@ class LedgerAccountBalance {
   });
 
   final String accountCode;
-  final double debit;
-  final double credit;
+  final MoneyValue debit;
+  final MoneyValue credit;
 
-  double get balance => debit - credit;
+  MoneyValue get balance => debit - credit;
 
   Map<String, Object?> toMap() => {
     'account_code': accountCode,
-    'debit': debit,
-    'credit': credit,
-    'balance': balance,
+    'debit': debit.toSql(),
+    'credit': credit.toSql(),
+    'balance': balance.toSql(),
   };
 }
 
@@ -26,19 +27,28 @@ class LedgerTrialBalance {
 
   final List<LedgerAccountBalance> accounts;
 
-  double get totalDebit =>
-      accounts.fold(0, (sum, account) => sum + account.debit);
+  MoneyValue get totalDebit => _sum((account) => account.debit);
 
-  double get totalCredit =>
-      accounts.fold(0, (sum, account) => sum + account.credit);
+  MoneyValue get totalCredit => _sum((account) => account.credit);
 
-  bool get balanced => (totalDebit - totalCredit).abs() <= 0.01;
+  MoneyValue _sum(MoneyValue Function(LedgerAccountBalance account) selector) {
+    if (accounts.isEmpty) {
+      throw StateError('El libro mayor requiere cuentas.');
+    }
+    final zero = MoneyValue(
+      minorUnits: 0,
+      currency: accounts.first.debit.currency,
+    );
+    return accounts.fold(zero, (sum, account) => sum + selector(account));
+  }
+
+  bool get balanced => totalDebit == totalCredit;
 
   Map<String, Object?> toMap() => {
     'accounts': accounts.map((account) => account.toMap()).toList(),
     'summary': {
-      'total_debit': totalDebit,
-      'total_credit': totalCredit,
+      'total_debit': totalDebit.toSql(),
+      'total_credit': totalCredit.toSql(),
       'balanced': balanced,
     },
   };
@@ -63,12 +73,13 @@ class LedgerEngine {
   }
 
   LedgerTrialBalance trialBalance(List<JournalEntry> entries) {
-    final totals = <String, ({double debit, double credit})>{};
+    final totals = <String, ({MoneyValue debit, MoneyValue credit})>{};
     for (final entry in entries.where(
       (entry) => entry.status == JournalEntryStatus.posted,
     )) {
       for (final line in entry.lines) {
-        final current = totals[line.accountCode] ?? (debit: 0, credit: 0);
+        final zero = MoneyValue(minorUnits: 0, currency: line.debit.currency);
+        final current = totals[line.accountCode] ?? (debit: zero, credit: zero);
         totals[line.accountCode] = (
           debit: current.debit + line.localDebit,
           credit: current.credit + line.localCredit,

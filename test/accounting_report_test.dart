@@ -1,9 +1,12 @@
 import 'package:merka_erp/accounting/data/accounting_report_repository.dart';
+import 'package:merka_erp/accounting/domain/journal_entry.dart';
 import 'package:merka_erp/accounting/domain/trial_balance.dart';
 import 'package:merka_erp/core/company/company_context.dart';
 import 'package:merka_erp/core/database/database_gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
+
+import 'support/test_money.dart';
 
 class _Context implements CompanyContextProvider {
   const _Context(this.companyId);
@@ -85,19 +88,48 @@ class _Gateway implements DatabaseGateway {
 }
 
 void main() {
+  group('JournalEntry con MoneyValue', () {
+    test('rechaza un descuadre de un centavo sin tolerancia double', () {
+      final entry = JournalEntry(
+        id: 'entry-1',
+        consecutive: '1',
+        date: DateTime(2026, 8, 8),
+        concept: 'Prueba de partida doble',
+        reference: 'TEST-1',
+        origin: 'test',
+        lines: [
+          JournalLine(
+            accountCode: '1105',
+            description: 'Debito',
+            debit: testMoney('100.01'),
+            credit: zeroTestMoney,
+          ),
+          JournalLine(
+            accountCode: '2408',
+            description: 'Credito',
+            debit: zeroTestMoney,
+            credit: testMoney('100.00'),
+          ),
+        ],
+      );
+
+      expect(() => entry.post(), throwsStateError);
+    });
+  });
+
   group('TrialBalance', () {
     test('calcula totales y estado balanceado', () {
       final balance = TrialBalance(
-        accounts: const [
+        accounts: [
           TrialBalanceAccount(
             accountId: 1,
             code: '1105',
             name: 'Caja',
             type: 'activo',
             nature: 'debito',
-            debit: 100,
-            credit: 0,
-            balance: 100,
+            debit: testMoney('100'),
+            credit: zeroTestMoney,
+            balance: testMoney('100'),
           ),
           TrialBalanceAccount(
             accountId: 2,
@@ -105,15 +137,15 @@ void main() {
             name: 'Ingresos',
             type: 'ingreso',
             nature: 'credito',
-            debit: 0,
-            credit: 100,
-            balance: 100,
+            debit: zeroTestMoney,
+            credit: testMoney('100'),
+            balance: testMoney('100'),
           ),
         ],
       );
 
-      expect(balance.totalDebit, 100);
-      expect(balance.totalCredit, 100);
+      expect(balance.totalDebit, testMoney('100'));
+      expect(balance.totalCredit, testMoney('100'));
       expect(balance.balanced, isTrue);
       expect((balance.toMap()['summary'] as Map)['balanced'], isTrue);
     });
@@ -136,6 +168,7 @@ void main() {
       final repository = SqliteAccountingReportRepository(
         gateway: gateway,
         companyContext: const _Context(6),
+        resolveCurrency: (_) async => testCop,
       );
 
       final balance = await repository.trialBalance();

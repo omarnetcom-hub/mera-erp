@@ -400,31 +400,40 @@ class PurchaseCommandHandlers {
         JournalLine(
           accountCode: '1435',
           description: 'Inventario recibido',
-          debit: document.subtotal.toMajorUnitsDoubleForDisplay(),
-          credit: 0,
+          debit: document.subtotal,
+          credit: MoneyValue(
+            minorUnits: 0,
+            currency: document.subtotal.currency,
+          ),
           dimension: dimension,
         ),
         if (document.taxTotal.minorUnits > 0)
           JournalLine(
             accountCode: '1355',
             description: 'Impuesto descontable',
-            debit: document.taxTotal.toMajorUnitsDoubleForDisplay(),
-            credit: 0,
+            debit: document.taxTotal,
+            credit: MoneyValue(
+              minorUnits: 0,
+              currency: document.taxTotal.currency,
+            ),
             dimension: dimension,
           ),
         if (document.retentionTotal.minorUnits > 0)
           JournalLine(
             accountCode: '2365',
             description: 'Retenciones practicadas',
-            debit: 0,
-            credit: document.retentionTotal.toMajorUnitsDoubleForDisplay(),
+            debit: MoneyValue(
+              minorUnits: 0,
+              currency: document.retentionTotal.currency,
+            ),
+            credit: document.retentionTotal,
             dimension: dimension,
           ),
         JournalLine(
           accountCode: '2205',
           description: 'Proveedor ${document.supplierName}',
-          debit: 0,
-          credit: document.total.toMajorUnitsDoubleForDisplay(),
+          debit: MoneyValue(minorUnits: 0, currency: document.total.currency),
+          credit: document.total,
           dimension: dimension,
         ),
       ],

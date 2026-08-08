@@ -1,6 +1,9 @@
 import '../../core/company/company_context.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
 import '../../core/database/database_gateway.dart';
 import '../../core/database/tenant_database_gateway.dart';
+import '../../db_helper.dart';
 import '../domain/trial_balance.dart';
 
 abstract class AccountingReportRepository {
@@ -11,18 +14,31 @@ class SqliteAccountingReportRepository implements AccountingReportRepository {
   SqliteAccountingReportRepository({
     DatabaseGateway gateway = const SqliteDatabaseGateway(),
     CompanyContextProvider? companyContext,
+    DatabaseHelper? db,
+    Future<Currency> Function(int companyId)? resolveCurrency,
   }) : _gateway = gateway,
+       _resolveCurrency =
+           resolveCurrency ??
+           ((companyId) async {
+             final database = await (db ?? DatabaseHelper.instance).database;
+             return MoneyCurrencyResolver.resolve(
+               database,
+               companyId: companyId,
+             );
+           }),
        _tenantGateway = TenantDatabaseGateway(
          gateway: gateway,
          companyContext: companyContext ?? CompanyContextService.instance,
        );
 
   final DatabaseGateway _gateway;
+  final Future<Currency> Function(int companyId) _resolveCurrency;
   final TenantDatabaseGateway _tenantGateway;
 
   @override
   Future<TrialBalance> trialBalance() async {
     final companyId = await _tenantGateway.companyId;
+    final currency = await _resolveCurrency(companyId);
     final rows = await _gateway.rawQuery(
       '''
       SELECT
@@ -47,7 +63,9 @@ class SqliteAccountingReportRepository implements AccountingReportRepository {
       [companyId],
     );
     return TrialBalance(
-      accounts: rows.map(TrialBalanceAccount.fromMap).toList(),
+      accounts: rows
+          .map((row) => TrialBalanceAccount.fromMap(row, currency: currency))
+          .toList(),
     );
   }
 }

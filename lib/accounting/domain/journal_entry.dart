@@ -1,3 +1,5 @@
+import '../../core/currency/money_value.dart';
+
 enum JournalEntryStatus { draft, posted, reversed }
 
 class AccountingDimensionValue {
@@ -41,13 +43,15 @@ class JournalLine {
 
   final String accountCode;
   final String description;
-  final double debit;
-  final double credit;
+  final MoneyValue debit;
+  final MoneyValue credit;
   final AccountingDimensionValue dimension;
 
-  double get localDebit => debit * dimension.exchangeRate;
+  MoneyValue get localDebit =>
+      debit.multiplyDecimal(dimension.exchangeRate.toString());
 
-  double get localCredit => credit * dimension.exchangeRate;
+  MoneyValue get localCredit =>
+      credit.multiplyDecimal(dimension.exchangeRate.toString());
 
   JournalLine reversed() {
     return JournalLine(
@@ -62,10 +66,10 @@ class JournalLine {
   Map<String, Object?> toMap() => {
     'account_code': accountCode,
     'description': description,
-    'debit': debit,
-    'credit': credit,
-    'local_debit': localDebit,
-    'local_credit': localCredit,
+    'debit': debit.toSql(),
+    'credit': credit.toSql(),
+    'local_debit': localDebit.toSql(),
+    'local_credit': localCredit.toSql(),
     'dimension': dimension.toMap(),
   };
 }
@@ -95,12 +99,22 @@ class JournalEntry {
   final String? reversedEntryId;
   final String? correlationId;
 
-  double get totalDebit => lines.fold(0, (sum, line) => sum + line.localDebit);
+  MoneyValue get totalDebit => _sum((line) => line.localDebit);
 
-  double get totalCredit =>
-      lines.fold(0, (sum, line) => sum + line.localCredit);
+  MoneyValue get totalCredit => _sum((line) => line.localCredit);
 
-  bool get balanced => (totalDebit - totalCredit).abs() <= 0.01;
+  MoneyValue _sum(MoneyValue Function(JournalLine line) selector) {
+    if (lines.isEmpty) {
+      throw StateError('El asiento requiere al menos dos lineas.');
+    }
+    final zero = MoneyValue(
+      minorUnits: 0,
+      currency: lines.first.debit.currency,
+    );
+    return lines.fold(zero, (sum, line) => sum + selector(line));
+  }
+
+  bool get balanced => totalDebit == totalCredit;
 
   JournalEntry post() {
     if (status != JournalEntryStatus.draft) {
@@ -162,8 +176,8 @@ class JournalEntry {
     'status': status.name,
     'reversed_entry_id': reversedEntryId,
     'correlation_id': correlationId,
-    'total_debit': totalDebit,
-    'total_credit': totalCredit,
+    'total_debit': totalDebit.toSql(),
+    'total_credit': totalCredit.toSql(),
     'balanced': balanced,
     'lines': lines.map((line) => line.toMap()).toList(),
   };

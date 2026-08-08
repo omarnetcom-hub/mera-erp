@@ -119,7 +119,7 @@ class _Purchases implements PurchaseRepository {
 class _AccountingReports implements AccountingReportRepository {
   @override
   Future<TrialBalance> trialBalance() async {
-    return const TrialBalance(
+    return TrialBalance(
       accounts: [
         TrialBalanceAccount(
           accountId: 1,
@@ -127,9 +127,9 @@ class _AccountingReports implements AccountingReportRepository {
           name: 'Caja',
           type: 'activo',
           nature: 'debito',
-          debit: 100,
-          credit: 0,
-          balance: 100,
+          debit: _money(10000),
+          credit: _money(0),
+          balance: _money(10000),
         ),
         TrialBalanceAccount(
           accountId: 2,
@@ -137,9 +137,9 @@ class _AccountingReports implements AccountingReportRepository {
           name: 'Ingresos',
           type: 'ingreso',
           nature: 'credito',
-          debit: 0,
-          credit: 100,
-          balance: 100,
+          debit: _money(0),
+          credit: _money(10000),
+          balance: _money(10000),
         ),
       ],
     );
@@ -274,8 +274,8 @@ void main() {
       expect(response.ok, isTrue);
       expect(accounts, hasLength(2));
       expect(summary['balanced'], isTrue);
-      expect(summary['total_debit'], 100);
-      expect(summary['total_credit'], 100);
+      expect(summary['total_debit'], 10000);
+      expect(summary['total_credit'], 10000);
     });
 
     test('crea venta desde cuerpo API con nombres externos', () async {

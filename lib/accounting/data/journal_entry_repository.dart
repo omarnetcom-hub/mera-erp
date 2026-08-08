@@ -1,7 +1,11 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/branch/branch_context.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../core/database/database_gateway.dart';
+import '../../db_helper.dart';
 import '../domain/journal_entry.dart';
 
 abstract class JournalEntryRepository {
@@ -18,9 +22,12 @@ abstract class JournalEntryRepository {
 class SqliteJournalEntryRepository implements JournalEntryRepository {
   SqliteJournalEntryRepository({
     DatabaseGateway gateway = const SqliteDatabaseGateway(),
-  }) : _gateway = gateway;
+    DatabaseHelper? db,
+  }) : _gateway = gateway,
+       _db = db ?? DatabaseHelper.instance;
 
   final DatabaseGateway _gateway;
+  final DatabaseHelper _db;
 
   @override
   Future<void> savePosted(JournalEntry entry, {required BranchScope scope}) {
@@ -53,10 +60,10 @@ class SqliteJournalEntryRepository implements JournalEntryRepository {
           'cost_center_id': dimension.costCenterId ?? scope.costCenterId,
           'account_code': line.accountCode,
           'description': line.description,
-          'debit': line.debit,
-          'credit': line.credit,
-          'local_debit': line.localDebit,
-          'local_credit': line.localCredit,
+          'debit': line.debit.toSql(),
+          'credit': line.credit.toSql(),
+          'local_debit': line.localDebit.toSql(),
+          'local_credit': line.localCredit.toSql(),
           'third_party': dimension.thirdParty,
           'currency': dimension.currency,
           'exchange_rate': dimension.exchangeRate,
@@ -72,6 +79,7 @@ class SqliteJournalEntryRepository implements JournalEntryRepository {
     DateTime? from,
     DateTime? to,
   }) async {
+    final currency = await _currencyFor(companyId);
     final filters = <String>['company_id = ?', 'branch_id = ?', 'status = ?'];
     final args = <Object?>[companyId, branchId, JournalEntryStatus.posted.name];
     if (from != null) {
@@ -99,7 +107,7 @@ class SqliteJournalEntryRepository implements JournalEntryRepository {
         whereArgs: [entryId],
         orderBy: 'id ASC',
       );
-      entries.add(_entryFromRows(row, lines));
+      entries.add(_entryFromRows(row, lines, currency));
     }
     return entries;
   }
@@ -107,6 +115,7 @@ class SqliteJournalEntryRepository implements JournalEntryRepository {
   JournalEntry _entryFromRows(
     Map<String, Object?> row,
     List<Map<String, Object?>> lines,
+    Currency currency,
   ) {
     final statusName = row['status']?.toString() ?? '';
     final status = JournalEntryStatus.values.firstWhere(
@@ -125,16 +134,34 @@ class SqliteJournalEntryRepository implements JournalEntryRepository {
       status: status,
       reversedEntryId: row['reversed_entry_id']?.toString(),
       correlationId: row['correlation_id']?.toString(),
-      lines: lines.map(_lineFromRow).toList(),
+      lines: lines.map((line) => _lineFromRow(line, currency)).toList(),
     );
   }
 
-  JournalLine _lineFromRow(Map<String, Object?> row) {
+  JournalLine _lineFromRow(Map<String, Object?> row, Currency currency) {
+    final storedCurrency = row['currency']?.toString();
+    if (storedCurrency != null &&
+        storedCurrency.isNotEmpty &&
+        storedCurrency != currency.code) {
+      throw StateError(
+        'La moneda del asiento $storedCurrency no coincide con ' +
+            currency.code +
+            '.',
+      );
+    }
     return JournalLine(
       accountCode: row['account_code']?.toString() ?? '',
       description: row['description']?.toString() ?? '',
-      debit: (row['debit'] as num?)?.toDouble() ?? 0,
-      credit: (row['credit'] as num?)?.toDouble() ?? 0,
+      debit: MoneyValue.fromSql(
+        row['debit'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
+      credit: MoneyValue.fromSql(
+        row['credit'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
       dimension: AccountingDimensionValue(
         companyId: (row['company_id'] as num?)?.toInt(),
         branchId: (row['branch_id'] as num?)?.toInt(),
@@ -145,5 +172,10 @@ class SqliteJournalEntryRepository implements JournalEntryRepository {
         exchangeRate: (row['exchange_rate'] as num?)?.toDouble() ?? 1,
       ),
     );
+  }
+
+  Future<Currency> _currencyFor(int companyId) async {
+    final database = await _db.database;
+    return MoneyCurrencyResolver.resolve(database, companyId: companyId);
   }
 }

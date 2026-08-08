@@ -1,3 +1,6 @@
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_value.dart';
+
 class TrialBalanceAccount {
   const TrialBalanceAccount({
     required this.accountId,
@@ -15,20 +18,35 @@ class TrialBalanceAccount {
   final String name;
   final String type;
   final String nature;
-  final double debit;
-  final double credit;
-  final double balance;
+  final MoneyValue debit;
+  final MoneyValue credit;
+  final MoneyValue balance;
 
-  factory TrialBalanceAccount.fromMap(Map<String, dynamic> map) {
+  factory TrialBalanceAccount.fromMap(
+    Map<String, dynamic> map, {
+    required Currency currency,
+  }) {
     return TrialBalanceAccount(
       accountId: (map['id'] as num?)?.toInt() ?? 0,
       code: map['codigo']?.toString() ?? '',
       name: map['nombre']?.toString() ?? '',
       type: map['tipo']?.toString() ?? '',
       nature: map['naturaleza']?.toString() ?? '',
-      debit: (map['debito'] as num?)?.toDouble() ?? 0,
-      credit: (map['credito'] as num?)?.toDouble() ?? 0,
-      balance: (map['saldo'] as num?)?.toDouble() ?? 0,
+      debit: MoneyValue.fromSql(
+        map['debito'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
+      credit: MoneyValue.fromSql(
+        map['credito'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
+      balance: MoneyValue.fromSql(
+        map['saldo'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
     );
   }
 
@@ -38,9 +56,9 @@ class TrialBalanceAccount {
     'name': name,
     'type': type,
     'nature': nature,
-    'debit': debit,
-    'credit': credit,
-    'balance': balance,
+    'debit': debit.toSql(),
+    'credit': credit.toSql(),
+    'balance': balance.toSql(),
   };
 }
 
@@ -49,22 +67,31 @@ class TrialBalance {
 
   final List<TrialBalanceAccount> accounts;
 
-  double get totalDebit =>
-      accounts.fold(0, (sum, account) => sum + account.debit);
+  MoneyValue get totalDebit => _sum((account) => account.debit);
 
-  double get totalCredit =>
-      accounts.fold(0, (sum, account) => sum + account.credit);
+  MoneyValue get totalCredit => _sum((account) => account.credit);
 
-  double get difference => totalDebit - totalCredit;
+  MoneyValue get difference => totalDebit - totalCredit;
 
-  bool get balanced => difference.abs() < 0.01;
+  MoneyValue _sum(MoneyValue Function(TrialBalanceAccount account) selector) {
+    if (accounts.isEmpty) {
+      throw StateError('El balance de prueba requiere cuentas.');
+    }
+    final zero = MoneyValue(
+      minorUnits: 0,
+      currency: accounts.first.debit.currency,
+    );
+    return accounts.fold(zero, (sum, account) => sum + selector(account));
+  }
+
+  bool get balanced => difference.minorUnits == 0;
 
   Map<String, Object?> toMap() => {
     'accounts': accounts.map((account) => account.toMap()).toList(),
     'summary': {
-      'total_debit': totalDebit,
-      'total_credit': totalCredit,
-      'difference': difference,
+      'total_debit': totalDebit.toSql(),
+      'total_credit': totalCredit.toSql(),
+      'difference': difference.toSql(),
       'balanced': balanced,
     },
   };

@@ -1157,3 +1157,103 @@ No se toca \`backend\`; su estado local preexistente se conserva.
 Estado: **Completo en Git**. El working tree queda limpio salvo el submodulo
 \`backend\` preexistente; los dos archivos vacios bloqueados no forman parte del
 indice ni del estado de Git.
+
+## Continuacion Fase 3A - conversion del bloque contable - 2026-08-08
+
+### Alcance y decisiones
+
+Se priorizo el bloque contable de los 38 consumidores comerciales pendientes.
+Quedaron convertidos seis archivos de produccion del subdominio contable:
+
+- `lib/accounting/domain/journal_entry.dart`
+- `lib/accounting/domain/trial_balance.dart`
+- `lib/accounting/application/ledger_engine.dart`
+- `lib/accounting/application/accounting_posting_service.dart`
+- `lib/accounting/data/journal_entry_repository.dart`
+- `lib/accounting/data/accounting_report_repository.dart`
+
+`lib/purchases/application/purchase_command_handlers.dart` tambien se ajusto
+como puente del posting de compras hacia `JournalLine`, pero ya pertenecia al
+bloque de Compras convertido en el commit `4abbbe7` y no se cuenta de nuevo.
+Con este turno quedan **6 de 38** consumidores restantes convertidos y **32 de
+38** pendientes.
+
+Los importes de asientos, lineas, saldos y balances ahora usan `MoneyValue` y
+se serializan como unidad menor mediante `toSql()`/`toWireMap()`. La igualdad
+de partida doble es exacta en unidades menores; se elimino la tolerancia basada
+en `double`. El `double` que permanece en este bloque es `exchangeRate`, que es
+metadato de conversion monetaria, no un importe contable.
+
+### Validacion SQL de partida doble
+
+No se agrego un trigger SQL en este turno. La regla de agregado requiere validar
+el conjunto completo de lineas de un asiento dentro de la misma transaccion;
+un trigger por fila no puede garantizarla sin un estado intermedio o un modelo
+de insercion diferida. El dominio ya rechaza descuadres exactos antes de
+contabilizar, y el test nuevo cubre un descuadre de un centavo. La garantia a
+nivel de base de datos queda anotada como trabajo separado de esquema y
+transaccion, no como una garantia ya resuelta.
+
+### Evidencia cruda de tests dirigidos
+
+Comando ejecutado:
+
+```text
+flutter test test/accounting_rules_test.dart test/accounting_report_test.dart test/architectural_consolidation_test.dart test/api_dispatcher_test.dart test/purchases_enterprise_test.dart test/sales_enterprise_test.dart --reporter expanded
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/accounting_rules_test.dart
+00:00 +0: C:/Users/PC/Desktop/Caja_simple/test/accounting_rules_test.dart: AccountingEngine configurable usa cuentas configuradas para venta
+00:00 +1: C:/Users/PC/Desktop/Caja_simple/test/accounting_rules_test.dart: AccountingEngine configurable usa cuentas configuradas para compra
+00:00 +2: loading C:/Users/PC/Desktop/Caja_simple/test/accounting_report_test.dart
+00:01 +2: C:/Users/PC/Desktop/Caja_simple/test/accounting_report_test.dart: JournalEntry con MoneyValue rechaza un descuadre de un centavo sin tolerancia double
+00:01 +3: C:/Users/PC/Desktop/Caja_simple/test/accounting_report_test.dart: TrialBalance calcula totales y estado balanceado
+00:01 +4: C:/Users/PC/Desktop/Caja_simple/test/accounting_report_test.dart: SqliteAccountingReportRepository consulta balance por empresa activa
+00:01 +5: loading C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart
+00:02 +5: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica event bus persistente aplica scope, idempotencia y correlacion
+00:02 +6: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica ledger contabiliza, reversa y conserva partida doble
+00:02 +7: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica posting service persiste asientos y publica eventos
+00:02 +8: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica stock ledger consume FIFO y emite evento transaccional
+00:02 +9: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica api expone event store, replay y read model ejecutivo
+00:02 +10: loading C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart
+00:03 +10: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher expone resumen operativo con inventario, ventas y compras
+00:03 +11: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher pagina listados y expone metadatos de paginacion
+00:03 +12: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher bloquea endpoints cuando el rol no tiene permiso
+00:03 +13: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher expone balance de comprobacion contable
+00:03 +14: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher crea venta desde cuerpo API con nombres externos
+00:03 +15: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher crea compra desde cuerpo API y serializa asignacion de pago
+00:03 +16: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher expone endpoints empresariales de readiness y seguridad
+00:03 +17: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher expone flujos empresariales y reposicion de inventario
+00:03 +18: C:/Users/PC/Desktop/Caja_simple/test/api_dispatcher_test.dart: ApiDispatcher expone empresas y reporte fiscal sin endpoints pendientes
+00:03 +19: loading C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart
+00:04 +19: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: PurchaseDocument enforces approvals, partial receipt, posting and reversal
+00:04 +20: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: PurchaseCommandHandlers integrate events, audit, supplier balance and analytics
+00:04 +21: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: ApiDispatcher exposes enterprise purchase endpoints
+00:04 +22: loading C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart
+00:05 +22: C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart: SalesDocument enforce enterprise state machine and immutability
+00:05 +23: C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart: SalesCommandHandlers create, post, audit, events and analytics query
+00:05 +24: C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart: ApiDispatcher exposes enterprise sales document endpoints
+00:05 +25: All tests passed!
+```
+
+### Evidencia cruda de formato
+
+```text
+dart format --output=none --set-exit-if-changed lib/accounting/application/accounting_posting_service.dart lib/accounting/application/ledger_engine.dart lib/accounting/data/accounting_report_repository.dart lib/accounting/data/journal_entry_repository.dart lib/accounting/domain/journal_entry.dart lib/accounting/domain/trial_balance.dart lib/purchases/application/purchase_command_handlers.dart test/accounting_report_test.dart test/api_dispatcher_test.dart test/architectural_consolidation_test.dart
+Formatted 10 files (0 changed).
+```
+
+No se reejecutaron `flutter analyze` ni `flutter build windows` globales:
+continuan bloqueados estructuralmente en este entorno, por instruccion de la
+fase anterior. Omar debe cerrar esa verificacion manualmente con:
+
+```text
+flutter analyze
+flutter build windows
+```
+
+### Cierre de la subtarea contabilidad
+
+Estado: **Parcial**. Los seis consumidores contables priorizados quedaron
+convertidos y los 25 tests dirigidos pasaron. Quedan 32 consumidores
+comerciales del inventario de 38, y la validacion de partida doble a nivel SQL
+queda pendiente de una migracion/transaccion especifica. No se toco el
+submodulo `backend`.
