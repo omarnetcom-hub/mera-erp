@@ -2,6 +2,8 @@
 /// Ley 44 de 1990 - Cálculo: Avalúo × Tarifa (por mil)
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 enum EstadoLiquidacion {
   generada,
@@ -22,12 +24,12 @@ class LiquidacionPredial {
   final String contribuyenteId;
   final String contribuyenteNombre;
   final String contribuyenteIdentificacion;
-  final double avaluoCatastral;
+  final MoneyValue avaluoCatastral;
   final double tarifa; // Por mil (ej. 5 = 5‰)
-  final double impuestoBase;
-  final double descuentoProntoPago; // Hasta 10% si paga en Q1
-  final double interesesMora;
-  final double totalPagar;
+  final MoneyValue impuestoBase;
+  final MoneyValue descuentoProntoPago; // Hasta 10% si paga en Q1
+  final MoneyValue interesesMora;
+  final MoneyValue totalPagar;
   final DateTime fechaLiquidacion;
   final DateTime fechaVencimiento; // Generalmente 6 meses
   final DateTime? fechaPago;
@@ -69,13 +71,14 @@ class LiquidacionPredial {
       numeroPredial: json['numero_predial'] as String,
       contribuyenteId: json['contribuyente_id'] as String,
       contribuyenteNombre: json['contribuyente_nombre'] as String,
-      contribuyenteIdentificacion: json['contribuyente_identificacion'] as String,
-      avaluoCatastral: (json['avaluo_catastral'] as num).toDouble(),
+      contribuyenteIdentificacion:
+          json['contribuyente_identificacion'] as String,
+      avaluoCatastral: publicMoneyFromSql(json['avaluo_catastral']),
       tarifa: (json['tarifa'] as num).toDouble(),
-      impuestoBase: (json['impuesto_base'] as num).toDouble(),
-      descuentoProntoPago: (json['descuento_pronto_pago'] as num).toDouble(),
-      interesesMora: (json['intereses_mora'] as num).toDouble(),
-      totalPagar: (json['total_pagar'] as num).toDouble(),
+      impuestoBase: publicMoneyFromSql(json['impuesto_base']),
+      descuentoProntoPago: publicMoneyFromSql(json['descuento_pronto_pago']),
+      interesesMora: publicMoneyFromSql(json['intereses_mora']),
+      totalPagar: publicMoneyFromSql(json['total_pagar']),
       fechaLiquidacion: DateTime.parse(json['fecha_liquidacion'] as String),
       fechaVencimiento: DateTime.parse(json['fecha_vencimiento'] as String),
       fechaPago: json['fecha_pago'] != null
@@ -100,12 +103,12 @@ class LiquidacionPredial {
       'contribuyente_id': contribuyenteId,
       'contribuyente_nombre': contribuyenteNombre,
       'contribuyente_identificacion': contribuyenteIdentificacion,
-      'avaluo_catastral': avaluoCatastral,
+      'avaluo_catastral': avaluoCatastral.toSql(),
       'tarifa': tarifa,
-      'impuesto_base': impuestoBase,
-      'descuento_pronto_pago': descuentoProntoPago,
-      'intereses_mora': interesesMora,
-      'total_pagar': totalPagar,
+      'impuesto_base': impuestoBase.toSql(),
+      'descuento_pronto_pago': descuentoProntoPago.toSql(),
+      'intereses_mora': interesesMora.toSql(),
+      'total_pagar': totalPagar.toSql(),
       'fecha_liquidacion': fechaLiquidacion.toIso8601String(),
       'fecha_vencimiento': fechaVencimiento.toIso8601String(),
       'fecha_pago': fechaPago?.toIso8601String(),
@@ -117,7 +120,8 @@ class LiquidacionPredial {
 
   /// Verifica si está vencida
   bool estaVencida() {
-    return DateTime.now().isAfter(fechaVencimiento) && estado != EstadoLiquidacion.pagada;
+    return DateTime.now().isAfter(fechaVencimiento) &&
+        estado != EstadoLiquidacion.pagada;
   }
 
   /// Calcula los días de mora
@@ -129,7 +133,9 @@ class LiquidacionPredial {
   /// Verifica si aplica descuento por pronto pago (primer trimestre)
   bool aplicaDescuentoProntoPago() {
     final mesLiquidacion = fechaLiquidacion.month;
-    return mesLiquidacion >= 1 && mesLiquidacion <= 3 && estado == EstadoLiquidacion.generada;
+    return mesLiquidacion >= 1 &&
+        mesLiquidacion <= 3 &&
+        estado == EstadoLiquidacion.generada;
   }
 
   LiquidacionPredial copyWith({
@@ -142,12 +148,12 @@ class LiquidacionPredial {
     String? contribuyenteId,
     String? contribuyenteNombre,
     String? contribuyenteIdentificacion,
-    double? avaluoCatastral,
+    MoneyValue? avaluoCatastral,
     double? tarifa,
-    double? impuestoBase,
-    double? descuentoProntoPago,
-    double? interesesMora,
-    double? totalPagar,
+    MoneyValue? impuestoBase,
+    MoneyValue? descuentoProntoPago,
+    MoneyValue? interesesMora,
+    MoneyValue? totalPagar,
     DateTime? fechaLiquidacion,
     DateTime? fechaVencimiento,
     DateTime? fechaPago,
@@ -164,7 +170,8 @@ class LiquidacionPredial {
       numeroPredial: numeroPredial ?? this.numeroPredial,
       contribuyenteId: contribuyenteId ?? this.contribuyenteId,
       contribuyenteNombre: contribuyenteNombre ?? this.contribuyenteNombre,
-      contribuyenteIdentificacion: contribuyenteIdentificacion ?? this.contribuyenteIdentificacion,
+      contribuyenteIdentificacion:
+          contribuyenteIdentificacion ?? this.contribuyenteIdentificacion,
       avaluoCatastral: avaluoCatastral ?? this.avaluoCatastral,
       tarifa: tarifa ?? this.tarifa,
       impuestoBase: impuestoBase ?? this.impuestoBase,

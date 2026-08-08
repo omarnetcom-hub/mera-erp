@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/predio.dart';
 import '../models/liquidacion_predial.dart';
 import '../models/acuerdo_pago.dart';
@@ -24,6 +26,11 @@ class PredialService {
     required this.auditoriaService,
   });
 
+  MoneyValue _moneyInput(Object? value) {
+    if (value is MoneyValue) return value;
+    return publicMoneyFromMajor((value ?? 0).toString());
+  }
+
   Future<RolSectorPublico> _validarPermiso({
     required String entidadId,
     required String usuarioId,
@@ -36,11 +43,15 @@ class PredialService {
     );
 
     if (rol == null) {
-      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+      throw Exception(
+        'Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId',
+      );
     }
 
     if (!RolesPermisosService.tienePermiso(rol, permiso)) {
-      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+      throw Exception(
+        'Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}',
+      );
     }
 
     return rol;
@@ -66,8 +77,10 @@ class PredialService {
         'municipio': predioData['municipio'],
         'departamento': predioData['departamento'],
         'area': predioData['area'],
-        'avaluo_catastral': predioData['avaluo_catastral'],
-        'avaluo_anterior': predioData['avaluo_anterior'] ?? predioData['avaluo_catastral'],
+        'avaluo_catastral': _moneyInput(predioData['avaluo_catastral']).toSql(),
+        'avaluo_anterior': _moneyInput(
+          predioData['avaluo_anterior'] ?? predioData['avaluo_catastral'],
+        ).toSql(),
         'uso_suelo': predioData['uso_suelo'],
         'estrato': predioData['estrato'],
         'zona': predioData['zona'],
@@ -161,14 +174,15 @@ class PredialService {
     if (!predio.cumpleTopeIncremento(ipcAnual)) {
       throw Exception(
         'El predio ${predio.numeroPredial} excede el tope de incremento legal. '
-        'Ley 44/1990 Art. 6 + Ley 1995/2019 Art. 19'
+        'Ley 44/1990 Art. 6 + Ley 1995/2019 Art. 19',
       );
     }
 
     // Obtener tarifa según uso de suelo y estrato
     final tarifaResult = await db.query(
       'tarifas_prediales',
-      where: 'entidad_id = ? AND uso_suelo = ? AND estrato = ? AND vigencia = ? AND activo = 1',
+      where:
+          'entidad_id = ? AND uso_suelo = ? AND estrato = ? AND vigencia = ? AND activo = 1',
       whereArgs: [
         entidadId,
         predio.usoSuelo.toString().split('.').last,
@@ -182,17 +196,21 @@ class PredialService {
         : predio.obtenerTarifaPredial({});
 
     // Calcular impuesto base: Avalúo × Tarifa (por mil)
-    final impuestoBase = (predio.avaluoCatastral * tarifa) / 1000;
- 
+    final impuestoBase = predio.avaluoCatastral
+        .multiplyDecimal(tarifa.toString())
+        .divideDecimal('1000');
+
     final fecha = fechaLiquidacion ?? DateTime.now();
-    final descuentoProntoPago = (fecha.month <= 3) ? impuestoBase * 0.10 : 0.0;
- 
+    final descuentoProntoPago = fecha.month <= 3
+        ? impuestoBase.multiplyDecimal('0.10')
+        : publicMoneyZero();
+
     final total = impuestoBase - descuentoProntoPago;
 
     final id = _uuid.v4();
     final numeroLiquidacion = 'LP-$vigencia-${_generarNumeroSecuencial()}';
     final fechaVencimiento = fecha.add(const Duration(days: 180)); // 6 meses
- 
+
     final liquidacion = LiquidacionPredial(
       id: id,
       entidadId: entidadId,
@@ -207,7 +225,7 @@ class PredialService {
       tarifa: tarifa,
       impuestoBase: impuestoBase,
       descuentoProntoPago: descuentoProntoPago,
-      interesesMora: 0,
+      interesesMora: publicMoneyZero(),
       totalPagar: total,
       fechaLiquidacion: fecha,
       fechaVencimiento: fechaVencimiento,
@@ -226,8 +244,8 @@ class PredialService {
       valorNuevo: {
         'liquidacion_id': id,
         'numero_liquidacion': numeroLiquidacion,
-        'impuesto_base': impuestoBase,
-        'total_pagar': total,
+        'impuesto_base': impuestoBase.toSql(),
+        'total_pagar': total.toSql(),
       },
       referenciaId: id,
     );
@@ -257,12 +275,15 @@ class PredialService {
     final liquidacion = LiquidacionPredial.fromJson(liquidacionData);
 
     if (liquidacion.estado != EstadoLiquidacion.vencida) {
-      throw Exception('Solo se pueden crear acuerdos para liquidaciones vencidas');
+      throw Exception(
+        'Solo se pueden crear acuerdos para liquidaciones vencidas',
+      );
     }
 
     final valorCuota = liquidacion.totalPagar / numeroCuotas;
     final id = _uuid.v4();
-    final numeroAcuerdo = 'AP-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroAcuerdo =
+        'AP-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaFirma = DateTime.now();
     final fechaPrimeraCuota = fechaFirma.add(Duration(days: periodicidadDias));
 
@@ -275,7 +296,7 @@ class PredialService {
       contribuyenteId: liquidacion.contribuyenteId,
       contribuyenteNombre: liquidacion.contribuyenteNombre,
       valorOriginal: liquidacion.totalPagar,
-      valorPagado: 0,
+      valorPagado: publicMoneyZero(),
       saldoPendiente: liquidacion.totalPagar,
       numeroCuotas: numeroCuotas,
       valorCuota: valorCuota,
@@ -322,7 +343,8 @@ class PredialService {
     required String vigencia,
     EstadoLiquidacion? estado,
   }) async {
-    String query = 'SELECT * FROM liquidaciones_prediales WHERE entidad_id = ? AND vigencia = ?';
+    String query =
+        'SELECT * FROM liquidaciones_prediales WHERE entidad_id = ? AND vigencia = ?';
     List<dynamic> args = [entidadId, vigencia];
 
     if (estado != null) {
@@ -338,9 +360,7 @@ class PredialService {
   }
 
   /// Consulta predios activos de una entidad
-  Future<List<Predio>> consultarPredios({
-    required String entidadId,
-  }) async {
+  Future<List<Predio>> consultarPredios({required String entidadId}) async {
     final prediosResult = await db.query(
       'predios',
       where: 'entidad_id = ? AND activo = 1',
@@ -353,16 +373,30 @@ class PredialService {
 
   /// Exporta el recibo / declaración oficial del impuesto predial unificado en formato plano
   Future<String> exportarDeclaracionPredialAPlano(String liquidacionId) async {
-    final res = await db.query('liquidaciones_prediales', where: 'id = ?', whereArgs: [liquidacionId]);
+    final res = await db.query(
+      'liquidaciones_prediales',
+      where: 'id = ?',
+      whereArgs: [liquidacionId],
+    );
     if (res.isEmpty) throw Exception('Liquidación predial no encontrada');
     final liq = LiquidacionPredial.fromJson(res.first);
 
     final buffer = StringBuffer();
-    buffer.writeln('PREDIAL_HEADER|${liq.numeroLiquidacion}|${liq.entidadId}|VIGENCIA|${liq.vigencia}');
-    buffer.writeln('PREDIO|${liq.numeroPredial}|AVALUO|${liq.avaluoCatastral}');
-    buffer.writeln('CONTRIBUYENTE|${liq.contribuyenteIdentificacion}|${liq.contribuyenteNombre}');
-    buffer.writeln('LIQUIDACION|TARIFA|${liq.tarifa}|IMPUESTO_BASE|${liq.impuestoBase}|DESCUENTO|${liq.descuentoProntoPago}|TOTAL|${liq.totalPagar}');
-    buffer.writeln('ESTADO|${liq.estado.name}|VENCIMIENTO|${liq.fechaVencimiento.toIso8601String()}');
+    buffer.writeln(
+      'PREDIAL_HEADER|${liq.numeroLiquidacion}|${liq.entidadId}|VIGENCIA|${liq.vigencia}',
+    );
+    buffer.writeln(
+      'PREDIO|${liq.numeroPredial}|AVALUO|${liq.avaluoCatastral.toMajorUnitsString()}',
+    );
+    buffer.writeln(
+      'CONTRIBUYENTE|${liq.contribuyenteIdentificacion}|${liq.contribuyenteNombre}',
+    );
+    buffer.writeln(
+      'LIQUIDACION|TARIFA|${liq.tarifa}|IMPUESTO_BASE|${liq.impuestoBase.toMajorUnitsString()}|DESCUENTO|${liq.descuentoProntoPago.toMajorUnitsString()}|TOTAL|${liq.totalPagar.toMajorUnitsString()}',
+    );
+    buffer.writeln(
+      'ESTADO|${liq.estado.name}|VENCIMIENTO|${liq.fechaVencimiento.toIso8601String()}',
+    );
     buffer.writeln('PREDIAL_FOOTER|DOCUMENTO_OFICIAL_COBRO');
 
     return buffer.toString();
@@ -372,4 +406,3 @@ class PredialService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-

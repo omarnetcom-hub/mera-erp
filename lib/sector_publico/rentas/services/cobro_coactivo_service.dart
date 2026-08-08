@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/proceso_cobro_coactivo.dart';
 import '../models/liquidacion_predial.dart';
 import 'intereses_moratorios_service.dart';
@@ -72,7 +74,7 @@ class CobroCoactivoService {
       deudorId: liquidacion.contribuyenteId,
       deudorNombre: liquidacion.contribuyenteNombre,
       valorDeuda: valorDeuda,
-      valorRecuperado: 0,
+      valorRecuperado: publicMoneyZero(),
       saldoPendiente: valorDeuda,
       etapaActual: EtapaCobroCoactivo.mandamientoPago,
       estado: EstadoProceso.iniciado,
@@ -87,8 +89,8 @@ class CobroCoactivoService {
       'liquidaciones_prediales',
       {
         'estado': EstadoLiquidacion.enCobroCoactivo.toString().split('.').last,
-        'intereses_mora': interesesMora,
-        'total_pagar': valorDeuda,
+        'intereses_mora': interesesMora.toSql(),
+        'total_pagar': valorDeuda.toSql(),
       },
       where: 'id = ?',
       whereArgs: [liquidacionId],
@@ -104,7 +106,7 @@ class CobroCoactivoService {
       valorNuevo: {
         'proceso_id': id,
         'numero_proceso': numeroProceso,
-        'valor_deuda': valorDeuda,
+        'valor_deuda': valorDeuda.toSql(),
         'resolucion': numeroResolucion,
       },
       referenciaId: id,
@@ -216,7 +218,7 @@ class CobroCoactivoService {
     required String entidadId,
     required String usuarioId,
     required String procesoId,
-    required double montoPago,
+    required MoneyValue montoPago,
   }) async {
     final procesoResult = await db.query(
       'procesos_cobro_coactivo',
@@ -239,15 +241,15 @@ class CobroCoactivoService {
     final nuevoSaldoPendiente = proceso.saldoPendiente - montoPago;
 
     EstadoProceso nuevoEstado = proceso.estado;
-    if (nuevoSaldoPendiente == 0) {
+    if (nuevoSaldoPendiente == publicMoneyZero()) {
       nuevoEstado = EstadoProceso.terminado;
     }
 
     await db.update(
       'procesos_cobro_coactivo',
       {
-        'valor_recuperado': nuevoValorRecuperado,
-        'saldo_pendiente': nuevoSaldoPendiente,
+        'valor_recuperado': nuevoValorRecuperado.toSql(),
+        'saldo_pendiente': nuevoSaldoPendiente.toSql(),
         'estado': nuevoEstado.toString().split('.').last,
       },
       where: 'id = ?',
@@ -261,13 +263,13 @@ class CobroCoactivoService {
       modulo: 'rentas',
       accion: 'pago_cobro_coactivo',
       valorAnterior: {
-        'valor_recuperado_anterior': proceso.valorRecuperado,
-        'saldo_anterior': proceso.saldoPendiente,
+        'valor_recuperado_anterior': proceso.valorRecuperado.toSql(),
+        'saldo_anterior': proceso.saldoPendiente.toSql(),
       },
       valorNuevo: {
-        'monto_pago': montoPago,
-        'valor_recuperado_nuevo': nuevoValorRecuperado,
-        'saldo_nuevo': nuevoSaldoPendiente,
+        'monto_pago': montoPago.toSql(),
+        'valor_recuperado_nuevo': nuevoValorRecuperado.toSql(),
+        'saldo_nuevo': nuevoSaldoPendiente.toSql(),
       },
       referenciaId: procesoId,
     );

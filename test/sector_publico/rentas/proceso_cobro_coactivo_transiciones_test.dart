@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merka_erp/sector_publico/rentas/models/proceso_cobro_coactivo.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 ProcesoCobroCoactivo _proceso(EtapaCobroCoactivo etapa) => ProcesoCobroCoactivo(
   id: 'cc-1',
@@ -9,9 +10,9 @@ ProcesoCobroCoactivo _proceso(EtapaCobroCoactivo etapa) => ProcesoCobroCoactivo(
   numeroLiquidacion: 'LIQ-1',
   deudorId: 'deudor-1',
   deudorNombre: 'Deudor',
-  valorDeuda: 1000,
-  valorRecuperado: 0,
-  saldoPendiente: 1000,
+  valorDeuda: publicMoneyFromMajor('1000'),
+  valorRecuperado: publicMoneyZero(),
+  saldoPendiente: publicMoneyFromMajor('1000'),
   etapaActual: etapa,
   estado: EstadoProceso.enTramite,
   fechaInicio: DateTime(2026, 1, 1),

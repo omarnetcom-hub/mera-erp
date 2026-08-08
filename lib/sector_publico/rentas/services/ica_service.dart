@@ -5,29 +5,21 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
-enum TipoActividadICA {
-  industrial,
-  comercial,
-  servicios,
-}
+enum TipoActividadICA { industrial, comercial, servicios }
 
-enum PeriodoDeclaracionICA {
-  bimestral,
-  anual,
-}
+enum PeriodoDeclaracionICA { bimestral, anual }
 
 class ICAService {
   final Database db;
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  ICAService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  ICAService({required this.db, required this.auditoriaService});
 
   /// Registra un contribuyente de ICA en el censo
   Future<Map<String, dynamic>> registrarContribuyenteCenso({
@@ -39,7 +31,7 @@ class ICAService {
     required String telefono,
     required TipoActividadICA tipoActividad,
     required String actividadEconomica,
-    required double ingresosAnualesEstimados,
+    required MoneyValue ingresosAnualesEstimados,
     String? email,
   }) async {
     final id = _uuid.v4();
@@ -64,7 +56,7 @@ class ICAService {
       'telefono': telefono,
       'tipo_actividad': tipoActividad.toString().split('.').last,
       'actividad_economica': actividadEconomica,
-      'ingresos_anuales_estimados': ingresosAnualesEstimados,
+      'ingresos_anuales_estimados': ingresosAnualesEstimados.toSql(),
       'email': email,
       'estado': 'activo',
       'fecha_registro': DateTime.now().toIso8601String(),
@@ -100,9 +92,9 @@ class ICAService {
     required String contribuyenteId,
     required String periodo, // Formato: '2024-01' (enero-febrero)
     required PeriodoDeclaracionICA periodoDeclaracion,
-    required double ingresosGravables,
-    required double ingresosNoGravables,
-    required double ingresosExentos,
+    required MoneyValue ingresosGravables,
+    required MoneyValue ingresosNoGravables,
+    required MoneyValue ingresosExentos,
   }) async {
     final id = _uuid.v4();
     final fechaDeclaracion = DateTime.now();
@@ -119,7 +111,8 @@ class ICAService {
     }
 
     final tipoActividad = TipoActividadICA.values.firstWhere(
-      (e) => e.toString().split('.').last == contribuyente.first['tipo_actividad'],
+      (e) =>
+          e.toString().split('.').last == contribuyente.first['tipo_actividad'],
     );
 
     final tarifa = _obtenerTarifaICA(tipoActividad);
@@ -128,7 +121,7 @@ class ICAService {
     final baseGravable = ingresosGravables - ingresosExentos;
 
     // Calcular impuesto
-    final impuestoICA = baseGravable * tarifa;
+    final impuestoICA = baseGravable.multiplyDecimal(tarifa.toString());
 
     // Calcular intereses de mora si aplica
     final interesesMora = await _calcularInteresesMoraICA(
@@ -148,14 +141,14 @@ class ICAService {
       'periodo': periodo,
       'periodo_declaracion': periodoDeclaracion.toString().split('.').last,
       'fecha_declaracion': fechaDeclaracion.toIso8601String(),
-      'ingresos_gravables': ingresosGravables,
-      'ingresos_no_gravables': ingresosNoGravables,
-      'ingresos_exentos': ingresosExentos,
-      'base_gravable': baseGravable,
+      'ingresos_gravables': ingresosGravables.toSql(),
+      'ingresos_no_gravables': ingresosNoGravables.toSql(),
+      'ingresos_exentos': ingresosExentos.toSql(),
+      'base_gravable': baseGravable.toSql(),
       'tarifa': tarifa,
-      'impuesto_ica': impuestoICA,
-      'intereses_mora': interesesMora,
-      'total_pagar': totalPagar,
+      'impuesto_ica': impuestoICA.toSql(),
+      'intereses_mora': interesesMora.toSql(),
+      'total_pagar': totalPagar.toSql(),
       'estado': 'pendiente_pago',
     });
 
@@ -169,8 +162,8 @@ class ICAService {
       valorNuevo: {
         'declaracion_id': id,
         'periodo': periodo,
-        'impuesto_ica': impuestoICA,
-        'total_pagar': totalPagar,
+        'impuesto_ica': impuestoICA.toSql(),
+        'total_pagar': totalPagar.toSql(),
       },
       referenciaId: id,
     );
@@ -178,26 +171,26 @@ class ICAService {
     return {
       'declaracion_id': id,
       'periodo': periodo,
-      'impuesto_ica': impuestoICA,
-      'intereses_mora': interesesMora,
-      'total_pagar': totalPagar,
+      'impuesto_ica': publicMoneyForDisplay(impuestoICA),
+      'intereses_mora': publicMoneyForDisplay(interesesMora),
+      'total_pagar': publicMoneyForDisplay(totalPagar),
       'estado': 'pendiente_pago',
     };
   }
 
   /// Calcula intereses de mora para ICA
-  Future<double> _calcularInteresesMoraICA({
+  Future<MoneyValue> _calcularInteresesMoraICA({
     required String entidadId,
     required String contribuyenteId,
     required String periodo,
-    required double valorImpuesto,
+    required MoneyValue valorImpuesto,
   }) async {
     // Verificar si hay vencimiento
     final fechaVencimiento = _obtenerFechaVencimientoICA(periodo);
     final hoy = DateTime.now();
 
     if (hoy.isBefore(fechaVencimiento)) {
-      return 0;
+      return publicMoneyZero();
     }
 
     // Calcular días de mora
@@ -205,7 +198,10 @@ class ICAService {
 
     // Calcular intereses usando el servicio de intereses moratorios
     // Reutilizando el motor de intereses moratorios de la Fase 4
-    final intereses = valorImpuesto * 0.024 * (diasMora / 30); // 2.4% mensual
+    final intereses = valorImpuesto.multiplyRatio(
+      numerator: 24 * diasMora,
+      denominator: 30000,
+    ); // 2.4% mensual prorrateado por dias
 
     return intereses;
   }
@@ -243,7 +239,7 @@ class ICAService {
     required String nitRetenedor,
     required String nitRetenido,
     required String periodo,
-    required double valorRetenido,
+    required MoneyValue valorRetenido,
     required String numeroFactura,
     required DateTime fechaFactura,
   }) async {
@@ -255,7 +251,7 @@ class ICAService {
       'nit_retenedor': nitRetenedor,
       'nit_retenido': nitRetenido,
       'periodo': periodo,
-      'valor_retenido': valorRetenido,
+      'valor_retenido': valorRetenido.toSql(),
       'numero_factura': numeroFactura,
       'fecha_factura': fechaFactura.toIso8601String(),
       'fecha_registro': DateTime.now().toIso8601String(),
@@ -273,14 +269,14 @@ class ICAService {
         'reteica_id': id,
         'nit_retenedor': nitRetenedor,
         'nit_retenido': nitRetenido,
-        'valor_retenido': valorRetenido,
+        'valor_retenido': valorRetenido.toSql(),
       },
       referenciaId: id,
     );
 
     return {
       'reteica_id': id,
-      'valor_retenido': valorRetenido,
+      'valor_retenido': publicMoneyForDisplay(valorRetenido),
       'estado': 'pendiente_declaracion',
     };
   }
@@ -292,7 +288,7 @@ class ICAService {
     required String contribuyenteId,
     required String periodo,
     required String tipoAviso,
-    required double valorAviso,
+    required MoneyValue valorAviso,
     required String ubicacion,
     required double areaMetros,
   }) async {
@@ -300,7 +296,7 @@ class ICAService {
 
     // Calcular impuesto de aviso según tarifa
     final tarifaAviso = _obtenerTarifaAviso(tipoAviso);
-    final impuestoAviso = areaMetros * tarifaAviso;
+    final impuestoAviso = tarifaAviso.multiplyDecimal(areaMetros.toString());
 
     await db.insert('avisos_tablero', {
       'id': id,
@@ -308,11 +304,11 @@ class ICAService {
       'contribuyente_id': contribuyenteId,
       'periodo': periodo,
       'tipo_aviso': tipoAviso,
-      'valor_aviso': valorAviso,
+      'valor_aviso': valorAviso.toSql(),
       'ubicacion': ubicacion,
       'area_metros': areaMetros,
-      'tarifa': tarifaAviso,
-      'impuesto_aviso': impuestoAviso,
+      'tarifa': publicMoneyForDisplay(tarifaAviso),
+      'impuesto_aviso': impuestoAviso.toSql(),
       'fecha_registro': DateTime.now().toIso8601String(),
       'estado': 'pendiente_pago',
     });
@@ -327,29 +323,29 @@ class ICAService {
       valorNuevo: {
         'aviso_id': id,
         'tipo_aviso': tipoAviso,
-        'impuesto_aviso': impuestoAviso,
+        'impuesto_aviso': impuestoAviso.toSql(),
       },
       referenciaId: id,
     );
 
     return {
       'aviso_id': id,
-      'impuesto_aviso': impuestoAviso,
+      'impuesto_aviso': publicMoneyForDisplay(impuestoAviso),
       'estado': 'pendiente_pago',
     };
   }
 
   /// Obtiene la tarifa de aviso según tipo
-  double _obtenerTarifaAviso(String tipoAviso) {
+  MoneyValue _obtenerTarifaAviso(String tipoAviso) {
     switch (tipoAviso.toLowerCase()) {
       case 'luminoso':
-        return 1500; // $1,500 por m²
+        return publicMoneyFromMajor('1500'); // $1,500 por m²
       case 'fijo':
-        return 1000; // $1,000 por m²
+        return publicMoneyFromMajor('1000'); // $1,000 por m²
       case 'valla':
-        return 2000; // $2,000 por m²
+        return publicMoneyFromMajor('2000'); // $2,000 por m²
       default:
-        return 1000;
+        return publicMoneyFromMajor('1000');
     }
   }
 
@@ -366,9 +362,9 @@ class ICAService {
     );
 
     final totalDeclaraciones = declaraciones.length;
-    final totalImpuestoDeclarado = declaraciones.fold<double>(
-      0,
-      (sum, r) => sum + (r['impuesto_ica'] as num).toDouble(),
+    final totalImpuestoDeclarado = declaraciones.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['impuesto_ica']),
     );
 
     // Total de pagos recibidos
@@ -379,9 +375,9 @@ class ICAService {
     );
 
     final totalPagos = pagos.length;
-    final totalRecaudado = pagos.fold<double>(
-      0,
-      (sum, r) => sum + (r['valor_pagado'] as num).toDouble(),
+    final totalRecaudado = pagos.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['valor_pagado']),
     );
 
     // Total de ReteICA
@@ -391,9 +387,9 @@ class ICAService {
       whereArgs: [entidadId, periodo],
     );
 
-    final totalReteica = reteica.fold<double>(
-      0,
-      (sum, r) => sum + (r['valor_retenido'] as num).toDouble(),
+    final totalReteica = reteica.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['valor_retenido']),
     );
 
     // Total de avisos de tablero
@@ -404,27 +400,29 @@ class ICAService {
     );
 
     final totalAvisos = avisos.length;
-    final totalImpuestoAvisos = avisos.fold<double>(
-      0,
-      (sum, r) => sum + (r['impuesto_aviso'] as num).toDouble(),
+    final totalImpuestoAvisos = avisos.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['impuesto_aviso']),
     );
 
     // Porcentaje de recaudo
-    final porcentajeRecaudo = totalImpuestoDeclarado > 0
-        ? (totalRecaudado / totalImpuestoDeclarado) * 100
+    final porcentajeRecaudo = totalImpuestoDeclarado > publicMoneyZero()
+        ? (totalRecaudado.minorUnits / totalImpuestoDeclarado.minorUnits) * 100
         : 0;
 
     return {
       'periodo': periodo,
       'total_declaraciones': totalDeclaraciones,
-      'total_impuesto_declarado': totalImpuestoDeclarado,
+      'total_impuesto_declarado': publicMoneyForDisplay(totalImpuestoDeclarado),
       'total_pagos': totalPagos,
-      'total_recaudado': totalRecaudado,
-      'total_reteica': totalReteica,
+      'total_recaudado': publicMoneyForDisplay(totalRecaudado),
+      'total_reteica': publicMoneyForDisplay(totalReteica),
       'total_avisos': totalAvisos,
-      'total_impuesto_avisos': totalImpuestoAvisos,
+      'total_impuesto_avisos': publicMoneyForDisplay(totalImpuestoAvisos),
       'porcentaje_recaudo': porcentajeRecaudo,
-      'saldo_pendiente': totalImpuestoDeclarado - totalRecaudado,
+      'saldo_pendiente': publicMoneyForDisplay(
+        totalImpuestoDeclarado - totalRecaudado,
+      ),
     };
   }
 
@@ -480,19 +478,33 @@ class ICAService {
 
   /// Exporta la declaración oficial de ICA en formato plano
   Future<String> exportarDeclaracionICAAPlano(String declaracionId) async {
-    final res = await db.query('declaraciones_ica', where: 'id = ?', whereArgs: [declaracionId]);
+    final res = await db.query(
+      'declaraciones_ica',
+      where: 'id = ?',
+      whereArgs: [declaracionId],
+    );
     if (res.isEmpty) throw Exception('Declaración ICA no encontrada');
     final dec = res.first;
 
     final buffer = StringBuffer();
-    buffer.writeln('ICA_DECLARATION_HEADER|${dec['id']}|${dec['entidad_id']}|PERIODO|${dec['periodo']}');
+    buffer.writeln(
+      'ICA_DECLARATION_HEADER|${dec['id']}|${dec['entidad_id']}|PERIODO|${dec['periodo']}',
+    );
     buffer.writeln('CONTRIBUYENTE_ID|${dec['contribuyente_id']}');
-    buffer.writeln('VALORES|GRAVABLE|${dec['ingresos_gravables']}|EXENTO|${dec['ingresos_exentos']}|BASE|${dec['base_gravable']}');
-    buffer.writeln('LIQUIDACION|TARIFA|${dec['tarifa']}|IMPUESTO_ICA|${dec['impuesto_ica']}|MORA|${dec['intereses_mora']}|TOTAL|${dec['total_pagar']}');
+    buffer.writeln(
+      'VALORES|GRAVABLE|${publicMoneyFromSql(dec['ingresos_gravables']).toMajorUnitsString()}|'
+      'EXENTO|${publicMoneyFromSql(dec['ingresos_exentos']).toMajorUnitsString()}|'
+      'BASE|${publicMoneyFromSql(dec['base_gravable']).toMajorUnitsString()}',
+    );
+    buffer.writeln(
+      'LIQUIDACION|TARIFA|${dec['tarifa']}|'
+      'IMPUESTO_ICA|${publicMoneyFromSql(dec['impuesto_ica']).toMajorUnitsString()}|'
+      'MORA|${publicMoneyFromSql(dec['intereses_mora']).toMajorUnitsString()}|'
+      'TOTAL|${publicMoneyFromSql(dec['total_pagar']).toMajorUnitsString()}',
+    );
     buffer.writeln('ESTADO|${dec['estado']}');
     buffer.writeln('ICA_DECLARATION_FOOTER|DOCUMENTO_OFICIAL_RECAUDO');
 
     return buffer.toString();
   }
 }
-

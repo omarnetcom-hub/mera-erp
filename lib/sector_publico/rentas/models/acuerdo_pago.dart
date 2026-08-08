@@ -2,13 +2,10 @@
 /// ET Art. 814 - Acuerdos para deudores morosos. Al firmar, pierde derecho a prescripción
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 
-enum EstadoAcuerdo {
-  activo,
-  cumplido,
-  incumplido,
-  cancelado,
-}
+enum EstadoAcuerdo { activo, cumplido, incumplido, cancelado }
 
 class AcuerdoPago {
   final String id;
@@ -18,11 +15,11 @@ class AcuerdoPago {
   final String numeroLiquidacion;
   final String contribuyenteId;
   final String contribuyenteNombre;
-  final double valorOriginal;
-  final double valorPagado;
-  final double saldoPendiente;
+  final MoneyValue valorOriginal;
+  final MoneyValue valorPagado;
+  final MoneyValue saldoPendiente;
   final int numeroCuotas;
-  final double valorCuota;
+  final MoneyValue valorCuota;
   final DateTime fechaFirma;
   final DateTime fechaPrimeraCuota;
   final int periodicidadDias; // Días entre cuotas (ej. 30)
@@ -58,11 +55,11 @@ class AcuerdoPago {
       numeroLiquidacion: json['numero_liquidacion'] as String,
       contribuyenteId: json['contribuyente_id'] as String,
       contribuyenteNombre: json['contribuyente_nombre'] as String,
-      valorOriginal: (json['valor_original'] as num).toDouble(),
-      valorPagado: (json['valor_pagado'] as num).toDouble(),
-      saldoPendiente: (json['saldo_pendiente'] as num).toDouble(),
+      valorOriginal: publicMoneyFromSql(json['valor_original']),
+      valorPagado: publicMoneyFromSql(json['valor_pagado']),
+      saldoPendiente: publicMoneyFromSql(json['saldo_pendiente']),
       numeroCuotas: json['numero_cuotas'] as int,
-      valorCuota: (json['valor_cuota'] as num).toDouble(),
+      valorCuota: publicMoneyFromSql(json['valor_cuota']),
       fechaFirma: DateTime.parse(json['fecha_firma'] as String),
       fechaPrimeraCuota: DateTime.parse(json['fecha_primera_cuota'] as String),
       periodicidadDias: json['periodicidad_dias'] as int,
@@ -82,11 +79,11 @@ class AcuerdoPago {
       'numero_liquidacion': numeroLiquidacion,
       'contribuyente_id': contribuyenteId,
       'contribuyente_nombre': contribuyenteNombre,
-      'valor_original': valorOriginal,
-      'valor_pagado': valorPagado,
-      'saldo_pendiente': saldoPendiente,
+      'valor_original': valorOriginal.toSql(),
+      'valor_pagado': valorPagado.toSql(),
+      'saldo_pendiente': saldoPendiente.toSql(),
       'numero_cuotas': numeroCuotas,
-      'valor_cuota': valorCuota,
+      'valor_cuota': valorCuota.toSql(),
       'fecha_firma': fechaFirma.toIso8601String(),
       'fecha_primera_cuota': fechaPrimeraCuota.toIso8601String(),
       'periodicidad_dias': periodicidadDias,
@@ -97,27 +94,31 @@ class AcuerdoPago {
 
   /// Verifica si el acuerdo está vigente
   bool estaVigente() {
-    return estado == EstadoAcuerdo.activo && saldoPendiente > 0;
+    return estado == EstadoAcuerdo.activo && saldoPendiente > publicMoneyZero();
   }
 
   /// Calcula el número de cuotas pagadas
   int calcularCuotasPagadas() {
-    return ((valorOriginal - saldoPendiente) / valorCuota).round();
+    return (valorOriginal - saldoPendiente).minorUnits ~/ valorCuota.minorUnits;
   }
 
   /// Calcula el número de cuotas pendientes
   int calcularCuotasPendientes() {
-    return (saldoPendiente / valorCuota).round();
+    return saldoPendiente.minorUnits ~/ valorCuota.minorUnits;
   }
 
   /// Verifica si hay cuota vencida
   bool tieneCuotaVencida() {
     if (!estaVigente()) return false;
-    
+
     final cuotasPagadas = calcularCuotasPagadas();
-    final fechaUltimaCuotaPagada = fechaPrimeraCuota.add(Duration(days: periodicidadDias * cuotasPagadas));
-    final fechaProximaCuota = fechaUltimaCuotaPagada.add(Duration(days: periodicidadDias));
-    
+    final fechaUltimaCuotaPagada = fechaPrimeraCuota.add(
+      Duration(days: periodicidadDias * cuotasPagadas),
+    );
+    final fechaProximaCuota = fechaUltimaCuotaPagada.add(
+      Duration(days: periodicidadDias),
+    );
+
     return DateTime.now().isAfter(fechaProximaCuota);
   }
 
@@ -129,11 +130,11 @@ class AcuerdoPago {
     String? numeroLiquidacion,
     String? contribuyenteId,
     String? contribuyenteNombre,
-    double? valorOriginal,
-    double? valorPagado,
-    double? saldoPendiente,
+    MoneyValue? valorOriginal,
+    MoneyValue? valorPagado,
+    MoneyValue? saldoPendiente,
     int? numeroCuotas,
-    double? valorCuota,
+    MoneyValue? valorCuota,
     DateTime? fechaFirma,
     DateTime? fechaPrimeraCuota,
     int? periodicidadDias,

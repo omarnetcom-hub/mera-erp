@@ -2,6 +2,8 @@
 /// Ley 44 de 1990 + Ley 1995 de 2019 (Catastro Multipropósito)
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 enum UsoSuelo {
   residencial,
@@ -12,19 +14,9 @@ enum UsoSuelo {
   otros,
 }
 
-enum Estrato {
-  uno,
-  dos,
-  tres,
-  cuatro,
-  cinco,
-  seis,
-}
+enum Estrato { uno, dos, tres, cuatro, cinco, seis }
 
-enum Zona {
-  urbana,
-  rural,
-}
+enum Zona { urbana, rural }
 
 class Predio {
   final String id;
@@ -36,8 +28,8 @@ class Predio {
   final String municipio;
   final String departamento;
   final double area; // m²
-  final double avaluoCatastral; // Valor avalúo IGAC
-  final double avaluoAnterior; // Avalúo año anterior
+  final MoneyValue avaluoCatastral; // Valor avalúo IGAC
+  final MoneyValue avaluoAnterior; // Avalúo año anterior
   final UsoSuelo usoSuelo;
   final Estrato estrato;
   final Zona zona;
@@ -90,8 +82,8 @@ class Predio {
       municipio: json['municipio'] as String,
       departamento: json['departamento'] as String,
       area: (json['area'] as num).toDouble(),
-      avaluoCatastral: (json['avaluo_catastral'] as num).toDouble(),
-      avaluoAnterior: (json['avaluo_anterior'] as num).toDouble(),
+      avaluoCatastral: publicMoneyFromSql(json['avaluo_catastral']),
+      avaluoAnterior: publicMoneyFromSql(json['avaluo_anterior']),
       usoSuelo: UsoSuelo.values.firstWhere(
         (e) => e.toString() == 'UsoSuelo.${json['uso_suelo']}',
       ),
@@ -125,8 +117,8 @@ class Predio {
       'municipio': municipio,
       'departamento': departamento,
       'area': area,
-      'avaluo_catastral': avaluoCatastral,
-      'avaluo_anterior': avaluoAnterior,
+      'avaluo_catastral': avaluoCatastral.toSql(),
+      'avaluo_anterior': avaluoAnterior.toSql(),
       'uso_suelo': usoSuelo.toString().split('.').last,
       'estrato': estrato.toString().split('.').last,
       'zona': zona.toString().split('.').last,
@@ -146,10 +138,14 @@ class Predio {
   /// Verifica si el incremento del avalúo cumple con los topes legales
   /// Ley 44/1990 Art. 6 + Ley 1995/2019 Art. 19
   bool cumpleTopeIncremento(double ipcAnual) {
-    final incremento = ((avaluoCatastral - avaluoAnterior) / avaluoAnterior) * 100;
+    final incremento =
+        ((avaluoCatastral.minorUnits - avaluoAnterior.minorUnits) /
+            avaluoAnterior.minorUnits) *
+        100;
 
     // Estratos 1-2 hasta 135 SMMLV: tope = IPC
-    if ((estrato == Estrato.uno || estrato == Estrato.dos) && avaluoAnterior <= 135 * 908526) {
+    if ((estrato == Estrato.uno || estrato == Estrato.dos) &&
+        avaluoAnterior <= publicMoneyFromMajor('${135 * 908526}')) {
       return incremento <= ipcAnual;
     }
 
@@ -166,7 +162,8 @@ class Predio {
   double obtenerTarifaPredial(Map<String, double> tarifasMunicipales) {
     if (exento) return 0;
 
-    final clave = '${usoSuelo.toString().split('.').last}_${estrato.toString().split('.').last}';
+    final clave =
+        '${usoSuelo.toString().split('.').last}_${estrato.toString().split('.').last}';
     return tarifasMunicipales[clave] ?? 5.0; // Tarifa por defecto 5‰
   }
 
@@ -180,8 +177,8 @@ class Predio {
     String? municipio,
     String? departamento,
     double? area,
-    double? avaluoCatastral,
-    double? avaluoAnterior,
+    MoneyValue? avaluoCatastral,
+    MoneyValue? avaluoAnterior,
     UsoSuelo? usoSuelo,
     Estrato? estrato,
     Zona? zona,
@@ -213,9 +210,11 @@ class Predio {
       zona: zona ?? this.zona,
       propietarioId: propietarioId ?? this.propietarioId,
       propietarioNombre: propietarioNombre ?? this.propietarioNombre,
-      propietarioIdentificacion: propietarioIdentificacion ?? this.propietarioIdentificacion,
+      propietarioIdentificacion:
+          propietarioIdentificacion ?? this.propietarioIdentificacion,
       poseedorNombre: poseedorNombre ?? this.poseedorNombre,
-      poseedorIdentificacion: poseedorIdentificacion ?? this.poseedorIdentificacion,
+      poseedorIdentificacion:
+          poseedorIdentificacion ?? this.poseedorIdentificacion,
       fechaRegistro: fechaRegistro ?? this.fechaRegistro,
       activo: activo ?? this.activo,
       exento: exento ?? this.exento,

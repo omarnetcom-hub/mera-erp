@@ -12,6 +12,7 @@ import '../services/intereses_moratorios_service.dart';
 import '../models/predio.dart';
 import '../models/liquidacion_predial.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 class PredialICAPage extends StatefulWidget {
   final String entidadId;
@@ -27,7 +28,8 @@ class PredialICAPage extends StatefulWidget {
   State<PredialICAPage> createState() => _PredialICAPageState();
 }
 
-class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProviderStateMixin {
+class _PredialICAPageState extends State<PredialICAPage>
+    with SingleTickerProviderStateMixin {
   late TabController _mainTabController;
   int _predialSubIndex = 0;
   bool _cargando = true;
@@ -78,7 +80,9 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudo inicializar el módulo de Rentas. Verifica la conexión e intenta de nuevo.'),
+            content: Text(
+              'No se pudo inicializar el módulo de Rentas. Verifica la conexión e intenta de nuevo.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -92,15 +96,21 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
   Future<void> _cargarDatos() async {
     if (_predialService == null || _icaService == null) return;
     try {
-      final predios = await _predialService!.consultarPredios(entidadId: widget.entidadId);
+      final predios = await _predialService!.consultarPredios(
+        entidadId: widget.entidadId,
+      );
 
       final liquidaciones = await _predialService!.consultarLiquidaciones(
         entidadId: widget.entidadId,
         vigencia: DateTime.now().year.toString(),
       );
 
-      final censo = await _icaService!.consultarCensoICA(entidadId: widget.entidadId);
-      final declaraciones = await _icaService!.consultarDeclaracionesICA(entidadId: widget.entidadId);
+      final censo = await _icaService!.consultarCensoICA(
+        entidadId: widget.entidadId,
+      );
+      final declaraciones = await _icaService!.consultarDeclaracionesICA(
+        entidadId: widget.entidadId,
+      );
 
       setState(() {
         _predios = predios;
@@ -112,7 +122,9 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudieron cargar los datos de Rentas. Intenta de nuevo.'),
+            content: Text(
+              'No se pudieron cargar los datos de Rentas. Intenta de nuevo.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -128,10 +140,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         title: const Text('Rentas - Predial e Industria y Comercio (ICA)'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _cargarDatos,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _cargarDatos),
         ],
         bottom: TabBar(
           controller: _mainTabController,
@@ -146,10 +155,7 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(
               controller: _mainTabController,
-              children: [
-                _buildPredialSection(),
-                _buildICASection(),
-              ],
+              children: [_buildPredialSection(), _buildICASection()],
             ),
     );
   }
@@ -172,9 +178,18 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Predios'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt), label: 'Liquidaciones'),
-          BottomNavigationBarItem(icon: Icon(Icons.handshake), label: 'Acuerdos'),
-          BottomNavigationBarItem(icon: Icon(Icons.gavel), label: 'Cobro Coactivo'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt),
+            label: 'Liquidaciones',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.handshake),
+            label: 'Acuerdos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.gavel),
+            label: 'Cobro Coactivo',
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -193,7 +208,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           children: [
             Icon(Icons.home, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text('Gestión de Predios Catastrales', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Gestión de Predios Catastrales',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             const Text('Ley 44/1990 + Catastro Multipropósito IGAC'),
             const SizedBox(height: 24),
@@ -201,7 +219,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
               onPressed: _registrarPredioDialog,
               icon: Icon(Icons.add),
               label: const Text('Cargar Catastro IGAC'),
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -219,8 +240,13 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.location_city, color: Colors.white),
             ),
-            title: Text('Predio: ${p.numeroPredial}', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Dirección: ${p.direccion} | Avalúo: ${CurrencyFormatter.format(p.avaluoCatastral)} | Uso: ${p.usoSuelo.name}'),
+            title: Text(
+              'Predio: ${p.numeroPredial}',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Dirección: ${p.direccion} | Avalúo: ${CurrencyFormatter.format(p.avaluoCatastral)} | Uso: ${p.usoSuelo.name}',
+            ),
             trailing: ElevatedButton(
               onPressed: () => _liquidarPredioIndividualDialog(p),
               style: ElevatedButton.styleFrom(
@@ -243,7 +269,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           children: [
             Icon(Icons.receipt, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text('Liquidaciones Prediales', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Liquidaciones Prediales',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             const Text('Liquidación masiva e individual según Ley 44/1990'),
             const SizedBox(height: 24),
@@ -251,7 +280,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
               onPressed: _liquidacionMasivaDialog,
               icon: Icon(Icons.playlist_add_check),
               label: const Text('Liquidación Masiva'),
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -269,10 +301,18 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: Icon(Icons.receipt_long, color: Colors.white),
             ),
-            title: Text('Liquidación #${l.numeroLiquidacion}', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Vigencia: ${l.vigencia} | Total: ${CurrencyFormatter.format(l.totalPagar)} | Estado: ${l.estado.name}'),
+            title: Text(
+              'Liquidación #${l.numeroLiquidacion}',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Vigencia: ${l.vigencia} | Total: ${CurrencyFormatter.format(l.totalPagar)} | Estado: ${l.estado.name}',
+            ),
             trailing: IconButton(
-              icon: Icon(Icons.picture_as_pdf, color: Theme.of(context).colorScheme.primary),
+              icon: Icon(
+                Icons.picture_as_pdf,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               tooltip: 'Exportar Declaración Plano',
               onPressed: () => _exportarPredialPlano(l),
             ),
@@ -289,7 +329,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         children: [
           Icon(Icons.handshake, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
-          Text('Acuerdos de Pago Predial', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            'Acuerdos de Pago Predial',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: 8),
           const Text('Acuerdos de pago para deudores morosos (ET Art. 814)'),
           const SizedBox(height: 24),
@@ -297,7 +340,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             onPressed: _crearAcuerdoDialog,
             icon: Icon(Icons.add),
             label: const Text('Crear Acuerdo de Pago'),
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -311,7 +357,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         children: [
           Icon(Icons.gavel, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
-          Text('Cobro Coactivo Predial', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            'Cobro Coactivo Predial',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: 8),
           const Text('Etapas del cobro coactivo con plazos legales'),
           const SizedBox(height: 24),
@@ -319,7 +368,10 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             onPressed: _iniciarCobroCoactivoDialog,
             icon: Icon(Icons.gavel),
             label: const Text('Iniciar Cobro Coactivo'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -344,13 +396,21 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Censo de Contribuyentes ICA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Censo de Contribuyentes ICA',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       ElevatedButton.icon(
                         onPressed: _registrarContribuyenteCensoDialog,
                         icon: Icon(Icons.person_add),
                         label: const Text('Registrar'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -369,16 +429,30 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                           itemBuilder: (context, idx) {
                             final c = _censoICA[idx];
                             return ListTile(
-                              leading: Icon(Icons.store, color: Theme.of(context).colorScheme.primary),
-                              title: Text('${c['razon_social']} (NIT: ${c['nit']})'),
-                              subtitle: Text('Actividad: ${c['actividad_economica']} | Tipo: ${c['tipo_actividad']}'),
+                              leading: Icon(
+                                Icons.store,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              title: Text(
+                                '${c['razon_social']} (NIT: ${c['nit']})',
+                              ),
+                              subtitle: Text(
+                                'Actividad: ${c['actividad_economica']} | Tipo: ${c['tipo_actividad']}',
+                              ),
                               trailing: ElevatedButton(
-                                onPressed: () => _generarDeclaracionICADialog(c['id'].toString()),
+                                onPressed: () => _generarDeclaracionICADialog(
+                                  c['id'].toString(),
+                                ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).colorScheme.primary,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
                                   foregroundColor: Colors.white,
                                 ),
-                                child: const Text('Declarar', style: TextStyle(fontSize: 11)),
+                                child: const Text(
+                                  'Declarar',
+                                  style: TextStyle(fontSize: 11),
+                                ),
                               ),
                             );
                           },
@@ -394,12 +468,17 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Declaraciones Bimestrales ICA Registradas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Declaraciones Bimestrales ICA Registradas',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const Divider(),
                   _declaracionesICA.isEmpty
                       ? const Padding(
                           padding: EdgeInsets.all(16.0),
-                          child: Text('No hay declaraciones bimestrales presentadas.'),
+                          child: Text(
+                            'No hay declaraciones bimestrales presentadas.',
+                          ),
                         )
                       : ListView.builder(
                           shrinkWrap: true,
@@ -408,11 +487,21 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                           itemBuilder: (context, idx) {
                             final d = _declaracionesICA[idx];
                             return ListTile(
-                              leading: Icon(Icons.description, color: Colors.blue),
-                              title: Text('Periodo: ${d['periodo']} - Impuesto ICA: ${CurrencyFormatter.format((d['impuesto_ica'] as num))}'),
-                              subtitle: Text('Base Gravable: ${CurrencyFormatter.format((d['base_gravable'] as num))} | Total Pagar: ${CurrencyFormatter.format((d['total_pagar'] as num))}'),
+                              leading: Icon(
+                                Icons.description,
+                                color: Colors.blue,
+                              ),
+                              title: Text(
+                                'Periodo: ${d['periodo']} - Impuesto ICA: ${CurrencyFormatter.format(publicMoneyFromSql(d['impuesto_ica']))}',
+                              ),
+                              subtitle: Text(
+                                'Base Gravable: ${CurrencyFormatter.format(publicMoneyFromSql(d['base_gravable']))} | Total Pagar: ${CurrencyFormatter.format(publicMoneyFromSql(d['total_pagar']))}',
+                              ),
                               trailing: IconButton(
-                                icon: Icon(Icons.picture_as_pdf, color: Theme.of(context).colorScheme.primary),
+                                icon: Icon(
+                                  Icons.picture_as_pdf,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                                 tooltip: 'Exportar Declaración ICA Plano',
                                 onPressed: () => _exportarICAPlano(d),
                               ),
@@ -432,7 +521,8 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                   icon: Icon(Icons.receipt_long),
                   label: const Text('Registrar ReteICA'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary, padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -444,7 +534,8 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                   icon: Icon(Icons.branding_watermark),
                   label: const Text('Avisos y Tableros'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary, padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -521,32 +612,143 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: numPredialCtrl, decoration: const InputDecoration(labelText: 'Número Predial NUPRE (30 dígitos)', hintText: 'ej. 010100010002000000000000000000')),
-              TextField(controller: matriculaCtrl, decoration: const InputDecoration(labelText: 'Matrícula Inmobiliaria SNR', hintText: 'ej. 50N-123456')),
-              TextField(controller: direccionCtrl, decoration: const InputDecoration(labelText: 'Dirección del Predio', hintText: 'ej. Calle 10 # 5-20')),
-              TextField(controller: barrioCtrl, decoration: const InputDecoration(labelText: 'Barrio / Vereda', hintText: 'ej. Centro')),
-              TextField(controller: municipioCtrl, decoration: const InputDecoration(labelText: 'Municipio', hintText: 'ej. Soacha')),
-              TextField(controller: departamentoCtrl, decoration: const InputDecoration(labelText: 'Departamento', hintText: 'ej. Cundinamarca')),
-              TextField(controller: areaCtrl, decoration: const InputDecoration(labelText: 'Área (m²)', hintText: 'ej. 150.0'), keyboardType: TextInputType.number),
-              TextField(controller: avaluoCatastralCtrl, decoration: const InputDecoration(labelText: 'Avalúo Catastral Vigente', hintText: 'ej. 150000000'), keyboardType: TextInputType.number),
-              TextField(controller: avaluoAnteriorCtrl, decoration: const InputDecoration(labelText: 'Avalúo Catastral Anterior', hintText: 'ej. 140000000'), keyboardType: TextInputType.number),
-              TextField(controller: usoSueloCtrl, decoration: const InputDecoration(labelText: 'Uso de Suelo (residencial/comercial/industrial)', hintText: 'ej. residencial')),
-              TextField(controller: estratoCtrl, decoration: const InputDecoration(labelText: 'Estrato (uno/dos/tres/cuatro/cinco/seis)', hintText: 'ej. tres')),
-              TextField(controller: zonaCtrl, decoration: const InputDecoration(labelText: 'Zona (urbana/rural)', hintText: 'ej. urbana')),
-              TextField(controller: propIdCtrl, decoration: const InputDecoration(labelText: 'ID Propietario', hintText: 'ej. PROP-001')),
-              TextField(controller: propNombreCtrl, decoration: const InputDecoration(labelText: 'Nombre Completo Propietario', hintText: 'ej. Juan Pérez')),
-              TextField(controller: propIdentificacionCtrl, decoration: const InputDecoration(labelText: 'NIT / Cédula Propietario', hintText: 'ej. 80123456')),
+              TextField(
+                controller: numPredialCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Número Predial NUPRE (30 dígitos)',
+                  hintText: 'ej. 010100010002000000000000000000',
+                ),
+              ),
+              TextField(
+                controller: matriculaCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Matrícula Inmobiliaria SNR',
+                  hintText: 'ej. 50N-123456',
+                ),
+              ),
+              TextField(
+                controller: direccionCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Dirección del Predio',
+                  hintText: 'ej. Calle 10 # 5-20',
+                ),
+              ),
+              TextField(
+                controller: barrioCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Barrio / Vereda',
+                  hintText: 'ej. Centro',
+                ),
+              ),
+              TextField(
+                controller: municipioCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Municipio',
+                  hintText: 'ej. Soacha',
+                ),
+              ),
+              TextField(
+                controller: departamentoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Departamento',
+                  hintText: 'ej. Cundinamarca',
+                ),
+              ),
+              TextField(
+                controller: areaCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Área (m²)',
+                  hintText: 'ej. 150.0',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: avaluoCatastralCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Avalúo Catastral Vigente',
+                  hintText: 'ej. 150000000',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: avaluoAnteriorCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Avalúo Catastral Anterior',
+                  hintText: 'ej. 140000000',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: usoSueloCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Uso de Suelo (residencial/comercial/industrial)',
+                  hintText: 'ej. residencial',
+                ),
+              ),
+              TextField(
+                controller: estratoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Estrato (uno/dos/tres/cuatro/cinco/seis)',
+                  hintText: 'ej. tres',
+                ),
+              ),
+              TextField(
+                controller: zonaCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Zona (urbana/rural)',
+                  hintText: 'ej. urbana',
+                ),
+              ),
+              TextField(
+                controller: propIdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'ID Propietario',
+                  hintText: 'ej. PROP-001',
+                ),
+              ),
+              TextField(
+                controller: propNombreCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre Completo Propietario',
+                  hintText: 'ej. Juan Pérez',
+                ),
+              ),
+              TextField(
+                controller: propIdentificacionCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'NIT / Cédula Propietario',
+                  hintText: 'ej. 80123456',
+                ),
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
-              if (numPredialCtrl.text.isEmpty || avaluoCatastralCtrl.text.isEmpty || propNombreCtrl.text.isEmpty || propIdentificacionCtrl.text.isEmpty || propIdCtrl.text.isEmpty || matriculaCtrl.text.isEmpty || direccionCtrl.text.isEmpty || barrioCtrl.text.isEmpty || municipioCtrl.text.isEmpty || departamentoCtrl.text.isEmpty || areaCtrl.text.isEmpty) return;
+              if (numPredialCtrl.text.isEmpty ||
+                  avaluoCatastralCtrl.text.isEmpty ||
+                  propNombreCtrl.text.isEmpty ||
+                  propIdentificacionCtrl.text.isEmpty ||
+                  propIdCtrl.text.isEmpty ||
+                  matriculaCtrl.text.isEmpty ||
+                  direccionCtrl.text.isEmpty ||
+                  barrioCtrl.text.isEmpty ||
+                  municipioCtrl.text.isEmpty ||
+                  departamentoCtrl.text.isEmpty ||
+                  areaCtrl.text.isEmpty)
+                return;
               try {
-                final avaluoCatastral = double.parse(avaluoCatastralCtrl.text);
-                final avaluoAnterior = avaluoAnteriorCtrl.text.isNotEmpty ? double.parse(avaluoAnteriorCtrl.text) : avaluoCatastral;
+                final avaluoCatastral = publicMoneyFromMajor(
+                  avaluoCatastralCtrl.text,
+                );
+                final avaluoAnterior = avaluoAnteriorCtrl.text.isNotEmpty
+                    ? publicMoneyFromMajor(avaluoAnteriorCtrl.text)
+                    : avaluoCatastral;
                 await _predialService!.cargarCatastroIGAC(
                   entidadId: widget.entidadId,
                   usuarioId: widget.usuarioId,
@@ -567,17 +769,24 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                       'propietario_id': propIdCtrl.text,
                       'propietario_nombre': propNombreCtrl.text,
                       'propietario_identificacion': propIdentificacionCtrl.text,
-                    }
+                    },
                   ],
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Catastro cargado con éxito')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Catastro cargado con éxito')),
+                  );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -600,13 +809,22 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Liquidación realizada. Total a Pagar: ${CurrencyFormatter.format(liq.totalPagar)}')),
+          SnackBar(
+            content: Text(
+              'Liquidación realizada. Total a Pagar: ${CurrencyFormatter.format(liq.totalPagar)}',
+            ),
+          ),
         );
       }
       _cargarDatos();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al liquidar predio: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al liquidar predio: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -622,13 +840,25 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Se liquidarán todos los predios activos de la entidad. Ingrese la vigencia:'),
+            const Text(
+              'Se liquidarán todos los predios activos de la entidad. Ingrese la vigencia:',
+            ),
             const SizedBox(height: 12),
-            TextField(controller: vigenciaCtrl, decoration: const InputDecoration(labelText: 'Vigencia Fiscal', hintText: 'ej. 2026'), keyboardType: TextInputType.number),
+            TextField(
+              controller: vigenciaCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Vigencia Fiscal',
+                hintText: 'ej. 2026',
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (vigenciaCtrl.text.isEmpty) return;
@@ -642,13 +872,22 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Liquidación masiva completada: ${resultado.length} predios procesados.')),
+                    SnackBar(
+                      content: Text(
+                        'Liquidación masiva completada: ${resultado.length} predios procesados.',
+                      ),
+                    ),
                   );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -662,7 +901,11 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
   void _crearAcuerdoDialog() {
     if (_predialService == null || _liquidaciones.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay liquidaciones pendientes/vencidas para crear acuerdo de pago.')),
+        const SnackBar(
+          content: Text(
+            'No hay liquidaciones pendientes/vencidas para crear acuerdo de pago.',
+          ),
+        ),
       );
       return;
     }
@@ -675,13 +918,25 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Crear acuerdo de pago para liquidación #${_liquidaciones.first.numeroLiquidacion}:'),
+            Text(
+              'Crear acuerdo de pago para liquidación #${_liquidaciones.first.numeroLiquidacion}:',
+            ),
             const SizedBox(height: 12),
-            TextField(controller: cuotasCtrl, decoration: const InputDecoration(labelText: 'Número de Cuotas', hintText: 'ej. 6'), keyboardType: TextInputType.number),
+            TextField(
+              controller: cuotasCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Número de Cuotas',
+                hintText: 'ej. 6',
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (cuotasCtrl.text.isEmpty) return;
@@ -695,12 +950,21 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Acuerdo de pago formalizado')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Acuerdo de pago formalizado'),
+                    ),
+                  );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -714,7 +978,9 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
   void _iniciarCobroCoactivoDialog() {
     if (_cobroCoactivoService == null || _liquidaciones.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay liquidaciones en mora para cobro coactivo.')),
+        const SnackBar(
+          content: Text('No hay liquidaciones en mora para cobro coactivo.'),
+        ),
       );
       return;
     }
@@ -728,14 +994,25 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Se iniciará Mandamiento de Pago sobre la liquidación #${_liquidaciones.first.numeroLiquidacion}.'),
+              Text(
+                'Se iniciará Mandamiento de Pago sobre la liquidación #${_liquidaciones.first.numeroLiquidacion}.',
+              ),
               const SizedBox(height: 12),
-              TextField(controller: resolucionCtrl, decoration: const InputDecoration(labelText: 'Número de Resolución Mandamiento', hintText: 'ej. RES-CC-2026-001')),
+              TextField(
+                controller: resolucionCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Número de Resolución Mandamiento',
+                  hintText: 'ej. RES-CC-2026-001',
+                ),
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (resolucionCtrl.text.isEmpty) return;
@@ -748,12 +1025,19 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cobro Coactivo iniciado')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cobro Coactivo iniciado')),
+                  );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -787,30 +1071,79 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: nitCtrl, decoration: const InputDecoration(labelText: 'NIT Contribuyente', hintText: 'ej. 900123456')),
-                TextField(controller: razonSocialCtrl, decoration: const InputDecoration(labelText: 'Razón Social / Nombre', hintText: 'ej. Comercializadora SOP S.A.S.')),
+                TextField(
+                  controller: nitCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'NIT Contribuyente',
+                    hintText: 'ej. 900123456',
+                  ),
+                ),
+                TextField(
+                  controller: razonSocialCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Razón Social / Nombre',
+                    hintText: 'ej. Comercializadora SOP S.A.S.',
+                  ),
+                ),
                 DropdownButtonFormField<TipoActividadICA>(
                   value: tipoActividadSeleccionada,
-                  decoration: const InputDecoration(labelText: 'Tipo de Actividad ICA'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo de Actividad ICA',
+                  ),
                   items: TipoActividadICA.values.map((t) {
                     return DropdownMenuItem(value: t, child: Text(t.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => tipoActividadSeleccionada = val);
+                    if (val != null)
+                      setDialogState(() => tipoActividadSeleccionada = val);
                   },
                 ),
-                TextField(controller: direccionCtrl, decoration: const InputDecoration(labelText: 'Dirección Comercial', hintText: 'ej. Carrera 15 # 20-30')),
-                TextField(controller: telefonoCtrl, decoration: const InputDecoration(labelText: 'Teléfono Contacto', hintText: 'ej. 3101234567')),
-                TextField(controller: actividadEconCtrl, decoration: const InputDecoration(labelText: 'Actividad Económica CIIU', hintText: 'ej. Comercio al por menor')),
-                TextField(controller: ingresosCtrl, decoration: const InputDecoration(labelText: 'Ingresos Anuales Estimados', hintText: 'ej. 200000000'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: direccionCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Dirección Comercial',
+                    hintText: 'ej. Carrera 15 # 20-30',
+                  ),
+                ),
+                TextField(
+                  controller: telefonoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Teléfono Contacto',
+                    hintText: 'ej. 3101234567',
+                  ),
+                ),
+                TextField(
+                  controller: actividadEconCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Actividad Económica CIIU',
+                    hintText: 'ej. Comercio al por menor',
+                  ),
+                ),
+                TextField(
+                  controller: ingresosCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Ingresos Anuales Estimados',
+                    hintText: 'ej. 200000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (nitCtrl.text.isEmpty || razonSocialCtrl.text.isEmpty || ingresosCtrl.text.isEmpty || actividadEconCtrl.text.isEmpty || direccionCtrl.text.isEmpty || telefonoCtrl.text.isEmpty) return;
+                if (nitCtrl.text.isEmpty ||
+                    razonSocialCtrl.text.isEmpty ||
+                    ingresosCtrl.text.isEmpty ||
+                    actividadEconCtrl.text.isEmpty ||
+                    direccionCtrl.text.isEmpty ||
+                    telefonoCtrl.text.isEmpty)
+                  return;
                 try {
                   await _icaService!.registrarContribuyenteCenso(
                     entidadId: widget.entidadId,
@@ -821,16 +1154,27 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                     telefono: telefonoCtrl.text,
                     tipoActividad: tipoActividadSeleccionada,
                     actividadEconomica: actividadEconCtrl.text,
-                    ingresosAnualesEstimados: double.parse(ingresosCtrl.text),
+                    ingresosAnualesEstimados: publicMoneyFromMajor(
+                      ingresosCtrl.text,
+                    ),
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contribuyente registrado en Censo ICA')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Contribuyente registrado en Censo ICA'),
+                      ),
+                    );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -848,7 +1192,8 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
     final ingresosGravablesCtrl = TextEditingController();
     final ingresosNoGravablesCtrl = TextEditingController();
     final ingresosExentosCtrl = TextEditingController();
-    PeriodoDeclaracionICA periodoDeclaracionSeleccionado = PeriodoDeclaracionICA.bimestral;
+    PeriodoDeclaracionICA periodoDeclaracionSeleccionado =
+        PeriodoDeclaracionICA.bimestral;
 
     showDialog(
       context: context,
@@ -859,28 +1204,65 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: periodoCtrl, decoration: const InputDecoration(labelText: 'Periodo (AAAA-MM)', hintText: 'ej. 2026-01')),
+                TextField(
+                  controller: periodoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Periodo (AAAA-MM)',
+                    hintText: 'ej. 2026-01',
+                  ),
+                ),
                 DropdownButtonFormField<PeriodoDeclaracionICA>(
                   value: periodoDeclaracionSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Periodicidad de Declaración'),
+                  decoration: const InputDecoration(
+                    labelText: 'Periodicidad de Declaración',
+                  ),
                   items: PeriodoDeclaracionICA.values.map((p) {
                     return DropdownMenuItem(value: p, child: Text(p.name));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setDialogState(() => periodoDeclaracionSeleccionado = val);
+                    if (val != null)
+                      setDialogState(
+                        () => periodoDeclaracionSeleccionado = val,
+                      );
                   },
                 ),
-                TextField(controller: ingresosGravablesCtrl, decoration: const InputDecoration(labelText: 'Ingresos Gravables', hintText: 'ej. 50000000'), keyboardType: TextInputType.number),
-                TextField(controller: ingresosNoGravablesCtrl, decoration: const InputDecoration(labelText: 'Ingresos No Gravables', hintText: 'ej. 0'), keyboardType: TextInputType.number),
-                TextField(controller: ingresosExentosCtrl, decoration: const InputDecoration(labelText: 'Ingresos Exentos', hintText: 'ej. 0'), keyboardType: TextInputType.number),
+                TextField(
+                  controller: ingresosGravablesCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Ingresos Gravables',
+                    hintText: 'ej. 50000000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: ingresosNoGravablesCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Ingresos No Gravables',
+                    hintText: 'ej. 0',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: ingresosExentosCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Ingresos Exentos',
+                    hintText: 'ej. 0',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
               onPressed: () async {
-                if (periodoCtrl.text.isEmpty || ingresosGravablesCtrl.text.isEmpty) return;
+                if (periodoCtrl.text.isEmpty ||
+                    ingresosGravablesCtrl.text.isEmpty)
+                  return;
                 try {
                   final result = await _icaService!.generarDeclaracionICA(
                     entidadId: widget.entidadId,
@@ -888,20 +1270,35 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                     contribuyenteId: contribuyenteId,
                     periodo: periodoCtrl.text,
                     periodoDeclaracion: periodoDeclaracionSeleccionado,
-                    ingresosGravables: double.parse(ingresosGravablesCtrl.text),
-                    ingresosNoGravables: ingresosNoGravablesCtrl.text.isNotEmpty ? double.parse(ingresosNoGravablesCtrl.text) : 0.0,
-                    ingresosExentos: ingresosExentosCtrl.text.isNotEmpty ? double.parse(ingresosExentosCtrl.text) : 0.0,
+                    ingresosGravables: publicMoneyFromMajor(
+                      ingresosGravablesCtrl.text,
+                    ),
+                    ingresosNoGravables: ingresosNoGravablesCtrl.text.isNotEmpty
+                        ? publicMoneyFromMajor(ingresosNoGravablesCtrl.text)
+                        : publicMoneyZero(),
+                    ingresosExentos: ingresosExentosCtrl.text.isNotEmpty
+                        ? publicMoneyFromMajor(ingresosExentosCtrl.text)
+                        : publicMoneyZero(),
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Declaración ICA generada. Impuesto: ${CurrencyFormatter.format((result['impuesto_ica'] as num))}')),
+                      SnackBar(
+                        content: Text(
+                          'Declaración ICA generada. Impuesto: ${CurrencyFormatter.format((result['impuesto_ica'] as num))}',
+                        ),
+                      ),
                     );
                   }
                   _cargarDatos();
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
@@ -929,19 +1326,58 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nitRetenedorCtrl, decoration: const InputDecoration(labelText: 'NIT Retenedor', hintText: 'ej. 800999888')),
-              TextField(controller: nitRetenidoCtrl, decoration: const InputDecoration(labelText: 'NIT Retenido', hintText: 'ej. 900123456')),
-              TextField(controller: numeroFacturaCtrl, decoration: const InputDecoration(labelText: 'Número de Factura', hintText: 'ej. FAC-2026-001')),
-              TextField(controller: periodoCtrl, decoration: const InputDecoration(labelText: 'Periodo (AAAA-MM)', hintText: 'ej. 2026-01')),
-              TextField(controller: valorCtrl, decoration: const InputDecoration(labelText: 'Valor Retenido', hintText: 'ej. 150000'), keyboardType: TextInputType.number),
+              TextField(
+                controller: nitRetenedorCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'NIT Retenedor',
+                  hintText: 'ej. 800999888',
+                ),
+              ),
+              TextField(
+                controller: nitRetenidoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'NIT Retenido',
+                  hintText: 'ej. 900123456',
+                ),
+              ),
+              TextField(
+                controller: numeroFacturaCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Número de Factura',
+                  hintText: 'ej. FAC-2026-001',
+                ),
+              ),
+              TextField(
+                controller: periodoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Periodo (AAAA-MM)',
+                  hintText: 'ej. 2026-01',
+                ),
+              ),
+              TextField(
+                controller: valorCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Valor Retenido',
+                  hintText: 'ej. 150000',
+                ),
+                keyboardType: TextInputType.number,
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
-              if (nitRetenedorCtrl.text.isEmpty || valorCtrl.text.isEmpty || numeroFacturaCtrl.text.isEmpty || periodoCtrl.text.isEmpty || nitRetenidoCtrl.text.isEmpty) return;
+              if (nitRetenedorCtrl.text.isEmpty ||
+                  valorCtrl.text.isEmpty ||
+                  numeroFacturaCtrl.text.isEmpty ||
+                  periodoCtrl.text.isEmpty ||
+                  nitRetenidoCtrl.text.isEmpty)
+                return;
               try {
                 await _icaService!.registrarReteICA(
                   entidadId: widget.entidadId,
@@ -949,18 +1385,27 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                   nitRetenedor: nitRetenedorCtrl.text,
                   nitRetenido: nitRetenidoCtrl.text,
                   periodo: periodoCtrl.text,
-                  valorRetenido: double.parse(valorCtrl.text),
+                  valorRetenido: publicMoneyFromMajor(valorCtrl.text),
                   numeroFactura: numeroFacturaCtrl.text,
                   fechaFactura: DateTime.now(),
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ReteICA registrado con éxito')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('ReteICA registrado con éxito'),
+                    ),
+                  );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -974,7 +1419,11 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
   void _generarAvisoTableroDialog() {
     if (_icaService == null || _censoICA.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Se requiere al menos un contribuyente registrado en el censo de ICA.')),
+        const SnackBar(
+          content: Text(
+            'Se requiere al menos un contribuyente registrado en el censo de ICA.',
+          ),
+        ),
       );
       return;
     }
@@ -993,19 +1442,59 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: periodoCtrl, decoration: const InputDecoration(labelText: 'Periodo (AAAA-MM)', hintText: 'ej. 2026-01')),
-              TextField(controller: tipoAvisoCtrl, decoration: const InputDecoration(labelText: 'Tipo de Aviso', hintText: 'ej. Valla Publicitaria')),
-              TextField(controller: ubicacionCtrl, decoration: const InputDecoration(labelText: 'Ubicación de Impresión', hintText: 'ej. Fachada Principal')),
-              TextField(controller: areaMetrosCtrl, decoration: const InputDecoration(labelText: 'Área (m²)', hintText: 'ej. 12.5'), keyboardType: TextInputType.number),
-              TextField(controller: valorAvisoCtrl, decoration: const InputDecoration(labelText: 'Valor Comercial del Aviso', hintText: 'ej. 5000000'), keyboardType: TextInputType.number),
+              TextField(
+                controller: periodoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Periodo (AAAA-MM)',
+                  hintText: 'ej. 2026-01',
+                ),
+              ),
+              TextField(
+                controller: tipoAvisoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Tipo de Aviso',
+                  hintText: 'ej. Valla Publicitaria',
+                ),
+              ),
+              TextField(
+                controller: ubicacionCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Ubicación de Impresión',
+                  hintText: 'ej. Fachada Principal',
+                ),
+              ),
+              TextField(
+                controller: areaMetrosCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Área (m²)',
+                  hintText: 'ej. 12.5',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: valorAvisoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Valor Comercial del Aviso',
+                  hintText: 'ej. 5000000',
+                ),
+                keyboardType: TextInputType.number,
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
-              if (valorAvisoCtrl.text.isEmpty || periodoCtrl.text.isEmpty || tipoAvisoCtrl.text.isEmpty || ubicacionCtrl.text.isEmpty || areaMetrosCtrl.text.isEmpty) return;
+              if (valorAvisoCtrl.text.isEmpty ||
+                  periodoCtrl.text.isEmpty ||
+                  tipoAvisoCtrl.text.isEmpty ||
+                  ubicacionCtrl.text.isEmpty ||
+                  areaMetrosCtrl.text.isEmpty)
+                return;
               try {
                 await _icaService!.generarAvisoTablero(
                   entidadId: widget.entidadId,
@@ -1013,18 +1502,27 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
                   contribuyenteId: contribId,
                   periodo: periodoCtrl.text,
                   tipoAviso: tipoAvisoCtrl.text,
-                  valorAviso: double.parse(valorAvisoCtrl.text),
+                  valorAviso: publicMoneyFromMajor(valorAvisoCtrl.text),
                   ubicacion: ubicacionCtrl.text,
                   areaMetros: double.parse(areaMetrosCtrl.text),
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impuesto de Avisos y Tableros generado')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Impuesto de Avisos y Tableros generado'),
+                    ),
+                  );
                 }
                 _cargarDatos();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -1038,22 +1536,31 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
   void _exportarPredialPlano(LiquidacionPredial liquidacion) async {
     if (_predialService == null) return;
     try {
-      final plano = await _predialService!.exportarDeclaracionPredialAPlano(liquidacion.id);
+      final plano = await _predialService!.exportarDeclaracionPredialAPlano(
+        liquidacion.id,
+      );
       if (mounted) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('Declaración Predial #${liquidacion.numeroLiquidacion}'),
+            title: Text(
+              'Declaración Predial #${liquidacion.numeroLiquidacion}',
+            ),
             content: SingleChildScrollView(child: SelectableText(plano)),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
             ],
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -1070,14 +1577,19 @@ class _PredialICAPageState extends State<PredialICAPage> with SingleTickerProvid
             title: const Text('Declaración ICA Exportada (.txt)'),
             content: SingleChildScrollView(child: SelectableText(plano)),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
             ],
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }

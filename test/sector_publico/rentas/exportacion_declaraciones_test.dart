@@ -5,6 +5,7 @@ import 'package:merka_erp/sector_publico/rentas/services/predial_service.dart';
 import 'package:merka_erp/sector_publico/rentas/services/ica_service.dart';
 import 'package:merka_erp/sector_publico/rentas/services/intereses_moratorios_service.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 void main() {
   sqfliteFfiInit();
@@ -68,8 +69,8 @@ void main() {
       'municipio': 'Test',
       'departamento': 'Test',
       'area': 150.0,
-      'avaluo_catastral': 200000000.0,
-      'avaluo_anterior': 190000000.0,
+      'avaluo_catastral': 20000000000,
+      'avaluo_anterior': 19000000000,
       'uso_suelo': 'residencial',
       'estrato': 'estrato3',
       'zona': 'urbana',
@@ -83,7 +84,11 @@ void main() {
 
     auditoriaService = AuditoriaService(db);
     interesesService = InteresesMoratoriosService();
-    predialService = PredialService(db: db, interesesService: interesesService, auditoriaService: auditoriaService);
+    predialService = PredialService(
+      db: db,
+      interesesService: interesesService,
+      auditoriaService: auditoriaService,
+    );
     icaService = ICAService(db: db, auditoriaService: auditoriaService);
   });
 
@@ -91,44 +96,50 @@ void main() {
     await db.close();
   });
 
-  test('Exportación de Liquidación Predial y Declaración ICA a formato plano', () async {
-    final liqPredial = await predialService.liquidarPredio(
-      entidadId: 'entidad-001',
-      usuarioId: 'usr-001',
-      vigencia: '2026',
-      predioId: 'predio-001',
-      ipcAnual: 0.05,
-    );
+  test(
+    'Exportación de Liquidación Predial y Declaración ICA a formato plano',
+    () async {
+      final liqPredial = await predialService.liquidarPredio(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        vigencia: '2026',
+        predioId: 'predio-001',
+        ipcAnual: 0.05,
+      );
 
-    final planoPredial = await predialService.exportarDeclaracionPredialAPlano(liqPredial.id);
-    expect(planoPredial, contains('PREDIAL_HEADER'));
-    expect(planoPredial, contains('010100010001000'));
+      final planoPredial = await predialService
+          .exportarDeclaracionPredialAPlano(liqPredial.id);
+      expect(planoPredial, contains('PREDIAL_HEADER'));
+      expect(planoPredial, contains('010100010001000'));
 
-    final contrib = await icaService.registrarContribuyenteCenso(
-      entidadId: 'entidad-001',
-      usuarioId: 'usr-001',
-      nit: '900999888-1',
-      razonSocial: 'Comercializadora Test SAS',
-      direccion: 'Carrera 7 # 12-34',
-      telefono: '3001234567',
-      tipoActividad: TipoActividadICA.comercial,
-      actividadEconomica: '4711 - Comercio al por menor',
-      ingresosAnualesEstimados: 500000000.0,
-    );
+      final contrib = await icaService.registrarContribuyenteCenso(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        nit: '900999888-1',
+        razonSocial: 'Comercializadora Test SAS',
+        direccion: 'Carrera 7 # 12-34',
+        telefono: '3001234567',
+        tipoActividad: TipoActividadICA.comercial,
+        actividadEconomica: '4711 - Comercio al por menor',
+        ingresosAnualesEstimados: publicMoneyFromMajor('500000000'),
+      );
 
-    final decICA = await icaService.generarDeclaracionICA(
-      entidadId: 'entidad-001',
-      usuarioId: 'usr-001',
-      contribuyenteId: contrib['contribuyente_id'] as String,
-      periodo: '2026-01',
-      periodoDeclaracion: PeriodoDeclaracionICA.bimestral,
-      ingresosGravables: 100000000.0,
-      ingresosNoGravables: 0.0,
-      ingresosExentos: 0.0,
-    );
+      final decICA = await icaService.generarDeclaracionICA(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        contribuyenteId: contrib['contribuyente_id'] as String,
+        periodo: '2026-01',
+        periodoDeclaracion: PeriodoDeclaracionICA.bimestral,
+        ingresosGravables: publicMoneyFromMajor('100000000'),
+        ingresosNoGravables: publicMoneyZero(),
+        ingresosExentos: publicMoneyZero(),
+      );
 
-    final planoICA = await icaService.exportarDeclaracionICAAPlano(decICA['declaracion_id'] as String);
-    expect(planoICA, contains('ICA_DECLARATION_HEADER'));
-    expect(planoICA, contains('2026-01'));
-  });
+      final planoICA = await icaService.exportarDeclaracionICAAPlano(
+        decICA['declaracion_id'] as String,
+      );
+      expect(planoICA, contains('ICA_DECLARATION_HEADER'));
+      expect(planoICA, contains('2026-01'));
+    },
+  );
 }

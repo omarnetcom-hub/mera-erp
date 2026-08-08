@@ -2,6 +2,9 @@
 /// Las 6 etapas del cobro coactivo con sus plazos legales
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
+
 enum EtapaCobroCoactivo {
   mandamientoPago, // Etapa 1: Mandamiento de pago
   embargoSecuestro, // Etapa 2: Embargo y secuestro
@@ -21,9 +24,9 @@ class ProcesoCobroCoactivo {
   final String numeroLiquidacion;
   final String deudorId;
   final String deudorNombre;
-  final double valorDeuda;
-  final double valorRecuperado;
-  final double saldoPendiente;
+  final MoneyValue valorDeuda;
+  final MoneyValue valorRecuperado;
+  final MoneyValue saldoPendiente;
   final EtapaCobroCoactivo etapaActual;
   final EstadoProceso estado;
   final DateTime fechaInicio;
@@ -65,9 +68,9 @@ class ProcesoCobroCoactivo {
       numeroLiquidacion: json['numero_liquidacion'] as String,
       deudorId: json['deudor_id'] as String,
       deudorNombre: json['deudor_nombre'] as String,
-      valorDeuda: (json['valor_deuda'] as num).toDouble(),
-      valorRecuperado: (json['valor_recuperado'] as num).toDouble(),
-      saldoPendiente: (json['saldo_pendiente'] as num).toDouble(),
+      valorDeuda: publicMoneyFromSql(json['valor_deuda']),
+      valorRecuperado: publicMoneyFromSql(json['valor_recuperado']),
+      saldoPendiente: publicMoneyFromSql(json['saldo_pendiente']),
       etapaActual: EtapaCobroCoactivo.values.firstWhere(
         (e) => e.toString() == 'EtapaCobroCoactivo.${json['etapa_actual']}',
       ),
@@ -101,9 +104,9 @@ class ProcesoCobroCoactivo {
       'numero_liquidacion': numeroLiquidacion,
       'deudor_id': deudorId,
       'deudor_nombre': deudorNombre,
-      'valor_deuda': valorDeuda,
-      'valor_recuperado': valorRecuperado,
-      'saldo_pendiente': saldoPendiente,
+      'valor_deuda': valorDeuda.toSql(),
+      'valor_recuperado': valorRecuperado.toSql(),
+      'saldo_pendiente': saldoPendiente.toSql(),
       'etapa_actual': etapaActual.toString().split('.').last,
       'estado': estado.toString().split('.').last,
       'fecha_inicio': fechaInicio.toIso8601String(),
@@ -129,7 +132,7 @@ class ProcesoCobroCoactivo {
   /// El cierre por prescripcion es excepcional; la ruta ordinaria no admite saltos.
   bool puedeAvanzarA(EtapaCobroCoactivo nuevaEtapa) {
     if (nuevaEtapa == EtapaCobroCoactivo.prescripcion) {
-      return saldoPendiente > 0;
+      return saldoPendiente > publicMoneyZero();
     }
     return switch (etapaActual) {
       EtapaCobroCoactivo.mandamientoPago =>
@@ -145,7 +148,8 @@ class ProcesoCobroCoactivo {
   /// Verifica si el proceso está prescrito (5 años)
   bool estaPrescrito() {
     final cincoAnios = DateTime.now().subtract(const Duration(days: 365 * 5));
-    return fechaInicio.isBefore(cincoAnios) && saldoPendiente > 0;
+    return fechaInicio.isBefore(cincoAnios) &&
+        saldoPendiente > publicMoneyZero();
   }
 
   /// Obtiene descripción de la etapa actual
@@ -192,9 +196,9 @@ class ProcesoCobroCoactivo {
     String? numeroLiquidacion,
     String? deudorId,
     String? deudorNombre,
-    double? valorDeuda,
-    double? valorRecuperado,
-    double? saldoPendiente,
+    MoneyValue? valorDeuda,
+    MoneyValue? valorRecuperado,
+    MoneyValue? saldoPendiente,
     EtapaCobroCoactivo? etapaActual,
     EstadoProceso? estado,
     DateTime? fechaInicio,

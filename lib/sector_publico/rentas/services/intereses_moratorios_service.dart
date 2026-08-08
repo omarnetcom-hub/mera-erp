@@ -9,6 +9,8 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 class InteresesMoratoriosService {
   final Dio _dio;
@@ -166,25 +168,27 @@ class InteresesMoratoriosService {
   /// K = Capital (valor adeudado)
   /// T = Tasa de mora (diaria)
   /// t = Tiempo (días de mora)
-  double calcularInteresesMora({
-    required double capital,
+  MoneyValue calcularInteresesMora({
+    required MoneyValue capital,
     required int diasMora,
     DateTime? fechaVencimiento,
   }) {
-    if (diasMora <= 0) return 0;
+    if (diasMora <= 0) return publicMoneyZero();
 
     // Tasa de mora diaria = (Tasa mensual / 30)
     final tasaMoraDiaria = this.tasaMoraDiaria;
 
     // Fórmula: I = K × T × t
-    final intereses = capital * tasaMoraDiaria * diasMora;
+    final intereses = capital.multiplyDecimal(
+      (tasaMoraDiaria * diasMora).toString(),
+    );
 
     return intereses;
   }
 
   /// Calcula intereses de mora con fecha específica
-  double calcularInteresesMoraConFecha({
-    required double capital,
+  MoneyValue calcularInteresesMoraConFecha({
+    required MoneyValue capital,
     required DateTime fechaVencimiento,
     required DateTime fechaCalculo,
   }) {
@@ -197,8 +201,8 @@ class InteresesMoratoriosService {
   }
 
   /// Calcula el total a pagar con intereses
-  double calcularTotalConIntereses({
-    required double capital,
+  MoneyValue calcularTotalConIntereses({
+    required MoneyValue capital,
     required int diasMora,
   }) {
     final intereses = calcularInteresesMora(
@@ -210,13 +214,13 @@ class InteresesMoratoriosService {
 
   /// Genera tabla de amortización de intereses
   List<Map<String, dynamic>> generarTablaAmortizacion({
-    required double capital,
+    required MoneyValue capital,
     required DateTime fechaVencimiento,
     required int numeroCuotas,
     required int periodicidadDias,
   }) {
     final tabla = <Map<String, dynamic>>[];
-    double saldoPendiente = capital;
+    var saldoPendiente = capital;
     DateTime fechaCuota = fechaVencimiento;
 
     for (int i = 1; i <= numeroCuotas; i++) {

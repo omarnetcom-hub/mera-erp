@@ -19,8 +19,8 @@ class SchemaRentas {
         municipio TEXT NOT NULL,
         departamento TEXT NOT NULL,
         area REAL NOT NULL,
-        avaluo_catastral REAL NOT NULL,
-        avaluo_anterior REAL NOT NULL,
+        avaluo_catastral INTEGER NOT NULL,
+        avaluo_anterior INTEGER NOT NULL,
         uso_suelo TEXT NOT NULL,
         estrato TEXT NOT NULL,
         zona TEXT NOT NULL,
@@ -50,12 +50,12 @@ class SchemaRentas {
         contribuyente_id TEXT NOT NULL,
         contribuyente_nombre TEXT NOT NULL,
         contribuyente_identificacion TEXT NOT NULL,
-        avaluo_catastral REAL NOT NULL,
+        avaluo_catastral INTEGER NOT NULL,
         tarifa REAL NOT NULL,
-        impuesto_base REAL NOT NULL,
-        descuento_pronto_pago REAL NOT NULL DEFAULT 0,
-        intereses_mora REAL NOT NULL DEFAULT 0,
-        total_pagar REAL NOT NULL,
+        impuesto_base INTEGER NOT NULL,
+        descuento_pronto_pago INTEGER NOT NULL DEFAULT 0,
+        intereses_mora INTEGER NOT NULL DEFAULT 0,
+        total_pagar INTEGER NOT NULL,
         fecha_liquidacion TEXT NOT NULL,
         fecha_vencimiento TEXT NOT NULL,
         fecha_pago TEXT,
@@ -77,11 +77,11 @@ class SchemaRentas {
         numero_liquidacion TEXT NOT NULL,
         contribuyente_id TEXT NOT NULL,
         contribuyente_nombre TEXT NOT NULL,
-        valor_original REAL NOT NULL,
-        valor_pagado REAL NOT NULL DEFAULT 0,
-        saldo_pendiente REAL NOT NULL,
+        valor_original INTEGER NOT NULL,
+        valor_pagado INTEGER NOT NULL DEFAULT 0,
+        saldo_pendiente INTEGER NOT NULL,
         numero_cuotas INTEGER NOT NULL,
-        valor_cuota REAL NOT NULL,
+        valor_cuota INTEGER NOT NULL,
         fecha_firma TEXT NOT NULL,
         fecha_primera_cuota TEXT NOT NULL,
         periodicidad_dias INTEGER NOT NULL,
@@ -102,9 +102,9 @@ class SchemaRentas {
         numero_liquidacion TEXT NOT NULL,
         deudor_id TEXT NOT NULL,
         deudor_nombre TEXT NOT NULL,
-        valor_deuda REAL NOT NULL,
-        valor_recuperado REAL NOT NULL DEFAULT 0,
-        saldo_pendiente REAL NOT NULL,
+        valor_deuda INTEGER NOT NULL,
+        valor_recuperado INTEGER NOT NULL DEFAULT 0,
+        saldo_pendiente INTEGER NOT NULL,
         etapa_actual TEXT NOT NULL,
         estado TEXT NOT NULL,
         fecha_inicio TEXT NOT NULL,
@@ -145,7 +145,7 @@ class SchemaRentas {
         telefono TEXT NOT NULL,
         tipo_actividad TEXT NOT NULL,
         actividad_economica TEXT NOT NULL,
-        ingresos_anuales_estimados REAL NOT NULL,
+        ingresos_anuales_estimados INTEGER NOT NULL,
         email TEXT,
         estado TEXT NOT NULL DEFAULT 'activo',
         fecha_registro TEXT NOT NULL,
@@ -162,14 +162,14 @@ class SchemaRentas {
         periodo TEXT NOT NULL,
         periodo_declaracion TEXT NOT NULL,
         fecha_declaracion TEXT NOT NULL,
-        ingresos_gravables REAL NOT NULL,
-        ingresos_no_gravables REAL NOT NULL,
-        ingresos_exentos REAL NOT NULL,
-        base_gravable REAL NOT NULL,
+        ingresos_gravables INTEGER NOT NULL,
+        ingresos_no_gravables INTEGER NOT NULL,
+        ingresos_exentos INTEGER NOT NULL,
+        base_gravable INTEGER NOT NULL,
         tarifa REAL NOT NULL,
-        impuesto_ica REAL NOT NULL,
-        intereses_mora REAL NOT NULL DEFAULT 0,
-        total_pagar REAL NOT NULL,
+        impuesto_ica INTEGER NOT NULL,
+        intereses_mora INTEGER NOT NULL DEFAULT 0,
+        total_pagar INTEGER NOT NULL,
         estado TEXT NOT NULL DEFAULT 'pendiente_pago',
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
         FOREIGN KEY (contribuyente_id) REFERENCES censo_ica(id)
@@ -183,7 +183,7 @@ class SchemaRentas {
         nit_retenedor TEXT NOT NULL,
         nit_retenido TEXT NOT NULL,
         periodo TEXT NOT NULL,
-        valor_retenido REAL NOT NULL,
+        valor_retenido INTEGER NOT NULL,
         numero_factura TEXT NOT NULL,
         fecha_factura TEXT NOT NULL,
         fecha_registro TEXT NOT NULL,
@@ -199,11 +199,11 @@ class SchemaRentas {
         contribuyente_id TEXT NOT NULL,
         periodo TEXT NOT NULL,
         tipo_aviso TEXT NOT NULL,
-        valor_aviso REAL NOT NULL,
+        valor_aviso INTEGER NOT NULL,
         ubicacion TEXT NOT NULL,
         area_metros REAL NOT NULL,
         tarifa REAL NOT NULL,
-        impuesto_aviso REAL NOT NULL,
+        impuesto_aviso INTEGER NOT NULL,
         fecha_registro TEXT NOT NULL,
         estado TEXT NOT NULL DEFAULT 'pendiente_pago',
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
@@ -217,7 +217,7 @@ class SchemaRentas {
         entidad_id TEXT NOT NULL,
         declaracion_id TEXT NOT NULL,
         periodo TEXT NOT NULL,
-        valor_pagado REAL NOT NULL,
+        valor_pagado INTEGER NOT NULL,
         fecha_pago TEXT NOT NULL,
         numero_recibo TEXT NOT NULL,
         estado TEXT NOT NULL DEFAULT 'aplicado',
@@ -227,15 +227,33 @@ class SchemaRentas {
     ''');
 
     // Índices para optimización
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_censo_ica_entidad ON censo_ica(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_censo_ica_nit ON censo_ica(nit)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_entidad ON declaraciones_ica(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_contribuyente ON declaraciones_ica(contribuyente_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_periodo ON declaraciones_ica(periodo)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_reteica_entidad ON reteica(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_reteica_periodo ON reteica(periodo)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_avisos_tablero_entidad ON avisos_tablero(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_pagos_ica_entidad ON pagos_ica(entidad_id)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_censo_ica_entidad ON censo_ica(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_censo_ica_nit ON censo_ica(nit)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_entidad ON declaraciones_ica(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_contribuyente ON declaraciones_ica(contribuyente_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_declaraciones_ica_periodo ON declaraciones_ica(periodo)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_reteica_entidad ON reteica(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_reteica_periodo ON reteica(periodo)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_avisos_tablero_entidad ON avisos_tablero(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pagos_ica_entidad ON pagos_ica(entidad_id)',
+    );
 
     // Índices para optimización
     await db.execute('''
@@ -309,7 +327,10 @@ class SchemaRentas {
     final batch = db.batch();
     for (final tarifa in tarifas) {
       batch.insert('tarifas_prediales', {
-        'id': DateTime.now().millisecondsSinceEpoch.toString() + (tarifa[0] as String) + (tarifa[1] as String),
+        'id':
+            DateTime.now().millisecondsSinceEpoch.toString() +
+            (tarifa[0] as String) +
+            (tarifa[1] as String),
         'entidad_id': entidadId,
         'uso_suelo': tarifa[0],
         'estrato': tarifa[1],
