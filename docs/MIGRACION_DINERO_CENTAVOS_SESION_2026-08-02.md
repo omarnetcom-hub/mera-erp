@@ -1479,3 +1479,84 @@ Commit publicado: `48fd8f7` (`feat(dinero): convertir activos y fondos publicos 
 unidad menor`). Fase 3B sigue **en progreso**. Queda pendiente la verificacion
 ejecutada del test NICSP 17 y la conversion de rentas, SGR/SGP, nomina,
 contratacion completa, salud y reportes/transparencia.
+
+## Fase 3B - cierre del bloque de rentas publicas
+
+### Cambios
+
+Se convirtieron a `MoneyValue` con COP fijo y escala 2 los consumidores de
+rentas identificados en este bloque: `predio.dart`, `liquidacion_predial.dart`,
+`acuerdo_pago.dart`, `proceso_cobro_coactivo.dart`, `predial_service.dart`,
+`cobro_coactivo_service.dart`, `intereses_moratorios_service.dart` e
+`ica_service.dart`. Las entradas de UI usan `publicMoneyFromMajor`; las
+escrituras SQLite usan `toSql()` y los calculos de predial, mora, cobro,
+retenciones, avisos y tableros se ejecutan en unidades menores. Se alineo
+`schema_rentas.dart` para que las columnas monetarias nazcan como `INTEGER`;
+tarifas, porcentajes, IPC y areas permanecen como magnitudes no monetarias.
+Tambien se corrigieron los bordes de declaracion ICA, exportacion plana y
+pantalla predial/ICA para no presentar centavos como pesos.
+
+### Evidencia cruda
+
+```text
+dart format --output=none --set-exit-if-changed [13 archivos de rentas]
+Formatted 13 files (0 changed) in 0.36 seconds.
+Exit code: 0
+
+flutter test test/sector_publico/rentas/proceso_cobro_coactivo_transiciones_test.dart --reporter expanded
+This crash may already be reported.
+PathExistsException: Cannot copy file to 'C:\Users\PC\Desktop\Caja_simple\build\native_assets\windows\sqlite3.dll'
+path = 'C:\Users\PC\Desktop\Caja_simple\.dart_tool\hooks_runner\shared\sqlite3\build\download-94e63ca\sqlite3.dll'
+OS Error: No se puede crear un archivo que ya existe, errno = 183
+Stack relevante: _File.copy -> _copyNativeCodeAssetsToBundleOnWindowsLinux ->
+_copyNativeCodeAssetsForOS -> installCodeAssets -> TestCommand.runCommand.
+Exit code: 1; no asercion del test llego a ejecutarse.
+
+flutter clean
+Deleting build...
+Deleting .dart_tool...
+Failed to remove build/.dart_tool: un proceso puede estar usando esos artefactos.
+Exit code: 0
+
+flutter test test/sector_publico/rentas/proceso_cobro_coactivo_transiciones_test.dart --reporter expanded
+Resolving dependencies...
+Got dependencies!
+This crash may already be reported.
+PathExistsException: Cannot copy file to 'C:\Users\PC\Desktop\Caja_simple\build\native_assets\windows\sqlite3.dll'
+path = 'C:\Users\PC\Desktop\Caja_simple\.dart_tool\hooks_runner\shared\sqlite3\build\download-7970568\sqlite3.dll'
+OS Error: No se puede crear un archivo que ya existe, errno = 183
+Stack relevante: _File.copy -> _copyNativeCodeAssetsToBundleOnWindowsLinux ->
+_copyNativeCodeAssetsForOS -> installCodeAssets -> TestCommand.runCommand.
+Exit code: 1; no asercion del test llego a ejecutarse.
+```
+
+No se afirma que los tests de rentas pasaron: Flutter falla durante la
+preparacion de assets nativos de SQLite, antes de compilar/ejecutar las
+aserciones. `flutter analyze` y `flutter build windows` siguen pendientes de
+ejecucion por Omar en un entorno que no reproduzca este bloqueo, usando:
+
+```text
+flutter analyze
+flutter build windows
+flutter test test/sector_publico/rentas/exportacion_declaraciones_test.dart test/sector_publico/rentas/intereses_moratorios_service_test.dart test/sector_publico/rentas/proceso_cobro_coactivo_transiciones_test.dart --reporter expanded
+```
+
+### Bugs y decisiones
+
+- Se elimino el calculo monetario con `double` de ICA, incluido el impuesto
+  por avisos y los acumulados del tablero, evitando el riesgo de presentar o
+  sumar centavos como pesos.
+- Se mantuvo el fail-closed de `MoneyValue.fromSql`: solo acepta enteros en
+  columnas migradas; no se agrego una conversion silenciosa de `REAL` legado.
+- La validacion SQL de partida doble sigue fuera del alcance de este bloque.
+- El submodulo `backend` conserva sus cambios locales preexistentes y no fue
+  tocado.
+
+### Cierre de la subtarea rentas
+
+Commit publicado: `4264f4f` (`feat(dinero): convertir rentas publicas a unidad menor`).
+El bloque de rentas queda convertido a nivel de codigo y esquema del modulo,
+pero su evidencia de tests queda **pendiente de ejecucion** por el crash
+reproducible de assets nativos. Fase 3B sigue en progreso; no se declara
+`X/X COMPLETA` hasta convertir y verificar SGR/SGP, nomina publica,
+contratacion, salud, planeacion, transparencia y reportes restantes.
