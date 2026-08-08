@@ -1560,3 +1560,48 @@ pero su evidencia de tests queda **pendiente de ejecucion** por el crash
 reproducible de assets nativos. Fase 3B sigue en progreso; no se declara
 `X/X COMPLETA` hasta convertir y verificar SGR/SGP, nomina publica,
 contratacion, salud, planeacion, transparencia y reportes restantes.
+
+## Fase 3B - cierre del bloque SGR/SGP
+
+### Cambios
+
+Se convirtieron a `MoneyValue` con COP fijo y escala 2 los modelos y
+consumidores de `bienio_sgr.dart`, `proyecto_ocad.dart`, `regalia.dart` y
+`sgp.dart`, junto con `regalias_service.dart`, `sgp_service.dart`,
+`spgr_service.dart`, `sicodis_service.dart`, `validacion_distribucion_service.dart`
+y `regalias_sgp_page.dart`. `schema_regalias.dart` ahora declara como
+`INTEGER` las columnas monetarias del manifiesto. Los bloqueos de rubro por
+componente SGP se conservaron; la UI y los reportes convierten a pesos solo
+en el borde externo.
+
+La validacion de distribucion tambien calcula sus montos con `MoneyValue`,
+pero las tablas `validaciones_distribucion_regalias` y
+`validaciones_distribucion_sgp` no tienen declaracion de esquema en el
+modulo ni aparecen en el manifiesto v75. No se invento una migracion de
+tablas ausentes; ese codigo queda identificado como superficie huerfana que
+requiere decidir/escribir su esquema antes de poder certificarlo.
+
+### Evidencia cruda
+
+```text
+dart format --output=none --set-exit-if-changed [14 archivos SGR/SGP]
+Formatted 14 files (0 changed) in 0.14 seconds.
+Exit code: 0
+
+flutter test test/sector_publico/regalias/spgr_service_test.dart test/sector_publico/regalias/sicodis_service_test.dart test/sector_publico/regalias/sgp_destinacion_rubro_test.dart --reporter expanded
+This crash may already be reported.
+PathExistsException: Cannot copy file to 'C:\Users\PC\Desktop\Caja_simple\build\native_assets\windows\sqlite3.dll'
+path = 'C:\Users\PC\Desktop\Caja_simple\.dart_tool\hooks_runner\shared\sqlite3\build\download-7970568\sqlite3.dll'
+OS Error: No se puede crear un archivo que ya existe, errno = 183
+Stack relevante: _File.copy -> _copyNativeCodeAssetsToBundleOnWindowsLinux ->
+_copyNativeCodeAssetsForOS -> installCodeAssets -> TestCommand.runCommand.
+Exit code: 1; no test llego a ejecutar aserciones.
+```
+
+### Cierre de la subtarea SGR/SGP
+
+Commit publicado: `fd67c30` (`feat(dinero): convertir regalias y SGP a unidad menor`).
+El bloque de los consumidores SGR/SGP queda convertido a nivel de codigo y
+esquema v75 del modulo. La evidencia ejecutada de tests queda pendiente por
+el crash de assets nativos; Fase 3B sigue en progreso y no se declara
+`X/X COMPLETA`.
