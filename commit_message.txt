@@ -1,5 +1,0 @@
-docs(dinero): registrar cierre del bloque de rentas publicas
-
-Documenta archivos convertidos, decisiones de COP/INTEGER y evidencia de
-dart format. Registra el bloqueo reproducible de Flutter por PathExistsException
-al copiar sqlite3.dll y deja los comandos pendientes para verificacion externa.
