@@ -2,6 +2,8 @@
 /// NICSP 17 - Propiedades, Planta y Equipo
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 enum TipoActivo {
   terreno,
@@ -33,14 +35,14 @@ class ActivoEstado {
   final String marca;
   final String modelo;
   final String serie;
-  final double valorAdquisicion;
-  final double valorLibros;
-  final double valorNeto;
+  final MoneyValue valorAdquisicion;
+  final MoneyValue valorLibros;
+  final MoneyValue valorNeto;
   final DateTime fechaAdquisicion;
   final DateTime fechaPuestaEnMarcha;
   final int vidaUtilAnios;
-  final double valorResidual;
-  final double depreciacionAcumulada;
+  final MoneyValue valorResidual;
+  final MoneyValue depreciacionAcumulada;
   final EstadoActivo estado;
   final String? ubicacion;
   final String? responsable;
@@ -81,14 +83,14 @@ class ActivoEstado {
       marca: json['marca'] as String,
       modelo: json['modelo'] as String,
       serie: json['serie'] as String,
-      valorAdquisicion: (json['valor_adquisicion'] as num).toDouble(),
-      valorLibros: (json['valor_libros'] as num).toDouble(),
-      valorNeto: (json['valor_neto'] as num).toDouble(),
+      valorAdquisicion: publicMoneyFromSql(json['valor_adquisicion']),
+      valorLibros: publicMoneyFromSql(json['valor_libros']),
+      valorNeto: publicMoneyFromSql(json['valor_neto']),
       fechaAdquisicion: DateTime.parse(json['fecha_adquisicion'] as String),
       fechaPuestaEnMarcha: DateTime.parse(json['fecha_puesta_en_marcha'] as String),
       vidaUtilAnios: json['vida_util_anios'] as int,
-      valorResidual: (json['valor_residual'] as num).toDouble(),
-      depreciacionAcumulada: (json['depreciacion_acumulada'] as num).toDouble(),
+      valorResidual: publicMoneyFromSql(json['valor_residual']),
+      depreciacionAcumulada: publicMoneyFromSql(json['depreciacion_acumulada']),
       estado: EstadoActivo.values.firstWhere(
         (e) => e.toString() == 'EstadoActivo.${json['estado']}',
       ),
@@ -108,14 +110,14 @@ class ActivoEstado {
       'marca': marca,
       'modelo': modelo,
       'serie': serie,
-      'valor_adquisicion': valorAdquisicion,
-      'valor_libros': valorLibros,
-      'valor_neto': valorNeto,
+      'valor_adquisicion': valorAdquisicion.toSql(),
+      'valor_libros': valorLibros.toSql(),
+      'valor_neto': valorNeto.toSql(),
       'fecha_adquisicion': fechaAdquisicion.toIso8601String(),
       'fecha_puesta_en_marcha': fechaPuestaEnMarcha.toIso8601String(),
       'vida_util_anios': vidaUtilAnios,
-      'valor_residual': valorResidual,
-      'depreciacion_acumulada': depreciacionAcumulada,
+      'valor_residual': valorResidual.toSql(),
+      'depreciacion_acumulada': depreciacionAcumulada.toSql(),
       'estado': estado.toString().split('.').last,
       'ubicacion': ubicacion,
       'responsable': responsable,
@@ -124,26 +126,30 @@ class ActivoEstado {
   }
 
   /// Calcula la depreciación anual según método línea recta (NICSP 17)
-  double calcularDepreciacionAnual() {
+  MoneyValue calcularDepreciacionAnual() {
     return (valorAdquisicion - valorResidual) / vidaUtilAnios;
   }
 
   /// Calcula la depreciación acumulada hasta la fecha actual
-  double calcularDepreciacionAcumuladaActual() {
+  MoneyValue calcularDepreciacionAcumuladaActual() {
     final hoy = DateTime.now();
-    final aniosUso = hoy.difference(fechaPuestaEnMarcha).inDays / 365;
-    return calcularDepreciacionAnual() * aniosUso;
+    final diasUso = hoy.difference(fechaPuestaEnMarcha).inDays;
+    return calcularDepreciacionAnual().multiplyRatio(
+      numerator: diasUso,
+      denominator: 365,
+    );
   }
 
   /// Calcula el valor neto actual
-  double calcularValorNetoActual() {
+  MoneyValue calcularValorNetoActual() {
     final depreciacionActual = calcularDepreciacionAcumuladaActual();
     return valorAdquisicion - depreciacionActual;
   }
 
   /// Verifica si está totalmente depreciado
   bool estaTotalmenteDepreciado() {
-    return calcularDepreciacionAcumuladaActual() >= (valorAdquisicion - valorResidual);
+    return calcularDepreciacionAcumuladaActual() >=
+        (valorAdquisicion - valorResidual);
   }
 
   ActivoEstado copyWith({
@@ -155,14 +161,14 @@ class ActivoEstado {
     String? marca,
     String? modelo,
     String? serie,
-    double? valorAdquisicion,
-    double? valorLibros,
-    double? valorNeto,
+    MoneyValue? valorAdquisicion,
+    MoneyValue? valorLibros,
+    MoneyValue? valorNeto,
     DateTime? fechaAdquisicion,
     DateTime? fechaPuestaEnMarcha,
     int? vidaUtilAnios,
-    double? valorResidual,
-    double? depreciacionAcumulada,
+    MoneyValue? valorResidual,
+    MoneyValue? depreciacionAcumulada,
     EstadoActivo? estado,
     String? ubicacion,
     String? responsable,

@@ -2,6 +2,9 @@
 /// Fondo de Unidad de Tesorería - Manejo de recursos de terceros
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
+
 enum TipoFondoUnidadTesoreria {
   contrato,
   convenio,
@@ -30,9 +33,9 @@ class FondoUnidadTesoreria {
   final String terceroId;
   final String terceroNombre;
   final String terceroIdentificacion;
-  final double valorInicial;
-  final double valorEjecutado;
-  final double saldoDisponible;
+  final MoneyValue valorInicial;
+  final MoneyValue valorEjecutado;
+  final MoneyValue saldoDisponible;
   final DateTime fechaApertura;
   final DateTime? fechaCierre;
   final EstadoFondoUnidadTesoreria estado;
@@ -75,9 +78,9 @@ class FondoUnidadTesoreria {
       terceroId: json['tercero_id'] as String,
       terceroNombre: json['tercero_nombre'] as String,
       terceroIdentificacion: json['tercero_identificacion'] as String,
-      valorInicial: (json['valor_inicial'] as num).toDouble(),
-      valorEjecutado: (json['valor_ejecutado'] as num).toDouble(),
-      saldoDisponible: (json['saldo_disponible'] as num).toDouble(),
+      valorInicial: publicMoneyFromSql(json['valor_inicial']),
+      valorEjecutado: publicMoneyFromSql(json['valor_ejecutado']),
+      saldoDisponible: publicMoneyFromSql(json['saldo_disponible']),
       fechaApertura: DateTime.parse(json['fecha_apertura'] as String),
       fechaCierre: json['fecha_cierre'] != null
           ? DateTime.parse(json['fecha_cierre'] as String)
@@ -103,9 +106,9 @@ class FondoUnidadTesoreria {
       'tercero_id': terceroId,
       'tercero_nombre': terceroNombre,
       'tercero_identificacion': terceroIdentificacion,
-      'valor_inicial': valorInicial,
-      'valor_ejecutado': valorEjecutado,
-      'saldo_disponible': saldoDisponible,
+      'valor_inicial': valorInicial.toSql(),
+      'valor_ejecutado': valorEjecutado.toSql(),
+      'saldo_disponible': saldoDisponible.toSql(),
       'fecha_apertura': fechaApertura.toIso8601String(),
       'fecha_cierre': fechaCierre?.toIso8601String(),
       'estado': estado.name,
@@ -116,8 +119,8 @@ class FondoUnidadTesoreria {
 
   /// Calcula el porcentaje de ejecución
   double calcularPorcentajeEjecucion() {
-    if (valorInicial == 0) return 0;
-    return (valorEjecutado / valorInicial) * 100;
+    if (valorInicial == publicMoneyZero()) return 0;
+    return (valorEjecutado.minorUnits / valorInicial.minorUnits) * 100;
   }
 
   /// Verifica si está activo
@@ -127,6 +130,6 @@ class FondoUnidadTesoreria {
 
   /// Verifica si tiene saldo disponible
   bool tieneSaldo() {
-    return saldoDisponible > 0;
+    return saldoDisponible > publicMoneyZero();
   }
 }

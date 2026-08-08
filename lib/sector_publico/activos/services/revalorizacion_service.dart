@@ -5,6 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
@@ -29,8 +31,8 @@ class RevalorizacionService {
     required String usuarioId,
     required String activoId,
     required MetodoRevalorizacion metodo,
-    required double valorAnterior,
-    required double valorNuevo,
+    required MoneyValue valorAnterior,
+    required MoneyValue valorNuevo,
     required DateTime fechaRevalorizacion,
     required String peritoAvaluo,
     required String numeroDictamen,
@@ -57,7 +59,8 @@ class RevalorizacionService {
 
     // Calcular incremento
     final incremento = valorNuevo - valorAnterior;
-    final porcentajeIncremento = (incremento / valorAnterior) * 100;
+    final porcentajeIncremento =
+        (incremento.minorUnits / valorAnterior.minorUnits) * 100;
 
     // Validar que el incremento sea significativo (mínimo 10% según NICSP 17)
     if (porcentajeIncremento < 10) {
@@ -70,9 +73,9 @@ class RevalorizacionService {
       'activo_id': activoId,
       'numero_inventario': activo.first['numero_inventario'],
       'metodo': metodo.toString().split('.').last,
-      'valor_anterior': valorAnterior,
-      'valor_nuevo': valorNuevo,
-      'incremento': incremento,
+      'valor_anterior': valorAnterior.toSql(),
+      'valor_nuevo': valorNuevo.toSql(),
+      'incremento': incremento.toSql(),
       'porcentaje_incremento': porcentajeIncremento,
       'fecha_revalorizacion': fechaRevalorizacion.toIso8601String(),
       'perito_avaluo': peritoAvaluo,
@@ -87,8 +90,10 @@ class RevalorizacionService {
     await db.update(
       'activos_estado',
       {
-        'valor_libros': valorNuevo,
-        'valor_neto': valorNuevo - (activo.first['depreciacion_acumulada'] as num).toDouble(),
+        'valor_libros': valorNuevo.toSql(),
+        'valor_neto': (valorNuevo -
+                publicMoneyFromSql(activo.first['depreciacion_acumulada']))
+            .toSql(),
       },
       where: 'id = ?',
       whereArgs: [activoId],
@@ -112,11 +117,11 @@ class RevalorizacionService {
       modulo: 'activos',
       accion: 'revalorizacion_activo',
       valorAnterior: {
-        'valor_anterior': valorAnterior,
+        'valor_anterior': valorAnterior.toSql(),
       },
       valorNuevo: {
-        'valor_nuevo': valorNuevo,
-        'incremento': incremento,
+        'valor_nuevo': valorNuevo.toSql(),
+        'incremento': incremento.toSql(),
         'porcentaje_incremento': porcentajeIncremento,
         'asiento_id': asientoId,
       },
@@ -126,8 +131,8 @@ class RevalorizacionService {
     return {
       'revalorizacion_id': id,
       'activo_id': activoId,
-      'valor_nuevo': valorNuevo,
-      'incremento': incremento,
+      'valor_nuevo': valorNuevo.toSql(),
+      'incremento': incremento.toSql(),
       'porcentaje_incremento': porcentajeIncremento,
       'asiento_id': asientoId,
       'estado': 'aprobado',
@@ -140,9 +145,9 @@ class RevalorizacionService {
     required String usuarioId,
     required String revalorizacionId,
     required String activoId,
-    required double valorAnterior,
-    required double valorNuevo,
-    required double incremento,
+    required MoneyValue valorAnterior,
+    required MoneyValue valorNuevo,
+    required MoneyValue incremento,
   }) async {
     final asientoId = _uuid.v4();
     final numeroAsiento = await _generarNumeroAsiento(entidadId);
@@ -162,8 +167,8 @@ class RevalorizacionService {
       'descripcion': 'Revalorización de activo - $activoId',
       'tipo_asiento': 'automatico',
       'estado': 'aprobado',
-      'total_debito': incremento,
-      'total_credito': incremento,
+      'total_debito': incremento.toSql(),
+      'total_credito': incremento.toSql(),
       'usuario_creo': usuarioId,
       'usuario_reviso': usuarioId,
       'fecha_revision': DateTime.now().toIso8601String(),
@@ -177,8 +182,8 @@ class RevalorizacionService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaActivo,
       'cuenta_nombre': 'Propiedades planta y equipo revalorizadas',
-      'debito': incremento,
-      'credito': 0,
+      'debito': incremento.toSql(),
+      'credito': publicMoneyZero().toSql(),
       'referencia_id': revalorizacionId,
     });
 
@@ -187,8 +192,8 @@ class RevalorizacionService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaSuperavit,
       'cuenta_nombre': 'Superávit por revalorización de activos',
-      'debito': 0,
-      'credito': incremento,
+      'debito': publicMoneyZero().toSql(),
+      'credito': incremento.toSql(),
       'referencia_id': revalorizacionId,
     });
 
@@ -255,10 +260,10 @@ class RevalorizacionService {
 
     final revalorizaciones = await db.rawQuery(query, args);
 
-    double totalIncremento = revalorizaciones.fold<double>(
-      0,
-      (sum, r) => sum + (r['incremento'] as num).toDouble(),
-    );
+    var totalIncremento = publicMoneyZero();
+    for (final r in revalorizaciones) {
+      totalIncremento += publicMoneyFromSql(r['incremento']);
+    }
 
     double promedioPorcentaje = revalorizaciones.isNotEmpty
         ? revalorizaciones.fold<double>(
@@ -291,7 +296,7 @@ class RevalorizacionService {
     return {
       'periodo': periodo,
       'total_revalorizaciones': revalorizaciones.length,
-      'total_incremento': totalIncremento,
+      'total_incremento': totalIncremento.toSql(),
       'promedio_porcentaje': promedioPorcentaje,
       'por_metodo': porMetodo,
       'por_tipo_activo': porTipoActivo,
@@ -302,7 +307,7 @@ class RevalorizacionService {
   /// Valida si un activo es candidato a revalorización
   Future<Map<String, dynamic>> validarCandidatoRevalorizacion({
     required String activoId,
-    required double valorEstimadoActual,
+    required MoneyValue valorEstimadoActual,
   }) async {
     final activo = await db.query(
       'activos_estado',
@@ -314,17 +319,18 @@ class RevalorizacionService {
       throw Exception('Activo no encontrado');
     }
 
-    final valorLibros = activo.first['valor_libros'] as double;
+    final valorLibros = publicMoneyFromSql(activo.first['valor_libros']);
     final diferencia = valorEstimadoActual - valorLibros;
-    final porcentajeDiferencia = (diferencia / valorLibros) * 100;
+    final porcentajeDiferencia =
+        (diferencia.minorUnits / valorLibros.minorUnits) * 100;
 
     final esCandidato = porcentajeDiferencia >= 10;
 
     return {
       'activo_id': activoId,
-      'valor_libros': valorLibros,
-      'valor_estimado_actual': valorEstimadoActual,
-      'diferencia': diferencia,
+      'valor_libros': valorLibros.toSql(),
+      'valor_estimado_actual': valorEstimadoActual.toSql(),
+      'diferencia': diferencia.toSql(),
       'porcentaje_diferencia': porcentajeDiferencia,
       'es_candidato': esCandidato,
       'recomendacion': esCandidato

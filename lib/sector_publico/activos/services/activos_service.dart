@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/activo_estado.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -28,16 +30,17 @@ class ActivosService {
     required String marca,
     required String modelo,
     required String serie,
-    required double valorAdquisicion,
+    required MoneyValue valorAdquisicion,
     required DateTime fechaAdquisicion,
     required DateTime fechaPuestaEnMarcha,
     required int vidaUtilAnios,
-    required double valorResidual,
+    required MoneyValue valorResidual,
     String? ubicacion,
     String? responsable,
   }) async {
     final id = _uuid.v4();
-    final depreciacionAnual = (valorAdquisicion - valorResidual) / vidaUtilAnios;
+    final depreciacionAnual =
+        (valorAdquisicion - valorResidual) / vidaUtilAnios;
     final valorNeto = valorAdquisicion;
 
     final activo = ActivoEstado(
@@ -56,7 +59,7 @@ class ActivosService {
       fechaPuestaEnMarcha: fechaPuestaEnMarcha,
       vidaUtilAnios: vidaUtilAnios,
       valorResidual: valorResidual,
-      depreciacionAcumulada: 0,
+      depreciacionAcumulada: publicMoneyZero(),
       estado: EstadoActivo.nuevo,
       ubicacion: ubicacion,
       responsable: responsable,
@@ -74,7 +77,7 @@ class ActivosService {
       valorNuevo: {
         'activo_id': id,
         'numero_inventario': numeroInventario,
-        'valor_adquisicion': valorAdquisicion,
+        'valor_adquisicion': valorAdquisicion.toSql(),
       },
       referenciaId: id,
     );
@@ -106,8 +109,8 @@ class ActivosService {
     await db.update(
       'activos_estado',
       {
-        'depreciacion_acumulada': depreciacionAcumulada,
-        'valor_neto': valorNeto,
+        'depreciacion_acumulada': depreciacionAcumulada.toSql(),
+        'valor_neto': valorNeto.toSql(),
       },
       where: 'id = ?',
       whereArgs: [activoId],
@@ -120,12 +123,12 @@ class ActivosService {
       modulo: 'activos',
       accion: 'actualizacion_depreciacion',
       valorAnterior: {
-        'depreciacion_anterior': activo.depreciacionAcumulada,
-        'valor_neto_anterior': activo.valorNeto,
+        'depreciacion_anterior': activo.depreciacionAcumulada.toSql(),
+        'valor_neto_anterior': activo.valorNeto.toSql(),
       },
       valorNuevo: {
-        'depreciacion_nueva': depreciacionAcumulada,
-        'valor_nuevo': valorNeto,
+        'depreciacion_nueva': depreciacionAcumulada.toSql(),
+        'valor_nuevo': valorNeto.toSql(),
       },
       referenciaId: activoId,
     );

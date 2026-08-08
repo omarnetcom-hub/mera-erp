@@ -5,6 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
@@ -24,8 +26,8 @@ class DepreciacionUnidadesService {
     required String usuarioId,
     required String activoId,
     required double unidadesTotalesEstimadas,
-    required double valorAdquisicion,
-    required double valorResidual,
+    required MoneyValue valorAdquisicion,
+    required MoneyValue valorResidual,
     required DateTime fechaInicio,
     String? observaciones,
   }) async {
@@ -46,7 +48,9 @@ class DepreciacionUnidadesService {
     final costoDepreciable = valorAdquisicion - valorResidual;
 
     // Calcular costo por unidad
-    final costoPorUnidad = costoDepreciable / unidadesTotalesEstimadas;
+    final costoPorUnidad = costoDepreciable.divideDecimal(
+      unidadesTotalesEstimadas.toString(),
+    );
 
     await db.insert('configuracion_depreciacion_unidades', {
       'id': id,
@@ -54,13 +58,13 @@ class DepreciacionUnidadesService {
       'activo_id': activoId,
       'numero_inventario': activo.first['numero_inventario'],
       'unidades_totales_estimadas': unidadesTotalesEstimadas,
-      'valor_adquisicion': valorAdquisicion,
-      'valor_residual': valorResidual,
-      'costo_depreciable': costoDepreciable,
-      'costo_por_unidad': costoPorUnidad,
+      'valor_adquisicion': valorAdquisicion.toSql(),
+      'valor_residual': valorResidual.toSql(),
+      'costo_depreciable': costoDepreciable.toSql(),
+      'costo_por_unidad': costoPorUnidad.toSql(),
       'fecha_inicio': fechaInicio.toIso8601String(),
       'unidades_producidas_acumuladas': 0,
-      'depreciacion_acumulada': 0,
+      'depreciacion_acumulada': publicMoneyZero().toSql(),
       'observaciones': observaciones,
       'fecha_registro': DateTime.now().toIso8601String(),
       'estado': 'activo',
@@ -88,7 +92,7 @@ class DepreciacionUnidadesService {
       valorNuevo: {
         'metodo_nuevo': 'unidades_produccion',
         'unidades_totales_estimadas': unidadesTotalesEstimadas,
-        'costo_por_unidad': costoPorUnidad,
+        'costo_por_unidad': costoPorUnidad.toSql(),
       },
       referenciaId: id,
     );
@@ -97,7 +101,7 @@ class DepreciacionUnidadesService {
       'configuracion_id': id,
       'activo_id': activoId,
       'unidades_totales_estimadas': unidadesTotalesEstimadas,
-      'costo_por_unidad': costoPorUnidad,
+      'costo_por_unidad': costoPorUnidad.toSql(),
       'estado': 'activo',
     };
   }
@@ -125,9 +129,10 @@ class DepreciacionUnidadesService {
     }
 
     final configuracion = config.first;
-    final costoPorUnidad = (configuracion['costo_por_unidad'] as num).toDouble();
+    final costoPorUnidad = publicMoneyFromSql(configuracion['costo_por_unidad']);
     final unidadesAcumuladas = (configuracion['unidades_producidas_acumuladas'] as num).toDouble();
-    final unidadesTotales = (configuracion['unidades_totales_estimadas'] as num).toDouble();
+    final unidadesTotales =
+        (configuracion['unidades_totales_estimadas'] as num).toDouble();
 
     // Validar que no exceda las unidades totales
     if (unidadesAcumuladas + unidadesProducidas > unidadesTotales) {
@@ -135,10 +140,14 @@ class DepreciacionUnidadesService {
     }
 
     // Calcular depreciación del periodo
-    final depreciacionPeriodo = unidadesProducidas * costoPorUnidad;
+    final depreciacionPeriodo = costoPorUnidad.multiplyDecimal(
+      unidadesProducidas.toString(),
+    );
 
     // Calcular nueva depreciación acumulada
-    final nuevaDepreciacionAcumulada = (configuracion['depreciacion_acumulada'] as num).toDouble() + depreciacionPeriodo;
+    final nuevaDepreciacionAcumulada =
+        publicMoneyFromSql(configuracion['depreciacion_acumulada']) +
+        depreciacionPeriodo;
 
     await db.insert('registros_produccion', {
       'id': id,
@@ -146,8 +155,8 @@ class DepreciacionUnidadesService {
       'configuracion_id': configuracionId,
       'activo_id': configuracion['activo_id'],
       'unidades_producidas': unidadesProducidas,
-      'costo_por_unidad': costoPorUnidad,
-      'depreciacion_periodo': depreciacionPeriodo,
+      'costo_por_unidad': costoPorUnidad.toSql(),
+      'depreciacion_periodo': depreciacionPeriodo.toSql(),
       'fecha_produccion': fechaProduccion.toIso8601String(),
       'observaciones': observaciones,
       'fecha_registro': DateTime.now().toIso8601String(),
@@ -158,7 +167,7 @@ class DepreciacionUnidadesService {
       'configuracion_depreciacion_unidades',
       {
         'unidades_producidas_acumuladas': unidadesAcumuladas + unidadesProducidas,
-        'depreciacion_acumulada': nuevaDepreciacionAcumulada,
+        'depreciacion_acumulada': nuevaDepreciacionAcumulada.toSql(),
       },
       where: 'id = ?',
       whereArgs: [configuracionId],
@@ -168,7 +177,7 @@ class DepreciacionUnidadesService {
     await db.update(
       'activos_estado',
       {
-        'depreciacion_acumulada': nuevaDepreciacionAcumulada,
+        'depreciacion_acumulada': nuevaDepreciacionAcumulada.toSql(),
       },
       where: 'id = ?',
       whereArgs: [configuracion['activo_id']],
@@ -193,7 +202,7 @@ class DepreciacionUnidadesService {
       valorNuevo: {
         'registro_id': id,
         'unidades_producidas': unidadesProducidas,
-        'depreciacion_periodo': depreciacionPeriodo,
+        'depreciacion_periodo': depreciacionPeriodo.toSql(),
         'asiento_id': asientoId,
       },
       referenciaId: id,
@@ -202,8 +211,8 @@ class DepreciacionUnidadesService {
     return {
       'registro_id': id,
       'unidades_producidas': unidadesProducidas,
-      'depreciacion_periodo': depreciacionPeriodo,
-      'depreciacion_acumulada': nuevaDepreciacionAcumulada,
+      'depreciacion_periodo': depreciacionPeriodo.toSql(),
+      'depreciacion_acumulada': nuevaDepreciacionAcumulada.toSql(),
       'asiento_id': asientoId,
     };
   }
@@ -214,7 +223,7 @@ class DepreciacionUnidadesService {
     required String usuarioId,
     required String registroId,
     required String activoId,
-    required double depreciacionPeriodo,
+    required MoneyValue depreciacionPeriodo,
   }) async {
     final asientoId = _uuid.v4();
     final numeroAsiento = await _generarNumeroAsiento(entidadId);
@@ -234,8 +243,8 @@ class DepreciacionUnidadesService {
       'descripcion': 'Depreciación por unidades de producción - $activoId',
       'tipo_asiento': 'automatico',
       'estado': 'aprobado',
-      'total_debito': depreciacionPeriodo,
-      'total_credito': depreciacionPeriodo,
+      'total_debito': depreciacionPeriodo.toSql(),
+      'total_credito': depreciacionPeriodo.toSql(),
       'usuario_creo': usuarioId,
       'usuario_reviso': usuarioId,
       'fecha_revision': DateTime.now().toIso8601String(),
@@ -249,8 +258,8 @@ class DepreciacionUnidadesService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaGasto,
       'cuenta_nombre': 'Gasto por depreciación',
-      'debito': depreciacionPeriodo,
-      'credito': 0,
+      'debito': depreciacionPeriodo.toSql(),
+      'credito': publicMoneyZero().toSql(),
       'referencia_id': registroId,
     });
 
@@ -259,8 +268,8 @@ class DepreciacionUnidadesService {
       'asiento_id': asientoId,
       'cuenta_codigo': cuentaDepreciacion,
       'cuenta_nombre': 'Depreciación acumulada',
-      'debito': 0,
-      'credito': depreciacionPeriodo,
+      'debito': publicMoneyZero().toSql(),
+      'credito': depreciacionPeriodo.toSql(),
       'referencia_id': registroId,
     });
 
@@ -322,7 +331,7 @@ class DepreciacionUnidadesService {
     final configuraciones = await db.rawQuery(query, args);
 
     double totalUnidadesProducidas = 0;
-    double totalDepreciacion = 0;
+    var totalDepreciacion = publicMoneyZero();
     final detalles = <Map<String, dynamic>>[];
 
     for (final config in configuraciones) {
@@ -334,9 +343,9 @@ class DepreciacionUnidadesService {
         (sum, r) => sum + (r['unidades_producidas'] as num).toDouble(),
       );
 
-      final depreciacionConfig = registros.fold<double>(
-        0,
-        (sum, r) => sum + (r['depreciacion_periodo'] as num).toDouble(),
+      final depreciacionConfig = registros.fold<MoneyValue>(
+        publicMoneyZero(),
+        (sum, r) => sum + publicMoneyFromSql(r['depreciacion_periodo']),
       );
 
       totalUnidadesProducidas += unidadesConfig;
@@ -356,7 +365,7 @@ class DepreciacionUnidadesService {
       'periodo': periodo,
       'total_activos': configuraciones.length,
       'total_unidades_producidas': totalUnidadesProducidas,
-      'total_depreciacion': totalDepreciacion,
+      'total_depreciacion': totalDepreciacion.toSql(),
       'detalles': detalles,
     };
   }

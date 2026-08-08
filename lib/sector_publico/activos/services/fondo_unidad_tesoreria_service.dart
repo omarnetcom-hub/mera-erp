@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/fondo_unidad_tesoreria.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -27,7 +29,7 @@ class FondoUnidadTesoreriaService {
     required String terceroId,
     required String terceroNombre,
     required String terceroIdentificacion,
-    required double valorInicial,
+    required MoneyValue valorInicial,
     String? numeroContrato,
     String? numeroConvenio,
     String? responsable,
@@ -48,7 +50,7 @@ class FondoUnidadTesoreriaService {
       terceroNombre: terceroNombre,
       terceroIdentificacion: terceroIdentificacion,
       valorInicial: valorInicial,
-      valorEjecutado: 0,
+      valorEjecutado: publicMoneyZero(),
       saldoDisponible: valorInicial,
       fechaApertura: fechaApertura,
       estado: EstadoFondoUnidadTesoreria.activo,
@@ -67,7 +69,7 @@ class FondoUnidadTesoreriaService {
       valorNuevo: {
         'fut_id': id,
         'numero_fut': numeroFUT,
-        'valor_inicial': valorInicial,
+        'valor_inicial': valorInicial.toSql(),
       },
       referenciaId: id,
     );
@@ -80,7 +82,7 @@ class FondoUnidadTesoreriaService {
     required String entidadId,
     required String usuarioId,
     required String futId,
-    required double montoEjecucion,
+    required MoneyValue montoEjecucion,
   }) async {
     final futResult = await db.query(
       'fondo_unidad_tesoreria',
@@ -108,8 +110,8 @@ class FondoUnidadTesoreriaService {
     await db.update(
       'fondo_unidad_tesoreria',
       {
-        'valor_ejecutado': nuevoValorEjecutado,
-        'saldo_disponible': nuevoSaldo,
+        'valor_ejecutado': nuevoValorEjecutado.toSql(),
+        'saldo_disponible': nuevoSaldo.toSql(),
         'estado': EstadoFondoUnidadTesoreria.enEjecucion.name,
       },
       where: 'id = ?',
@@ -123,13 +125,13 @@ class FondoUnidadTesoreriaService {
       modulo: 'activos',
       accion: 'ejecucion_fut',
       valorAnterior: {
-        'valor_ejecutado_anterior': fut.valorEjecutado,
-        'saldo_anterior': fut.saldoDisponible,
+        'valor_ejecutado_anterior': fut.valorEjecutado.toSql(),
+        'saldo_anterior': fut.saldoDisponible.toSql(),
       },
       valorNuevo: {
-        'monto_ejecucion': montoEjecucion,
-        'valor_ejecutado_nuevo': nuevoValorEjecutado,
-        'saldo_nuevo': nuevoSaldo,
+        'monto_ejecucion': montoEjecucion.toSql(),
+        'valor_ejecutado_nuevo': nuevoValorEjecutado.toSql(),
+        'saldo_nuevo': nuevoSaldo.toSql(),
       },
       referenciaId: futId,
     );

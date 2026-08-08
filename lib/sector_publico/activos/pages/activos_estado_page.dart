@@ -13,6 +13,7 @@ import '../services/acta_responsabilidad_service.dart';
 import '../models/activo_estado.dart';
 import '../models/fondo_unidad_tesoreria.dart';
 import '../models/acta_responsabilidad.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../../../core/utils/currency_formatter.dart';
 
 class ActivosEstadoPage extends StatefulWidget {
@@ -344,7 +345,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
               onPressed: () async {
                 if (numInvCtrl.text.isEmpty || nombreCtrl.text.isEmpty || valorAdqCtrl.text.isEmpty || vidaUtilCtrl.text.isEmpty || marcaCtrl.text.isEmpty || modeloCtrl.text.isEmpty || serieCtrl.text.isEmpty) return;
                 try {
-                  final valorAdq = double.parse(valorAdqCtrl.text);
+                  final valorAdq = publicMoneyFromMajor(valorAdqCtrl.text);
                   await _activosService!.registrarActivo(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
@@ -355,7 +356,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                     modelo: modeloCtrl.text,
                     serie: serieCtrl.text,
                     valorAdquisicion: valorAdq,
-                    valorResidual: valorAdq * 0.1,
+                    valorResidual: valorAdq.multiplyDecimal('0.1'),
                     vidaUtilAnios: int.parse(vidaUtilCtrl.text),
                     fechaAdquisicion: DateTime.now(),
                     fechaPuestaEnMarcha: DateTime.now(),
@@ -486,7 +487,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
               onPressed: () async {
                 if (valorNuevoCtrl.text.isEmpty || peritoCtrl.text.isEmpty || dictamenCtrl.text.isEmpty || motivoCtrl.text.isEmpty) return;
                 try {
-                  final valorNuevo = double.parse(valorNuevoCtrl.text);
+                  final valorNuevo = publicMoneyFromMajor(valorNuevoCtrl.text);
                   await _revalorizacionService!.registrarRevalorizacion(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
@@ -568,7 +569,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                     terceroId: terceroIdCtrl.text,
                     terceroNombre: terceroNombreCtrl.text,
                     terceroIdentificacion: terceroIdentificacionCtrl.text,
-                    valorInicial: double.parse(valorCtrl.text),
+                    valorInicial: publicMoneyFromMajor(valorCtrl.text),
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
