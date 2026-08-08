@@ -940,3 +940,201 @@ Resultado: timeout a los 180 segundos, sin diagnosticos.
 
 `flutter build windows`, con stdout/stderr redirigidos, tampoco produjo bytes y
 agotó 300 segundos. No se declara build exitoso.
+
+## Estrategia alternativa para consumidores restantes 3A - 2026-08-08
+
+La prueba unica de binario `dart analyze lib/core/currency/money_value.dart`
+no respondio en 15 segundos. No se insistira con ese binario durante esta
+ronda.
+
+Verificacion alternativa por bloque:
+
+1. Tests Flutter dirigidos que importen y ejecuten el consumidor real del
+   bloque, incluyendo pruebas de persistencia INTEGER y calculo exacto.
+2. `dart format --output=none --set-exit-if-changed` sobre los archivos del
+   bloque, solo como chequeo rapido de formato/sintaxis si el binario responde.
+3. No se usaran `flutter analyze` ni `flutter build windows` globales en esta
+   ronda por el bloqueo estructural ya confirmado.
+
+Al cierre, Omar debe ejecutar manualmente en su entorno:
+
+```text
+flutter analyze
+flutter build windows
+```
+
+Estos dos comandos quedan pendientes de verificacion global por Omar.
+
+## Continuacion Fase 3A - verificacion alternativa y bloques restantes - 2026-08-08
+
+### Paso 0: diagnostico del bloqueo
+
+Se ejecuto una sola vez el analisis acotado solicitado:
+
+\`\`\`text
+dart analyze lib/core/currency/money_value.dart
+Resultado: no produjo salida y agoto el timeout de 15 segundos.
+\`\`\`
+
+Esto confirma que el bloqueo no es exclusivo de \`flutter analyze\`; el binario
+\`dart analyze\` tampoco respondio en esta sesion. La verificacion usada para
+los bloques fue:
+
+\`\`\`text
+flutter test <tests dirigidos del bloque> --reporter expanded
+dart format --output=none --set-exit-if-changed <archivos del bloque>
+\`\`\`
+
+No se relanzaron \`flutter analyze\` ni \`flutter build windows\` globales.
+Quedan pendientes para Omar al cierre:
+
+\`\`\`text
+flutter analyze
+flutter build windows
+\`\`\`
+
+### Bloque de documentos empresariales de ventas
+
+Se convirtieron 5 consumidores de produccion y su borde API compartido:
+
+- \`lib/sales/domain/sales_document.dart\`
+- \`lib/sales/data/sales_document_repository.dart\`
+- \`lib/sales/application/sales_command_handlers.dart\`
+- \`lib/sales/application/sales_query_handlers.dart\`
+- \`lib/sales/application/sales_projections.dart\`
+- \`lib/core/api/api_dispatcher.dart\` (borde compartido de ventas y Compras)
+
+Los importes del documento, sus lineas, eventos, proyecciones y persistencia
+usan \`MoneyValue\`; cantidades y tasas permanecen como \`double\`. El API
+resuelve la moneda antes de construir el comando. Se corrigio tambien el
+payload de reverso para que las proyecciones no reciban importes sin tipar.
+
+Evidencia cruda:
+
+\`\`\`text
+flutter test test/sales_enterprise_test.dart --reporter expanded
+
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart
+00:00 +0: SalesDocument enforce enterprise state machine and immutability
+00:00 +1: SalesCommandHandlers create, post, audit, events and analytics query
+00:00 +2: ApiDispatcher exposes enterprise sales document endpoints
+00:00 +3: All tests passed!
+\`\`\`
+
+\`\`\`text
+dart format --output=none --set-exit-if-changed lib/sales/domain/sales_document.dart lib/sales/data/sales_document_repository.dart lib/sales/application/sales_command_handlers.dart lib/sales/application/sales_query_handlers.dart lib/sales/application/sales_projections.dart lib/core/api/api_dispatcher.dart test/sales_enterprise_test.dart
+Formatted 7 files (0 changed)
+\`\`\`
+
+### Bloque de documentos empresariales de Compras
+
+Se convirtieron estos 5 consumidores de produccion:
+
+- \`lib/purchases/domain/purchase_document.dart\`
+- \`lib/purchases/data/purchase_document_repository.dart\`
+- \`lib/purchases/application/purchase_command_handlers.dart\`
+- \`lib/purchases/application/purchase_query_handlers.dart\`
+- \`lib/purchases/application/purchase_projections.dart\`
+
+El contrato de compra, presupuesto, impuestos, retenciones, saldos de
+proveedor, eventos y analytics usan \`MoneyValue\`. SQLite recibe unidades
+menores y las filas se rehidratan con la moneda resuelta de la empresa. La
+frontera heredada de contabilidad sigue expresando el asiento como \`double\`
+porque \`JournalEntry/JournalLine\` aún no fue convertido; se documenta como
+dependencia pendiente, sin cast dinamico ni division manual.
+
+Evidencia cruda:
+
+\`\`\`text
+flutter test test/purchases_enterprise_test.dart --reporter expanded
+
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart
+00:00 +0: PurchaseDocument enforces approvals, partial receipt, posting and reversal
+00:01 +1: PurchaseCommandHandlers integrate events, audit, supplier balance and analytics
+00:01 +2: ApiDispatcher exposes enterprise purchase endpoints
+00:01 +3: All tests passed!
+\`\`\`
+
+\`\`\`text
+dart format --output=none --set-exit-if-changed lib/purchases/domain/purchase_document.dart lib/purchases/data/purchase_document_repository.dart lib/purchases/application/purchase_command_handlers.dart lib/purchases/application/purchase_query_handlers.dart lib/purchases/application/purchase_projections.dart lib/core/api/api_dispatcher.dart test/purchases_enterprise_test.dart
+Formatted 7 files (0 changed)
+\`\`\`
+
+### Bloque de costos de inventario por lote
+
+Se convirtieron estos 3 consumidores:
+
+- \`lib/inventory/domain/stock_ledger.dart\`
+- \`lib/inventory/data/stock_ledger_repository.dart\`
+- \`lib/inventory/application/stock_ledger_service.dart\`
+
+Los costos por lote y consumos ahora usan \`MoneyValue\`, incluyendo FIFO,
+promedio ponderado, persistencia INTEGER y payloads de eventos. Las cantidades
+siguen siendo \`double\`. El flujo de Compras deja de convertir el costo de la
+linea a \`double\` al recibir inventario.
+
+Evidencia cruda:
+
+\`\`\`text
+flutter test test/architectural_consolidation_test.dart test/purchases_enterprise_test.dart --reporter expanded
+
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart
+00:00 +0: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica event bus persistente aplica scope, idempotencia y correlacion
+00:01 +1: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica ledger contabiliza, reversa y conserva partida doble
+00:01 +2: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica posting service persiste asientos y publica eventos
+00:01 +3: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica stock ledger consume FIFO y emite evento transaccional
+00:01 +4: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica api expone event store, replay y read model ejecutivo
+00:01 +5: loading C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart
+00:01 +5: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: PurchaseDocument enforces approvals, partial receipt, posting and reversal
+00:02 +6: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: PurchaseCommandHandlers integrate events, audit, supplier balance and analytics
+00:02 +7: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: ApiDispatcher exposes enterprise purchase endpoints
+00:02 +8: All tests passed!
+\`\`\`
+
+\`\`\`text
+dart format --output=none --set-exit-if-changed lib/inventory/domain/stock_ledger.dart lib/inventory/data/stock_ledger_repository.dart lib/inventory/application/stock_ledger_service.dart lib/purchases/application/purchase_command_handlers.dart test/architectural_consolidation_test.dart
+Formatted 5 files (0 changed)
+\`\`\`
+
+### Estado del turno
+
+Se convirtieron **14 consumidores de produccion de los 52 pendientes**:
+5 de Ventas, 5 de Compras, 3 de Inventario y el borde API compartido. Los
+tests dirigidos ejecutados en este turno pasaron: 3 de Ventas, 3 de Compras y
+5 arquitectónicos, con las pruebas de formato correspondientes.
+
+Quedan pendientes, entre otros, \`JournalEntry/JournalLine\` y sus repositorios,
+los modelos heredados \`Product\`/\`InventoryLot\`, \`InventoryControlService\`,
+pedidos/cotizaciones y los reportes/integraciones del inventario comercial.
+No se encontraron bugs adicionales de doble conteo en los bloques verificados;
+sí se detectó y aisló la frontera heredada de contabilidad que todavía usa
+\`double\`.
+
+Reejecucion conjunta final de los tres grupos:
+
+\`\`\`text
+flutter test test/sales_enterprise_test.dart test/purchases_enterprise_test.dart test/architectural_consolidation_test.dart --reporter expanded
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart
+00:00 +0: C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart: SalesDocument enforce enterprise state machine and immutability
+00:00 +1: C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart: SalesCommandHandlers create, post, audit, events and analytics query
+00:00 +2: C:/Users/PC/Desktop/Caja_simple/test/sales_enterprise_test.dart: ApiDispatcher exposes enterprise sales document endpoints
+00:00 +3: loading C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart
+00:00 +3: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: PurchaseDocument enforces approvals, partial receipt, posting and reversal
+00:00 +4: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: PurchaseCommandHandlers integrate events, audit, supplier balance and analytics
+00:01 +5: C:/Users/PC/Desktop/Caja_simple/test/purchases_enterprise_test.dart: ApiDispatcher exposes enterprise purchase endpoints
+00:01 +6: loading C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart
+00:01 +6: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica event bus persistente aplica scope, idempotencia y correlacion
+00:01 +7: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica ledger contabiliza, reversa y conserva partida doble
+00:01 +8: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica posting service persiste asientos y publica eventos
+00:01 +9: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica stock ledger consume FIFO y emite evento transaccional
+00:01 +10: C:/Users/PC/Desktop/Caja_simple/test/architectural_consolidation_test.dart: Consolidacion arquitectonica api expone event store, replay y read model ejecutivo
+00:01 +11: All tests passed!
+\`\`\`
+
+### Cierre de la conversion parcial 3A del 2026-08-08
+
+Estado: **Parcial**. Los bloques de ventas empresariales, Compras empresariales
+y costos por lote de inventario quedan convertidos y cubiertos por tests
+dirigidos. La Fase 3A no queda cerrada: faltan 38 consumidores del inventario
+de 52 y la verificacion global de analyze/build debe ejecutarla Omar.
+No se toca \`backend\`; su estado local preexistente se conserva.

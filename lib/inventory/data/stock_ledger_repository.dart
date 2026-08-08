@@ -1,7 +1,11 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/branch/branch_context.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../core/database/database_gateway.dart';
+import '../../db_helper.dart';
 import '../domain/stock_ledger.dart';
 
 abstract class StockLedgerRepository {
@@ -32,15 +36,19 @@ abstract class StockLedgerRepository {
 class SqliteStockLedgerRepository implements StockLedgerRepository {
   SqliteStockLedgerRepository({
     DatabaseGateway gateway = const SqliteDatabaseGateway(),
-  }) : _gateway = gateway;
+    DatabaseHelper? db,
+  }) : _gateway = gateway,
+       _db = db ?? DatabaseHelper.instance;
 
   final DatabaseGateway _gateway;
+  final DatabaseHelper _db;
 
   @override
   Future<StockLedger> load({
     required int productId,
     required BranchScope scope,
   }) async {
+    final currency = await _currencyFor(scope.companyId);
     final lots = await _gateway.query(
       'inventory_lots',
       where:
@@ -68,7 +76,7 @@ class SqliteStockLedgerRepository implements StockLedgerRepository {
     );
     return StockLedger(
       productId: productId,
-      lots: lots.map(_lotFromRow).toList(),
+      lots: lots.map((row) => _lotFromRow(row, currency)).toList(),
       reservations: reservations.map(_reservationFromRow).toList(),
     );
   }
@@ -147,7 +155,7 @@ class SqliteStockLedgerRepository implements StockLedgerRepository {
     'warehouse_id': scope.warehouseId,
     'product_id': lot.productId,
     'quantity': lot.quantity,
-    'unit_cost': lot.unitCost,
+    'unit_cost': lot.unitCost.toSql(),
     'batch_number': lot.batchNumber,
     'serial_number': lot.serialNumber,
     'received_at': lot.receivedAt.toIso8601String(),
@@ -170,12 +178,16 @@ class SqliteStockLedgerRepository implements StockLedgerRepository {
     'created_at': reservation.createdAt.toIso8601String(),
   };
 
-  StockLot _lotFromRow(Map<String, Object?> row) {
+  StockLot _lotFromRow(Map<String, Object?> row, Currency currency) {
     return StockLot(
       id: row['id']?.toString() ?? '',
       productId: (row['product_id'] as num?)?.toInt() ?? 0,
       quantity: (row['quantity'] as num?)?.toDouble() ?? 0,
-      unitCost: (row['unit_cost'] as num?)?.toDouble() ?? 0,
+      unitCost: MoneyValue.fromSql(
+        row['unit_cost'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
       receivedAt:
           DateTime.tryParse(row['received_at']?.toString() ?? '') ??
           DateTime.now(),
@@ -196,5 +208,10 @@ class SqliteStockLedgerRepository implements StockLedgerRepository {
           DateTime.tryParse(row['created_at']?.toString() ?? '') ??
           DateTime.now(),
     );
+  }
+
+  Future<Currency> _currencyFor(int companyId) async {
+    final database = await _db.database;
+    return MoneyCurrencyResolver.resolve(database, companyId: companyId);
   }
 }

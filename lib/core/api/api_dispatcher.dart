@@ -316,7 +316,7 @@ class ApiDispatcher {
           );
         case (ApiMethod.post, '/api/v1/sales/documents'):
           final result = await _salesCommands.create(
-            _createSalesDocumentCommand(request),
+            await _createSalesDocumentCommand(request),
           );
           return ApiResponse.ok(result.toMap(), statusCode: 201);
         case (ApiMethod.post, '/api/v1/sales/documents/post'):
@@ -373,7 +373,7 @@ class ApiDispatcher {
           );
         case (ApiMethod.post, '/api/v1/purchases/documents'):
           final result = await _purchaseCommands.create(
-            _createPurchaseDocumentCommand(request),
+            await _createPurchaseDocumentCommand(request),
           );
           return ApiResponse.ok(result.toMap(), statusCode: 201);
         case (ApiMethod.post, '/api/v1/purchases/documents/approve'):
@@ -758,10 +758,12 @@ class ApiDispatcher {
     );
   }
 
-  CreatePurchaseDocumentCommand _createPurchaseDocumentCommand(
+  Future<CreatePurchaseDocumentCommand> _createPurchaseDocumentCommand(
     ApiRequest request,
-  ) {
+  ) async {
     final body = request.body;
+    final currency = await _currencyResolver();
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
     return CreatePurchaseDocumentCommand(
       type:
           _purchaseType(body['type']?.toString()) ??
@@ -772,23 +774,30 @@ class ApiDispatcher {
       dueDate: _date(body['due_date']),
       country: body['country']?.toString() ?? 'Colombia',
       budgetCode: body['budget_code']?.toString(),
-      budgetAvailable: _double(body['budget_available']),
+      budgetAvailable: _apiMoney(
+        body['budget_available'],
+        currency,
+        fallback: zero,
+      ),
       retentionRate: _double(body['retention_rate']),
       userId: request.userId,
       role: request.role,
       correlationId: request.requestId,
       lines: _list(
         body['lines'] ?? body['items'],
-      ).map((item) => _purchaseDocumentLine(_map(item))).toList(),
+      ).map((item) => _purchaseDocumentLine(_map(item), currency)).toList(),
     );
   }
 
-  PurchaseDocumentLine _purchaseDocumentLine(Map<String, dynamic> item) {
+  PurchaseDocumentLine _purchaseDocumentLine(
+    Map<String, dynamic> item,
+    Currency currency,
+  ) {
     return PurchaseDocumentLine(
       productId: _int(item['product_id'] ?? item['producto_id'], fallback: 0),
       productName: (item['product'] ?? item['producto'] ?? '').toString(),
       quantity: _double(item['quantity'] ?? item['cantidad']),
-      unitCost: _double(item['unit_cost'] ?? item['costo']),
+      unitCost: _apiMoney(item['unit_cost'] ?? item['costo'], currency),
       receivedQuantity: _double(item['received_quantity']),
       taxCode: item['tax_code']?.toString() ?? 'EXEMPT',
       taxRate: _double(item['tax_rate'] ?? item['impuesto_pct']),
@@ -797,8 +806,11 @@ class ApiDispatcher {
     );
   }
 
-  CreateSalesDocumentCommand _createSalesDocumentCommand(ApiRequest request) {
+  Future<CreateSalesDocumentCommand> _createSalesDocumentCommand(
+    ApiRequest request,
+  ) async {
     final body = request.body;
+    final currency = await _currencyResolver();
     return CreateSalesDocumentCommand(
       type: _salesType(body['type']?.toString()) ?? SalesDocumentType.invoice,
       customerId: _nullableInt(body['customer_id']),
@@ -811,22 +823,32 @@ class ApiDispatcher {
       correlationId: request.requestId,
       lines: _list(
         body['lines'] ?? body['items'],
-      ).map((item) => _salesDocumentLine(_map(item))).toList(),
+      ).map((item) => _salesDocumentLine(_map(item), currency)).toList(),
     );
   }
 
-  SalesDocumentLine _salesDocumentLine(Map<String, dynamic> item) {
+  SalesDocumentLine _salesDocumentLine(
+    Map<String, dynamic> item,
+    Currency currency,
+  ) {
     final quantity = _double(item['quantity'] ?? item['cantidad']);
-    final unitPrice = _double(item['unit_price'] ?? item['precio']);
-    final discount = _double(item['discount'] ?? item['descuento']);
+    final unitPrice = _apiMoney(item['unit_price'] ?? item['precio'], currency);
+    final discount = _apiMoney(
+      item['discount'] ?? item['descuento'],
+      currency,
+      fallback: MoneyValue(minorUnits: 0, currency: currency),
+    );
     final taxRate = _double(item['tax_rate'] ?? item['impuesto_pct']);
-    final explicitSubtotal = _double(item['subtotal']);
-    final taxableBase = explicitSubtotal > 0
-        ? explicitSubtotal
-        : (quantity * unitPrice) - discount;
-    final taxTotal = _double(item['tax_total'] ?? item['impuesto_total']) != 0
-        ? _double(item['tax_total'] ?? item['impuesto_total'])
-        : taxableBase * taxRate / 100;
+    final calculatedSubtotal =
+        unitPrice.multiplyDecimal(quantity.toString()) - discount;
+    final explicitSubtotal = item['subtotal'];
+    final subtotal = explicitSubtotal == null
+        ? calculatedSubtotal
+        : _apiMoney(explicitSubtotal, currency);
+    final explicitTax = item['tax_total'] ?? item['impuesto_total'];
+    final taxTotal = explicitTax == null
+        ? subtotal.percent(taxRate.toString())
+        : _apiMoney(explicitTax, currency);
     return SalesDocumentLine(
       productId: _int(item['product_id'] ?? item['producto_id'], fallback: 0),
       productName: (item['product'] ?? item['producto'] ?? '').toString(),

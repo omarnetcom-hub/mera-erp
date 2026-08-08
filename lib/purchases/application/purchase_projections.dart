@@ -1,6 +1,8 @@
 import '../../core/database/database_gateway.dart';
 import '../../core/events/event_dispatcher.dart';
 import '../../core/events/event_store.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_value.dart';
 
 class PurchaseAnalyticsProjection implements EventProjection {
   PurchaseAnalyticsProjection({
@@ -15,16 +17,29 @@ class PurchaseAnalyticsProjection implements EventProjection {
   @override
   Future<void> apply(EventEnvelope event) async {
     if (!_supported.contains(event.name)) return;
-    final sign = event.name == 'PurchaseReversedEvent' ? -1.0 : 1.0;
+    final totalValue = event.payload['total'] ?? event.payload['amount'];
+    if (totalValue == null) return;
+    final sign = event.name == 'PurchaseReversedEvent' ? -1 : 1;
+    final total = _money(totalValue);
+    final zero = MoneyValue(minorUnits: 0, currency: total.currency);
+    final spend = total * sign;
+    final tax =
+        (event.payload['tax'] == null ? zero : _money(event.payload['tax'])) *
+        sign;
+    final retention =
+        (event.payload['retention'] == null
+            ? zero
+            : _money(event.payload['retention'])) *
+        sign;
     await _gateway.insert('purchase_analytics_read_model', {
       'company_id': event.companyId,
       'branch_id': event.branchId,
       'document_id':
           event.payload['purchase_id']?.toString() ?? event.aggregateId,
       'event_name': event.name,
-      'spend': _number(event.payload['total']) * sign,
-      'tax': _number(event.payload['tax']) * sign,
-      'retention': _number(event.payload['retention']) * sign,
+      'spend': spend.toSql(),
+      'tax': tax.toSql(),
+      'retention': retention.toSql(),
       'occurred_at': event.occurredAt.toIso8601String(),
       'correlation_id': event.correlationId,
     });
@@ -39,8 +54,24 @@ class PurchaseAnalyticsProjection implements EventProjection {
     'purchases.approved',
   };
 
-  double _number(Object? value) {
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
+  MoneyValue _money(Object? value) {
+    if (value is! Map) {
+      throw StateError('El evento de compra no contiene dinero tipado.');
+    }
+    final code = value['currency']?.toString().trim();
+    final scale = int.tryParse(value['scale']?.toString() ?? '');
+    final minorUnits = int.tryParse(value['minor_units']?.toString() ?? '');
+    if (code == null || code.isEmpty || scale == null || minorUnits == null) {
+      throw StateError('El importe del evento de compra es invalido.');
+    }
+    return MoneyValue(
+      minorUnits: minorUnits,
+      currency: Currency(
+        code: code,
+        name: code,
+        symbol: '',
+        decimalPlaces: scale,
+      ),
+    );
   }
 }

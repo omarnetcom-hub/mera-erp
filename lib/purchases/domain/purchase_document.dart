@@ -1,3 +1,4 @@
+import '../../core/currency/money_value.dart';
 import '../../core/events/domain_event.dart';
 
 enum PurchaseDocumentType {
@@ -27,21 +28,21 @@ class PurchaseTaxLine {
     required this.rate,
     required this.taxableBase,
     required this.tax,
-    this.retention = 0,
+    required this.retention,
   });
 
   final String code;
   final double rate;
-  final double taxableBase;
-  final double tax;
-  final double retention;
+  final MoneyValue taxableBase;
+  final MoneyValue tax;
+  final MoneyValue retention;
 
   Map<String, Object?> toMap() => {
     'code': code,
     'rate': rate,
-    'taxable_base': taxableBase,
-    'tax': tax,
-    'retention': retention,
+    'taxable_base': taxableBase.toSql(),
+    'tax': tax.toSql(),
+    'retention': retention.toSql(),
   };
 }
 
@@ -61,18 +62,18 @@ class PurchaseDocumentLine {
   final int productId;
   final String productName;
   final double quantity;
-  final double unitCost;
+  final MoneyValue unitCost;
   final double receivedQuantity;
   final String taxCode;
   final double taxRate;
   final double retentionRate;
   final int warehouseId;
 
-  double get subtotal => quantity * unitCost;
+  MoneyValue get subtotal => unitCost.multiplyDecimal(quantity.toString());
   double get pendingQuantity => quantity - receivedQuantity;
-  double get taxTotal => subtotal * taxRate / 100;
-  double get retentionTotal => subtotal * retentionRate / 100;
-  double get total => subtotal + taxTotal - retentionTotal;
+  MoneyValue get taxTotal => subtotal.percent(taxRate.toString());
+  MoneyValue get retentionTotal => subtotal.percent(retentionRate.toString());
+  MoneyValue get total => subtotal + taxTotal - retentionTotal;
 
   PurchaseDocumentLine receive(double quantityToReceive) {
     if (quantityToReceive <= 0) {
@@ -199,7 +200,7 @@ class PurchaseDocument {
     required this.lines,
     this.approvals = const [],
     this.budgetCode,
-    this.budgetAvailable = 0,
+    required this.budgetAvailable,
     this.approvedBy,
     this.postedAt,
     this.reversedDocumentId,
@@ -221,19 +222,28 @@ class PurchaseDocument {
   final List<PurchaseDocumentLine> lines;
   final List<ApprovalStep> approvals;
   final String? budgetCode;
-  final double budgetAvailable;
+  final MoneyValue budgetAvailable;
   final String? approvedBy;
   final DateTime? postedAt;
   final int? reversedDocumentId;
   final String? correlationId;
 
-  double get subtotal =>
-      lines.fold<double>(0, (sum, line) => sum + line.subtotal);
-  double get taxTotal =>
-      lines.fold<double>(0, (sum, line) => sum + line.taxTotal);
-  double get retentionTotal =>
-      lines.fold<double>(0, (sum, line) => sum + line.retentionTotal);
-  double get total => subtotal + taxTotal - retentionTotal;
+  MoneyValue get subtotal => _sum((line) => line.subtotal);
+  MoneyValue get taxTotal => _sum((line) => line.taxTotal);
+  MoneyValue get retentionTotal => _sum((line) => line.retentionTotal);
+  MoneyValue get total => subtotal + taxTotal - retentionTotal;
+
+  MoneyValue _sum(MoneyValue Function(PurchaseDocumentLine line) selector) {
+    if (lines.isEmpty) {
+      throw StateError('Un documento de compra requiere al menos una linea.');
+    }
+    final zero = MoneyValue(
+      minorUnits: 0,
+      currency: lines.first.unitCost.currency,
+    );
+    return lines.fold(zero, (sum, line) => sum + selector(line));
+  }
+
   double get receivedRatio {
     final quantity = lines.fold<double>(
       0,
@@ -346,7 +356,7 @@ class PurchaseDocument {
         'branch_id': branchId,
         'warehouse_id': warehouseId,
         'cost_center_id': costCenterId,
-        'total': total,
+        'total': total.toWireMap(),
         'approved_by': userId ?? approvedBy,
         'correlation_id': correlationId,
       },
@@ -398,11 +408,11 @@ class PurchaseDocument {
     'due_date': dueDate.toIso8601String(),
     'country': country,
     'budget_code': budgetCode,
-    'budget_available': budgetAvailable,
-    'subtotal': subtotal,
-    'tax_total': taxTotal,
-    'retention_total': retentionTotal,
-    'total': total,
+    'budget_available': budgetAvailable.toSql(),
+    'subtotal': subtotal.toSql(),
+    'tax_total': taxTotal.toSql(),
+    'retention_total': retentionTotal.toSql(),
+    'total': total.toSql(),
     'approved_by': approvedBy,
     'posted_at': postedAt?.toIso8601String(),
     'reversed_document_id': reversedDocumentId,
@@ -418,7 +428,9 @@ class PurchaseDocument {
       throw StateError('El proveedor es obligatorio.');
     }
     if (lines.isEmpty) throw StateError('La compra requiere lineas.');
-    if (lines.any((line) => line.quantity == 0 || line.unitCost < 0)) {
+    if (lines.any(
+      (line) => line.quantity == 0 || line.unitCost.minorUnits < 0,
+    )) {
       throw StateError(
         'Las lineas de compra deben tener cantidades y costos validos.',
       );
@@ -446,7 +458,9 @@ class PurchaseDocument {
   }
 
   void _validateBudget() {
-    if (budgetCode != null && budgetAvailable > 0 && total > budgetAvailable) {
+    if (budgetCode != null &&
+        budgetAvailable.minorUnits > 0 &&
+        total > budgetAvailable) {
       throw StateError('Presupuesto insuficiente para $budgetCode.');
     }
   }
@@ -548,9 +562,9 @@ class SupplierInvoicePostedEvent extends IntegrationEvent {
     required int companyId,
     required int branchId,
     required int supplierId,
-    required double total,
-    required double tax,
-    required double retention,
+    required MoneyValue total,
+    required MoneyValue tax,
+    required MoneyValue retention,
     String? correlationId,
   }) : super(
          name: 'SupplierInvoicePostedEvent',
@@ -561,9 +575,9 @@ class SupplierInvoicePostedEvent extends IntegrationEvent {
            'company_id': companyId,
            'branch_id': branchId,
            'supplier_id': supplierId,
-           'total': total,
-           'tax': tax,
-           'retention': retention,
+           'total': total.toWireMap(),
+           'tax': tax.toWireMap(),
+           'retention': retention.toWireMap(),
            'correlation_id': correlationId,
          },
        );
@@ -597,7 +611,7 @@ class SupplierBalanceUpdatedEvent extends IntegrationEvent {
     required int supplierId,
     required int companyId,
     required int branchId,
-    required double amount,
+    required MoneyValue amount,
     String? correlationId,
   }) : super(
          name: 'SupplierBalanceUpdatedEvent',
@@ -607,7 +621,7 @@ class SupplierBalanceUpdatedEvent extends IntegrationEvent {
            'supplier_id': supplierId,
            'company_id': companyId,
            'branch_id': branchId,
-           'amount': amount,
+           'amount': amount.toWireMap(),
            'correlation_id': correlationId,
          },
        );

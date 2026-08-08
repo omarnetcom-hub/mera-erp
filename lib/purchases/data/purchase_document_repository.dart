@@ -1,6 +1,9 @@
 import 'dart:convert';
 
 import '../../core/branch/branch_context.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../core/database/database_gateway.dart';
 import '../../db_helper.dart';
 import '../domain/purchase_document.dart';
@@ -26,7 +29,7 @@ abstract class PurchaseDocumentRepository {
     required int branchId,
     required int supplierId,
     required String supplierName,
-    required double delta,
+    required MoneyValue delta,
   });
 }
 
@@ -87,6 +90,7 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
   @override
   Future<PurchaseDocument?> findById(int id) async {
     final scope = await _scope.current();
+    final currency = await _currencyFor(scope.companyId);
     final rows = await _gateway.query(
       'purchase_documents',
       where: 'id = ? AND company_id = ? AND branch_id = ?',
@@ -106,11 +110,12 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
       whereArgs: [id, scope.companyId],
       orderBy: 'level ASC',
     );
-    return _fromRows(rows.first, lines, approvals);
+    return _fromRows(rows.first, lines, approvals, currency: currency);
   }
 
   @override
   Future<List<PurchaseDocument>> search(PurchaseDocumentQuery query) async {
+    final currency = await _currencyFor(query.companyId);
     final clauses = ['company_id = ?'];
     final args = <Object?>[query.companyId];
     if (query.branchId != null) {
@@ -155,7 +160,7 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
         whereArgs: [id, query.companyId],
         orderBy: 'level ASC',
       );
-      result.add(_fromRows(row, lines, approvals));
+      result.add(_fromRows(row, lines, approvals, currency: currency));
     }
     return result;
   }
@@ -166,10 +171,10 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
       'purchase_documents',
       {
         'state': document.state.name,
-        'subtotal': document.subtotal,
-        'tax_total': document.taxTotal,
-        'retention_total': document.retentionTotal,
-        'total': document.total,
+        'subtotal': document.subtotal.toSql(),
+        'tax_total': document.taxTotal.toSql(),
+        'retention_total': document.retentionTotal.toSql(),
+        'total': document.total.toSql(),
         'approved_by': document.approvedBy,
         'posted_at': document.postedAt?.toIso8601String(),
         'reversed_document_id': document.reversedDocumentId,
@@ -234,7 +239,7 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
     required int branchId,
     required int supplierId,
     required String supplierName,
-    required double delta,
+    required MoneyValue delta,
   }) async {
     final rows = await _gateway.query(
       'supplier_balances',
@@ -249,15 +254,23 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
         'branch_id': branchId,
         'supplier_id': supplierId,
         'supplier': supplierName,
-        'balance': delta,
+        'balance': delta.toSql(),
         'updated_at': now,
       });
       return;
     }
-    final current = (rows.first['balance'] as num?)?.toDouble() ?? 0;
+    final current = MoneyValue.fromSql(
+      rows.first['balance'],
+      currency: delta.currency,
+      nullableAsZero: true,
+    );
     await _gateway.update(
       'supplier_balances',
-      {'supplier': supplierName, 'balance': current + delta, 'updated_at': now},
+      {
+        'supplier': supplierName,
+        'balance': (current + delta).toSql(),
+        'updated_at': now,
+      },
       where: 'company_id = ? AND branch_id = ? AND supplier_id = ?',
       whereArgs: [companyId, branchId, supplierId],
     );
@@ -276,11 +289,11 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
     'due_date': document.dueDate.toIso8601String(),
     'country': document.country,
     'budget_code': document.budgetCode,
-    'budget_available': document.budgetAvailable,
-    'subtotal': document.subtotal,
-    'tax_total': document.taxTotal,
-    'retention_total': document.retentionTotal,
-    'total': document.total,
+    'budget_available': document.budgetAvailable.toSql(),
+    'subtotal': document.subtotal.toSql(),
+    'tax_total': document.taxTotal.toSql(),
+    'retention_total': document.retentionTotal.toSql(),
+    'total': document.total.toSql(),
     'approved_by': document.approvedBy,
     'posted_at': document.postedAt?.toIso8601String(),
     'reversed_document_id': document.reversedDocumentId,
@@ -303,14 +316,14 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
     'product': line.productName,
     'quantity': line.quantity,
     'received_quantity': line.receivedQuantity,
-    'unit_cost': line.unitCost,
+    'unit_cost': line.unitCost.toSql(),
     'tax_code': line.taxCode,
     'tax_rate': line.taxRate,
     'retention_rate': line.retentionRate,
-    'tax_total': line.taxTotal,
-    'retention_total': line.retentionTotal,
-    'subtotal': line.subtotal,
-    'total': line.total,
+    'tax_total': line.taxTotal.toSql(),
+    'retention_total': line.retentionTotal.toSql(),
+    'subtotal': line.subtotal.toSql(),
+    'total': line.total.toSql(),
   };
 
   Map<String, Object?> _approvalRow(
@@ -332,8 +345,9 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
   PurchaseDocument _fromRows(
     Map<String, Object?> row,
     List<Map<String, Object?>> lineRows,
-    List<Map<String, Object?>> approvalRows,
-  ) {
+    List<Map<String, Object?>> approvalRows, {
+    required Currency currency,
+  }) {
     final issueDate =
         DateTime.tryParse(row['issue_date']?.toString() ?? '') ??
         DateTime.now();
@@ -358,7 +372,11 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
           DateTime.tryParse(row['due_date']?.toString() ?? '') ?? issueDate,
       country: row['country']?.toString() ?? 'Colombia',
       budgetCode: row['budget_code']?.toString(),
-      budgetAvailable: (row['budget_available'] as num?)?.toDouble() ?? 0,
+      budgetAvailable: MoneyValue.fromSql(
+        row['budget_available'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
       approvedBy: row['approved_by']?.toString(),
       postedAt: DateTime.tryParse(row['posted_at']?.toString() ?? ''),
       reversedDocumentId: (row['reversed_document_id'] as num?)?.toInt(),
@@ -369,7 +387,11 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
               productId: (line['product_id'] as num?)?.toInt() ?? 0,
               productName: line['product']?.toString() ?? '',
               quantity: (line['quantity'] as num?)?.toDouble() ?? 0,
-              unitCost: (line['unit_cost'] as num?)?.toDouble() ?? 0,
+              unitCost: MoneyValue.fromSql(
+                line['unit_cost'],
+                currency: currency,
+                nullableAsZero: true,
+              ),
               receivedQuantity:
                   (line['received_quantity'] as num?)?.toDouble() ?? 0,
               taxCode: line['tax_code']?.toString() ?? 'EXEMPT',
@@ -395,5 +417,10 @@ class SqlitePurchaseDocumentRepository implements PurchaseDocumentRepository {
           )
           .toList(),
     );
+  }
+
+  Future<Currency> _currencyFor(int companyId) async {
+    final database = await _db.database;
+    return MoneyCurrencyResolver.resolve(database, companyId: companyId);
   }
 }

@@ -62,7 +62,7 @@ class _TaxService extends PurchaseTaxService {
 class _Documents implements PurchaseDocumentRepository {
   final documents = <int, PurchaseDocument>{};
   final audit = <String>[];
-  final balances = <int, double>{};
+  final balances = <int, MoneyValue>{};
   int nextId = 1;
 
   @override
@@ -118,9 +118,9 @@ class _Documents implements PurchaseDocumentRepository {
     required int branchId,
     required int supplierId,
     required String supplierName,
-    required double delta,
+    required MoneyValue delta,
   }) async {
-    balances[supplierId] = (balances[supplierId] ?? 0) + delta;
+    balances[supplierId] = (balances[supplierId] ?? zeroTestMoney) + delta;
   }
 
   PurchaseDocument _withId(PurchaseDocument document, int id) {
@@ -223,17 +223,17 @@ void main() {
         dueDate: DateTime(2026, 6, 26),
         country: 'Colombia',
         budgetCode: 'OPS',
-        budgetAvailable: 5000,
+        budgetAvailable: testMoney('5000'),
         approvals: const [
           ApprovalStep(level: 1, approverRole: 'operador', slaHours: 12),
           ApprovalStep(level: 2, approverRole: 'contador', slaHours: 24),
         ],
-        lines: const [
+        lines: [
           PurchaseDocumentLine(
             productId: 8,
             productName: 'Insumo',
             quantity: 10,
-            unitCost: 100,
+            unitCost: testMoney('100'),
             taxCode: 'IVA_19',
             taxRate: 19,
             retentionRate: 2.5,
@@ -253,7 +253,7 @@ void main() {
       expect(partial.state, PurchaseDocumentState.partiallyReceived);
       expect(received.state, PurchaseDocumentState.received);
       expect(posted.state, PurchaseDocumentState.posted);
-      expect(posted.total, 1165);
+      expect(posted.total, testMoney('1165'));
       expect(() => posted.cancel(), throwsStateError);
     },
   );
@@ -275,7 +275,7 @@ void main() {
       );
 
       final created = await commands.create(
-        const CreatePurchaseDocumentCommand(
+        CreatePurchaseDocumentCommand(
           type: PurchaseDocumentType.purchaseOrder,
           supplierId: 11,
           supplierName: 'Proveedor enterprise',
@@ -283,13 +283,13 @@ void main() {
           role: 'administrador',
           retentionRate: 2,
           budgetCode: 'OPS',
-          budgetAvailable: 2000000,
+          budgetAvailable: testMoney('2000000'),
           lines: [
             PurchaseDocumentLine(
               productId: 5,
               productName: 'Materia prima',
               quantity: 2,
-              unitCost: 600000,
+              unitCost: testMoney('600000'),
             ),
           ],
         ),
@@ -350,7 +350,10 @@ void main() {
         events.events.map((event) => event.name),
         contains('SupplierInvoicePostedEvent'),
       );
-      expect(analytics['spend'], posted.document.total);
+      expect(
+        (analytics['spend'] as Map<String, Object?>)['minor_units'],
+        posted.document.total.minorUnits,
+      );
     },
   );
 
@@ -373,6 +376,7 @@ void main() {
       purchases: _Purchases(),
       purchaseCommands: commands,
       purchaseQueries: queries,
+      currencyResolver: () async => testCop,
     );
 
     final create = await dispatcher.dispatch(

@@ -1,3 +1,4 @@
+import '../../core/currency/money_value.dart';
 import '../../core/events/domain_event.dart';
 
 enum SalesDocumentType {
@@ -19,32 +20,22 @@ enum SalesDocumentState {
 }
 
 class MoneyAmount {
-  const MoneyAmount(this.value, {this.currency = 'COP'});
+  const MoneyAmount(this.value);
 
-  final double value;
-  final String currency;
+  final MoneyValue value;
+  String get currency => value.currencyCode;
 
   MoneyAmount operator +(MoneyAmount other) {
-    _assertSameCurrency(other);
-    return MoneyAmount(value + other.value, currency: currency);
+    return MoneyAmount(value + other.value);
   }
 
   MoneyAmount operator -(MoneyAmount other) {
-    _assertSameCurrency(other);
-    return MoneyAmount(value - other.value, currency: currency);
+    return MoneyAmount(value - other.value);
   }
 
-  bool get isZero => value.abs() < 0.01;
+  bool get isZero => value.minorUnits == 0;
 
-  void _assertSameCurrency(MoneyAmount other) {
-    if (currency != other.currency) {
-      throw StateError(
-        'No se pueden mezclar monedas $currency y ${other.currency}.',
-      );
-    }
-  }
-
-  Map<String, Object?> toMap() => {'value': value, 'currency': currency};
+  Map<String, Object?> toMap() => value.toWireMap();
 }
 
 class SalesDocumentLine {
@@ -62,25 +53,26 @@ class SalesDocumentLine {
   final int productId;
   final String productName;
   final double quantity;
-  final double unitPrice;
-  final double discount;
+  final MoneyValue unitPrice;
+  final MoneyValue discount;
   final double taxRate;
-  final double taxTotal;
+  final MoneyValue taxTotal;
   final int warehouseId;
 
-  double get subtotal => (quantity * unitPrice) - discount;
-  double get total => subtotal + taxTotal;
+  MoneyValue get subtotal =>
+      unitPrice.multiplyDecimal(quantity.toString()) - discount;
+  MoneyValue get total => subtotal + taxTotal;
 
   Map<String, Object?> toMap() => {
     'product_id': productId,
     'product': productName,
     'quantity': quantity,
-    'unit_price': unitPrice,
-    'discount': discount,
+    'unit_price': unitPrice.toSql(),
+    'discount': discount.toSql(),
     'tax_rate': taxRate,
-    'tax_total': taxTotal,
-    'subtotal': subtotal,
-    'total': total,
+    'tax_total': taxTotal.toSql(),
+    'subtotal': subtotal.toSql(),
+    'total': total.toSql(),
     'warehouse_id': warehouseId,
   };
 }
@@ -143,10 +135,22 @@ class SalesDocument {
   final int? reversedDocumentId;
   final String? correlationId;
 
-  double get subtotal => lines.fold(0, (sum, line) => sum + line.subtotal);
-  double get taxTotal => lines.fold(0, (sum, line) => sum + line.taxTotal);
-  double get discountTotal => lines.fold(0, (sum, line) => sum + line.discount);
-  double get total => subtotal + taxTotal;
+  MoneyValue get subtotal => _sum((line) => line.subtotal);
+  MoneyValue get taxTotal => _sum((line) => line.taxTotal);
+  MoneyValue get discountTotal => _sum((line) => line.discount);
+  MoneyValue get total => subtotal + taxTotal;
+
+  MoneyValue _sum(MoneyValue Function(SalesDocumentLine line) selector) {
+    if (lines.isEmpty) {
+      throw StateError('Un documento comercial requiere al menos una linea.');
+    }
+    final zero = MoneyValue(
+      minorUnits: 0,
+      currency: lines.first.unitPrice.currency,
+    );
+    return lines.fold(zero, (sum, line) => sum + selector(line));
+  }
+
   bool get immutable =>
       state == SalesDocumentState.posted ||
       state == SalesDocumentState.reversed;
@@ -215,10 +219,10 @@ class SalesDocument {
     'customer': customerName,
     'issue_date': issueDate.toIso8601String(),
     'payment_term': paymentTerm.toMap(),
-    'subtotal': subtotal,
-    'discount_total': discountTotal,
-    'tax_total': taxTotal,
-    'total': total,
+    'subtotal': subtotal.toSql(),
+    'discount_total': discountTotal.toSql(),
+    'tax_total': taxTotal.toSql(),
+    'total': total.toSql(),
     'approved_by': approvedBy,
     'posted_at': postedAt?.toIso8601String(),
     'reversed_document_id': reversedDocumentId,
@@ -241,7 +245,9 @@ class SalesDocument {
     if (customerName.trim().isEmpty) {
       throw StateError('El cliente es obligatorio.');
     }
-    if (lines.any((line) => line.quantity <= 0 || line.unitPrice < 0)) {
+    if (lines.any(
+      (line) => line.quantity <= 0 || line.unitPrice.minorUnits < 0,
+    )) {
       throw StateError('Las lineas deben tener cantidades y precios validos.');
     }
   }
@@ -307,8 +313,8 @@ class SalePostedEvent extends IntegrationEvent {
     required int branchId,
     required int warehouseId,
     required int costCenterId,
-    required double total,
-    required double tax,
+    required MoneyValue total,
+    required MoneyValue tax,
     int? customerId,
     String? userId,
     String? correlationId,
@@ -323,8 +329,8 @@ class SalePostedEvent extends IntegrationEvent {
            'warehouse_id': warehouseId,
            'cost_center_id': costCenterId,
            'customer_id': customerId,
-           'total': total,
-           'tax': tax,
+           'total': total.toWireMap(),
+           'tax': tax.toWireMap(),
            'user_id': userId,
            'correlation_id': correlationId,
          },
@@ -358,8 +364,8 @@ class TaxCalculatedEvent extends IntegrationEvent {
     required int documentId,
     required int companyId,
     required int branchId,
-    required double taxableBase,
-    required double tax,
+    required MoneyValue taxableBase,
+    required MoneyValue tax,
     String? correlationId,
   }) : super(
          name: 'TaxCalculatedEvent',
@@ -370,8 +376,8 @@ class TaxCalculatedEvent extends IntegrationEvent {
            'document_id': documentId,
            'company_id': companyId,
            'branch_id': branchId,
-           'taxable_base': taxableBase,
-           'tax': tax,
+           'taxable_base': taxableBase.toWireMap(),
+           'tax': tax.toWireMap(),
            'correlation_id': correlationId,
          },
        );

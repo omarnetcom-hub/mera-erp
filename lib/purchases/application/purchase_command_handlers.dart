@@ -1,6 +1,7 @@
 import '../../accounting/application/accounting_posting_service.dart';
 import '../../accounting/domain/journal_entry.dart';
 import '../../core/branch/branch_context.dart';
+import '../../core/currency/money_value.dart';
 import '../../core/events/domain_event.dart';
 import '../../core/security/action_permission.dart';
 import '../../inventory/application/stock_ledger_service.dart';
@@ -24,7 +25,7 @@ class CreatePurchaseDocumentCommand {
     this.dueDate,
     this.country = 'Colombia',
     this.budgetCode,
-    this.budgetAvailable = 0,
+    required this.budgetAvailable,
     this.retentionRate = 0,
     this.correlationId,
   });
@@ -39,7 +40,7 @@ class CreatePurchaseDocumentCommand {
   final DateTime? dueDate;
   final String country;
   final String? budgetCode;
-  final double budgetAvailable;
+  final MoneyValue budgetAvailable;
   final double retentionRate;
   final String? correlationId;
 }
@@ -175,7 +176,10 @@ class PurchaseCommandHandlers {
     await _enqueueSync(saved, SyncOperation.create);
     _telemetry.log(
       name: 'purchases.document.created',
-      attributes: {'document_id': id, 'total': saved.total},
+      attributes: {
+        'document_id': id,
+        'total': saved.total.toMajorUnitsString(),
+      },
     );
     return PurchaseCommandResult(saved);
   }
@@ -286,7 +290,10 @@ class PurchaseCommandHandlers {
     await _enqueueSync(posted, SyncOperation.update);
     _telemetry.log(
       name: 'purchases.invoice.posted',
-      attributes: {'document_id': command.documentId, 'total': posted.total},
+      attributes: {
+        'document_id': command.documentId,
+        'total': posted.total.toMajorUnitsString(),
+      },
     );
     return PurchaseCommandResult(posted);
   }
@@ -311,6 +318,7 @@ class PurchaseCommandHandlers {
       issueDate: DateTime.now(),
       dueDate: DateTime.now(),
       country: existing.country,
+      budgetAvailable: existing.budgetAvailable,
       lines: existing.lines.map((line) => line.reversed()).toList(),
       reversedDocumentId: existing.id,
       correlationId: existing.correlationId,
@@ -353,11 +361,14 @@ class PurchaseCommandHandlers {
   }
 
   List<ApprovalStep> _approvalPolicy(CreatePurchaseDocumentCommand command) {
-    final amount = command.lines.fold<double>(
-      0,
-      (sum, line) => sum + (line.quantity * line.unitCost),
+    final amount = command.lines.fold<MoneyValue>(
+      MoneyValue(
+        minorUnits: 0,
+        currency: command.lines.first.unitCost.currency,
+      ),
+      (sum, line) => sum + line.subtotal,
     );
-    if (amount <= 1000000) {
+    if (amount.minorUnits <= 100000000) {
       return const [
         ApprovalStep(level: 1, approverRole: 'operador', slaHours: 24),
       ];
@@ -389,31 +400,31 @@ class PurchaseCommandHandlers {
         JournalLine(
           accountCode: '1435',
           description: 'Inventario recibido',
-          debit: document.subtotal,
+          debit: document.subtotal.toMajorUnitsDoubleForDisplay(),
           credit: 0,
           dimension: dimension,
         ),
-        if (document.taxTotal > 0)
+        if (document.taxTotal.minorUnits > 0)
           JournalLine(
             accountCode: '1355',
             description: 'Impuesto descontable',
-            debit: document.taxTotal,
+            debit: document.taxTotal.toMajorUnitsDoubleForDisplay(),
             credit: 0,
             dimension: dimension,
           ),
-        if (document.retentionTotal > 0)
+        if (document.retentionTotal.minorUnits > 0)
           JournalLine(
             accountCode: '2365',
             description: 'Retenciones practicadas',
             debit: 0,
-            credit: document.retentionTotal,
+            credit: document.retentionTotal.toMajorUnitsDoubleForDisplay(),
             dimension: dimension,
           ),
         JournalLine(
           accountCode: '2205',
           description: 'Proveedor ${document.supplierName}',
           debit: 0,
-          credit: document.total,
+          credit: document.total.toMajorUnitsDoubleForDisplay(),
           dimension: dimension,
         ),
       ],

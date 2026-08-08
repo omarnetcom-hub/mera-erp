@@ -1,4 +1,5 @@
 import '../../core/branch/branch_context.dart';
+import '../../core/currency/money_value.dart';
 import '../data/purchase_document_repository.dart';
 import '../domain/purchase_document.dart';
 
@@ -59,16 +60,13 @@ class PurchaseQueryHandlers {
         limit: 1000,
       ),
     );
-    final spend = posted.fold<double>(0, (sum, item) => sum + item.total);
-    final taxes = posted.fold<double>(0, (sum, item) => sum + item.taxTotal);
-    final retentions = posted.fold<double>(
-      0,
-      (sum, item) => sum + item.retentionTotal,
-    );
-    final payableForecast = [
+    final spend = _sum(posted, (item) => item.total);
+    final taxes = _sum(posted, (item) => item.taxTotal);
+    final retentions = _sum(posted, (item) => item.retentionTotal);
+    final payableForecast = _sum([
       ...posted,
       ...received,
-    ].fold<double>(0, (sum, item) => sum + item.total);
+    ], (item) => item.total);
     return {
       'company_id': scope.companyId,
       'branch_id': scope.branchId,
@@ -76,11 +74,26 @@ class PurchaseQueryHandlers {
       'posted_documents': posted.length,
       'pending_approvals': pending.length,
       'received_not_posted': received.length,
-      'spend': spend,
-      'taxes': taxes,
-      'retentions': retentions,
-      'payable_forecast': payableForecast,
-      'average_purchase': posted.isEmpty ? 0 : spend / posted.length,
+      'spend': spend?.toWireMap(),
+      'taxes': taxes?.toWireMap(),
+      'retentions': retentions?.toWireMap(),
+      'payable_forecast': payableForecast?.toWireMap(),
+      'average_purchase': spend == null
+          ? null
+          : (spend / posted.length).toWireMap(),
     };
+  }
+
+  MoneyValue? _sum(
+    List<PurchaseDocument> documents,
+    MoneyValue Function(PurchaseDocument document) selector,
+  ) {
+    if (documents.isEmpty) return null;
+    final first = selector(documents.first);
+    final zero = MoneyValue(minorUnits: 0, currency: first.currency);
+    return documents.fold<MoneyValue>(
+      zero,
+      (sum, document) => sum + selector(document),
+    );
   }
 }

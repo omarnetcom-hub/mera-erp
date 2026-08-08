@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import '../../core/branch/branch_context.dart';
 import '../../core/database/database_gateway.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
 import '../../db_helper.dart';
 import '../domain/sales_document.dart';
 
@@ -70,12 +73,12 @@ class SqliteSalesDocumentRepository implements SalesDocumentRepository {
           'product_id': line.productId,
           'product': line.productName,
           'quantity': line.quantity,
-          'unit_price': line.unitPrice,
-          'discount': line.discount,
+          'unit_price': line.unitPrice.toSql(),
+          'discount': line.discount.toSql(),
           'tax_rate': line.taxRate,
-          'tax_total': line.taxTotal,
-          'subtotal': line.subtotal,
-          'total': line.total,
+          'tax_total': line.taxTotal.toSql(),
+          'subtotal': line.subtotal.toSql(),
+          'total': line.total.toSql(),
         });
       }
       return id;
@@ -98,7 +101,11 @@ class SqliteSalesDocumentRepository implements SalesDocumentRepository {
       whereArgs: [id, scope.companyId],
       orderBy: 'id ASC',
     );
-    return _fromRows(rows.first, lines);
+    return _fromRows(
+      rows.first,
+      lines,
+      currency: await _currencyForCompany(scope.companyId),
+    );
   }
 
   @override
@@ -142,7 +149,13 @@ class SqliteSalesDocumentRepository implements SalesDocumentRepository {
         whereArgs: [id, query.companyId],
         orderBy: 'id ASC',
       );
-      result.add(_fromRows(row, lines));
+      result.add(
+        _fromRows(
+          row,
+          lines,
+          currency: await _currencyForCompany(query.companyId),
+        ),
+      );
     }
     return result;
   }
@@ -202,10 +215,10 @@ class SqliteSalesDocumentRepository implements SalesDocumentRepository {
     'due_date': document.paymentTerm.dueDate.toIso8601String(),
     'payment_method': document.paymentTerm.method,
     'credit_days': document.paymentTerm.creditDays,
-    'subtotal': document.subtotal,
-    'discount_total': document.discountTotal,
-    'tax_total': document.taxTotal,
-    'total': document.total,
+    'subtotal': document.subtotal.toSql(),
+    'discount_total': document.discountTotal.toSql(),
+    'tax_total': document.taxTotal.toSql(),
+    'total': document.total.toSql(),
     'approved_by': document.approvedBy,
     'posted_at': document.postedAt?.toIso8601String(),
     'reversed_document_id': document.reversedDocumentId,
@@ -216,8 +229,9 @@ class SqliteSalesDocumentRepository implements SalesDocumentRepository {
 
   SalesDocument _fromRows(
     Map<String, Object?> row,
-    List<Map<String, Object?>> lineRows,
-  ) {
+    List<Map<String, Object?>> lineRows, {
+    required Currency currency,
+  }) {
     final issueDate = DateTime.parse(row['issue_date'].toString());
     final dueDate =
         DateTime.tryParse(row['due_date']?.toString() ?? '') ?? issueDate;
@@ -249,10 +263,22 @@ class SqliteSalesDocumentRepository implements SalesDocumentRepository {
               productId: (line['product_id'] as num?)?.toInt() ?? 0,
               productName: line['product']?.toString() ?? '',
               quantity: (line['quantity'] as num?)?.toDouble() ?? 0,
-              unitPrice: (line['unit_price'] as num?)?.toDouble() ?? 0,
-              discount: (line['discount'] as num?)?.toDouble() ?? 0,
+              unitPrice: MoneyValue.fromSql(
+                line['unit_price'],
+                currency: currency,
+                nullableAsZero: true,
+              ),
+              discount: MoneyValue.fromSql(
+                line['discount'],
+                currency: currency,
+                nullableAsZero: true,
+              ),
               taxRate: (line['tax_rate'] as num?)?.toDouble() ?? 0,
-              taxTotal: (line['tax_total'] as num?)?.toDouble() ?? 0,
+              taxTotal: MoneyValue.fromSql(
+                line['tax_total'],
+                currency: currency,
+                nullableAsZero: true,
+              ),
               warehouseId: (line['warehouse_id'] as num?)?.toInt() ?? 1,
             ),
           )
@@ -261,6 +287,13 @@ class SqliteSalesDocumentRepository implements SalesDocumentRepository {
       postedAt: DateTime.tryParse(row['posted_at']?.toString() ?? ''),
       reversedDocumentId: (row['reversed_document_id'] as num?)?.toInt(),
       correlationId: row['correlation_id']?.toString(),
+    );
+  }
+
+  Future<Currency> _currencyForCompany(int companyId) async {
+    return MoneyCurrencyResolver.resolve(
+      await _db.database,
+      companyId: companyId,
     );
   }
 }

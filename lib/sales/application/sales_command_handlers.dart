@@ -218,6 +218,8 @@ class SalesCommandHandlers {
           'company_id': existing.companyId,
           'branch_id': existing.branchId,
           'reason': command.reason,
+          'total': existing.total.toWireMap(),
+          'tax': existing.taxTotal.toWireMap(),
         },
       ),
     );

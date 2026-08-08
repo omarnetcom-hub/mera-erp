@@ -1,4 +1,5 @@
 import '../../core/branch/branch_context.dart';
+import '../../core/currency/money_value.dart';
 import '../data/sales_document_repository.dart';
 import '../domain/sales_document.dart';
 
@@ -51,21 +52,29 @@ class SalesQueryHandlers {
         limit: 1000,
       ),
     );
-    final revenue = posted.fold<double>(0, (sum, item) => sum + item.total);
-    final taxes = posted.fold<double>(0, (sum, item) => sum + item.taxTotal);
+    MoneyValue? revenue;
+    MoneyValue? taxes;
+    for (final item in posted) {
+      revenue = revenue == null ? item.total : revenue! + item.total;
+      taxes = taxes == null ? item.taxTotal : taxes! + item.taxTotal;
+    }
     final credit = posted
         .where((item) => item.paymentTerm.isCredit)
-        .fold<double>(0, (sum, item) => sum + item.total);
+        .fold<MoneyValue?>(null, (sum, item) {
+          return sum == null ? item.total : sum + item.total;
+        });
     return {
       'company_id': scope.companyId,
       'branch_id': scope.branchId,
       'warehouse_id': scope.warehouseId,
       'posted_documents': posted.length,
       'pending_documents': pending.length,
-      'revenue': revenue,
-      'taxes': taxes,
-      'credit_exposure': credit,
-      'average_ticket': posted.isEmpty ? 0 : revenue / posted.length,
+      'revenue': revenue?.toWireMap(),
+      'taxes': taxes?.toWireMap(),
+      'credit_exposure': credit?.toWireMap(),
+      'average_ticket': posted.isEmpty
+          ? null
+          : (revenue! / posted.length).toWireMap(),
     };
   }
 }

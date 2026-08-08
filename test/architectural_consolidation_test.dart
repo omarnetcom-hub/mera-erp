@@ -98,14 +98,14 @@ void main() {
           id: 'L1',
           productId: 1,
           quantity: 5,
-          unitCost: 10,
+          unitCost: testMoney('10'),
           receivedAt: DateTime(2026, 1, 1),
         ),
         StockLot(
           id: 'L2',
           productId: 1,
           quantity: 5,
-          unitCost: 20,
+          unitCost: testMoney('20'),
           receivedAt: DateTime(2026, 1, 2),
         ),
       ]);
@@ -124,7 +124,7 @@ void main() {
         documentId: 'FV-1',
       );
 
-      expect(result.totalCost, 70);
+      expect(result.totalCost, testMoney('70'));
       expect(result.remainingOnHand, 4);
       expect(repo.lots.single.id, 'L2');
       expect(repo.lots.single.quantity, 4);

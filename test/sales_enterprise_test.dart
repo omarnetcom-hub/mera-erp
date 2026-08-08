@@ -177,15 +177,15 @@ void main() {
         dueDate: DateTime(2026, 6, 26),
         creditDays: 30,
       ),
-      lines: const [
+      lines: [
         SalesDocumentLine(
           productId: 1,
           productName: 'SKU',
           quantity: 2,
-          unitPrice: 100,
-          discount: 10,
+          unitPrice: testMoney('100.00'),
+          discount: testMoney('10.00'),
           taxRate: 19,
-          taxTotal: 36.1,
+          taxTotal: testMoney('36.10'),
         ),
       ],
     );
@@ -193,7 +193,7 @@ void main() {
     final posted = document.markPending().approve('admin').post();
 
     expect(posted.state, SalesDocumentState.posted);
-    expect(posted.total, closeTo(226.1, 0.001));
+    expect(posted.total.minorUnits, 22610);
     expect(() => posted.cancel(), throwsStateError);
     expect(posted.immutable, isTrue);
   });
@@ -214,7 +214,7 @@ void main() {
       );
 
       final created = await commands.create(
-        const CreateSalesDocumentCommand(
+        CreateSalesDocumentCommand(
           type: SalesDocumentType.invoice,
           customerId: 9,
           customerName: 'Cliente empresarial',
@@ -227,10 +227,10 @@ void main() {
               productId: 4,
               productName: 'Producto',
               quantity: 3,
-              unitPrice: 1000,
-              discount: 0,
+              unitPrice: testMoney('1000.00'),
+              discount: zeroTestMoney,
               taxRate: 19,
-              taxTotal: 570,
+              taxTotal: testMoney('570.00'),
             ),
           ],
         ),
@@ -254,8 +254,14 @@ void main() {
         contains('TaxCalculatedEvent'),
       );
       expect(repository.audit, contains('sales.post:1:u1'));
-      expect(analytics['revenue'], 3570);
-      expect(analytics['credit_exposure'], 3570);
+      expect(
+        (analytics['revenue'] as Map<String, Object?>)['minor_units'],
+        357000,
+      );
+      expect(
+        (analytics['credit_exposure'] as Map<String, Object?>)['minor_units'],
+        357000,
+      );
     },
   );
 
@@ -277,6 +283,7 @@ void main() {
       purchases: _Purchases(),
       salesCommands: commands,
       salesQueries: queries,
+      currencyResolver: () async => testCop,
     );
 
     final create = await dispatcher.dispatch(

@@ -1,4 +1,5 @@
 import '../../core/branch/branch_context.dart';
+import '../../core/currency/money_value.dart';
 import '../../core/events/domain_event.dart';
 import '../data/stock_ledger_repository.dart';
 import '../domain/stock_ledger.dart';
@@ -14,15 +15,15 @@ class StockConsumptionResult {
 
   final int productId;
   final double quantity;
-  final double totalCost;
-  final double unitCost;
+  final MoneyValue totalCost;
+  final MoneyValue unitCost;
   final double remainingOnHand;
 
   Map<String, Object?> toMap() => {
     'product_id': productId,
     'quantity': quantity,
-    'total_cost': totalCost,
-    'unit_cost': unitCost,
+    'total_cost': totalCost.toWireMap(),
+    'unit_cost': unitCost.toWireMap(),
     'remaining_on_hand': remainingOnHand,
   };
 }
@@ -56,7 +57,7 @@ class StockLedgerService {
           'aggregate_id': lot.id,
           'product_id': lot.productId,
           'quantity': lot.quantity,
-          'unit_cost': lot.unitCost,
+          'unit_cost': lot.unitCost.toWireMap(),
           'company_id': scope.companyId,
           'branch_id': scope.branchId,
           'warehouse_id': scope.warehouseId,
@@ -134,8 +135,8 @@ class StockLedgerService {
           'product_id': productId,
           'quantity': quantity,
           'cost_method': method.name,
-          'total_cost': consumption.totalCost,
-          'unit_cost': consumption.unitCost,
+          'total_cost': consumption.totalCost.toWireMap(),
+          'unit_cost': consumption.unitCost.toWireMap(),
           'document_type': documentType,
           'document_id': documentId,
           'company_id': scope.companyId,

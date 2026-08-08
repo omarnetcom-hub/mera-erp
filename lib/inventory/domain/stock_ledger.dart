@@ -1,3 +1,5 @@
+import '../../core/currency/money_value.dart';
+
 enum InventoryCostMethod { fifo, lifo, average }
 
 class StockLot {
@@ -15,13 +17,13 @@ class StockLot {
   final String id;
   final int productId;
   final double quantity;
-  final double unitCost;
+  final MoneyValue unitCost;
   final DateTime receivedAt;
   final String? batchNumber;
   final String? serialNumber;
   final DateTime? expiresAt;
 
-  double get value => quantity * unitCost;
+  MoneyValue get value => unitCost.multiplyDecimal(quantity.toString());
 
   StockLot consume(double amount) {
     if (amount > quantity) {
@@ -66,10 +68,12 @@ class CostConsumption {
   });
 
   final double quantity;
-  final double totalCost;
+  final MoneyValue totalCost;
   final List<StockLot> remainingLots;
 
-  double get unitCost => quantity == 0 ? 0 : totalCost / quantity;
+  MoneyValue get unitCost => quantity == 0
+      ? MoneyValue(minorUnits: 0, currency: totalCost.currency)
+      : totalCost.divideDecimal(quantity.toString());
 }
 
 class StockLedger {
@@ -90,7 +94,16 @@ class StockLedger {
 
   double get available => onHand - reserved;
 
-  double get value => lots.fold(0, (sum, lot) => sum + lot.value);
+  MoneyValue get value {
+    if (lots.isEmpty) {
+      throw StateError('El inventario requiere al menos un lote.');
+    }
+    final zero = MoneyValue(
+      minorUnits: 0,
+      currency: lots.first.unitCost.currency,
+    );
+    return lots.fold(zero, (sum, lot) => sum + lot.value);
+  }
 
   StockLedger reserve(InventoryReservation reservation) {
     if (reservation.quantity > available) {
@@ -111,10 +124,12 @@ class StockLedger {
       throw StateError('Stock disponible insuficiente para consumir.');
     }
     if (method == InventoryCostMethod.average) {
-      final average = onHand == 0 ? 0 : value / onHand;
+      final average = onHand == 0
+          ? MoneyValue(minorUnits: 0, currency: lots.first.unitCost.currency)
+          : value.divideDecimal(onHand.toString());
       return CostConsumption(
         quantity: quantity,
-        totalCost: quantity * average,
+        totalCost: average.multiplyDecimal(quantity.toString()),
         remainingLots: _consumeOrdered(quantity, lots),
       );
     }
@@ -128,14 +143,15 @@ class StockLedger {
 
   CostConsumption _consumeWithCost(double quantity, List<StockLot> ordered) {
     var remaining = quantity;
-    var totalCost = 0.0;
+    final zero = ordered.first.unitCost;
+    var totalCost = MoneyValue(minorUnits: 0, currency: zero.currency);
     final consumedByLot = <String, double>{};
 
     for (final lot in ordered) {
       if (remaining <= 0) break;
       final take = remaining > lot.quantity ? lot.quantity : remaining;
       consumedByLot[lot.id] = take;
-      totalCost += take * lot.unitCost;
+      totalCost = totalCost + lot.unitCost.multiplyDecimal(take.toString());
       remaining -= take;
     }
     if (remaining > 0.0001) {
