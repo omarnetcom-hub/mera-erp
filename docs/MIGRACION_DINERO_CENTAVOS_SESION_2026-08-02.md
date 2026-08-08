@@ -2065,3 +2065,5 @@ regresiones nuevas, queda registrado:
 Las 17 fallas restantes pertenecen a pendientes sectoriales/widget previos,
 no al alcance de dinero. El submodulo `backend` conserva sus cambios locales
 preexistentes y no fue tocado.
+
+Commit de la correccion y verificacion: `d4bdcd2`.
