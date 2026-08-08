@@ -869,3 +869,5 @@ Archivos corregidos: `lib/ventas_page.dart`, `lib/compras_page.dart`.
 Test agregado: `test/commercial_currency_loading_regression_test.dart`.
 El fail-closed de `MoneyValue` conserva exactamente el mensaje
 `A resolved currency is required for MoneyValue`.
+
+Commit de la correccion: `031a080`.
