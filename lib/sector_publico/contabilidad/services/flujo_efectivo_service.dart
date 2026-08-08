@@ -9,19 +9,13 @@ import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
-enum MetodoFlujoEfectivo {
-  directo,
-  indirecto,
-}
+enum MetodoFlujoEfectivo { directo, indirecto }
 
 class FlujoEfectivoService {
   final Database db;
   final AuditoriaService auditoriaService;
 
-  FlujoEfectivoService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  FlujoEfectivoService({required this.db, required this.auditoriaService});
 
   /// Genera el Estado de Flujos de Efectivo para un periodo
   Future<Map<String, dynamic>> generarEstadoFlujosEfectivo({
@@ -88,10 +82,23 @@ class FlujoEfectivoService {
       modulo: 'contabilidad',
       accion: 'generacion_estado_flujos_efectivo',
       valorAnterior: {},
-      valorNuevo: estadoFlujos,
+      valorNuevo: _auditSafeValue(estadoFlujos) as Map<String, dynamic>,
     );
 
     return estadoFlujos;
+  }
+
+  dynamic _auditSafeValue(Object? value) {
+    if (value is MoneyValue) return value.toWireMap();
+    if (value is Map) {
+      final result = <String, dynamic>{};
+      value.forEach((key, item) {
+        result[key.toString()] = _auditSafeValue(item);
+      });
+      return result;
+    }
+    if (value is Iterable) return value.map(_auditSafeValue).toList();
+    return value;
   }
 
   /// Obtiene el efectivo inicial al inicio del periodo
@@ -196,7 +203,7 @@ class FlujoEfectivoService {
           fechaFin.toIso8601String(),
         ],
       );
- 
+
       final suma = resultado.fold<MoneyValue>(
         publicMoneyZero(),
         (sum, r) => sum + publicMoneyFromSql(r['debito']),
@@ -234,7 +241,7 @@ class FlujoEfectivoService {
           fechaFin.toIso8601String(),
         ],
       );
- 
+
       final suma = resultado.fold<MoneyValue>(
         publicMoneyZero(),
         (sum, r) => sum + publicMoneyFromSql(r['credito']),
@@ -246,10 +253,7 @@ class FlujoEfectivoService {
       }
     }
 
-    return {
-      'total': totalEntradas - totalSalidas,
-      'detalles': detalles,
-    };
+    return {'total': totalEntradas - totalSalidas, 'detalles': detalles};
   }
 
   /// Obtiene flujos de inversión por método directo
@@ -286,7 +290,7 @@ class FlujoEfectivoService {
           fechaFin.toIso8601String(),
         ],
       );
- 
+
       final suma = resultado.fold<MoneyValue>(
         publicMoneyZero(),
         (sum, r) => sum + publicMoneyFromSql(r['debito']),
@@ -300,7 +304,10 @@ class FlujoEfectivoService {
 
     // Salidas de inversión
     final cuentasSalidasInversion = [
-      {'codigo': '160101', 'nombre': 'Adquisición de propiedades planta y equipo'},
+      {
+        'codigo': '160101',
+        'nombre': 'Adquisición de propiedades planta y equipo',
+      },
       {'codigo': '160102', 'nombre': 'Otorgamiento de préstamos'},
     ];
 
@@ -322,7 +329,7 @@ class FlujoEfectivoService {
           fechaFin.toIso8601String(),
         ],
       );
- 
+
       final suma = resultado.fold<MoneyValue>(
         publicMoneyZero(),
         (sum, r) => sum + publicMoneyFromSql(r['credito']),
@@ -334,10 +341,7 @@ class FlujoEfectivoService {
       }
     }
 
-    return {
-      'total': totalEntradas - totalSalidas,
-      'detalles': detalles,
-    };
+    return {'total': totalEntradas - totalSalidas, 'detalles': detalles};
   }
 
   /// Obtiene flujos de financiación por método directo
@@ -374,7 +378,7 @@ class FlujoEfectivoService {
           fechaFin.toIso8601String(),
         ],
       );
- 
+
       final suma = resultado.fold<MoneyValue>(
         publicMoneyZero(),
         (sum, r) => sum + publicMoneyFromSql(r['debito']),
@@ -410,7 +414,7 @@ class FlujoEfectivoService {
           fechaFin.toIso8601String(),
         ],
       );
- 
+
       final suma = resultado.fold<MoneyValue>(
         publicMoneyZero(),
         (sum, r) => sum + publicMoneyFromSql(r['credito']),
@@ -422,10 +426,7 @@ class FlujoEfectivoService {
       }
     }
 
-    return {
-      'total': totalEntradas - totalSalidas,
-      'detalles': detalles,
-    };
+    return {'total': totalEntradas - totalSalidas, 'detalles': detalles};
   }
 
   /// Genera flujo de efectivo por método indirecto
@@ -437,7 +438,7 @@ class FlujoEfectivoService {
     // El método indirecto parte de la utilidad neta y ajusta por partidas no monetarias
     // Por simplicidad, implementamos una versión básica
     // En producción, esto debe ajustarse según las partidas específicas de cada entidad
-    
+
     // Utilidad neta del periodo
     final resultadoUtilidad = await db.query(
       'saldos_cuentas',
@@ -478,8 +479,10 @@ class FlujoEfectivoService {
 
     return {
       'actividades_operacion': flujoOperacion,
-      'actividades_inversion': publicMoneyZero(), // Debe calcularse desde datos reales
-      'actividades_financiacion': publicMoneyZero(), // Debe calcularse desde datos reales
+      'actividades_inversion':
+          publicMoneyZero(), // Debe calcularse desde datos reales
+      'actividades_financiacion':
+          publicMoneyZero(), // Debe calcularse desde datos reales
       'detalles_operacion': {
         'utilidad_neta': utilidadNeta,
         'depreciacion': depreciacion,

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/sector_publico/auditoria/services/chip_reporter_service.dart';
 import 'package:merka_erp/sector_publico/auditoria/database/schema_auditoria.dart';
@@ -44,9 +45,9 @@ Future<void> insertarSaldo(
     'entidad_id': 'ENT-CHIP',
     'cuenta_codigo': codigo,
     'cuenta_nombre': nombre,
-    'saldo_deudor': debito,
-    'saldo_acreedor': credito,
-    'saldo_neto': debito - credito,
+    'saldo_deudor': publicMoneyFromMajor(debito.toString()).toSql(),
+    'saldo_acreedor': publicMoneyFromMajor(credito.toString()).toSql(),
+    'saldo_neto': publicMoneyFromMajor((debito - credito).toString()).toSql(),
     'fecha_ultimo_movimiento': '2026-12-31T00:00:00.000',
     'vigencia': '2026',
   });

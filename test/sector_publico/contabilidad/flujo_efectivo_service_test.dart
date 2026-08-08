@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/contabilidad/database/schema_contabilidad.dart';
 import 'package:merka_erp/sector_publico/contabilidad/services/flujo_efectivo_service.dart';
 import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
@@ -85,32 +86,35 @@ void main() {
     await db.close();
   });
 
-  test('genera NICSP 2 directo con movimientos conocidos del periodo', () async {
-    final estado = await flujoEfectivoService.generarEstadoFlujosEfectivo(
-      entidadId: _entidadId,
-      usuarioId: _usuarioId,
-      periodo: '2026-06',
-    );
+  test(
+    'genera NICSP 2 directo con movimientos conocidos del periodo',
+    () async {
+      final estado = await flujoEfectivoService.generarEstadoFlujosEfectivo(
+        entidadId: _entidadId,
+        usuarioId: _usuarioId,
+        periodo: '2026-06',
+      );
 
-    expect(estado['metodo'], 'directo');
-    expect(estado['efectivo_inicial'], 1000.0);
-    expect(estado['actividades_operacion'], 300.0);
-    expect(estado['actividades_inversion'], 70.0);
-    expect(estado['actividades_financiacion'], 230.0);
-    expect(estado['variacion_neta_efectivo'], 600.0);
-    expect(estado['efectivo_final'], 1600.0);
-    expect(estado['detalles_operacion'], {
-      'Ingresos tributarios': 500.0,
-      'Gastos generales': -200.0,
-    });
+      expect(estado['metodo'], 'directo');
+      expect(estado['efectivo_inicial'], publicMoneyFromMajor('1000'));
+      expect(estado['actividades_operacion'], publicMoneyFromMajor('300'));
+      expect(estado['actividades_inversion'], publicMoneyFromMajor('70'));
+      expect(estado['actividades_financiacion'], publicMoneyFromMajor('230'));
+      expect(estado['variacion_neta_efectivo'], publicMoneyFromMajor('600'));
+      expect(estado['efectivo_final'], publicMoneyFromMajor('1600'));
+      expect(estado['detalles_operacion'], {
+        'Ingresos tributarios': publicMoneyFromMajor('500'),
+        'Gastos generales': publicMoneyFromMajor('-200'),
+      });
 
-    final auditoria = await db.query(
-      'auditoria_registros',
-      where: 'entidad_id = ? AND accion = ?',
-      whereArgs: [_entidadId, 'generacion_estado_flujos_efectivo'],
-    );
-    expect(auditoria, hasLength(1));
-  });
+      final auditoria = await db.query(
+        'auditoria_registros',
+        where: 'entidad_id = ? AND accion = ?',
+        whereArgs: [_entidadId, 'generacion_estado_flujos_efectivo'],
+      );
+      expect(auditoria, hasLength(1));
+    },
+  );
 }
 
 Future<void> _insertarSaldoInicial() {
@@ -119,9 +123,9 @@ Future<void> _insertarSaldoInicial() {
     'entidad_id': _entidadId,
     'cuenta_codigo': '110501',
     'cuenta_nombre': 'Caja principal',
-    'saldo_deudor': 1000.0,
-    'saldo_acreedor': 0.0,
-    'saldo_neto': 1000.0,
+    'saldo_deudor': publicMoneyFromMajor('1000').toSql(),
+    'saldo_acreedor': publicMoneyFromMajor('0').toSql(),
+    'saldo_neto': publicMoneyFromMajor('1000').toSql(),
     'fecha_ultimo_movimiento': DateTime(2026, 1, 1).toIso8601String(),
     'vigencia': '2026',
   });
@@ -143,8 +147,8 @@ Future<void> _insertarMovimiento({
     'descripcion': 'Movimiento de prueba $id',
     'tipo_asiento': 'manual',
     'estado': 'registrado',
-    'total_debito': debito,
-    'total_credito': credito,
+    'total_debito': publicMoneyFromMajor(debito.toString()).toSql(),
+    'total_credito': publicMoneyFromMajor(credito.toString()).toSql(),
     'usuario_creo': _usuarioId,
   });
   await db.insert('detalles_asientos', {
@@ -152,7 +156,7 @@ Future<void> _insertarMovimiento({
     'asiento_id': id,
     'cuenta_codigo': cuentaCodigo,
     'cuenta_nombre': cuentaNombre,
-    'debito': debito,
-    'credito': credito,
+    'debito': publicMoneyFromMajor(debito.toString()).toSql(),
+    'credito': publicMoneyFromMajor(credito.toString()).toSql(),
   });
 }

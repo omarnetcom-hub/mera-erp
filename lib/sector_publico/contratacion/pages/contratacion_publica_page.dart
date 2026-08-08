@@ -896,7 +896,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
     final formKey = GlobalKey<FormState>();
     final proveedorController = TextEditingController();
     final valorController = TextEditingController(
-      text: publicMoneyForDisplay(proceso.valorEstimado),
+      text: publicMoneyForDisplay(proceso.valorEstimado).toStringAsFixed(2),
     );
 
     showDialog(
@@ -1198,7 +1198,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
     }
     final formKey = GlobalKey<FormState>();
     final valorController = TextEditingController(
-      text: publicMoneyForDisplay(contrato.valorContrato),
+      text: publicMoneyForDisplay(contrato.valorContrato).toStringAsFixed(2),
     );
     final expedidorController = TextEditingController();
     final solicitanteController = TextEditingController();

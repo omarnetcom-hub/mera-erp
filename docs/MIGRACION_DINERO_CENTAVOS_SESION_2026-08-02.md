@@ -1958,3 +1958,110 @@ flutter test --reporter silent --file-reporter json:phase3b_full_suite.json --co
 ```
 
 Commit del bloque: `3713db8`.
+
+## Verificacion operacional de Fase 3B - 2026-08-08
+
+### Resolucion del bloqueo sqlite3.dll
+
+La causa fue un `flutter_tester.exe` huérfano, PID 14828, cuyo proceso
+padre ya no existia. El archivo residual era
+`build/native_assets/windows/sqlite3.dll`, con fecha anterior y tamaño
+1684480 bytes. Se termino el proceso y se elimino unicamente ese DLL
+residual; no se borro `build/` completo. Las corridas posteriores ya no
+produjeron `PathExistsException`.
+
+### Correcciones de regresion monetaria
+
+La primera suite posterior al desbloqueo descubrio errores reales de la
+conversion y no se ocultaron:
+
+- `MoneySchemaMigration` rechazaba tablas parcialmente migradas. Ahora
+  conserva columnas INTEGER ya minorizadas y convierte solo las REAL
+  restantes; `money_schema_migration_test.dart` quedo con 4/4 pruebas pasando.
+- Se corrigieron fixtures publicos que aun sembraban REAL o pesos enteros
+  en tablas INTEGER: consolidacion jerarquica, CHIP, conciliaciones NICSP 40,
+  flujo de efectivo, contratacion, planeacion y selector de entidad.
+- El flujo de efectivo convierte recursivamente `MoneyValue` a `toWireMap()`
+  antes de enviarlo a auditoria, sin alterar el mapa de dominio que retorna.
+- Nomina calcula el salario proporcional con `multiplyRatio()` en una sola
+  operacion, eliminando el centavo espurio de redondeo.
+- Se corrigieron los ultimos bordes de UI que comparaban `MoneyValue` contra
+  enteros o pasaban `double` donde el widget esperaba `String`.
+
+### Evidencia cruda
+
+```text
+dart format --output=none --set-exit-if-changed .
+Formatted 463 files (162 changed) in 5.11 seconds.
+Exit code: 1
+La salida 1 corresponde a archivos no formateados detectados; el comando
+no escribio cambios porque uso --output=none. Los archivos modificados por
+esta correccion se formatearon despues con exit code 0.
+
+flutter analyze
+218 issues found. (ran in 8.2s)
+error-level: 0
+warning-level: 50
+info-level: 168
+
+flutter test --reporter silent --file-reporter json:phase3b_full_suite_v3.json --concurrency=4
+testDone_all=368
+success=351
+errors=17
+skipped=3
+visible=217; success=200; errors=17
+
+flutter build windows
+Building Windows application... 201.8s
+Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe
+stderr: Nuget.exe not found, trying to download or use cached version.
+Exit code: 0
+```
+
+### Comparacion detallada de las 17 fallas conocidas
+
+El conjunto, cantidad y naturaleza coinciden con la linea base de cierre de
+Fase 3A. No aparecio ninguna falla nueva atribuible a la migracion monetaria:
+
+1. `login_widget_test.dart` - `muestra login de MerkaERP`: fallo de widget/UI.
+2. `acta_responsabilidad_service_test.dart` - columna `hash_actual` ausente.
+3. `fut_territorial_service_test.dart` - tabla `funcionarios_entidad` ausente.
+4. `sia_observa_service_test.dart` - tabla `funcionarios_entidad` ausente.
+5. `configuracion_general_service_test.dart` - columna `parametro` ausente en
+   `configuracion_visibilidad`.
+6. `onboarding_legado_migracion_test.dart` - `Bad state: No element`.
+7. `presupuesto_pago_integracion_test.dart`, camino feliz - tabla `contratos`
+   ausente.
+8. `presupuesto_pago_integracion_test.dart`, bloqueos - tabla `contratos`
+   ausente.
+9. `sicodis_service_test.dart` - columna `hash_actual` ausente.
+10. `exportacion_declaraciones_test.dart` - `Bad state: No element`.
+11. `facturacion_salud_service_test.dart` - columna `hash_actual` ausente.
+12. `predial_ica_page_test.dart` - fallo de widget/UI.
+13. `salud_publica_page_test.dart` - fallo de widget/UI.
+14. `presupuesto_publico_page_test.dart` - fallo de widget/UI (`pumpAndSettle`
+    o timeout del flujo de pagina).
+15. `siif_service_test.dart` - tabla `funcionarios_entidad` ausente.
+16. `widget_test.dart`, `muestra el centro de trabajo de MerkaERP` - fallo de
+    widget/UI.
+17. `widget_test.dart`, `workspace renderiza en dark high contrast sin overflow`
+    - fallo de widget/UI.
+
+En particular, las fallas de dinero que aparecieron en la primera corrida
+fueron corregidas y desaparecieron de la suite final: tipos REAL en fixtures,
+`avisos_tablero` parcialmente migrada, serializacion de `MoneyValue`, signos
+centavo por redondeo y valores publicos sembrados sin escala 100.
+
+### Cierre de la subtarea verificacion operacional Fase 3B
+
+La conversion real de consumidores monetarios publicos se reconcilia como
+87/87. Los tres archivos nominales restantes del inventario son falsos
+positivos inspeccionados y no realizan aritmetica ni serializacion monetaria.
+Con analyze en cero errores, build Windows exitoso y suite completa sin
+regresiones nuevas, queda registrado:
+
+**Fase 3B: 87/87 consumidores publicos convertidos y verificados - COMPLETA.**
+
+Las 17 fallas restantes pertenecen a pendientes sectoriales/widget previos,
+no al alcance de dinero. El submodulo `backend` conserva sus cambios locales
+preexistentes y no fue tocado.

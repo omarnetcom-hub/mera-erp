@@ -11,7 +11,7 @@ import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
 void main() {
   late Database db;
   late ContratacionService contratacionService;
-  
+
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
@@ -29,7 +29,7 @@ void main() {
             numero_proceso TEXT NOT NULL UNIQUE,
             objeto_contrato TEXT NOT NULL,
             modalidad TEXT NOT NULL,
-            valor_estimado REAL NOT NULL,
+            valor_estimado INTEGER NOT NULL,
             tipo_contrato TEXT NOT NULL,
             dependencia_solicitante TEXT NOT NULL,
             responsable_proceso TEXT NOT NULL,
@@ -57,7 +57,7 @@ void main() {
         ''');
       },
     );
-    
+
     contratacionService = ContratacionService(
       db: db,
       presupuestoService: PresupuestoService(db: db),
@@ -75,7 +75,7 @@ void main() {
       final entidadId = 'test-entidad';
       final usuarioId = 'test-usuario';
       final procesoId = 'proceso-001';
-        
+
       // Crear proceso
       await db.insert('procesos_contratacion', {
         'id': procesoId,
@@ -83,7 +83,7 @@ void main() {
         'numero_proceso': 'PROC-2024-001',
         'objeto_contrato': 'Contratación de servicios',
         'modalidad': 'licitacionPublica',
-        'valor_estimado': 100000000,
+        'valor_estimado': 10000000000,
         'tipo_contrato': 'obras',
         'dependencia_solicitante': 'Secretaría de Planeación',
         'responsable_proceso': 'Responsable Prueba',
@@ -119,7 +119,8 @@ void main() {
 
     test(
       'NO debe poder crear contrato sin RP',
-      skip: 'crearContrato() actualmente NO valida que el RP exista — '
+      skip:
+          'crearContrato() actualmente NO valida que el RP exista — '
           'solo valida CDP en el proceso (Ley 80/1993 Art. 41 exige ambos). '
           'Este test debe reescribirse cuando se implemente esa validación.',
       () async {
@@ -136,7 +137,7 @@ void main() {
           'numero_proceso': 'PROC-2024-001',
           'objeto_contrato': 'Contratación de servicios',
           'modalidad': 'licitacionPublica',
-          'valor_estimado': 100000000,
+          'valor_estimado': 10000000000,
           'tipo_contrato': 'obras',
           'dependencia_solicitante': 'Secretaría de Planeación',
           'responsable_proceso': 'Responsable Prueba',
@@ -173,7 +174,8 @@ void main() {
 
     test(
       'NO debe poder crear contrato si proceso no está publicado en SECOP',
-      skip: 'crearContrato() actualmente NO valida publicado_secop. '
+      skip:
+          'crearContrato() actualmente NO valida publicado_secop. '
           'Reescribir cuando se implemente esa validación.',
       () async {
         // Arrange
@@ -188,7 +190,7 @@ void main() {
           'numero_proceso': 'PROC-2024-001',
           'objeto_contrato': 'Contratación de servicios',
           'modalidad': 'licitacionPublica',
-          'valor_estimado': 100000000,
+          'valor_estimado': 10000000000,
           'tipo_contrato': 'obras',
           'dependencia_solicitante': 'Secretaría de Planeación',
           'responsable_proceso': 'Responsable Prueba',

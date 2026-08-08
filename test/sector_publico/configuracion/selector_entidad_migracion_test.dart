@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/configuracion/services/matriz_visibilidad_service.dart';
 import 'package:merka_erp/sector_publico/configuracion/services/selector_entidad_service.dart';
 import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
@@ -147,7 +148,7 @@ void main() {
         periodo: '2026-07',
         diasTrabajados: 30,
       );
-      expect(liquidacion.auxilioTransporte, 175000);
+      expect(liquidacion.auxilioTransporte, publicMoneyFromMajor('175000'));
 
       await db.update(
         'configuracion_entidad',

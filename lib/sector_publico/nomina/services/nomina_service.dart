@@ -95,7 +95,10 @@ class NominaService {
       }
     }
 
-    final salarioDevengado = (empleado.salarioBasico / 30) * diasTrabajados;
+    final salarioDevengado = empleado.salarioBasico.multiplyRatio(
+      numerator: diasTrabajados,
+      denominator: 30,
+    );
     final auxilioTransporte = _calcularAuxilioTransporte(
       salarioBasico: empleado.salarioBasico,
       smmlv: smmlv,
@@ -237,7 +240,7 @@ class NominaService {
     if (salarioBasico <= (smmlv * 2)) {
       return auxilioTransporte;
     }
-    return 0;
+    return publicMoneyZero();
   }
 
   /// Calcula fondo de solidaridad (1-2% según salario)

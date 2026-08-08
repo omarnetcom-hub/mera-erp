@@ -52,9 +52,9 @@ void main() {
       'vigencia': '2026',
       'mes': 8,
       'codigo_rubro': '2.1.1',
-      'valor_programado': 10000.0,
-      'valor_ejecutado': 99.99,
-      'saldo_disponible': 9900.01,
+      'valor_programado': 1000000,
+      'valor_ejecutado': 9999,
+      'saldo_disponible': 990001,
       'estado': 'activo',
       'fecha_creacion': '2026-08-02T00:00:00.000',
     });

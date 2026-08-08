@@ -180,7 +180,10 @@ void main() {
         conciliado['eliminaciones_reciprocas']['conciliaciones_aplicadas'],
         1,
       );
-      expect(conciliado['eliminaciones_reciprocas']['debito_eliminado'], _m(100));
+      expect(
+        conciliado['eliminaciones_reciprocas']['debito_eliminado'],
+        _m(100),
+      );
       expect(
         conciliado['eliminaciones_reciprocas']['credito_eliminado'],
         _m(100),
@@ -238,8 +241,8 @@ Future<void> _insertarAsiento(
       'asiento_id': id,
       'cuenta_codigo': detalle.cuenta,
       'cuenta_nombre': detalle.nombre,
-      'debito': detalle.debito,
-      'credito': detalle.credito,
+      'debito': publicMoneyFromMajor(detalle.debito.toString()).toSql(),
+      'credito': publicMoneyFromMajor(detalle.credito.toString()).toSql(),
     });
   }
 }
@@ -257,9 +260,9 @@ Future<void> _insertarSaldo(
     'entidad_id': entidadId,
     'cuenta_codigo': cuenta,
     'cuenta_nombre': cuenta,
-    'saldo_deudor': debito,
-    'saldo_acreedor': credito,
-    'saldo_neto': debito - credito,
+    'saldo_deudor': publicMoneyFromMajor(debito.toString()).toSql(),
+    'saldo_acreedor': publicMoneyFromMajor(credito.toString()).toSql(),
+    'saldo_neto': publicMoneyFromMajor((debito - credito).toString()).toSql(),
     'fecha_ultimo_movimiento': DateTime(2026, 7, 31).toIso8601String(),
     'vigencia': '2026',
   });

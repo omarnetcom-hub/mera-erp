@@ -66,7 +66,8 @@ void main() {
         final diasMora = fechaCalculo.difference(fechaVencimiento).inDays;
         final tasaMoraDiaria =
             pow(1 + (interesesService.tasaInteresMoratorio / 100), 1 / 365) - 1;
-        final esperado = capital * tasaMoraDiaria * diasMora;
+        final esperado =
+            publicMoneyForDisplay(capital) * tasaMoraDiaria * diasMora;
 
         expect(publicMoneyForDisplay(intereses), closeTo(esperado, 0.01));
       },

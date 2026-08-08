@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/db_helper.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/presupuesto/pages/presupuesto_publico_page.dart';
 import 'package:merka_erp/sector_publico/presupuesto/models/apropiacion.dart';
 import 'package:merka_erp/sector_publico/presupuesto/models/cdp.dart';
@@ -28,7 +29,7 @@ void main() {
     setUp(() async {
       // Inicializar base de datos real
       db = await DatabaseHelper.instance.database;
-      
+
       // Crear tablas necesarias para las pruebas
       await db.execute('''
         CREATE TABLE IF NOT EXISTS apropiaciones (
@@ -56,7 +57,7 @@ void main() {
           activo INTEGER NOT NULL DEFAULT 1
         )
       ''');
-      
+
       await db.execute('''
         CREATE TABLE IF NOT EXISTS cdps (
           id TEXT PRIMARY KEY,
@@ -77,7 +78,7 @@ void main() {
           estado TEXT NOT NULL
         )
       ''');
-      
+
       await db.execute('''
         CREATE TABLE IF NOT EXISTS rps (
           id TEXT PRIMARY KEY,
@@ -100,7 +101,7 @@ void main() {
           estado TEXT NOT NULL
         )
       ''');
-      
+
       await db.execute('''
         CREATE TABLE IF NOT EXISTS obligaciones (
           id TEXT PRIMARY KEY,
@@ -128,7 +129,7 @@ void main() {
           observaciones TEXT
         )
       ''');
-      
+
       await db.execute('''
         CREATE TABLE IF NOT EXISTS pagos (
           id TEXT PRIMARY KEY,
@@ -158,30 +159,72 @@ void main() {
           rechazo_motivo TEXT
         )
       ''');
-      
+
       presupuestoService = PresupuestoService(db: db, auditoriaService: null);
-      
+
       testEntidadId = 'test-entidad-${DateTime.now().millisecondsSinceEpoch}';
       testUsuarioId = 'test-usuario-${DateTime.now().millisecondsSinceEpoch}';
 
       // Limpiar datos de prueba anteriores
-      await db.delete('apropiaciones', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
-      await db.delete('cdps', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
-      await db.delete('rps', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
-      await db.delete('obligaciones', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
-      await db.delete('pagos', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
+      await db.delete(
+        'apropiaciones',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
+      await db.delete(
+        'cdps',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
+      await db.delete(
+        'rps',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
+      await db.delete(
+        'obligaciones',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
+      await db.delete(
+        'pagos',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
     });
 
     tearDown(() async {
       // Limpiar datos de prueba
-      await db.delete('apropiaciones', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
-      await db.delete('cdps', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
-      await db.delete('rps', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
-      await db.delete('obligaciones', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
-      await db.delete('pagos', where: 'entidad_id = ?', whereArgs: [testEntidadId]);
+      await db.delete(
+        'apropiaciones',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
+      await db.delete(
+        'cdps',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
+      await db.delete(
+        'rps',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
+      await db.delete(
+        'obligaciones',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
+      await db.delete(
+        'pagos',
+        where: 'entidad_id = ?',
+        whereArgs: [testEntidadId],
+      );
     });
 
-    testWidgets('Crear apropiación y verificar en base de datos', (WidgetTester tester) async {
+    testWidgets('Crear apropiación y verificar en base de datos', (
+      WidgetTester tester,
+    ) async {
       // Build the page
       await tester.pumpWidget(
         MaterialApp(
@@ -203,18 +246,57 @@ void main() {
       await tester.pumpAndSettle();
 
       // Llenar el formulario
-      await tester.enterText(find.widgetWithText(TextFormField, 'Vigencia (año)'), '2026');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Código Rubro'), '01-01-01-00-000');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Nombre Rubro'), 'Gastos Generales');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Valor Apropiado'), '1000000');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Fuente de Financiación'), 'Recursos Propios');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Sector'), 'Educación');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Programa'), 'Educación Básica');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Subprograma'), 'Primaria');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Proyecto'), 'PROJ-001');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Actividad'), 'ACT-001');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Objeto de Gasto'), 'Servicios Públicos');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Acto Administrativo (Acuerdo/Ordenanza)'), 'ACU-001-2026');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Vigencia (año)'),
+        '2026',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Código Rubro'),
+        '01-01-01-00-000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nombre Rubro'),
+        'Gastos Generales',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Valor Apropiado'),
+        '1000000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Fuente de Financiación'),
+        'Recursos Propios',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Sector'),
+        'Educación',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Programa'),
+        'Educación Básica',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Subprograma'),
+        'Primaria',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Proyecto'),
+        'PROJ-001',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Actividad'),
+        'ACT-001',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Objeto de Gasto'),
+        'Servicios Públicos',
+      );
+      await tester.enterText(
+        find.widgetWithText(
+          TextFormField,
+          'Acto Administrativo (Acuerdo/Ordenanza)',
+        ),
+        'ACU-001-2026',
+      );
 
       // Tocar el botón de crear
       await tester.tap(find.text('Crear'));
@@ -227,7 +309,11 @@ void main() {
         whereArgs: [testEntidadId, '01-01-01-00-000'],
       );
 
-      expect(apropiacionesResult.length, 1, reason: 'Debe haber una apropiación creada');
+      expect(
+        apropiacionesResult.length,
+        1,
+        reason: 'Debe haber una apropiación creada',
+      );
 
       final apropiacionData = apropiacionesResult.first;
       expect(apropiacionData['codigo_rubro'], '01-01-01-00-000');
@@ -242,7 +328,9 @@ void main() {
       expect(find.text('\$1,000,000.00'), findsOneWidget);
     });
 
-    testWidgets('Bloqueo normativo: CDP excede saldo disponible', (WidgetTester tester) async {
+    testWidgets('Bloqueo normativo: CDP excede saldo disponible', (
+      WidgetTester tester,
+    ) async {
       // Primero crear una apropiación
       await presupuestoService.crearApropiacion(
         entidadId: testEntidadId,
@@ -250,7 +338,7 @@ void main() {
         vigencia: '2026',
         codigoRubro: '01-01-01-00-000',
         nombreRubro: 'Gastos Generales',
-        valorApropiado: 1000000,
+        valorApropiado: publicMoneyFromMajor('1000000'),
         fuenteFinanciacion: 'Recursos Propios',
         sector: 'Educación',
         programa: 'Educación Básica',
@@ -289,10 +377,22 @@ void main() {
       await tester.pumpAndSettle();
 
       // Intentar expedir CDP con valor mayor al saldo disponible
-      await tester.enterText(find.widgetWithText(TextFormField, 'Valor CDP'), '2000000');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Expedidor'), 'Juan Pérez');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Solicitante'), 'María García');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Objeto de Gasto'), 'Servicios');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Valor CDP'),
+        '2000000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Expedidor'),
+        'Juan Pérez',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Solicitante'),
+        'María García',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Objeto de Gasto'),
+        'Servicios',
+      );
 
       // Tocar el botón de expedir
       await tester.tap(find.text('Expedir'));
@@ -302,7 +402,9 @@ void main() {
       expect(find.text('Excede saldo disponible'), findsOneWidget);
     });
 
-    testWidgets('Crear CDP válido y verificar en base de datos', (WidgetTester tester) async {
+    testWidgets('Crear CDP válido y verificar en base de datos', (
+      WidgetTester tester,
+    ) async {
       // Primero crear una apropiación
       await presupuestoService.crearApropiacion(
         entidadId: testEntidadId,
@@ -310,7 +412,7 @@ void main() {
         vigencia: '2026',
         codigoRubro: '01-01-01-00-000',
         nombreRubro: 'Gastos Generales',
-        valorApropiado: 1000000,
+        valorApropiado: publicMoneyFromMajor('1000000'),
         fuenteFinanciacion: 'Recursos Propios',
         sector: 'Educación',
         programa: 'Educación Básica',
@@ -349,10 +451,22 @@ void main() {
       await tester.pumpAndSettle();
 
       // Llenar el formulario con valor válido
-      await tester.enterText(find.widgetWithText(TextFormField, 'Valor CDP'), '500000');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Expedidor'), 'Juan Pérez');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Solicitante'), 'María García');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Objeto de Gasto'), 'Servicios');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Valor CDP'),
+        '500000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Expedidor'),
+        'Juan Pérez',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Solicitante'),
+        'María García',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Objeto de Gasto'),
+        'Servicios',
+      );
 
       // Tocar el botón de expedir
       await tester.tap(find.text('Expedir'));
@@ -384,7 +498,9 @@ void main() {
       expect(apropiacionData['saldo_disponible'], 500000.0);
     });
 
-    testWidgets('Bloqueo normativo: RP sin contrato (Ley 80/1993 Art. 41)', (WidgetTester tester) async {
+    testWidgets('Bloqueo normativo: RP sin contrato (Ley 80/1993 Art. 41)', (
+      WidgetTester tester,
+    ) async {
       // Crear apropiación y CDP
       final apropiacion = await presupuestoService.crearApropiacion(
         entidadId: testEntidadId,
@@ -392,7 +508,7 @@ void main() {
         vigencia: '2026',
         codigoRubro: '01-01-01-00-000',
         nombreRubro: 'Gastos Generales',
-        valorApropiado: 1000000,
+        valorApropiado: publicMoneyFromMajor('1000000'),
         fuenteFinanciacion: 'Recursos Propios',
         sector: 'Educación',
         programa: 'Educación Básica',
@@ -408,7 +524,7 @@ void main() {
         entidadId: testEntidadId,
         usuarioId: testUsuarioId,
         apropiacionId: apropiacion.id,
-        valorCDP: 500000,
+        valorCDP: publicMoneyFromMajor('500000'),
         funcionarioExpedidor: 'Juan Pérez',
         funcionarioSolicitante: 'María García',
         objetoGasto: 'Servicios',
@@ -442,10 +558,22 @@ void main() {
       await tester.pumpAndSettle();
 
       // NO llenar el número de contrato (violación normativa)
-      await tester.enterText(find.widgetWithText(TextFormField, 'Valor RP'), '300000');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Expedidor'), 'Juan Pérez');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Solicitante'), 'María García');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Objeto de Gasto'), 'Servicios');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Valor RP'),
+        '300000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Expedidor'),
+        'Juan Pérez',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Solicitante'),
+        'María García',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Objeto de Gasto'),
+        'Servicios',
+      );
 
       // Tocar el botón de expedir
       await tester.tap(find.text('Expedir'));
@@ -455,7 +583,9 @@ void main() {
       expect(find.text('Requerido (Ley 80/1993 Art. 41)'), findsOneWidget);
     });
 
-    testWidgets('Crear RP válido con contrato y verificar en base de datos', (WidgetTester tester) async {
+    testWidgets('Crear RP válido con contrato y verificar en base de datos', (
+      WidgetTester tester,
+    ) async {
       // Crear apropiación y CDP
       final apropiacion = await presupuestoService.crearApropiacion(
         entidadId: testEntidadId,
@@ -463,7 +593,7 @@ void main() {
         vigencia: '2026',
         codigoRubro: '01-01-01-00-000',
         nombreRubro: 'Gastos Generales',
-        valorApropiado: 1000000,
+        valorApropiado: publicMoneyFromMajor('1000000'),
         fuenteFinanciacion: 'Recursos Propios',
         sector: 'Educación',
         programa: 'Educación Básica',
@@ -479,7 +609,7 @@ void main() {
         entidadId: testEntidadId,
         usuarioId: testUsuarioId,
         apropiacionId: apropiacion.id,
-        valorCDP: 500000,
+        valorCDP: publicMoneyFromMajor('500000'),
         funcionarioExpedidor: 'Juan Pérez',
         funcionarioSolicitante: 'María García',
         objetoGasto: 'Servicios',
@@ -513,11 +643,26 @@ void main() {
       await tester.pumpAndSettle();
 
       // Llenar el formulario con contrato (cumple normativa)
-      await tester.enterText(find.widgetWithText(TextFormField, 'Número Contrato *'), 'CT-001-2026');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Valor RP'), '300000');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Expedidor'), 'Juan Pérez');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Solicitante'), 'María García');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Objeto de Gasto'), 'Servicios');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Número Contrato *'),
+        'CT-001-2026',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Valor RP'),
+        '300000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Expedidor'),
+        'Juan Pérez',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Solicitante'),
+        'María García',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Objeto de Gasto'),
+        'Servicios',
+      );
 
       // Tocar el botón de expedir
       await tester.tap(find.text('Expedir'));
@@ -539,7 +684,9 @@ void main() {
       expect(rpData['estado'], 'vigente');
     });
 
-    testWidgets('Bloqueo normativo: Obligación sin acta de recibo ni factura', (WidgetTester tester) async {
+    testWidgets('Bloqueo normativo: Obligación sin acta de recibo ni factura', (
+      WidgetTester tester,
+    ) async {
       // Crear apropiación, CDP y RP
       final apropiacion = await presupuestoService.crearApropiacion(
         entidadId: testEntidadId,
@@ -547,7 +694,7 @@ void main() {
         vigencia: '2026',
         codigoRubro: '01-01-01-00-000',
         nombreRubro: 'Gastos Generales',
-        valorApropiado: 1000000,
+        valorApropiado: publicMoneyFromMajor('1000000'),
         fuenteFinanciacion: 'Recursos Propios',
         sector: 'Educación',
         programa: 'Educación Básica',
@@ -563,7 +710,7 @@ void main() {
         entidadId: testEntidadId,
         usuarioId: testUsuarioId,
         apropiacionId: apropiacion.id,
-        valorCDP: 500000,
+        valorCDP: publicMoneyFromMajor('500000'),
         funcionarioExpedidor: 'Juan Pérez',
         funcionarioSolicitante: 'María García',
         objetoGasto: 'Servicios',
@@ -576,7 +723,7 @@ void main() {
         cdpId: cdp.id,
         contratoId: 'contract-001',
         contratoNumero: 'CT-001-2026',
-        valorRP: 300000,
+        valorRP: publicMoneyFromMajor('300000'),
         funcionarioExpedidor: 'Juan Pérez',
         funcionarioSolicitante: 'María García',
         objetoGasto: 'Servicios',
@@ -609,10 +756,22 @@ void main() {
       await tester.pumpAndSettle();
 
       // Llenar el formulario SIN acta de recibo ni factura (violación normativa)
-      await tester.enterText(find.widgetWithText(TextFormField, 'Nombre Tercero'), 'Empresa XYZ');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Valor Obligación'), '200000');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Reconoció'), 'Juan Pérez');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Objeto de Gasto'), 'Servicios');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nombre Tercero'),
+        'Empresa XYZ',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Valor Obligación'),
+        '200000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Funcionario Reconoció'),
+        'Juan Pérez',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Objeto de Gasto'),
+        'Servicios',
+      );
 
       // Tocar el botón de registrar
       await tester.tap(find.text('Registrar'));
@@ -622,101 +781,123 @@ void main() {
       expect(find.textContaining('acta de recibo'), findsOneWidget);
     });
 
-    testWidgets('Crear obligación válida con acta de recibo y verificar en base de datos', (WidgetTester tester) async {
-      // Crear apropiación, CDP y RP
-      final apropiacion = await presupuestoService.crearApropiacion(
-        entidadId: testEntidadId,
-        usuarioId: testUsuarioId,
-        vigencia: '2026',
-        codigoRubro: '01-01-01-00-000',
-        nombreRubro: 'Gastos Generales',
-        valorApropiado: 1000000,
-        fuenteFinanciacion: 'Recursos Propios',
-        sector: 'Educación',
-        programa: 'Educación Básica',
-        subprograma: 'Primaria',
-        proyecto: 'PROJ-001',
-        actividad: 'ACT-001',
-        objetoGasto: 'Servicios Públicos',
-        fechaAprobacionConcejo: DateTime.now(),
-        actoAdministrativo: 'ACU-001-2026',
-      );
+    testWidgets(
+      'Crear obligación válida con acta de recibo y verificar en base de datos',
+      (WidgetTester tester) async {
+        // Crear apropiación, CDP y RP
+        final apropiacion = await presupuestoService.crearApropiacion(
+          entidadId: testEntidadId,
+          usuarioId: testUsuarioId,
+          vigencia: '2026',
+          codigoRubro: '01-01-01-00-000',
+          nombreRubro: 'Gastos Generales',
+          valorApropiado: publicMoneyFromMajor('1000000'),
+          fuenteFinanciacion: 'Recursos Propios',
+          sector: 'Educación',
+          programa: 'Educación Básica',
+          subprograma: 'Primaria',
+          proyecto: 'PROJ-001',
+          actividad: 'ACT-001',
+          objetoGasto: 'Servicios Públicos',
+          fechaAprobacionConcejo: DateTime.now(),
+          actoAdministrativo: 'ACU-001-2026',
+        );
 
-      final cdp = await presupuestoService.expedirCDP(
-        entidadId: testEntidadId,
-        usuarioId: testUsuarioId,
-        apropiacionId: apropiacion.id,
-        valorCDP: 500000,
-        funcionarioExpedidor: 'Juan Pérez',
-        funcionarioSolicitante: 'María García',
-        objetoGasto: 'Servicios',
-        contratoNumero: null,
-      );
+        final cdp = await presupuestoService.expedirCDP(
+          entidadId: testEntidadId,
+          usuarioId: testUsuarioId,
+          apropiacionId: apropiacion.id,
+          valorCDP: publicMoneyFromMajor('500000'),
+          funcionarioExpedidor: 'Juan Pérez',
+          funcionarioSolicitante: 'María García',
+          objetoGasto: 'Servicios',
+          contratoNumero: null,
+        );
 
-      final rp = await presupuestoService.expedirRP(
-        entidadId: testEntidadId,
-        usuarioId: testUsuarioId,
-        cdpId: cdp.id,
-        contratoId: 'contract-001',
-        contratoNumero: 'CT-001-2026',
-        valorRP: 300000,
-        funcionarioExpedidor: 'Juan Pérez',
-        funcionarioSolicitante: 'María García',
-        objetoGasto: 'Servicios',
-      );
+        final rp = await presupuestoService.expedirRP(
+          entidadId: testEntidadId,
+          usuarioId: testUsuarioId,
+          cdpId: cdp.id,
+          contratoId: 'contract-001',
+          contratoNumero: 'CT-001-2026',
+          valorRP: publicMoneyFromMajor('300000'),
+          funcionarioExpedidor: 'Juan Pérez',
+          funcionarioSolicitante: 'María García',
+          objetoGasto: 'Servicios',
+        );
 
-      // Build the page
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PresupuestoPublicoPage(
-            entidadId: testEntidadId,
-            usuarioId: testUsuarioId,
+        // Build the page
+        await tester.pumpWidget(
+          MaterialApp(
+            home: PresupuestoPublicoPage(
+              entidadId: testEntidadId,
+              usuarioId: testUsuarioId,
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Ir a la pestaña de obligaciones
-      await tester.tap(find.text('Obligaciones'));
-      await tester.pumpAndSettle();
+        // Ir a la pestaña de obligaciones
+        await tester.tap(find.text('Obligaciones'));
+        await tester.pumpAndSettle();
 
-      // Tocar el botón de registrar obligación
-      await tester.tap(find.text('Registrar Obligación'));
-      await tester.pumpAndSettle();
+        // Tocar el botón de registrar obligación
+        await tester.tap(find.text('Registrar Obligación'));
+        await tester.pumpAndSettle();
 
-      // Seleccionar el RP
-      await tester.tap(find.byType(DropdownButtonFormField<RP>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.textContaining(rp.numeroRP));
-      await tester.pumpAndSettle();
+        // Seleccionar el RP
+        await tester.tap(find.byType(DropdownButtonFormField<RP>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining(rp.numeroRP));
+        await tester.pumpAndSettle();
 
-      // Llenar el formulario con acta de recibo (cumple normativa)
-      await tester.enterText(find.widgetWithText(TextFormField, 'Nombre Tercero'), 'Empresa XYZ');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Valor Obligación'), '200000');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Funcionario Reconoció'), 'Juan Pérez');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Objeto de Gasto'), 'Servicios');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Número Acta Recibo'), 'ACTA-001');
+        // Llenar el formulario con acta de recibo (cumple normativa)
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Nombre Tercero'),
+          'Empresa XYZ',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Valor Obligación'),
+          '200000',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Funcionario Reconoció'),
+          'Juan Pérez',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Objeto de Gasto'),
+          'Servicios',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Número Acta Recibo'),
+          'ACTA-001',
+        );
 
-      // Tocar el botón de registrar
-      await tester.tap(find.text('Registrar'));
-      await tester.pumpAndSettle();
+        // Tocar el botón de registrar
+        await tester.tap(find.text('Registrar'));
+        await tester.pumpAndSettle();
 
-      // Verificar en base de datos que la obligación se creó
-      final obligacionesResult = await db.query(
-        'obligaciones',
-        where: 'entidad_id = ?',
-        whereArgs: [testEntidadId],
-      );
+        // Verificar en base de datos que la obligación se creó
+        final obligacionesResult = await db.query(
+          'obligaciones',
+          where: 'entidad_id = ?',
+          whereArgs: [testEntidadId],
+        );
 
-      expect(obligacionesResult.length, 1, reason: 'Debe haber una obligación creada');
+        expect(
+          obligacionesResult.length,
+          1,
+          reason: 'Debe haber una obligación creada',
+        );
 
-      final obligacionData = obligacionesResult.first;
-      expect(obligacionData['valor_obligacion'], 200000.0);
-      expect(obligacionData['saldo_pendiente'], 200000.0);
-      expect(obligacionData['tercero_nombre'], 'Empresa XYZ');
-      expect(obligacionData['acta_recibo_numero'], 'ACTA-001');
-      expect(obligacionData['estado'], 'pendiente');
-    });
+        final obligacionData = obligacionesResult.first;
+        expect(obligacionData['valor_obligacion'], 200000.0);
+        expect(obligacionData['saldo_pendiente'], 200000.0);
+        expect(obligacionData['tercero_nombre'], 'Empresa XYZ');
+        expect(obligacionData['acta_recibo_numero'], 'ACTA-001');
+        expect(obligacionData['estado'], 'pendiente');
+      },
+    );
   });
 }

@@ -26,7 +26,7 @@ void main() {
     await db.execute('''
       CREATE TABLE apropiaciones (
         id TEXT PRIMARY KEY, entidad_id TEXT NOT NULL,
-        valor_apropiado REAL NOT NULL, valor_pagado REAL NOT NULL
+        valor_apropiado INTEGER NOT NULL, valor_pagado INTEGER NOT NULL
       )
     ''');
     await SchemaPlaneacion.migrarTrazabilidadPlanPresupuesto(db);
@@ -40,8 +40,8 @@ void main() {
     await db.insert('apropiaciones', {
       'id': 'apr-1',
       'entidad_id': 'ent-1',
-      'valor_apropiado': 1000,
-      'valor_pagado': 700,
+      'valor_apropiado': 10000000,
+      'valor_pagado': 7000000,
     });
     service = TrazabilidadPlanPresupuestoService(db);
   });

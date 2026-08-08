@@ -353,7 +353,8 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                         'Sanción / Medida: ${proc.sancion}',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                    if (proc.montoSancion != null && proc.montoSancion! > 0)
+                    if (proc.montoSancion != null &&
+                        proc.montoSancion! > publicMoneyZero())
                       Text(
                         'Monto Sanción: ${publicMoneyForDisplay(proc.montoSancion!)}',
                       ),
@@ -507,7 +508,7 @@ class _TransparenciaPageState extends State<TransparenciaPage> {
                 title: Text(
                   publicMoneyForDisplay(
                     publicMoneyFromSql(conciliacion['monto_conciliado']),
-                  ),
+                  ).toStringAsFixed(2),
                 ),
                 subtitle: Text(
                   '${conciliacion['total_partidas']} partidas | Aprobó ${conciliacion['aprobado_por']} | '

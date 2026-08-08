@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/sector_publico/security/roles_permisos_service.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
@@ -26,8 +27,14 @@ void main() {
     await SchemaContabilidad.crearTablas(db);
 
     auditoriaService = AuditoriaService(db);
-    presupuestoService = PresupuestoService(db: db, auditoriaService: auditoriaService);
-    contabilidadService = ContabilidadNICSPService(db: db, auditoriaService: auditoriaService);
+    presupuestoService = PresupuestoService(
+      db: db,
+      auditoriaService: auditoriaService,
+    );
+    contabilidadService = ContabilidadNICSPService(
+      db: db,
+      auditoriaService: auditoriaService,
+    );
 
     // Crear Entidad Territorial
     await db.insert('entidades_territoriales', {
@@ -86,74 +93,89 @@ void main() {
   });
 
   group('Segregación de Funciones y Reglas Fail-Closed RBAC por Módulo', () {
-    test('1. Tesoreria/Presupuesto: Un Tesorero NO puede aprobar su propio pago (Segregación de Funciones)', () async {
-      final rolTesorero = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
-        db: db,
-        entidadId: 'ENT-001',
-        usuarioId: 'USR-TESORERO-01',
-      );
-      expect(rolTesorero, equals(RolSectorPublico.tesorero));
+    test(
+      '1. Tesoreria/Presupuesto: Un Tesorero NO puede aprobar su propio pago (Segregación de Funciones)',
+      () async {
+        final rolTesorero =
+            await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+              db: db,
+              entidadId: 'ENT-001',
+              usuarioId: 'USR-TESORERO-01',
+            );
+        expect(rolTesorero, equals(RolSectorPublico.tesorero));
 
-      final esValido = RolesPermisosService.validarSegregacionFunciones(
-        rolQuienEjecuta: RolSectorPublico.tesorero,
-        rolQuienAprobo: RolSectorPublico.tesorero,
-        accion: Permiso.aprobarPago,
-      );
+        final esValido = RolesPermisosService.validarSegregacionFunciones(
+          rolQuienEjecuta: RolSectorPublico.tesorero,
+          rolQuienAprobo: RolSectorPublico.tesorero,
+          accion: Permiso.aprobarPago,
+        );
 
-      expect(esValido, isFalse);
-    });
+        expect(esValido, isFalse);
+      },
+    );
 
-    test('2. Presupuesto/Tesorería: Un Contador NO puede ejecutar pagos (Negación Explícita)', () async {
-      final tienePermiso = RolesPermisosService.tienePermiso(
-        RolSectorPublico.contador,
-        Permiso.ejecutarPago,
-      );
+    test(
+      '2. Presupuesto/Tesorería: Un Contador NO puede ejecutar pagos (Negación Explícita)',
+      () async {
+        final tienePermiso = RolesPermisosService.tienePermiso(
+          RolSectorPublico.contador,
+          Permiso.ejecutarPago,
+        );
 
-      expect(tienePermiso, isFalse);
-    });
+        expect(tienePermiso, isFalse);
+      },
+    );
 
-    test('3. Auditoría: El Jefe de Control Interno tiene acceso SOLO LECTURA y NO puede expedir CDP ni reversar asientos', () async {
-      final tienePermisoCDP = RolesPermisosService.tienePermiso(
-        RolSectorPublico.jefeControlInterno,
-        Permiso.expedirCDP,
-      );
-      final tienePermisoReversa = RolesPermisosService.tienePermiso(
-        RolSectorPublico.jefeControlInterno,
-        Permiso.reversarAsiento,
-      );
+    test(
+      '3. Auditoría: El Jefe de Control Interno tiene acceso SOLO LECTURA y NO puede expedir CDP ni reversar asientos',
+      () async {
+        final tienePermisoCDP = RolesPermisosService.tienePermiso(
+          RolSectorPublico.jefeControlInterno,
+          Permiso.expedirCDP,
+        );
+        final tienePermisoReversa = RolesPermisosService.tienePermiso(
+          RolSectorPublico.jefeControlInterno,
+          Permiso.reversarAsiento,
+        );
 
-      expect(tienePermisoCDP, isFalse);
-      expect(tienePermisoReversa, isFalse);
-    });
+        expect(tienePermisoCDP, isFalse);
+        expect(tienePermisoReversa, isFalse);
+      },
+    );
 
-    test('4. Seguridad Fail-Closed: Un usuario SIN funcionario vinculado es bloqueado inmediatamente', () async {
-      final usuarioDesconocidoId = 'USR-DESCONOCIDO-999';
+    test(
+      '4. Seguridad Fail-Closed: Un usuario SIN funcionario vinculado es bloqueado inmediatamente',
+      () async {
+        final usuarioDesconocidoId = 'USR-DESCONOCIDO-999';
 
-      final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
-        db: db,
-        entidadId: 'ENT-001',
-        usuarioId: usuarioDesconocidoId,
-      );
-
-      expect(rol, isNull);
-
-      expect(
-        () async => await presupuestoService.expedirCDP(
+        final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+          db: db,
           entidadId: 'ENT-001',
           usuarioId: usuarioDesconocidoId,
-          apropiacionId: 'APROP-001',
-          valorCDP: 1000000,
-          funcionarioExpedidor: 'Sin Rol',
-          funcionarioSolicitante: 'Sin Rol',
-          objetoGasto: 'Intento no autorizado',
-          contratoNumero: null,
-        ),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'mensaje',
-          contains('Acceso denegado'),
-        )),
-      );
-    });
+        );
+
+        expect(rol, isNull);
+
+        expect(
+          () async => await presupuestoService.expedirCDP(
+            entidadId: 'ENT-001',
+            usuarioId: usuarioDesconocidoId,
+            apropiacionId: 'APROP-001',
+            valorCDP: publicMoneyFromMajor('1000000'),
+            funcionarioExpedidor: 'Sin Rol',
+            funcionarioSolicitante: 'Sin Rol',
+            objetoGasto: 'Intento no autorizado',
+            contratoNumero: null,
+          ),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'mensaje',
+              contains('Acceso denegado'),
+            ),
+          ),
+        );
+      },
+    );
   });
 }

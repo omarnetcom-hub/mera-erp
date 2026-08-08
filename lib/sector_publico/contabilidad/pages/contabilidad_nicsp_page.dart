@@ -895,7 +895,7 @@ class _ContabilidadNICSPPageState extends State<ContabilidadNICSPPage> {
                 'Resultado Operacional: ${publicMoneyForDisplay(er.resultadoOperacional)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: er.resultadoOperacional >= 0
+                  color: er.resultadoOperacional >= publicMoneyZero()
                       ? Colors.green
                       : Colors.red,
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/sector_publico/contabilidad/services/consolidacion_jerarquica_service.dart';
 import 'package:merka_erp/sector_publico/contabilidad/database/schema_contabilidad.dart';
@@ -33,9 +34,9 @@ void main() {
         entidad_id TEXT NOT NULL,
         cuenta_codigo TEXT NOT NULL,
         cuenta_nombre TEXT NOT NULL,
-        saldo_deudor REAL NOT NULL DEFAULT 0,
-        saldo_acreedor REAL NOT NULL DEFAULT 0,
-        saldo_neto REAL NOT NULL DEFAULT 0,
+        saldo_deudor INTEGER NOT NULL DEFAULT 0,
+        saldo_acreedor INTEGER NOT NULL DEFAULT 0,
+        saldo_neto INTEGER NOT NULL DEFAULT 0,
         fecha_ultimo_movimiento TEXT NOT NULL,
         vigencia TEXT NOT NULL
       )
@@ -59,7 +60,7 @@ void main() {
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
         vigencia TEXT NOT NULL,
-        valor_apropiado REAL NOT NULL
+        valor_apropiado INTEGER NOT NULL
       )
     ''');
 
@@ -68,7 +69,7 @@ void main() {
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
         vigencia TEXT NOT NULL,
-        valor_cdp REAL NOT NULL
+        valor_cdp INTEGER NOT NULL
       )
     ''');
 
@@ -77,7 +78,7 @@ void main() {
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
         vigencia TEXT NOT NULL,
-        valor_rp REAL NOT NULL
+        valor_rp INTEGER NOT NULL
       )
     ''');
 
@@ -86,7 +87,7 @@ void main() {
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
         vigencia TEXT NOT NULL,
-        valor_pagado REAL NOT NULL
+        valor_pagado INTEGER NOT NULL
       )
     ''');
 
@@ -140,9 +141,9 @@ void main() {
       'entidad_id': 'GOB-01',
       'cuenta_codigo': '111005',
       'cuenta_nombre': 'Bancos',
-      'saldo_deudor': 100000,
+      'saldo_deudor': 10000000,
       'saldo_acreedor': 0,
-      'saldo_neto': 100000,
+      'saldo_neto': 10000000,
       'fecha_ultimo_movimiento': now,
       'vigencia': '2026',
     });
@@ -152,9 +153,9 @@ void main() {
       'entidad_id': 'MUN-01',
       'cuenta_codigo': '111005',
       'cuenta_nombre': 'Bancos',
-      'saldo_deudor': 50000,
+      'saldo_deudor': 5000000,
       'saldo_acreedor': 0,
-      'saldo_neto': 50000,
+      'saldo_neto': 5000000,
       'fecha_ultimo_movimiento': now,
       'vigencia': '2026',
     });
@@ -164,9 +165,9 @@ void main() {
       'entidad_id': 'MUN-02',
       'cuenta_codigo': '111005',
       'cuenta_nombre': 'Bancos',
-      'saldo_deudor': 30000,
+      'saldo_deudor': 3000000,
       'saldo_acreedor': 0,
-      'saldo_neto': 30000,
+      'saldo_neto': 3000000,
       'fecha_ultimo_movimiento': now,
       'vigencia': '2026',
     });
@@ -177,38 +178,41 @@ void main() {
     );
 
     expect(res['total_entidades_consolidadas'], equals(3));
-    expect(res['resumen']['activos'], equals(180000.0));
+    expect(res['resumen']['activos'], equals(publicMoneyFromMajor('180000')));
   });
 
-  test('2. Fail-Closed se dispara si la entidad no existe o no tiene hijas', () async {
-    // Probar con ID inexistente
-    expect(
-      () => consolidationService.obtenerConsolidadoContable(
-        entidadIdPadre: 'INEXISTENTE',
-        vigencia: '2026',
-      ),
-      throwsA(isA<StateError>()),
-    );
+  test(
+    '2. Fail-Closed se dispara si la entidad no existe o no tiene hijas',
+    () async {
+      // Probar con ID inexistente
+      expect(
+        () => consolidationService.obtenerConsolidadoContable(
+          entidadIdPadre: 'INEXISTENTE',
+          vigencia: '2026',
+        ),
+        throwsA(isA<StateError>()),
+      );
 
-    // Insertar Entidad sin hijas
-    await db.insert('entidades_territoriales', {
-      'id': 'MUN-SOLO',
-      'nit': '900000000-1',
-      'razon_social': 'Municipio Aislado',
-      'tipo_entidad': 'municipio',
-      'gobernacion_id': null,
-      'activo': 1,
-      'plan_cuentas_cgc': 'CGN_2015',
-      'configuracion_normativa': '{}',
-    });
+      // Insertar Entidad sin hijas
+      await db.insert('entidades_territoriales', {
+        'id': 'MUN-SOLO',
+        'nit': '900000000-1',
+        'razon_social': 'Municipio Aislado',
+        'tipo_entidad': 'municipio',
+        'gobernacion_id': null,
+        'activo': 1,
+        'plan_cuentas_cgc': 'CGN_2015',
+        'configuracion_normativa': '{}',
+      });
 
-    // Probar con entidad sin hijas (debe fallar de forma segura)
-    expect(
-      () => consolidationService.obtenerConsolidadoContable(
-        entidadIdPadre: 'MUN-SOLO',
-        vigencia: '2026',
-      ),
-      throwsA(isA<StateError>()),
-    );
-  });
+      // Probar con entidad sin hijas (debe fallar de forma segura)
+      expect(
+        () => consolidationService.obtenerConsolidadoContable(
+          entidadIdPadre: 'MUN-SOLO',
+          vigencia: '2026',
+        ),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
 }

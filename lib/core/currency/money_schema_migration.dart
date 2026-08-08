@@ -119,11 +119,8 @@ class MoneySchemaMigration {
         alreadyMigrated: true,
       );
     }
-    if (integerColumns.isNotEmpty) {
-      throw StateError('Partially migrated monetary table: $table');
-    }
     final invalidTypes = moneyColumns.where(
-      (column) => types[column] != 'REAL',
+      (column) => types[column] != 'REAL' && types[column] != 'INTEGER',
     );
     if (invalidTypes.isNotEmpty) {
       throw StateError('Unexpected monetary types in $table: $invalidTypes');
@@ -162,7 +159,9 @@ class MoneySchemaMigration {
           row: sourceRow,
           allowUnresolvedZero: value == 0,
         );
-        migrated[column] = value == 0
+        migrated[column] = types[column] == 'INTEGER'
+            ? value.toInt()
+            : value == 0
             ? 0
             : _legacyNumberToMinorUnits(value, currency.decimalPlaces);
       }
@@ -288,7 +287,7 @@ class MoneySchemaMigration {
     }
     final definitions = _splitTopLevel(rewritten.substring(open + 1, close));
     final columnPattern = RegExp(
-      r'^(\s*)(?:"([^"]+)"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_][A-Za-z0-9_]*))(\s+)REAL\b',
+      r'^(\s*)(?:"([^"]+)"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_][A-Za-z0-9_]*))(\s+)(REAL|INTEGER)\b',
       caseSensitive: false,
     );
     final converted = <String>{};
@@ -299,10 +298,12 @@ class MoneySchemaMigration {
       final name =
           match.group(2) ?? match.group(3) ?? match.group(4) ?? match.group(5)!;
       if (!moneyColumns.contains(name)) continue;
-      definitions[index] = definition.replaceFirst(
-        RegExp(r'\bREAL\b', caseSensitive: false),
-        'INTEGER',
-      );
+      if (match.group(7)!.toUpperCase() == 'REAL') {
+        definitions[index] = definition.replaceFirst(
+          RegExp(r'\bREAL\b', caseSensitive: false),
+          'INTEGER',
+        );
+      }
       converted.add(name);
     }
     if (converted.length != moneyColumns.length) {
