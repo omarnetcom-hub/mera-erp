@@ -2,10 +2,10 @@
 /// Ley 2056 de 2020 - Ciclo presupuestal bienal (2 años)
 library;
 
-enum EstadoBienioSGR {
-  vigente,
-  cerrado,
-}
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
+
+enum EstadoBienioSGR { vigente, cerrado }
 
 class BienioSGR {
   final String id;
@@ -13,8 +13,8 @@ class BienioSGR {
   final String codigoBienio; // Formato bienal: 2025-2026
   final DateTime fechaInicio;
   final DateTime fechaFin;
-  final double montoPresupuestadoBienio;
-  final double montoEjecutadoBienio;
+  final MoneyValue montoPresupuestadoBienio;
+  final MoneyValue montoEjecutadoBienio;
   final EstadoBienioSGR estado;
   final String? observaciones;
 
@@ -37,8 +37,10 @@ class BienioSGR {
       codigoBienio: json['codigo_bienio'] as String,
       fechaInicio: DateTime.parse(json['fecha_inicio'] as String),
       fechaFin: DateTime.parse(json['fecha_fin'] as String),
-      montoPresupuestadoBienio: (json['monto_presupuestado_bienio'] as num).toDouble(),
-      montoEjecutadoBienio: (json['monto_ejecutado_bienio'] as num?)?.toDouble() ?? 0.0,
+      montoPresupuestadoBienio: publicMoneyFromSql(
+        json['monto_presupuestado_bienio'],
+      ),
+      montoEjecutadoBienio: publicMoneyFromSql(json['monto_ejecutado_bienio']),
       estado: EstadoBienioSGR.values.firstWhere(
         (e) => e.name == json['estado'],
         orElse: () => EstadoBienioSGR.vigente,
@@ -54,8 +56,8 @@ class BienioSGR {
       'codigo_bienio': codigoBienio,
       'fecha_inicio': fechaInicio.toIso8601String(),
       'fecha_fin': fechaFin.toIso8601String(),
-      'monto_presupuestado_bienio': montoPresupuestadoBienio,
-      'monto_ejecutado_bienio': montoEjecutadoBienio,
+      'monto_presupuestado_bienio': montoPresupuestadoBienio.toSql(),
+      'monto_ejecutado_bienio': montoEjecutadoBienio.toSql(),
       'estado': estado.name,
       'observaciones': observaciones,
     };

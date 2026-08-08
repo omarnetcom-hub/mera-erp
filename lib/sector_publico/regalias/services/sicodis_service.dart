@@ -4,6 +4,7 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/reporte_sicodis.dart';
 import '../../security/auditoria_service.dart';
 import '../../models/registro_auditoria.dart';
@@ -13,10 +14,7 @@ class SICODISService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  SICODISService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  SICODISService({required this.db, required this.auditoriaService});
 
   /// Genera la certificación de destinación SICODIS para SGP
   Future<ReporteSICODIS> generarCertificacionSICODIS({
@@ -33,15 +31,23 @@ class SICODISService {
     );
 
     final rowSgp = resSGP.first;
-    final double asignado = (rowSgp['total_asignado'] as num?)?.toDouble() ?? 0.0;
-    final double ejecutado = (rowSgp['total_ejecutado'] as num?)?.toDouble() ?? 0.0;
+    final asignado = publicMoneyFromSql(
+      rowSgp['total_asignado'],
+      nullableAsZero: true,
+    );
+    final ejecutado = publicMoneyFromSql(
+      rowSgp['total_ejecutado'],
+      nullableAsZero: true,
+    );
 
     final datos = {
       'sector': sectorParticipacion,
       'vigencia': vigencia,
-      'monto_asignado_sgp': asignado,
-      'monto_ejecutado_sgp': ejecutado,
-      'porcentaje_cumplimiento_destinacion': asignado > 0 ? (ejecutado / asignado) * 100.0 : 100.0,
+      'monto_asignado_sgp': publicMoneyForDisplay(asignado),
+      'monto_ejecutado_sgp': publicMoneyForDisplay(ejecutado),
+      'porcentaje_cumplimiento_destinacion': asignado > publicMoneyZero()
+          ? (ejecutado.minorUnits / asignado.minorUnits) * 100.0
+          : 100.0,
       'cumple_normativa_ley_1176': ejecutado <= asignado,
     };
 
@@ -78,12 +84,18 @@ class SICODISService {
 
   /// Exporta el reporte SICODIS a plano oficial DNP (.txt / CSV)
   Future<String> exportarAPlano(String reporteId) async {
-    final res = await db.query('reportes_sicodis', where: 'id = ?', whereArgs: [reporteId]);
+    final res = await db.query(
+      'reportes_sicodis',
+      where: 'id = ?',
+      whereArgs: [reporteId],
+    );
     if (res.isEmpty) throw Exception('Reporte SICODIS no encontrado');
     final rep = ReporteSICODIS.fromJson(res.first);
 
     final buffer = StringBuffer();
-    buffer.writeln('SICODIS_DNP_HEADER|${rep.entidadId}|${rep.vigencia}|${rep.sectorParticipacion}|${rep.fechaGeneracion.toIso8601String()}');
+    buffer.writeln(
+      'SICODIS_DNP_HEADER|${rep.entidadId}|${rep.vigencia}|${rep.sectorParticipacion}|${rep.fechaGeneracion.toIso8601String()}',
+    );
 
     rep.datos.forEach((k, v) {
       buffer.writeln('SICODIS_DATA|$k|$v');

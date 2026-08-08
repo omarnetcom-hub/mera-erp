@@ -6,6 +6,7 @@ import 'package:merka_erp/sector_publico/regalias/database/schema_regalias.dart'
 import 'package:merka_erp/sector_publico/planeacion/database/schema_planeacion.dart';
 import 'package:merka_erp/sector_publico/regalias/models/proyecto_ocad.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 void main() {
   late Database db;
@@ -89,7 +90,7 @@ void main() {
         codigoBienio: '2025-2026',
         fechaInicio: DateTime(2025, 1, 1),
         fechaFin: DateTime(2026, 12, 31),
-        montoPresupuestado: 1000000000.0,
+        montoPresupuestado: publicMoneyFromMajor('1000000000'),
       );
 
       expect(bienio.id, isNotEmpty);
@@ -103,7 +104,7 @@ void main() {
         nombreProyecto: 'Construcción Vía Rural SGR',
         bienalidad: '2025-2026',
         tipoOCAD: TipoOCAD.municipal,
-        montoAprobado: 300000000.0,
+        montoAprobado: publicMoneyFromMajor('300000000'),
         fechaAprobacion: DateTime.now(),
         actaAprobacion: 'Acta OCAD 001 de 2026',
         fuenteFinanciacion: 'Asignacion para la inversion regional SGR',
@@ -112,7 +113,7 @@ void main() {
 
       expect(proy.id, isNotEmpty);
       expect(proy.bienioId, equals(bienio.id));
-      expect(proy.montoGiroSPGR, equals(0.0));
+      expect(proy.montoGiroSPGR, equals(publicMoneyZero()));
       expect(proy.actaAprobacion, equals('Acta OCAD 001 de 2026'));
       expect(proy.fuenteFinanciacion, contains('SGR'));
       expect(proy.entidadEjecutora, equals('Municipio de prueba'));
@@ -121,10 +122,13 @@ void main() {
         entidadId: 'ENT-SPGR-TEST',
         usuarioId: 'USR-SPGR-01',
         proyectoId: proy.id,
-        montoGiro: 100000000.0,
+        montoGiro: publicMoneyFromMajor('100000000'),
       );
 
-      expect(proyGirado.montoGiroSPGR, equals(100000000.0));
+      expect(
+        proyGirado.montoGiroSPGR,
+        equals(publicMoneyFromMajor('100000000')),
+      );
 
       final rep = await spgrService.generarReporteSPGR(
         entidadId: 'ENT-SPGR-TEST',

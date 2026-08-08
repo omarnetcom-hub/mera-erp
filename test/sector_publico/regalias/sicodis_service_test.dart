@@ -3,6 +3,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/sector_publico/regalias/database/schema_regalias.dart';
 import 'package:merka_erp/sector_publico/regalias/services/sicodis_service.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 void main() {
   sqfliteFfiInit();
@@ -62,9 +63,9 @@ void main() {
       'programa': 'Calidad Educativa',
       'municipio': 'Test',
       'departamento': 'Test',
-      'valor_asignado': 1000000000.0,
-      'valor_ejecutado': 950000000.0,
-      'saldo_disponible': 50000000.0,
+      'valor_asignado': 100000000000,
+      'valor_ejecutado': 95000000000,
+      'saldo_disponible': 5000000000,
       'vigencia': '2026',
       'fecha_asignacion': DateTime.now().toIso8601String(),
       'estado': 'asignado',
@@ -78,19 +79,22 @@ void main() {
     await db.close();
   });
 
-  test('Generación de Certificación SICODIS SGP y Exportación a Plano DNP', () async {
-    final rep = await service.generarCertificacionSICODIS(
-      entidadId: 'entidad-001',
-      usuarioId: 'usr-001',
-      vigencia: '2026',
-      sectorParticipacion: 'Educación',
-    );
+  test(
+    'Generación de Certificación SICODIS SGP y Exportación a Plano DNP',
+    () async {
+      final rep = await service.generarCertificacionSICODIS(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        vigencia: '2026',
+        sectorParticipacion: 'Educación',
+      );
 
-    expect(rep.sectorParticipacion, equals('Educación'));
-    expect(rep.datos['monto_asignado_sgp'], equals(1000000000.0));
+      expect(rep.sectorParticipacion, equals('Educación'));
+      expect(rep.datos['monto_asignado_sgp'], equals(1000000000.0));
 
-    final plano = await service.exportarAPlano(rep.id);
-    expect(plano, contains('SICODIS_DNP_HEADER'));
-    expect(plano, contains('Educación'));
-  });
+      final plano = await service.exportarAPlano(rep.id);
+      expect(plano, contains('SICODIS_DNP_HEADER'));
+      expect(plano, contains('Educación'));
+    },
+  );
 }

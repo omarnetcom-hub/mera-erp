@@ -2,6 +2,9 @@
 /// Ley 2056 de 2020 - Sistema General de Regalías (SGR)
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
+
 enum TipoOCAD {
   municipal,
   departamental,
@@ -29,8 +32,8 @@ class ProyectoOCAD {
   final String nombreProyecto;
   final String bienalidad; // Formato bienal: 2025-2026
   final TipoOCAD tipoOCAD;
-  final double montoAprobado;
-  final double montoGiroSPGR;
+  final MoneyValue montoAprobado;
+  final MoneyValue montoGiroSPGR;
   final EstadoOCAD estadoOCAD;
   final DateTime fechaAprobacion;
   final String? actaAprobacion;
@@ -70,8 +73,8 @@ class ProyectoOCAD {
         (e) => e.name == json['tipo_ocad'],
         orElse: () => TipoOCAD.municipal,
       ),
-      montoAprobado: (json['monto_aprobado'] as num).toDouble(),
-      montoGiroSPGR: (json['monto_giro_spgr'] as num?)?.toDouble() ?? 0.0,
+      montoAprobado: publicMoneyFromSql(json['monto_aprobado']),
+      montoGiroSPGR: publicMoneyFromSql(json['monto_giro_spgr']),
       estadoOCAD: EstadoOCAD.values.firstWhere(
         (e) => e.name == json['estado_ocad'],
         orElse: () => EstadoOCAD.aprobado,
@@ -94,8 +97,8 @@ class ProyectoOCAD {
       'nombre_proyecto': nombreProyecto,
       'bienalidad': bienalidad,
       'tipo_ocad': tipoOCAD.name,
-      'monto_aprobado': montoAprobado,
-      'monto_giro_spgr': montoGiroSPGR,
+      'monto_aprobado': montoAprobado.toSql(),
+      'monto_giro_spgr': montoGiroSPGR.toSql(),
       'estado_ocad': estadoOCAD.name,
       'fecha_aprobacion': fechaAprobacion.toIso8601String(),
       'acta_aprobacion': actaAprobacion,
@@ -105,5 +108,5 @@ class ProyectoOCAD {
     };
   }
 
-  double get saldoPendienteGiro => montoAprobado - montoGiroSPGR;
+  MoneyValue get saldoPendienteGiro => montoAprobado - montoGiroSPGR;
 }

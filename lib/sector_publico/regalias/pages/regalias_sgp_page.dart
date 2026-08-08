@@ -16,6 +16,7 @@ import '../models/bienio_sgr.dart';
 import '../models/reporte_spgr.dart';
 import '../models/reporte_sicodis.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 class RegaliasSGPPage extends StatefulWidget {
   final String entidadId;
@@ -396,7 +397,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                   codigoBienio: codigoCtrl.text,
                   fechaInicio: DateTime(ahora.year, 1, 1),
                   fechaFin: DateTime(ahora.year + 1, 12, 31),
-                  montoPresupuestado: double.parse(montoCtrl.text),
+                  montoPresupuestado: publicMoneyFromMajor(montoCtrl.text),
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
@@ -519,7 +520,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     proyecto: proyectoCtrl.text,
                     municipio: municipioCtrl.text,
                     departamento: departamentoCtrl.text,
-                    valorEstimado: double.parse(valorCtrl.text),
+                    valorEstimado: publicMoneyFromMajor(valorCtrl.text),
                     vigencia: DateTime(int.parse(vigenciaCtrl.text), 1, 1),
                   );
                   if (context.mounted) {
@@ -646,7 +647,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     programa: programaCtrl.text,
                     municipio: municipioCtrl.text,
                     departamento: departamentoCtrl.text,
-                    valorAsignado: double.parse(valorCtrl.text),
+                    valorAsignado: publicMoneyFromMajor(valorCtrl.text),
                     vigencia: DateTime(int.parse(vigenciaCtrl.text), 1, 1),
                   );
                   if (context.mounted) {
@@ -746,8 +747,9 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                           nombreProyCtrl.text =
                               sel['nombre_proyecto'] as String;
                           if (sel['valor_total'] != null) {
-                            montoAprobadoCtrl.text = (sel['valor_total'] as num)
-                                .toString();
+                            montoAprobadoCtrl.text = publicMoneyFromSql(
+                              sel['valor_total'],
+                            ).toMajorUnitsString();
                           }
                         });
                       }
@@ -868,7 +870,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                     nombreProyecto: nombreProyCtrl.text,
                     bienalidad: bienalidadCtrl.text,
                     tipoOCAD: tipoSeleccionado,
-                    montoAprobado: double.parse(montoAprobadoCtrl.text),
+                    montoAprobado: publicMoneyFromMajor(montoAprobadoCtrl.text),
                     fechaAprobacion: DateTime.now(),
                     actaAprobacion: actaCtrl.text,
                     fuenteFinanciacion: fuenteCtrl.text,
@@ -912,7 +914,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
           controller: montoGiroCtrl,
           decoration: InputDecoration(
             labelText: 'Monto del Giro SPGR',
-            hintText: 'ej. ${proyecto.saldoPendienteGiro.toStringAsFixed(0)}',
+            hintText: 'ej. ${proyecto.saldoPendienteGiro.toMajorUnitsString()}',
           ),
           keyboardType: TextInputType.number,
         ),
@@ -929,7 +931,7 @@ class _RegaliasSGPPageState extends State<RegaliasSGPPage> {
                   entidadId: widget.entidadId,
                   usuarioId: widget.usuarioId,
                   proyectoId: proyecto.id,
-                  montoGiro: double.parse(montoGiroCtrl.text),
+                  montoGiro: publicMoneyFromMajor(montoGiroCtrl.text),
                 );
                 if (context.mounted) {
                   Navigator.pop(context);

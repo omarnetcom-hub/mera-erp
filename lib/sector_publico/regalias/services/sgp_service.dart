@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/sgp.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -23,7 +25,7 @@ class SGPService {
     required String programa,
     required String municipio,
     required String departamento,
-    required double valorAsignado,
+    required MoneyValue valorAsignado,
     required DateTime vigencia,
   }) async {
     final id = _uuid.v4();
@@ -40,9 +42,9 @@ class SGPService {
       municipio: municipio,
       departamento: departamento,
       valorAsignado: valorAsignado,
-      valorTransferido: 0,
-      valorRecibido: 0,
-      valorEjecutado: 0,
+      valorTransferido: publicMoneyZero(),
+      valorRecibido: publicMoneyZero(),
+      valorEjecutado: publicMoneyZero(),
       saldoDisponible: valorAsignado,
       vigencia: vigencia,
       fechaAsignacion: fechaAsignacion,
@@ -61,7 +63,7 @@ class SGPService {
       valorNuevo: {
         'sgp_id': id,
         'numero_sgp': numeroSGP,
-        'valor_asignado': valorAsignado,
+        'valor_asignado': valorAsignado.toSql(),
       },
       referenciaId: id,
     );
@@ -74,7 +76,7 @@ class SGPService {
     required String entidadId,
     required String usuarioId,
     required String sgpId,
-    required double valorTransferido,
+    required MoneyValue valorTransferido,
   }) async {
     final sgpResult = await db.query(
       'sgp',
@@ -101,7 +103,7 @@ class SGPService {
     await db.update(
       'sgp',
       {
-        'valor_transferido': valorTransferido,
+        'valor_transferido': valorTransferido.toSql(),
         'fecha_transferencia': fechaTransferencia.toIso8601String(),
         'estado': EstadoSGP.transferido.toString().split('.').last,
       },
@@ -117,7 +119,7 @@ class SGPService {
       accion: 'transferencia_sgp',
       valorAnterior: {'estado_anterior': sgp.estado.toString()},
       valorNuevo: {
-        'valor_transferido': valorTransferido,
+        'valor_transferido': valorTransferido.toSql(),
         'estado_nuevo': EstadoSGP.transferido.toString(),
       },
       referenciaId: sgpId,
@@ -159,7 +161,7 @@ class SGPService {
     required String usuarioId,
     required String sgpId,
     required String codigoRubro,
-    required double montoEjecucion,
+    required MoneyValue montoEjecucion,
   }) async {
     final sgpResult = await db.query(
       'sgp',
@@ -198,8 +200,8 @@ class SGPService {
     await db.update(
       'sgp',
       {
-        'valor_ejecutado': nuevoValorEjecutado,
-        'saldo_disponible': nuevoSaldo,
+        'valor_ejecutado': nuevoValorEjecutado.toSql(),
+        'saldo_disponible': nuevoSaldo.toSql(),
         'estado': EstadoSGP.enEjecucion.toString().split('.').last,
       },
       where: 'id = ?',
@@ -213,14 +215,14 @@ class SGPService {
       modulo: 'regalias',
       accion: 'ejecucion_sgp',
       valorAnterior: {
-        'valor_ejecutado_anterior': sgp.valorEjecutado,
-        'saldo_anterior': sgp.saldoDisponible,
+        'valor_ejecutado_anterior': sgp.valorEjecutado.toSql(),
+        'saldo_anterior': sgp.saldoDisponible.toSql(),
       },
       valorNuevo: {
-        'monto_ejecucion': montoEjecucion,
+        'monto_ejecucion': montoEjecucion.toSql(),
         'codigo_rubro': codigoRubro,
-        'valor_ejecutado_nuevo': nuevoValorEjecutado,
-        'saldo_nuevo': nuevoSaldo,
+        'valor_ejecutado_nuevo': nuevoValorEjecutado.toSql(),
+        'saldo_nuevo': nuevoSaldo.toSql(),
       },
       referenciaId: sgpId,
     );

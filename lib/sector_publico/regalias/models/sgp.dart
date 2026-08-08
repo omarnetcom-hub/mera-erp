@@ -2,14 +2,10 @@
 /// Ley 1176 de 2007
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 
-enum TipoParticipacion {
-  salud,
-  educacion,
-  agua,
-  saneamiento,
-  otros,
-}
+enum TipoParticipacion { salud, educacion, agua, saneamiento, otros }
 
 enum EstadoSGP {
   asignado,
@@ -28,11 +24,11 @@ class SGP {
   final String programa;
   final String municipio;
   final String departamento;
-  final double valorAsignado;
-  final double valorTransferido;
-  final double valorRecibido;
-  final double valorEjecutado;
-  final double saldoDisponible;
+  final MoneyValue valorAsignado;
+  final MoneyValue valorTransferido;
+  final MoneyValue valorRecibido;
+  final MoneyValue valorEjecutado;
+  final MoneyValue saldoDisponible;
   final DateTime vigencia;
   final DateTime fechaAsignacion;
   final DateTime? fechaTransferencia;
@@ -67,16 +63,17 @@ class SGP {
       entidadId: json['entidad_id'] as String,
       numeroSGP: json['numero_sgp'] as String,
       tipoParticipacion: TipoParticipacion.values.firstWhere(
-        (e) => e.toString() == 'TipoParticipacion.${json['tipo_participacion']}',
+        (e) =>
+            e.toString() == 'TipoParticipacion.${json['tipo_participacion']}',
       ),
       programa: json['programa'] as String,
       municipio: json['municipio'] as String,
       departamento: json['departamento'] as String,
-      valorAsignado: (json['valor_asignado'] as num).toDouble(),
-      valorTransferido: (json['valor_transferido'] as num).toDouble(),
-      valorRecibido: (json['valor_recibido'] as num).toDouble(),
-      valorEjecutado: (json['valor_ejecutado'] as num).toDouble(),
-      saldoDisponible: (json['saldo_disponible'] as num).toDouble(),
+      valorAsignado: publicMoneyFromSql(json['valor_asignado']),
+      valorTransferido: publicMoneyFromSql(json['valor_transferido']),
+      valorRecibido: publicMoneyFromSql(json['valor_recibido']),
+      valorEjecutado: publicMoneyFromSql(json['valor_ejecutado']),
+      saldoDisponible: publicMoneyFromSql(json['saldo_disponible']),
       vigencia: DateTime.parse(json['vigencia'] as String),
       fechaAsignacion: DateTime.parse(json['fecha_asignacion'] as String),
       fechaTransferencia: json['fecha_transferencia'] != null
@@ -101,11 +98,11 @@ class SGP {
       'programa': programa,
       'municipio': municipio,
       'departamento': departamento,
-      'valor_asignado': valorAsignado,
-      'valor_transferido': valorTransferido,
-      'valor_recibido': valorRecibido,
-      'valor_ejecutado': valorEjecutado,
-      'saldo_disponible': saldoDisponible,
+      'valor_asignado': valorAsignado.toSql(),
+      'valor_transferido': valorTransferido.toSql(),
+      'valor_recibido': valorRecibido.toSql(),
+      'valor_ejecutado': valorEjecutado.toSql(),
+      'saldo_disponible': saldoDisponible.toSql(),
       'vigencia': vigencia.toIso8601String(),
       'fecha_asignacion': fechaAsignacion.toIso8601String(),
       'fecha_transferencia': fechaTransferencia?.toIso8601String(),
@@ -116,12 +113,12 @@ class SGP {
   }
 
   double calcularPorcentajeEjecucion() {
-    if (valorRecibido == 0) return 0;
-    return (valorEjecutado / valorRecibido) * 100;
+    if (valorRecibido == publicMoneyZero()) return 0;
+    return (valorEjecutado.minorUnits / valorRecibido.minorUnits) * 100;
   }
 
   bool tieneSaldo() {
-    return saldoDisponible > 0;
+    return saldoDisponible > publicMoneyZero();
   }
 
   SGP copyWith({
@@ -132,11 +129,11 @@ class SGP {
     String? programa,
     String? municipio,
     String? departamento,
-    double? valorAsignado,
-    double? valorTransferido,
-    double? valorRecibido,
-    double? valorEjecutado,
-    double? saldoDisponible,
+    MoneyValue? valorAsignado,
+    MoneyValue? valorTransferido,
+    MoneyValue? valorRecibido,
+    MoneyValue? valorEjecutado,
+    MoneyValue? saldoDisponible,
     DateTime? vigencia,
     DateTime? fechaAsignacion,
     DateTime? fechaTransferencia,

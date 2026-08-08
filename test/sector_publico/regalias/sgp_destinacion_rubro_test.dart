@@ -4,6 +4,7 @@ import 'package:merka_erp/sector_publico/regalias/models/sgp.dart';
 import 'package:merka_erp/sector_publico/regalias/services/sgp_service.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 void main() {
   sqfliteFfiInit();
@@ -44,7 +45,7 @@ void main() {
         programa: 'Salud publica',
         municipio: 'Prueba',
         departamento: 'Prueba',
-        valorAsignado: 1000,
+        valorAsignado: publicMoneyFromMajor('1000'),
         vigencia: DateTime(2026),
       );
 
@@ -54,7 +55,7 @@ void main() {
           usuarioId: 'usr-1',
           sgpId: sgp.id,
           codigoRubro: 'EDU-001',
-          montoEjecucion: 100,
+          montoEjecucion: publicMoneyFromMajor('100'),
         ),
         throwsA(isA<Exception>()),
       );
@@ -70,11 +71,11 @@ void main() {
         usuarioId: 'usr-1',
         sgpId: sgp.id,
         codigoRubro: 'SAL-001',
-        montoEjecucion: 100,
+        montoEjecucion: publicMoneyFromMajor('100'),
       );
 
-      expect(ejecutado.valorEjecutado, 100);
-      expect(ejecutado.saldoDisponible, 900);
+      expect(ejecutado.valorEjecutado, publicMoneyFromMajor('100'));
+      expect(ejecutado.saldoDisponible, publicMoneyFromMajor('900'));
     },
   );
 }

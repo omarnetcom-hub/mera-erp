@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/proyecto_ocad.dart';
 import '../models/bienio_sgr.dart';
 import '../models/reporte_spgr.dart';
@@ -24,7 +26,7 @@ class SPGRService {
     required String codigoBienio,
     required DateTime fechaInicio,
     required DateTime fechaFin,
-    required double montoPresupuestado,
+    required MoneyValue montoPresupuestado,
     String? observaciones,
   }) async {
     final id = _uuid.v4();
@@ -36,7 +38,7 @@ class SPGRService {
       fechaInicio: fechaInicio,
       fechaFin: fechaFin,
       montoPresupuestadoBienio: montoPresupuestado,
-      montoEjecutadoBienio: 0.0,
+      montoEjecutadoBienio: publicMoneyZero(),
       estado: EstadoBienioSGR.vigente,
       observaciones: observaciones,
     );
@@ -80,7 +82,7 @@ class SPGRService {
     required String nombreProyecto,
     required String bienalidad,
     required TipoOCAD tipoOCAD,
-    required double montoAprobado,
+    required MoneyValue montoAprobado,
     required DateTime fechaAprobacion,
     required String actaAprobacion,
     required String fuenteFinanciacion,
@@ -99,7 +101,7 @@ class SPGRService {
       bienalidad: bienalidad,
       tipoOCAD: tipoOCAD,
       montoAprobado: montoAprobado,
-      montoGiroSPGR: 0.0,
+      montoGiroSPGR: publicMoneyZero(),
       estadoOCAD: EstadoOCAD.aprobado,
       fechaAprobacion: fechaAprobacion,
       actaAprobacion: actaAprobacion,
@@ -122,7 +124,7 @@ class SPGRService {
         'bpin': codigoBPIN,
         'proyecto_mga_id': proyectoMgaId,
         'bienio_id': bienioId,
-        'monto_aprobado': montoAprobado,
+        'monto_aprobado': montoAprobado.toSql(),
         'bienalidad': bienalidad,
         'acta_aprobacion': actaAprobacion,
         'fuente_financiacion': fuenteFinanciacion,
@@ -139,7 +141,7 @@ class SPGRService {
     required String entidadId,
     required String usuarioId,
     required String proyectoId,
-    required double montoGiro,
+    required MoneyValue montoGiro,
   }) async {
     final res = await db.query(
       'proyectos_ocad',
@@ -163,7 +165,10 @@ class SPGRService {
 
     await db.update(
       'proyectos_ocad',
-      {'monto_giro_spgr': nuevoGiroTotal, 'estado_ocad': nuevoEstado.name},
+      {
+        'monto_giro_spgr': nuevoGiroTotal.toSql(),
+        'estado_ocad': nuevoEstado.name,
+      },
       where: 'id = ?',
       whereArgs: [proyectoId],
     );
@@ -174,10 +179,10 @@ class SPGRService {
       tipoEvento: TipoEventoAuditoria.modificacionRegistro,
       modulo: 'regalias',
       accion: 'registrar_giro_spgr',
-      valorAnterior: {'monto_giro_anterior': proy.montoGiroSPGR},
+      valorAnterior: {'monto_giro_anterior': proy.montoGiroSPGR.toSql()},
       valorNuevo: {
-        'monto_giro_adicional': montoGiro,
-        'monto_giro_total': nuevoGiroTotal,
+        'monto_giro_adicional': montoGiro.toSql(),
+        'monto_giro_total': nuevoGiroTotal.toSql(),
       },
       referenciaId: proyectoId,
     );
@@ -233,8 +238,8 @@ class SPGRService {
       bienalidad: bienalidad,
     );
 
-    double totalAprobado = 0.0;
-    double totalGirado = 0.0;
+    var totalAprobado = publicMoneyZero();
+    var totalGirado = publicMoneyZero();
 
     for (final p in proyectos) {
       totalAprobado += p.montoAprobado;
@@ -243,9 +248,9 @@ class SPGRService {
 
     final mapDatos = {
       'total_proyectos': proyectos.length,
-      'total_monto_aprobado': totalAprobado,
-      'total_monto_girado_spgr': totalGirado,
-      'saldo_pendiente_giros': totalAprobado - totalGirado,
+      'total_monto_aprobado': totalAprobado.toSql(),
+      'total_monto_girado_spgr': totalGirado.toSql(),
+      'saldo_pendiente_giros': (totalAprobado - totalGirado).toSql(),
       'proyectos': proyectos.map((p) => p.toJson()).toList(),
     };
 
@@ -292,13 +297,13 @@ class SPGRService {
 
     final mapDatos = reporte.datos;
     buffer.writeln(
-      'SPGR_SUMMARY|TOTAL_PROYECTOS|${mapDatos['total_proyectos']}|APROBADO|${mapDatos['total_monto_aprobado']}|GIRADO|${mapDatos['total_monto_girado_spgr']}',
+      'SPGR_SUMMARY|TOTAL_PROYECTOS|${mapDatos['total_proyectos']}|APROBADO|${publicMoneyFromSql(mapDatos['total_monto_aprobado']).toMajorUnitsString()}|GIRADO|${publicMoneyFromSql(mapDatos['total_monto_girado_spgr']).toMajorUnitsString()}',
     );
 
     final listaProy = mapDatos['proyectos'] as List<dynamic>? ?? [];
     for (final p in listaProy) {
       buffer.writeln(
-        'SPGR_PROJECT|${p['codigo_bpin']}|${p['nombre_proyecto']}|${p['tipo_ocad']}|${p['monto_aprobado']}|${p['monto_giro_spgr']}',
+        'SPGR_PROJECT|${p['codigo_bpin']}|${p['nombre_proyecto']}|${p['tipo_ocad']}|${publicMoneyFromSql(p['monto_aprobado']).toMajorUnitsString()}|${publicMoneyFromSql(p['monto_giro_spgr']).toMajorUnitsString()}',
       );
     }
 

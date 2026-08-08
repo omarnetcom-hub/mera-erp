@@ -2,14 +2,10 @@
 /// Sistema General de Regalías (SGR) - Ley 141 de 1993
 library;
 
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 
-enum TipoRegalia {
-  hidrocarburos,
-  carbon,
-  oro,
-  niquel,
-  otros,
-}
+enum TipoRegalia { hidrocarburos, carbon, oro, niquel, otros }
 
 enum EstadoRegalia {
   estimada,
@@ -28,11 +24,11 @@ class Regalia {
   final String proyecto;
   final String municipio;
   final String departamento;
-  final double valorEstimado;
-  final double valorRecibido;
-  final double valorDistribuido;
-  final double valorAsignado;
-  final double valorEjecutado;
+  final MoneyValue valorEstimado;
+  final MoneyValue valorRecibido;
+  final MoneyValue valorDistribuido;
+  final MoneyValue valorAsignado;
+  final MoneyValue valorEjecutado;
   final DateTime vigencia;
   final DateTime fechaEstimacion;
   final DateTime? fechaRecepcion;
@@ -72,11 +68,11 @@ class Regalia {
       proyecto: json['proyecto'] as String,
       municipio: json['municipio'] as String,
       departamento: json['departamento'] as String,
-      valorEstimado: (json['valor_estimado'] as num).toDouble(),
-      valorRecibido: (json['valor_recibido'] as num).toDouble(),
-      valorDistribuido: (json['valor_distribuido'] as num).toDouble(),
-      valorAsignado: (json['valor_asignado'] as num).toDouble(),
-      valorEjecutado: (json['valor_ejecutado'] as num).toDouble(),
+      valorEstimado: publicMoneyFromSql(json['valor_estimado']),
+      valorRecibido: publicMoneyFromSql(json['valor_recibido']),
+      valorDistribuido: publicMoneyFromSql(json['valor_distribuido']),
+      valorAsignado: publicMoneyFromSql(json['valor_asignado']),
+      valorEjecutado: publicMoneyFromSql(json['valor_ejecutado']),
       vigencia: DateTime.parse(json['vigencia'] as String),
       fechaEstimacion: DateTime.parse(json['fecha_estimacion'] as String),
       fechaRecepcion: json['fecha_recepcion'] != null
@@ -101,11 +97,11 @@ class Regalia {
       'proyecto': proyecto,
       'municipio': municipio,
       'departamento': departamento,
-      'valor_estimado': valorEstimado,
-      'valor_recibido': valorRecibido,
-      'valor_distribuido': valorDistribuido,
-      'valor_asignado': valorAsignado,
-      'valor_ejecutado': valorEjecutado,
+      'valor_estimado': valorEstimado.toSql(),
+      'valor_recibido': valorRecibido.toSql(),
+      'valor_distribuido': valorDistribuido.toSql(),
+      'valor_asignado': valorAsignado.toSql(),
+      'valor_ejecutado': valorEjecutado.toSql(),
       'vigencia': vigencia.toIso8601String(),
       'fecha_estimacion': fechaEstimacion.toIso8601String(),
       'fecha_recepcion': fechaRecepcion?.toIso8601String(),
@@ -116,8 +112,8 @@ class Regalia {
   }
 
   double calcularPorcentajeEjecucion() {
-    if (valorAsignado == 0) return 0;
-    return (valorEjecutado / valorAsignado) * 100;
+    if (valorAsignado == publicMoneyZero()) return 0;
+    return (valorEjecutado.minorUnits / valorAsignado.minorUnits) * 100;
   }
 
   Regalia copyWith({
@@ -128,11 +124,11 @@ class Regalia {
     String? proyecto,
     String? municipio,
     String? departamento,
-    double? valorEstimado,
-    double? valorRecibido,
-    double? valorDistribuido,
-    double? valorAsignado,
-    double? valorEjecutado,
+    MoneyValue? valorEstimado,
+    MoneyValue? valorRecibido,
+    MoneyValue? valorDistribuido,
+    MoneyValue? valorAsignado,
+    MoneyValue? valorEjecutado,
     DateTime? vigencia,
     DateTime? fechaEstimacion,
     DateTime? fechaRecepcion,

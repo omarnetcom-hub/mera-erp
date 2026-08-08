@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/currency/money_value.dart';
+import '../../../core/currency/public_sector_money.dart';
 import '../models/regalia.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -13,10 +15,7 @@ class RegaliasService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  RegaliasService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  RegaliasService({required this.db, required this.auditoriaService});
 
   /// Estima una regalía
   Future<Regalia> estimarRegalia({
@@ -26,11 +25,12 @@ class RegaliasService {
     required String proyecto,
     required String municipio,
     required String departamento,
-    required double valorEstimado,
+    required MoneyValue valorEstimado,
     required DateTime vigencia,
   }) async {
     final id = _uuid.v4();
-    final numeroRegalia = 'RG-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroRegalia =
+        'RG-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaEstimacion = DateTime.now();
 
     final regalia = Regalia(
@@ -42,10 +42,10 @@ class RegaliasService {
       municipio: municipio,
       departamento: departamento,
       valorEstimado: valorEstimado,
-      valorRecibido: 0,
-      valorDistribuido: 0,
-      valorAsignado: 0,
-      valorEjecutado: 0,
+      valorRecibido: publicMoneyZero(),
+      valorDistribuido: publicMoneyZero(),
+      valorAsignado: publicMoneyZero(),
+      valorEjecutado: publicMoneyZero(),
       vigencia: vigencia,
       fechaEstimacion: fechaEstimacion,
       estado: EstadoRegalia.estimada,
@@ -63,7 +63,7 @@ class RegaliasService {
       valorNuevo: {
         'regalia_id': id,
         'numero_regalia': numeroRegalia,
-        'valor_estimado': valorEstimado,
+        'valor_estimado': valorEstimado.toSql(),
       },
       referenciaId: id,
     );
@@ -76,7 +76,7 @@ class RegaliasService {
     required String entidadId,
     required String usuarioId,
     required String regaliaId,
-    required double valorRecibido,
+    required MoneyValue valorRecibido,
   }) async {
     final regaliaResult = await db.query(
       'regalias',
@@ -91,7 +91,9 @@ class RegaliasService {
     final regalia = Regalia.fromJson(regaliaResult.first);
 
     if (regalia.estado != EstadoRegalia.estimada) {
-      throw Exception('Solo se puede registrar recepción de regalías estimadas');
+      throw Exception(
+        'Solo se puede registrar recepción de regalías estimadas',
+      );
     }
 
     final fechaRecepcion = DateTime.now();
@@ -99,7 +101,7 @@ class RegaliasService {
     await db.update(
       'regalias',
       {
-        'valor_recibido': valorRecibido,
+        'valor_recibido': valorRecibido.toSql(),
         'fecha_recepcion': fechaRecepcion.toIso8601String(),
         'estado': EstadoRegalia.recibida.toString().split('.').last,
       },
@@ -115,7 +117,7 @@ class RegaliasService {
       accion: 'recepcion_regalia',
       valorAnterior: {'estado_anterior': regalia.estado.toString()},
       valorNuevo: {
-        'valor_recibido': valorRecibido,
+        'valor_recibido': valorRecibido.toSql(),
         'estado_nuevo': EstadoRegalia.recibida.toString(),
       },
       referenciaId: regaliaId,
@@ -150,4 +152,3 @@ class RegaliasService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-
