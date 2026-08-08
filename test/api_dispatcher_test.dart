@@ -17,6 +17,8 @@ import 'package:merka_erp/sales/data/sale_repository.dart';
 import 'package:merka_erp/sales/domain/sale.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/test_money.dart';
+
 final _cop = Currency(code: 'COP', name: 'Peso colombiano', symbol: r'$');
 
 MoneyValue _money(int minorUnits) =>
@@ -151,20 +153,20 @@ void main() {
     test('expone resumen operativo con inventario, ventas y compras', () async {
       final dispatcher = ApiDispatcher(
         products: _Products([
-          const Product(
+          Product(
             name: 'Pan',
             unit: 'und',
             stock: 3,
-            cost: 1000,
-            price: 1500,
+            cost: testMoney('1000'),
+            price: testMoney('1500'),
             taxRate: 0,
           ),
-          const Product(
+          Product(
             name: 'Cafe',
             unit: 'lb',
             stock: 8,
-            cost: 10000,
-            price: 14000,
+            cost: testMoney('10000'),
+            price: testMoney('14000'),
             taxRate: 19,
           ),
         ]),
@@ -192,20 +194,20 @@ void main() {
     test('pagina listados y expone metadatos de paginacion', () async {
       final dispatcher = ApiDispatcher(
         products: _Products([
-          const Product(
+          Product(
             name: 'Pan',
             unit: 'und',
             stock: 3,
-            cost: 1000,
-            price: 1500,
+            cost: testMoney('1000'),
+            price: testMoney('1500'),
             taxRate: 0,
           ),
-          const Product(
+          Product(
             name: 'Cafe',
             unit: 'lb',
             stock: 8,
-            cost: 10000,
-            price: 14000,
+            cost: testMoney('10000'),
+            price: testMoney('14000'),
             taxRate: 19,
           ),
         ]),
@@ -433,13 +435,13 @@ void main() {
     test('expone flujos empresariales y reposicion de inventario', () async {
       final dispatcher = ApiDispatcher(
         products: _Products([
-          const Product(
+          Product(
             id: 1,
             name: 'Pan',
             unit: 'und',
             stock: 2,
-            cost: 1000,
-            price: 1500,
+            cost: testMoney('1000'),
+            price: testMoney('1500'),
             taxRate: 0,
           ),
         ]),

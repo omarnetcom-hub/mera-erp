@@ -1,7 +1,5 @@
-// ============================================================
-// order.dart
-// Modelo para pedidos/pre-ventas
-// ============================================================
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_value.dart';
 
 class SalesOrder {
   final int? id;
@@ -12,11 +10,11 @@ class SalesOrder {
   final DateTime orderDate;
   final DateTime? estimatedDeliveryDate;
   final DateTime? actualDeliveryDate;
-  final double subtotal;
-  final double taxAmount;
-  final double total;
-  final double discountAmount;
-  final String status; // pending, confirmed, sent, delivered, cancelled
+  final MoneyValue subtotal;
+  final MoneyValue taxAmount;
+  final MoneyValue total;
+  final MoneyValue discountAmount;
+  final String status;
   final String? notes;
   final String? deliveryAddress;
   final String? contactPhone;
@@ -36,7 +34,7 @@ class SalesOrder {
     required this.subtotal,
     required this.taxAmount,
     required this.total,
-    this.discountAmount = 0,
+    required this.discountAmount,
     this.status = 'pending',
     this.notes,
     this.deliveryAddress,
@@ -73,10 +71,10 @@ class SalesOrder {
     DateTime? orderDate,
     DateTime? estimatedDeliveryDate,
     DateTime? actualDeliveryDate,
-    double? subtotal,
-    double? taxAmount,
-    double? total,
-    double? discountAmount,
+    MoneyValue? subtotal,
+    MoneyValue? taxAmount,
+    MoneyValue? total,
+    MoneyValue? discountAmount,
     String? status,
     String? notes,
     String? deliveryAddress,
@@ -92,7 +90,8 @@ class SalesOrder {
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
       orderDate: orderDate ?? this.orderDate,
-      estimatedDeliveryDate: estimatedDeliveryDate ?? this.estimatedDeliveryDate,
+      estimatedDeliveryDate:
+          estimatedDeliveryDate ?? this.estimatedDeliveryDate,
       actualDeliveryDate: actualDeliveryDate ?? this.actualDeliveryDate,
       subtotal: subtotal ?? this.subtotal,
       taxAmount: taxAmount ?? this.taxAmount,
@@ -108,31 +107,32 @@ class SalesOrder {
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'company_id': companyId,
-      'order_number': orderNumber,
-      'customer_id': customerId,
-      'customer_name': customerName,
-      'order_date': orderDate.toIso8601String(),
-      'estimated_delivery_date': estimatedDeliveryDate?.toIso8601String(),
-      'actual_delivery_date': actualDeliveryDate?.toIso8601String(),
-      'subtotal': subtotal,
-      'tax_amount': taxAmount,
-      'total': total,
-      'discount_amount': discountAmount,
-      'status': status,
-      'notes': notes,
-      'delivery_address': deliveryAddress,
-      'contact_phone': contactPhone,
-      'created_by': createdBy,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'company_id': companyId,
+    'order_number': orderNumber,
+    'customer_id': customerId,
+    'customer_name': customerName,
+    'order_date': orderDate.toIso8601String(),
+    'estimated_delivery_date': estimatedDeliveryDate?.toIso8601String(),
+    'actual_delivery_date': actualDeliveryDate?.toIso8601String(),
+    'subtotal': subtotal.toSql(),
+    'tax_amount': taxAmount.toSql(),
+    'total': total.toSql(),
+    'discount_amount': discountAmount.toSql(),
+    'status': status,
+    'notes': notes,
+    'delivery_address': deliveryAddress,
+    'contact_phone': contactPhone,
+    'created_by': createdBy,
+    'created_at': createdAt.toIso8601String(),
+    'updated_at': updatedAt?.toIso8601String(),
+  };
 
-  factory SalesOrder.fromMap(Map<String, dynamic> map) {
+  factory SalesOrder.fromMap(
+    Map<String, dynamic> map, {
+    required Currency currency,
+  }) {
     return SalesOrder(
       id: map['id'] as int?,
       companyId: map['company_id'] as int,
@@ -146,10 +146,14 @@ class SalesOrder {
       actualDeliveryDate: map['actual_delivery_date'] != null
           ? DateTime.parse(map['actual_delivery_date'] as String)
           : null,
-      subtotal: (map['subtotal'] as num).toDouble(),
-      taxAmount: (map['tax_amount'] as num).toDouble(),
-      total: (map['total'] as num).toDouble(),
-      discountAmount: (map['discount_amount'] as num?)?.toDouble() ?? 0,
+      subtotal: MoneyValue.fromSql(map['subtotal'], currency: currency),
+      taxAmount: MoneyValue.fromSql(map['tax_amount'], currency: currency),
+      total: MoneyValue.fromSql(map['total'], currency: currency),
+      discountAmount: MoneyValue.fromSql(
+        map['discount_amount'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
       status: map['status'] as String? ?? 'pending',
       notes: map['notes'] as String?,
       deliveryAddress: map['delivery_address'] as String?,

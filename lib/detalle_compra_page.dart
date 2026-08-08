@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 
 class DetalleCompraPage extends StatefulWidget {
@@ -14,6 +17,7 @@ class DetalleCompraPage extends StatefulWidget {
 class _DetalleCompraPageState extends State<DetalleCompraPage> {
   List<Map<String, dynamic>> _detalles = [];
   bool _cargando = true;
+  Currency? _currency;
 
   @override
   void initState() {
@@ -27,16 +31,25 @@ class _DetalleCompraPageState extends State<DetalleCompraPage> {
 
   Future<void> _cargarDetalle() async {
     final id = (widget.compra['id'] as num).toInt();
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final data = await DatabaseHelper.instance.obtenerDetalleCompra(id);
     if (!mounted) return;
     setState(() {
       _detalles = data;
+      _currency = currency;
       _cargando = false;
     });
   }
 
-  String _moneda(double valor) =>
-      '\$${valor.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+  String _moneda(MoneyValue valor) => valor.format();
+
+  MoneyValue _money(Object? value) =>
+      MoneyValue.fromSql(value, currency: _currency, nullableAsZero: true);
 
   String _cantidad(double valor) =>
       valor % 1 == 0 ? valor.toInt().toString() : valor.toString();
@@ -55,12 +68,18 @@ class _DetalleCompraPageState extends State<DetalleCompraPage> {
   Widget build(BuildContext context) {
     final compra = widget.compra;
     final id = (compra['id'] as num).toInt();
-    final subtotal = (compra['subtotal'] as num?)?.toDouble() ?? 0;
-    final impuesto = (compra['impuesto_total'] as num?)?.toDouble() ?? 0;
-    final total = (compra['total'] as num?)?.toDouble() ?? 0;
-    final efectivo = (compra['efectivo'] as num?)?.toDouble() ?? 0;
-    final banco = (compra['transferencia'] as num?)?.toDouble() ?? 0;
-    final credito = (compra['credito'] as num?)?.toDouble() ?? 0;
+    if (_cargando || _currency == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Compra #$id')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final subtotal = _money(compra['subtotal']);
+    final impuesto = _money(compra['impuesto_total']);
+    final total = _money(compra['total']);
+    final efectivo = _money(compra['efectivo']);
+    final banco = _money(compra['transferencia']);
+    final credito = _money(compra['credito']);
     final estado = compra['estado']?.toString() ?? 'pagada';
     final anulada = estado == 'anulada';
 
@@ -148,12 +167,10 @@ class _DetalleCompraPageState extends State<DetalleCompraPage> {
                           ..._detalles.map((item) {
                             final cantidad =
                                 (item['cantidad'] as num?)?.toDouble() ?? 0;
-                            final costo =
-                                (item['costo_unitario'] as num?)?.toDouble() ??
-                                0;
-                            final subtotalItem =
-                                (item['subtotal'] as num?)?.toDouble() ??
-                                cantidad * costo;
+                            final costo = _money(item['costo_unitario']);
+                            final subtotalItem = item['subtotal'] == null
+                                ? costo.multiplyDecimal(cantidad.toString())
+                                : _money(item['subtotal']);
 
                             return ListTile(
                               dense: true,

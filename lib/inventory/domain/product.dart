@@ -1,5 +1,8 @@
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_value.dart';
+
 class Product {
-  const Product({
+  Product({
     this.id,
     this.companyId,
     required this.name,
@@ -18,8 +21,8 @@ class Product {
   final String name;
   final String unit;
   final double stock;
-  final double cost;
-  final double price;
+  final MoneyValue cost;
+  final MoneyValue price;
   final double taxRate;
   final String barcode;
   final String conversionName;
@@ -27,9 +30,9 @@ class Product {
 
   bool get lowStock => stock <= 5;
 
-  double get stockCostValue => stock * cost;
+  MoneyValue get stockCostValue => cost.multiplyDecimal(stock.toString());
 
-  double get stockSaleValue => stock * price;
+  MoneyValue get stockSaleValue => price.multiplyDecimal(stock.toString());
 
   Product copyWith({
     int? id,
@@ -37,8 +40,8 @@ class Product {
     String? name,
     String? unit,
     double? stock,
-    double? cost,
-    double? price,
+    MoneyValue? cost,
+    MoneyValue? price,
     double? taxRate,
     String? barcode,
     String? conversionName,
@@ -59,15 +62,26 @@ class Product {
     );
   }
 
-  factory Product.fromMap(Map<String, dynamic> map) {
+  factory Product.fromMap(
+    Map<String, dynamic> map, {
+    required Currency currency,
+  }) {
     return Product(
       id: (map['id'] as num?)?.toInt(),
       companyId: (map['company_id'] as num?)?.toInt(),
       name: map['nombre']?.toString() ?? '',
       unit: map['unidad_base']?.toString() ?? 'UND',
       stock: (map['stock'] as num?)?.toDouble() ?? 0,
-      cost: (map['costo'] as num?)?.toDouble() ?? 0,
-      price: (map['precio'] as num?)?.toDouble() ?? 0,
+      cost: MoneyValue.fromSql(
+        map['costo'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
+      price: MoneyValue.fromSql(
+        map['precio'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
       taxRate: (map['impuesto_pct'] as num?)?.toDouble() ?? 0,
       barcode: map['codigo_barras']?.toString() ?? '',
       conversionName: map['conversion_nombre']?.toString() ?? '',
@@ -75,21 +89,19 @@ class Product {
     );
   }
 
-  Map<String, Object?> toMap() {
-    return {
-      if (id != null) 'id': id,
-      if (companyId != null) 'company_id': companyId,
-      'nombre': name,
-      'unidad_base': unit,
-      'stock': stock,
-      'costo': cost,
-      'precio': price,
-      'impuesto_pct': taxRate,
-      'codigo_barras': barcode,
-      'conversion_nombre': conversionName,
-      'conversion_cantidad': conversionQuantity,
-    };
-  }
+  Map<String, Object?> toMap() => {
+    if (id != null) 'id': id,
+    if (companyId != null) 'company_id': companyId,
+    'nombre': name,
+    'unidad_base': unit,
+    'stock': stock,
+    'costo': cost.toSql(),
+    'precio': price.toSql(),
+    'impuesto_pct': taxRate,
+    'codigo_barras': barcode,
+    'conversion_nombre': conversionName,
+    'conversion_cantidad': conversionQuantity,
+  };
 
   Map<String, Object?> toPersistenceMap() {
     final map = toMap()..remove('id');

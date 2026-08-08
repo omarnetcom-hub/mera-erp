@@ -1,7 +1,5 @@
-// ============================================================
-// quote.dart
-// Modelo para presupuestos y cotizaciones
-// ============================================================
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_value.dart';
 
 class SalesQuote {
   final int? id;
@@ -13,11 +11,11 @@ class SalesQuote {
   final DateTime? validUntil;
   final DateTime? acceptedDate;
   final DateTime? rejectedDate;
-  final double subtotal;
-  final double taxAmount;
-  final double total;
-  final double discountAmount;
-  final String status; // draft, sent, accepted, rejected, expired
+  final MoneyValue subtotal;
+  final MoneyValue taxAmount;
+  final MoneyValue total;
+  final MoneyValue discountAmount;
+  final String status;
   final String? notes;
   final String? terms;
   final String? createdBy;
@@ -37,7 +35,7 @@ class SalesQuote {
     required this.subtotal,
     required this.taxAmount,
     required this.total,
-    this.discountAmount = 0,
+    required this.discountAmount,
     this.status = 'draft',
     this.notes,
     this.terms,
@@ -52,10 +50,8 @@ class SalesQuote {
   bool get isRejected => status == 'rejected';
   bool get isExpired => status == 'expired';
 
-  bool get isValid {
-    if (validUntil == null) return true;
-    return DateTime.now().isBefore(validUntil!);
-  }
+  bool get isValid =>
+      validUntil == null || DateTime.now().isBefore(validUntil!);
 
   bool get isNearExpiration {
     if (validUntil == null) return false;
@@ -78,10 +74,10 @@ class SalesQuote {
     DateTime? validUntil,
     DateTime? acceptedDate,
     DateTime? rejectedDate,
-    double? subtotal,
-    double? taxAmount,
-    double? total,
-    double? discountAmount,
+    MoneyValue? subtotal,
+    MoneyValue? taxAmount,
+    MoneyValue? total,
+    MoneyValue? discountAmount,
     String? status,
     String? notes,
     String? terms,
@@ -112,31 +108,32 @@ class SalesQuote {
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'company_id': companyId,
-      'quote_number': quoteNumber,
-      'customer_id': customerId,
-      'customer_name': customerName,
-      'quote_date': quoteDate.toIso8601String(),
-      'valid_until': validUntil?.toIso8601String(),
-      'accepted_date': acceptedDate?.toIso8601String(),
-      'rejected_date': rejectedDate?.toIso8601String(),
-      'subtotal': subtotal,
-      'tax_amount': taxAmount,
-      'total': total,
-      'discount_amount': discountAmount,
-      'status': status,
-      'notes': notes,
-      'terms': terms,
-      'created_by': createdBy,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'company_id': companyId,
+    'quote_number': quoteNumber,
+    'customer_id': customerId,
+    'customer_name': customerName,
+    'quote_date': quoteDate.toIso8601String(),
+    'valid_until': validUntil?.toIso8601String(),
+    'accepted_date': acceptedDate?.toIso8601String(),
+    'rejected_date': rejectedDate?.toIso8601String(),
+    'subtotal': subtotal.toSql(),
+    'tax_amount': taxAmount.toSql(),
+    'total': total.toSql(),
+    'discount_amount': discountAmount.toSql(),
+    'status': status,
+    'notes': notes,
+    'terms': terms,
+    'created_by': createdBy,
+    'created_at': createdAt.toIso8601String(),
+    'updated_at': updatedAt?.toIso8601String(),
+  };
 
-  factory SalesQuote.fromMap(Map<String, dynamic> map) {
+  factory SalesQuote.fromMap(
+    Map<String, dynamic> map, {
+    required Currency currency,
+  }) {
     return SalesQuote(
       id: map['id'] as int?,
       companyId: map['company_id'] as int,
@@ -153,10 +150,14 @@ class SalesQuote {
       rejectedDate: map['rejected_date'] != null
           ? DateTime.parse(map['rejected_date'] as String)
           : null,
-      subtotal: (map['subtotal'] as num).toDouble(),
-      taxAmount: (map['tax_amount'] as num).toDouble(),
-      total: (map['total'] as num).toDouble(),
-      discountAmount: (map['discount_amount'] as num?)?.toDouble() ?? 0,
+      subtotal: MoneyValue.fromSql(map['subtotal'], currency: currency),
+      taxAmount: MoneyValue.fromSql(map['tax_amount'], currency: currency),
+      total: MoneyValue.fromSql(map['total'], currency: currency),
+      discountAmount: MoneyValue.fromSql(
+        map['discount_amount'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
       status: map['status'] as String? ?? 'draft',
       notes: map['notes'] as String?,
       terms: map['terms'] as String?,

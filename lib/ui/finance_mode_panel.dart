@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import '../core/currency/currency.dart';
+import '../core/currency/money_currency_resolver.dart';
+import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 
 class FinanceModePanel extends StatefulWidget {
@@ -27,7 +30,7 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
 
   double _incomeMonth = 0.0;
   double _expenseMonth = 0.0;
-  
+
   bool _loading = true;
 
   @override
@@ -41,25 +44,35 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
     try {
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+      final currency = await MoneyCurrencyResolver.resolve(
+        db,
+        companyId: companyId,
+      );
+
       // Receivables total
       final recRows = await db.rawQuery(
         "SELECT COALESCE(SUM(saldo), 0) AS total FROM cuentas_por_cobrar WHERE company_id = ? AND saldo > 0 AND estado != 'pagada'",
         [companyId],
       );
-      _receivables = (recRows.first['total'] as num?)?.toDouble() ?? 0.0;
+      _receivables = _major(recRows.first['total'], currency);
 
       // Payables total
       final payRows = await db.rawQuery(
         "SELECT COALESCE(SUM(saldo), 0) AS total FROM cuentas_por_pagar WHERE company_id = ? AND saldo > 0 AND estado != 'pagada'",
         [companyId],
       );
-      _payables = (payRows.first['total'] as num?)?.toDouble() ?? 0.0;
+      _payables = _major(payRows.first['total'], currency);
 
       // Caja flows
       final now = DateTime.now();
       final monthStart = DateTime(now.year, now.month, 1).toIso8601String();
-      final monthEnd = DateTime(now.year, now.month + 1, 0, 23, 59).toIso8601String();
+      final monthEnd = DateTime(
+        now.year,
+        now.month + 1,
+        0,
+        23,
+        59,
+      ).toIso8601String();
 
       final incomeRows = await db.rawQuery(
         "SELECT COALESCE(SUM(monto), 0) AS total FROM movimientos_caja WHERE company_id = ? AND tipo = 'ingreso' AND fecha BETWEEN ? AND ?",
@@ -70,8 +83,8 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
         [companyId, monthStart, monthEnd],
       );
 
-      _incomeMonth = (incomeRows.first['total'] as num?)?.toDouble() ?? 0.0;
-      _expenseMonth = (expenseRows.first['total'] as num?)?.toDouble() ?? 0.0;
+      _incomeMonth = _major(incomeRows.first['total'], currency);
+      _expenseMonth = _major(expenseRows.first['total'], currency);
 
       // All-time cash balance simulation
       final allIncome = await db.rawQuery(
@@ -82,9 +95,9 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
         "SELECT COALESCE(SUM(monto), 0) AS total FROM movimientos_caja WHERE company_id = ? AND tipo = 'egreso'",
         [companyId],
       );
-      _cashFlow = ((allIncome.first['total'] as num?)?.toDouble() ?? 0.0) - 
-                  ((allExpense.first['total'] as num?)?.toDouble() ?? 0.0);
-
+      _cashFlow =
+          _major(allIncome.first['total'], currency) -
+          _major(allExpense.first['total'], currency);
     } catch (e) {
       debugPrint('Error loading finance mode data: $e');
     } finally {
@@ -99,16 +112,24 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
     return '\$${rounded.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
   }
 
+  double _major(Object? value, Currency currency) => MoneyValue.fromSql(
+    value,
+    currency: currency,
+    nullableAsZero: true,
+  ).toMajorUnitsDoubleForDisplay();
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)));
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+      );
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 900;
-        
+
         final kpisSection = Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -142,9 +163,12 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
           children: [
             kpisSection,
             const SizedBox(height: 24),
-            
+
             // Quick links
-            Text('Accesos Rápidos Financieros', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Accesos Rápidos Financieros',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 12,
@@ -180,15 +204,20 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Ingresos vs Gastos del Mes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const Text(
+                'Ingresos vs Gastos del Mes',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
               const SizedBox(height: 20),
-              
+
               // Custom visual graph
               _FinanceProgressLine(
                 label: 'Ingresos Operacionales',
                 value: _incomeMonth,
                 color: const Color(0xFF10B981),
-                max: _incomeMonth > _expenseMonth ? _incomeMonth : _expenseMonth,
+                max: _incomeMonth > _expenseMonth
+                    ? _incomeMonth
+                    : _expenseMonth,
                 formatFn: _formatMoney,
               ),
               const SizedBox(height: 16),
@@ -196,21 +225,28 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
                 label: 'Gastos y Costos',
                 value: _expenseMonth,
                 color: const Color(0xFFEF4444),
-                max: _incomeMonth > _expenseMonth ? _incomeMonth : _expenseMonth,
+                max: _incomeMonth > _expenseMonth
+                    ? _incomeMonth
+                    : _expenseMonth,
                 formatFn: _formatMoney,
               ),
               const Divider(height: 32),
-              
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Resultado del Ejercicio:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Resultado del Ejercicio:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Text(
                     _formatMoney(_incomeMonth - _expenseMonth),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: (_incomeMonth - _expenseMonth) >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                      color: (_incomeMonth - _expenseMonth) >= 0
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444),
                     ),
                   ),
                 ],
@@ -222,11 +258,7 @@ class _FinanceModePanelState extends State<FinanceModePanel> {
         if (compact) {
           return SingleChildScrollView(
             child: Column(
-              children: [
-                leftColumn,
-                const SizedBox(height: 16),
-                rightColumn,
-              ],
+              children: [leftColumn, const SizedBox(height: 16), rightColumn],
             ),
           );
         }
@@ -281,8 +313,21 @@ class _FinanceKpiCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1F2937))),
-                    Text(title, style: const TextStyle(fontSize: 10, color: Color(0xFF4B5563))),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF4B5563),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -343,8 +388,18 @@ class _FinanceProgressLine extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
-            Text(formatFn(value), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4B5563),
+              ),
+            ),
+            Text(
+              formatFn(value),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ],
         ),
         const SizedBox(height: 6),

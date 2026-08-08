@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
+import '../core/currency/money_currency_resolver.dart';
+import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 
 enum NequiTransactionStatus { pendiente, procesando, exitoso, fallido, expirado }
@@ -35,7 +37,7 @@ class NequiTransaction {
 
   final String transactionId;
   final String phoneNumber;
-  final double amount;
+  final MoneyValue amount;
   final String reference;
   final NequiTransactionStatus status;
   final DateTime createdAt;
@@ -46,7 +48,7 @@ class NequiTransaction {
     return {
       'transaction_id': transactionId,
       'phone_number': phoneNumber,
-      'amount': amount,
+      'amount': amount.toSql(),
       'reference': reference,
       'status': status.name,
       'created_at': createdAt.toIso8601String(),
@@ -55,11 +57,14 @@ class NequiTransaction {
     };
   }
 
-  static NequiTransaction fromMap(Map<String, dynamic> map) {
+  static NequiTransaction fromMap(
+    Map<String, dynamic> map, {
+    required MoneyValue Function(Object?) amountFromSql,
+  }) {
     return NequiTransaction(
       transactionId: map['transaction_id'] as String,
       phoneNumber: map['phone_number'] as String,
-      amount: (map['amount'] as num).toDouble(),
+      amount: amountFromSql(map['amount']),
       reference: map['reference'] as String,
       status: NequiTransactionStatus.values.firstWhere(
         (e) => e.name == map['status'],
@@ -151,7 +156,7 @@ class NequiService {
 
   Future<NequiTransaction> generarReferenciaCobro({
     required String phoneNumber,
-    required double amount,
+    required MoneyValue amount,
     required String reference,
     String? description,
     int expirationMinutes = 30,
@@ -169,7 +174,7 @@ class NequiService {
         data: {
           'client_id': config.clientId,
           'phone_number': _formatearTelefono(phoneNumber),
-          'amount': amount,
+          'amount': amount.toMajorUnitsString(),
           'currency': 'COP',
           'reference': reference,
           'description': description ?? 'Pago Nequi MerkaERP',
@@ -305,7 +310,14 @@ class NequiService {
     );
 
     if (rows.isEmpty) return null;
-    return NequiTransaction.fromMap(rows.first);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: await DatabaseHelper.instance.obtenerEmpresaActivaId(),
+    );
+    return NequiTransaction.fromMap(
+      rows.first,
+      amountFromSql: (value) => MoneyValue.fromSql(value, currency: currency),
+    );
   }
 
   Future<void> _procesarPagoExitoso(NequiTransaction transaction) async {
@@ -317,7 +329,7 @@ class NequiService {
       'company_id': companyId,
       'tipo': 'ingreso',
       'concepto': 'Pago Nequi - Ref: ${transaction.reference}',
-      'monto': transaction.amount,
+      'monto': transaction.amount.toSql(),
       'fecha': DateTime.now().toIso8601String(),
       'origen': 'nequi',
     });
@@ -333,7 +345,7 @@ class NequiService {
       await db.insert('abonos_cxc', {
         'company_id': companyId,
         'cuenta_id': factura['id'],
-        'monto': transaction.amount,
+        'monto': transaction.amount.toSql(),
         'metodo_pago': 'NEQUI',
         'observacion': 'Transacción Nequi: ${transaction.transactionId}',
         'fecha': DateTime.now().toIso8601String(),
@@ -402,7 +414,15 @@ class NequiService {
       orderBy: 'created_at DESC',
     );
 
-    return rows.map((row) => NequiTransaction.fromMap(row)).toList();
+    final currency = await MoneyCurrencyResolver.resolve(db, companyId: companyId);
+    return rows
+        .map(
+          (row) => NequiTransaction.fromMap(
+            row,
+            amountFromSql: (value) => MoneyValue.fromSql(value, currency: currency),
+          ),
+        )
+        .toList();
   }
 
   Future<void> verificarTransaccionesExpiradas() async {

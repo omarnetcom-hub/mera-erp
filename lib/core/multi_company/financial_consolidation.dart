@@ -5,11 +5,16 @@
 
 import 'package:sqflite/sqflite.dart';
 
+import '../currency/currency.dart';
+import '../currency/money_currency_resolver.dart';
+import '../currency/money_value.dart';
+
 class FinancialConsolidationService {
-  static final FinancialConsolidationService instance = FinancialConsolidationService._internal();
-  
+  static final FinancialConsolidationService instance =
+      FinancialConsolidationService._internal();
+
   FinancialConsolidationService._internal();
-  
+
   /// Obtiene el consolidado financiero de múltiples empresas
   Future<Map<String, dynamic>> getConsolidatedFinancials(
     Database db,
@@ -20,18 +25,20 @@ class FinancialConsolidationService {
     if (companyIds.isEmpty) {
       return _emptyConsolidation();
     }
-    
-    final effectiveStartDate = startDate ?? DateTime.now().subtract(const Duration(days: 30));
+
+    final effectiveStartDate =
+        startDate ?? DateTime.now().subtract(const Duration(days: 30));
     final effectiveEndDate = endDate ?? DateTime.now();
-    
+
     // Ventas consolidadas
+    final currency = await _resolveCurrency(db, companyIds);
     final consolidatedSales = await _getConsolidatedSales(
       db,
       companyIds,
       effectiveStartDate,
       effectiveEndDate,
     );
-    
+
     // Gastos consolidados
     final consolidatedExpenses = await _getConsolidatedExpenses(
       db,
@@ -39,20 +46,32 @@ class FinancialConsolidationService {
       effectiveStartDate,
       effectiveEndDate,
     );
-    
+
     // Inventario consolidado
-    final consolidatedInventory = await _getConsolidatedInventory(db, companyIds);
-    
+    final consolidatedInventory = await _getConsolidatedInventory(
+      db,
+      companyIds,
+    );
+
     // Cuentas por cobrar consolidadas
-    final consolidatedReceivables = await _getConsolidatedReceivables(db, companyIds);
-    
+    final consolidatedReceivables = await _getConsolidatedReceivables(
+      db,
+      companyIds,
+    );
+
     // Cuentas por pagar consolidadas
     final consolidatedPayables = await _getConsolidatedPayables(db, companyIds);
-    
-    final totalRevenue = consolidatedSales['total'] as double;
-    final totalExpenses = consolidatedExpenses['total'] as double;
+
+    final totalRevenue = MoneyValue.fromSql(
+      (consolidatedSales['total'] as Map)['minor_units'],
+      currency: currency,
+    );
+    final totalExpenses = MoneyValue.fromSql(
+      (consolidatedExpenses['total'] as Map)['minor_units'],
+      currency: currency,
+    );
     final totalProfit = totalRevenue - totalExpenses;
-    
+
     return {
       'period': {
         'start': effectiveStartDate.toIso8601String(),
@@ -64,14 +83,28 @@ class FinancialConsolidationService {
       'inventory': consolidatedInventory,
       'accounts_receivable': consolidatedReceivables,
       'accounts_payable': consolidatedPayables,
-      'profit': totalProfit,
-      'profit_margin': totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
-      'net_cash_position': (consolidatedInventory['total_value'] as double) + 
-                           (consolidatedReceivables['total'] as double) - 
-                           (consolidatedPayables['total'] as double),
+      'profit': totalProfit.toWireMap(),
+      'profit_margin': totalRevenue.minorUnits > 0
+          ? (totalProfit.minorUnits / totalRevenue.minorUnits) * 100
+          : 0,
+      'net_cash_position':
+          (MoneyValue.fromSql(
+                    (consolidatedInventory['total_value']
+                        as Map)['minor_units'],
+                    currency: currency,
+                  ) +
+                  MoneyValue.fromSql(
+                    (consolidatedReceivables['total'] as Map)['minor_units'],
+                    currency: currency,
+                  ) -
+                  MoneyValue.fromSql(
+                    (consolidatedPayables['total'] as Map)['minor_units'],
+                    currency: currency,
+                  ))
+              .toWireMap(),
     };
   }
-  
+
   /// Obtiene ventas consolidadas
   Future<Map<String, dynamic>> _getConsolidatedSales(
     Database db,
@@ -80,8 +113,9 @@ class FinancialConsolidationService {
     DateTime endDate,
   ) async {
     final placeholders = List.filled(companyIds.length, '?').join(',');
-    
-    final result = await db.rawQuery('''
+
+    final result = await db.rawQuery(
+      '''
       SELECT 
         COUNT(*) as count,
         SUM(total) as total,
@@ -93,17 +127,31 @@ class FinancialConsolidationService {
         AND fecha >= ? 
         AND fecha <= ? 
         AND estado = 'emitida'
-    ''', [...companyIds, startDate.toIso8601String(), endDate.toIso8601String()]);
-    
+    ''',
+      [...companyIds, startDate.toIso8601String(), endDate.toIso8601String()],
+    );
+
     return {
       'count': Sqflite.firstIntValue(result) ?? 0,
-      'total': (result.first['total'] as num?)?.toDouble() ?? 0,
-      'subtotal': (result.first['subtotal'] as num?)?.toDouble() ?? 0,
-      'tax': (result.first['tax'] as num?)?.toDouble() ?? 0,
-      'average_ticket': (result.first['average_ticket'] as num?)?.toDouble() ?? 0,
+      'total': _wire(
+        result.first['total'],
+        await _currencyForQuery(db, companyIds),
+      ),
+      'subtotal': _wire(
+        result.first['subtotal'],
+        await _currencyForQuery(db, companyIds),
+      ),
+      'tax': _wire(
+        result.first['tax'],
+        await _currencyForQuery(db, companyIds),
+      ),
+      'average_ticket': _wire(
+        (result.first['average_ticket'] as num?)?.round(),
+        await _currencyForQuery(db, companyIds),
+      ),
     };
   }
-  
+
   /// Obtiene gastos consolidados
   Future<Map<String, dynamic>> _getConsolidatedExpenses(
     Database db,
@@ -112,8 +160,9 @@ class FinancialConsolidationService {
     DateTime endDate,
   ) async {
     final placeholders = List.filled(companyIds.length, '?').join(',');
-    
-    final result = await db.rawQuery('''
+
+    final result = await db.rawQuery(
+      '''
       SELECT 
         COUNT(*) as count,
         SUM(monto) as total
@@ -121,18 +170,26 @@ class FinancialConsolidationService {
       WHERE company_id IN ($placeholders) 
         AND fecha >= ? 
         AND fecha <= ?
-    ''', [...companyIds, startDate.toIso8601String(), endDate.toIso8601String()]);
-    
+    ''',
+      [...companyIds, startDate.toIso8601String(), endDate.toIso8601String()],
+    );
+
     return {
       'count': Sqflite.firstIntValue(result) ?? 0,
-      'total': (result.first['total'] as num?)?.toDouble() ?? 0,
+      'total': _wire(
+        result.first['total'],
+        await _currencyForQuery(db, companyIds),
+      ),
     };
   }
-  
+
   /// Obtiene inventario consolidado
-  Future<Map<String, dynamic>> _getConsolidatedInventory(Database db, List<int> companyIds) async {
+  Future<Map<String, dynamic>> _getConsolidatedInventory(
+    Database db,
+    List<int> companyIds,
+  ) async {
     final placeholders = List.filled(companyIds.length, '?').join(',');
-    
+
     final result = await db.rawQuery('''
       SELECT 
         COUNT(*) as total_products,
@@ -141,18 +198,24 @@ class FinancialConsolidationService {
       FROM productos
       WHERE company_id IN ($placeholders)
     ''', companyIds);
-    
+
     return {
       'total_products': Sqflite.firstIntValue(result) ?? 0,
       'total_stock': (result.first['total_stock'] as num?)?.toDouble() ?? 0,
-      'total_value': (result.first['total_value'] as num?)?.toDouble() ?? 0,
+      'total_value': _wire(
+        result.first['total_value'],
+        await _currencyForQuery(db, companyIds),
+      ),
     };
   }
-  
+
   /// Obtiene cuentas por cobrar consolidadas
-  Future<Map<String, dynamic>> _getConsolidatedReceivables(Database db, List<int> companyIds) async {
+  Future<Map<String, dynamic>> _getConsolidatedReceivables(
+    Database db,
+    List<int> companyIds,
+  ) async {
     final placeholders = List.filled(companyIds.length, '?').join(',');
-    
+
     final result = await db.rawQuery('''
       SELECT 
         COUNT(*) as count,
@@ -160,17 +223,23 @@ class FinancialConsolidationService {
       FROM cuentas_por_cobrar
       WHERE company_id IN ($placeholders) AND estado = 'pendiente'
     ''', companyIds);
-    
+
     return {
       'count': Sqflite.firstIntValue(result) ?? 0,
-      'total': (result.first['total'] as num?)?.toDouble() ?? 0,
+      'total': _wire(
+        result.first['total'],
+        await _currencyForQuery(db, companyIds),
+      ),
     };
   }
-  
+
   /// Obtiene cuentas por pagar consolidadas
-  Future<Map<String, dynamic>> _getConsolidatedPayables(Database db, List<int> companyIds) async {
+  Future<Map<String, dynamic>> _getConsolidatedPayables(
+    Database db,
+    List<int> companyIds,
+  ) async {
     final placeholders = List.filled(companyIds.length, '?').join(',');
-    
+
     final result = await db.rawQuery('''
       SELECT 
         COUNT(*) as count,
@@ -178,13 +247,16 @@ class FinancialConsolidationService {
       FROM cuentas_por_pagar
       WHERE company_id IN ($placeholders) AND estado = 'pendiente'
     ''', companyIds);
-    
+
     return {
       'count': Sqflite.firstIntValue(result) ?? 0,
-      'total': (result.first['total'] as num?)?.toDouble() ?? 0,
+      'total': _wire(
+        result.first['total'],
+        await _currencyForQuery(db, companyIds),
+      ),
     };
   }
-  
+
   /// Obtiene desglose por empresa
   Future<List<Map<String, dynamic>>> getBreakdownByCompany(
     Database db,
@@ -192,11 +264,12 @@ class FinancialConsolidationService {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
-    final effectiveStartDate = startDate ?? DateTime.now().subtract(const Duration(days: 30));
+    final effectiveStartDate =
+        startDate ?? DateTime.now().subtract(const Duration(days: 30));
     final effectiveEndDate = endDate ?? DateTime.now();
-    
+
     final breakdown = <Map<String, dynamic>>[];
-    
+
     for (final companyId in companyIds) {
       final companyData = await _getCompanyFinancials(
         db,
@@ -204,16 +277,13 @@ class FinancialConsolidationService {
         effectiveStartDate,
         effectiveEndDate,
       );
-      
-      breakdown.add({
-        'company_id': companyId,
-        ...companyData,
-      });
+
+      breakdown.add({'company_id': companyId, ...companyData});
     }
-    
+
     return breakdown;
   }
-  
+
   /// Obtiene financieras de una empresa específica
   Future<Map<String, dynamic>> _getCompanyFinancials(
     Database db,
@@ -221,46 +291,69 @@ class FinancialConsolidationService {
     DateTime startDate,
     DateTime endDate,
   ) async {
-    final salesResult = await db.rawQuery('''
+    final salesResult = await db.rawQuery(
+      '''
       SELECT 
         COUNT(*) as count,
         SUM(total) as total
       FROM ventas
       WHERE company_id = ? AND fecha >= ? AND fecha <= ? AND estado = 'emitida'
-    ''', [companyId, startDate.toIso8601String(), endDate.toIso8601String()]);
-    
-    final expensesResult = await db.rawQuery('''
+    ''',
+      [companyId, startDate.toIso8601String(), endDate.toIso8601String()],
+    );
+
+    final expensesResult = await db.rawQuery(
+      '''
       SELECT 
         COUNT(*) as count,
         SUM(monto) as total
       FROM gastos
       WHERE company_id = ? AND fecha >= ? AND fecha <= ?
-    ''', [companyId, startDate.toIso8601String(), endDate.toIso8601String()]);
-    
-    final inventoryResult = await db.rawQuery('''
+    ''',
+      [companyId, startDate.toIso8601String(), endDate.toIso8601String()],
+    );
+
+    final inventoryResult = await db.rawQuery(
+      '''
       SELECT 
         SUM(stock * costo) as total_value
       FROM productos
       WHERE company_id = ?
-    ''', [companyId]);
-    
-    final sales = (salesResult.first['total'] as num?)?.toDouble() ?? 0;
-    final expenses = (expensesResult.first['total'] as num?)?.toDouble() ?? 0;
-    
+    ''',
+      [companyId],
+    );
+
+    final currency = await _currencyForQuery(db, [companyId]);
+    final sales = MoneyValue.fromSql(
+      salesResult.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final expenses = MoneyValue.fromSql(
+      expensesResult.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final inventoryValue = MoneyValue.fromSql(
+      inventoryResult.first['total_value'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+
     return {
       'sales': {
         'count': Sqflite.firstIntValue(salesResult) ?? 0,
-        'total': sales,
+        'total': sales.toWireMap(),
       },
       'expenses': {
         'count': Sqflite.firstIntValue(expensesResult) ?? 0,
-        'total': expenses,
+        'total': expenses.toWireMap(),
       },
-      'inventory_value': (inventoryResult.first['total_value'] as num?)?.toDouble() ?? 0,
-      'profit': sales - expenses,
+      'inventory_value': inventoryValue.toWireMap(),
+      'profit': (sales - expenses).toWireMap(),
     };
   }
-  
+
   /// Genera reporte de consolidación en formato para exportación
   Future<Map<String, dynamic>> generateConsolidationReport(
     Database db,
@@ -274,14 +367,14 @@ class FinancialConsolidationService {
       startDate: startDate,
       endDate: endDate,
     );
-    
+
     final breakdown = await getBreakdownByCompany(
       db,
       companyIds,
       startDate: startDate,
       endDate: endDate,
     );
-    
+
     return {
       'report_type': 'financial_consolidation',
       'generated_at': DateTime.now().toIso8601String(),
@@ -289,25 +382,40 @@ class FinancialConsolidationService {
       'breakdown_by_company': breakdown,
     };
   }
-  
+
   /// Calcula KPIs consolidados
   Future<Map<String, dynamic>> getConsolidatedKPIs(
     Database db,
     List<int> companyIds,
   ) async {
     final consolidated = await getConsolidatedFinancials(db, companyIds);
-    
+
     final sales = consolidated['sales'] as Map<String, dynamic>;
     final inventory = consolidated['inventory'] as Map<String, dynamic>;
-    
+    final currency = await _currencyForQuery(db, companyIds);
+    final salesTotal = MoneyValue.fromSql(
+      (sales['total'] as Map)['minor_units'],
+      currency: currency,
+    );
+    final inventoryValue = MoneyValue.fromSql(
+      (inventory['total_value'] as Map)['minor_units'],
+      currency: currency,
+    );
+    final profit = MoneyValue.fromSql(
+      (consolidated['profit'] as Map)['minor_units'],
+      currency: currency,
+    );
+
     return {
-      'revenue_per_company': (sales['total'] as double) / companyIds.length,
-      'inventory_turnover': (sales['total'] as double) / (inventory['total_value'] as double),
-      'profit_per_company': (consolidated['profit'] as double) / companyIds.length,
+      'revenue_per_company': salesTotal.minorUnits / companyIds.length,
+      'inventory_turnover': inventoryValue.minorUnits == 0
+          ? 0
+          : salesTotal.minorUnits / inventoryValue.minorUnits,
+      'profit_per_company': profit.minorUnits / companyIds.length,
       'companies_count': companyIds.length,
     };
   }
-  
+
   /// Consolidación vacía
   Map<String, dynamic> _emptyConsolidation() {
     return {
@@ -316,7 +424,13 @@ class FinancialConsolidationService {
         'end': DateTime.now().toIso8601String(),
       },
       'companies': 0,
-      'sales': {'count': 0, 'total': 0, 'subtotal': 0, 'tax': 0, 'average_ticket': 0},
+      'sales': {
+        'count': 0,
+        'total': 0,
+        'subtotal': 0,
+        'tax': 0,
+        'average_ticket': 0,
+      },
       'expenses': {'count': 0, 'total': 0},
       'inventory': {'total_products': 0, 'total_stock': 0, 'total_value': 0},
       'accounts_receivable': {'count': 0, 'total': 0},
@@ -325,5 +439,37 @@ class FinancialConsolidationService {
       'profit_margin': 0,
       'net_cash_position': 0,
     };
+  }
+
+  Future<Currency> _resolveCurrency(Database db, List<int> companyIds) async {
+    return _currencyForQuery(db, companyIds);
+  }
+
+  Future<Currency> _currencyForQuery(Database db, List<int> companyIds) async {
+    final first = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyIds.first,
+    );
+    for (final companyId in companyIds.skip(1)) {
+      final current = await MoneyCurrencyResolver.resolve(
+        db,
+        companyId: companyId,
+      );
+      if (current.code != first.code ||
+          current.decimalPlaces != first.decimalPlaces) {
+        throw StateError(
+          'Cannot consolidate companies with different configured currencies',
+        );
+      }
+    }
+    return first;
+  }
+
+  Map<String, Object?> _wire(Object? value, Currency currency) {
+    return MoneyValue.fromSql(
+      value,
+      currency: currency,
+      nullableAsZero: true,
+    ).toWireMap();
   }
 }

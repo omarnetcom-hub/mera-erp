@@ -1,3 +1,4 @@
+import '../../core/currency/money_value.dart';
 import '../domain/product.dart';
 
 enum CostingMethod { weightedAverage, fifo }
@@ -32,16 +33,16 @@ class InventoryControlReport {
 
   final int products;
   final List<ReplenishmentSuggestion> suggestions;
-  final double costValue;
-  final double saleValue;
+  final MoneyValue costValue;
+  final MoneyValue saleValue;
 
-  double get potentialMargin => saleValue - costValue;
+  MoneyValue get potentialMargin => saleValue - costValue;
 
   Map<String, Object?> toMap() => {
     'products': products,
-    'cost_value': costValue,
-    'sale_value': saleValue,
-    'potential_margin': potentialMargin,
+    'cost_value': costValue.toWireMap(),
+    'sale_value': saleValue.toWireMap(),
+    'potential_margin': potentialMargin.toWireMap(),
     'replenishment': suggestions.map((item) => item.toMap()).toList(),
   };
 }
@@ -58,13 +59,21 @@ class InventoryControlService {
   final CostingMethod costingMethod;
 
   InventoryControlReport analyze(List<Product> products) {
+    if (products.isEmpty) {
+      throw StateError('A currency is required to analyze an empty inventory');
+    }
+    var costValue = MoneyValue(
+      minorUnits: 0,
+      currency: products.first.cost.currency,
+    );
+    var saleValue = MoneyValue(
+      minorUnits: 0,
+      currency: products.first.price.currency,
+    );
     final suggestions = <ReplenishmentSuggestion>[];
-    var costValue = 0.0;
-    var saleValue = 0.0;
-
     for (final product in products) {
-      costValue += product.stock * product.cost;
-      saleValue += product.stock * product.price;
+      costValue += product.stockCostValue;
+      saleValue += product.stockSaleValue;
       if (product.stock <= reorderPoint) {
         final quantity = (targetStock - product.stock).clamp(0, targetStock);
         suggestions.add(
@@ -76,7 +85,6 @@ class InventoryControlService {
         );
       }
     }
-
     return InventoryControlReport(
       products: products.length,
       suggestions: suggestions,
@@ -85,19 +93,22 @@ class InventoryControlService {
     );
   }
 
-  double weightedAverageCost({
+  MoneyValue weightedAverageCost({
     required double currentStock,
-    required double currentCost,
+    required MoneyValue currentCost,
     required double incomingQuantity,
-    required double incomingCost,
+    required MoneyValue incomingCost,
   }) {
     if (currentStock < 0 || incomingQuantity < 0) {
       throw ArgumentError('Las cantidades no pueden ser negativas.');
     }
     final totalQuantity = currentStock + incomingQuantity;
-    if (totalQuantity == 0) return 0;
+    if (totalQuantity == 0) {
+      return MoneyValue(minorUnits: 0, currency: currentCost.currency);
+    }
     final totalCost =
-        (currentStock * currentCost) + (incomingQuantity * incomingCost);
-    return totalCost / totalQuantity;
+        currentCost.multiplyDecimal(currentStock.toString()) +
+        incomingCost.multiplyDecimal(incomingQuantity.toString());
+    return totalCost.divideDecimal(totalQuantity.toString());
   }
 }

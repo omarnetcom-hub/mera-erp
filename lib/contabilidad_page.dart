@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'bancos_page.dart';
 import 'conciliacion_bancaria_page.dart';
 import 'db_helper.dart';
@@ -27,6 +30,7 @@ class _ContabilidadPageState extends State<ContabilidadPage>
   DateTime? _fechaInicio;
   DateTime? _fechaFin;
   String _filtroTipoCuenta = 'todos';
+  Currency? _currency;
 
   @override
   void initState() {
@@ -50,6 +54,12 @@ class _ContabilidadPageState extends State<ContabilidadPage>
 
   Future<void> _cargarDatos() async {
     final cuentas = await DatabaseHelper.instance.obtenerCuentasContables();
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     var asientos = await DatabaseHelper.instance.obtenerAsientosContables();
     final balance = await DatabaseHelper.instance.obtenerBalanceComprobacion();
 
@@ -60,9 +70,17 @@ class _ContabilidadPageState extends State<ContabilidadPage>
         if (fechaStr.isEmpty) return false;
         try {
           final fecha = DateTime.parse(fechaStr);
-          if (_fechaInicio != null && fecha.isBefore(_fechaInicio!)) return false;
+          if (_fechaInicio != null && fecha.isBefore(_fechaInicio!))
+            return false;
           if (_fechaFin != null) {
-            final fechaFinConHora = DateTime(_fechaFin!.year, _fechaFin!.month, _fechaFin!.day, 23, 59, 59);
+            final fechaFinConHora = DateTime(
+              _fechaFin!.year,
+              _fechaFin!.month,
+              _fechaFin!.day,
+              23,
+              59,
+              59,
+            );
             if (fecha.isAfter(fechaFinConHora)) return false;
           }
           return true;
@@ -78,6 +96,7 @@ class _ContabilidadPageState extends State<ContabilidadPage>
       _cuentas = cuentas;
       _asientos = asientos;
       _balance = balance;
+      _currency = currency;
       _cargando = false;
     });
   }
@@ -156,7 +175,9 @@ class _ContabilidadPageState extends State<ContabilidadPage>
                 const SizedBox(height: 10),
                 TextField(
                   controller: montoCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   inputFormatters: [NumericInput.decimal],
                   decoration: const InputDecoration(
                     labelText: 'Monto',
@@ -174,10 +195,12 @@ class _ContabilidadPageState extends State<ContabilidadPage>
             ElevatedButton(
               onPressed: () async {
                 final concepto = conceptoCtrl.text.trim();
-                final monto =
-                    double.tryParse(montoCtrl.text.replaceAll(',', '.')) ?? 0;
-
-                if (concepto.isEmpty || monto <= 0) return;
+                if (concepto.isEmpty || _currency == null) return;
+                final monto = MoneyValue.fromMajorUnits(
+                  montoCtrl.text.replaceAll(',', '.'),
+                  currency: _currency,
+                );
+                if (monto.minorUnits <= 0) return;
                 if (cuentaDebitoId == cuentaCreditoId) return;
 
                 await DatabaseHelper.instance.registrarAsientoContable(
@@ -221,7 +244,10 @@ class _ContabilidadPageState extends State<ContabilidadPage>
     }
   }
 
-  String _moneda(num valor) => '\$${valor.toStringAsFixed(2)}';
+  MoneyValue _money(Object? value) =>
+      MoneyValue.fromSql(value, currency: _currency, nullableAsZero: true);
+
+  String _moneda(MoneyValue valor) => valor.format();
 
   @override
   Widget build(BuildContext context) {
@@ -295,14 +321,12 @@ class _ContabilidadPageState extends State<ContabilidadPage>
   }
 
   Widget _vistaBalance() {
-    final totalDebito = _balance.fold<double>(
-      0,
-      (sum, cuenta) => sum + ((cuenta['debito'] as num?)?.toDouble() ?? 0),
-    );
-    final totalCredito = _balance.fold<double>(
-      0,
-      (sum, cuenta) => sum + ((cuenta['credito'] as num?)?.toDouble() ?? 0),
-    );
+    var totalDebito = MoneyValue(minorUnits: 0, currency: _currency!);
+    var totalCredito = MoneyValue(minorUnits: 0, currency: _currency!);
+    for (final cuenta in _balance) {
+      totalDebito += _money(cuenta['debito']);
+      totalCredito += _money(cuenta['credito']);
+    }
 
     return ListView(
       padding: const EdgeInsets.all(12),
@@ -310,10 +334,10 @@ class _ContabilidadPageState extends State<ContabilidadPage>
         Card(
           child: ListTile(
             leading: Icon(
-              (totalDebito - totalCredito).abs() < 0.01
+              (totalDebito - totalCredito).minorUnits == 0
                   ? Icons.check_circle
                   : Icons.error,
-              color: (totalDebito - totalCredito).abs() < 0.01
+              color: (totalDebito - totalCredito).minorUnits == 0
                   ? Colors.green
                   : Colors.red,
             ),
@@ -328,10 +352,10 @@ class _ContabilidadPageState extends State<ContabilidadPage>
             child: ListTile(
               title: Text('${c['codigo']} - ${c['nombre']}'),
               subtitle: Text(
-                'Débito ${_moneda((c['debito'] as num?) ?? 0)} · Crédito ${_moneda((c['credito'] as num?) ?? 0)}',
+                'Débito ${_moneda(_money(c['debito']))} · Crédito ${_moneda(_money(c['credito']))}',
               ),
               trailing: Text(
-                _moneda((c['saldo'] as num?) ?? 0),
+                _moneda(_money(c['saldo'])),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -355,7 +379,9 @@ class _ContabilidadPageState extends State<ContabilidadPage>
                     onTap: () async {
                       final fecha = await showDatePicker(
                         context: context,
-                        initialDate: _fechaInicio ?? DateTime.now().subtract(const Duration(days: 30)),
+                        initialDate:
+                            _fechaInicio ??
+                            DateTime.now().subtract(const Duration(days: 30)),
                         firstDate: DateTime(2020),
                         lastDate: DateTime.now(),
                       );
@@ -432,9 +458,11 @@ class _ContabilidadPageState extends State<ContabilidadPage>
               return Card(
                 child: ListTile(
                   title: Text(a['concepto']?.toString() ?? ''),
-                  subtitle: Text('${a['fecha']} · Ref: ${a['referencia'] ?? ''}'),
+                  subtitle: Text(
+                    '${a['fecha']} · Ref: ${a['referencia'] ?? ''}',
+                  ),
                   trailing: Text(
-                    _moneda((a['total'] as num?) ?? 0),
+                    _moneda(_money(a['total'])),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -450,9 +478,11 @@ class _ContabilidadPageState extends State<ContabilidadPage>
     // Filtrar cuentas por tipo
     List<Map<String, dynamic>> cuentasFiltradas = _cuentas;
     if (_filtroTipoCuenta != 'todos') {
-      cuentasFiltradas = _cuentas.where((c) => c['tipo']?.toString() == _filtroTipoCuenta).toList();
+      cuentasFiltradas = _cuentas
+          .where((c) => c['tipo']?.toString() == _filtroTipoCuenta)
+          .toList();
     }
-    
+
     return Column(
       children: [
         // Filtro por tipo de cuenta
@@ -461,7 +491,10 @@ class _ContabilidadPageState extends State<ContabilidadPage>
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                const Text('Filtrar por tipo: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Filtrar por tipo: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButton<String>(
@@ -471,13 +504,28 @@ class _ContabilidadPageState extends State<ContabilidadPage>
                       DropdownMenuItem(value: 'todos', child: Text('Todos')),
                       DropdownMenuItem(value: 'activo', child: Text('Activos')),
                       DropdownMenuItem(value: 'pasivo', child: Text('Pasivos')),
-                      DropdownMenuItem(value: 'patrimonio', child: Text('Patrimonio')),
-                      DropdownMenuItem(value: 'ingreso', child: Text('Ingresos')),
+                      DropdownMenuItem(
+                        value: 'patrimonio',
+                        child: Text('Patrimonio'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'ingreso',
+                        child: Text('Ingresos'),
+                      ),
                       DropdownMenuItem(value: 'gasto', child: Text('Gastos')),
                       DropdownMenuItem(value: 'costo', child: Text('Costos')),
-                      DropdownMenuItem(value: 'costo_venta', child: Text('Costos de Venta')),
-                      DropdownMenuItem(value: 'cuenta_orden_debito', child: Text('Cuentas de Orden Débito')),
-                      DropdownMenuItem(value: 'cuenta_orden_credito', child: Text('Cuentas de Orden Crédito')),
+                      DropdownMenuItem(
+                        value: 'costo_venta',
+                        child: Text('Costos de Venta'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'cuenta_orden_debito',
+                        child: Text('Cuentas de Orden Débito'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'cuenta_orden_credito',
+                        child: Text('Cuentas de Orden Crédito'),
+                      ),
                     ],
                     onChanged: (value) {
                       setState(() => _filtroTipoCuenta = value ?? 'todos');
@@ -497,7 +545,9 @@ class _ContabilidadPageState extends State<ContabilidadPage>
               final c = cuentasFiltradas[i];
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(child: Text(c['codigo']?.toString() ?? '')),
+                  leading: CircleAvatar(
+                    child: Text(c['codigo']?.toString() ?? ''),
+                  ),
                   title: Text(c['nombre']?.toString() ?? ''),
                   subtitle: Text('${c['tipo']} · ${c['naturaleza']}'),
                 ),

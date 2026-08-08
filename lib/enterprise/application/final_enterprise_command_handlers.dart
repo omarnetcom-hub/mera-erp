@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../core/events/domain_event.dart';
+import '../../core/currency/money_value.dart';
 import '../../core/security/action_permission.dart';
 import '../../sync/application/sync_orchestrator.dart';
 import '../../sync/domain/sync_models.dart';
@@ -26,6 +27,20 @@ class FinalEnterpriseCommandHandlers {
   final PermissionService _permissions;
   final TelemetryService _telemetry;
   final SyncOrchestrator? _sync;
+  Future<dynamic>? _currencyFuture;
+
+  Future<MoneyValue> _money(Object? value) async {
+    final currency = await (_currencyFuture ??= _repository.currency());
+    return MoneyValue.fromMajorUnits(
+      value?.toString() ?? '0',
+      currency: currency,
+    );
+  }
+
+  Future<MoneyValue> _moneySql(Object? value) async {
+    final currency = await (_currencyFuture ??= _repository.currency());
+    return MoneyValue.fromSql(value, currency: currency, nullableAsZero: true);
+  }
 
   Future<Map<String, Object?>> collectReceivable(
     Map<String, dynamic> body, {
@@ -36,7 +51,7 @@ class FinalEnterpriseCommandHandlers {
     _assert(role, 'accounts_receivable', AppAction.collect);
     final scope = await _repository.scope();
     final customerId = _int(body['customer_id']);
-    final amount = _double(body['amount']);
+    final amount = await _money(body['amount']);
     final profile = await _creditProfile(customerId);
     final updated = profile.collect(amount);
     await _upsertCreditProfile(updated);
@@ -46,7 +61,7 @@ class FinalEnterpriseCommandHandlers {
       'document_id': body['document_id']?.toString() ?? 'manual',
       'document_type': 'collection',
       'side': LedgerSide.credit.name,
-      'amount': amount,
+      'amount': amount.toSql(),
       'open_amount': 0,
       'due_date':
           _date(body['date'])?.toIso8601String() ??
@@ -59,7 +74,7 @@ class FinalEnterpriseCommandHandlers {
       entity: 'ar_ledger_entries',
       entityId: entryId,
       userId: userId,
-      payload: {'amount': amount, 'customer_id': customerId},
+      payload: {'amount': amount.toWireMap(), 'customer_id': customerId},
     );
     await _events.publish(
       InvoicePaidEvent(
@@ -70,10 +85,12 @@ class FinalEnterpriseCommandHandlers {
         correlationId: correlationId,
       ),
     );
-    await _syncRecord('accounts_receivable', '$entryId', {'amount': amount});
+    await _syncRecord('accounts_receivable', '$entryId', {
+      'amount': amount.toWireMap(),
+    });
     _telemetry.log(
       name: 'ar.collection.applied',
-      attributes: {'customer_id': customerId, 'amount': amount},
+      attributes: {'customer_id': customerId, 'amount': amount.toSql()},
     );
     return {'ledger_entry_id': entryId, 'credit_profile': updated.toMap()};
   }
@@ -88,7 +105,7 @@ class FinalEnterpriseCommandHandlers {
     final current = await _creditProfile(customerId);
     final updated = CreditRiskProfile(
       partyId: customerId,
-      limit: _double(body['limit']),
+      limit: await _money(body['limit']),
       balance: current.balance,
       riskScore: _double(body['risk_score'] ?? current.riskScore),
       blocked: _bool(body['blocked']),
@@ -124,7 +141,7 @@ class FinalEnterpriseCommandHandlers {
     final id = await _repository.insertScoped('ar_payment_promises', {
       'customer_id': _int(body['customer_id']),
       'customer': body['customer']?.toString() ?? 'Cliente',
-      'amount': _double(body['amount']),
+      'amount': (await _money(body['amount'])).toSql(),
       'promise_date': (_date(body['promise_date']) ?? DateTime.now())
           .toIso8601String(),
       'status': 'open',
@@ -150,7 +167,7 @@ class FinalEnterpriseCommandHandlers {
       id: _id('ap'),
       partyId: _int(body['supplier_id']),
       partyName: body['supplier']?.toString() ?? 'Proveedor',
-      amount: _double(body['amount']),
+      amount: await _money(body['amount']),
       dueDate: _date(body['due_date']) ?? DateTime.now(),
       sourceDocumentId: body['document_id']?.toString(),
     );
@@ -174,14 +191,14 @@ class FinalEnterpriseCommandHandlers {
     required String userId,
   }) async {
     _assert(role, 'accounts_payable', AppAction.approvePayment);
-    final amount = _double(body['amount']);
+    final amount = await _money(body['amount']);
     final id = await _repository.insertScoped('ap_supplier_ledger', {
       'supplier_id': _int(body['supplier_id']),
       'supplier': body['supplier']?.toString() ?? 'Proveedor',
       'document_id': body['document_id']?.toString() ?? 'manual',
       'document_type': 'payment',
       'side': LedgerSide.debit.name,
-      'amount': amount,
+      'amount': amount.toSql(),
       'open_amount': 0,
       'due_date': DateTime.now().toIso8601String(),
       'occurred_at': DateTime.now().toIso8601String(),
@@ -192,9 +209,12 @@ class FinalEnterpriseCommandHandlers {
       entity: 'ap_supplier_ledger',
       entityId: id,
       userId: userId,
-      payload: {'amount': amount},
+      payload: {'amount': amount.toWireMap()},
     );
-    _telemetry.log(name: 'ap.payment.applied', attributes: {'amount': amount});
+    _telemetry.log(
+      name: 'ap.payment.applied',
+      attributes: {'amount': amount.toSql()},
+    );
     return {'ledger_entry_id': id};
   }
 
@@ -209,7 +229,7 @@ class FinalEnterpriseCommandHandlers {
       'bank_name': body['bank_name']?.toString() ?? 'Banco',
       'account_number': body['account_number']?.toString() ?? '',
       'currency': body['currency']?.toString() ?? 'COP',
-      'balance': _double(body['balance']),
+      'balance': (await _money(body['balance'])).toSql(),
       'active': 1,
       'created_at': DateTime.now().toIso8601String(),
     });
@@ -235,7 +255,7 @@ class FinalEnterpriseCommandHandlers {
       id: _id('trf'),
       fromAccountId: _int(body['from_account_id']),
       toAccountId: _int(body['to_account_id']),
-      amount: _double(body['amount']),
+      amount: await _money(body['amount']),
       requestedBy: userId,
       createdAt: DateTime.now(),
       approved: _bool(body['approved']),
@@ -244,7 +264,7 @@ class FinalEnterpriseCommandHandlers {
     await _repository.insertScoped('treasury_bank_movements', {
       'bank_account_id': transfer.fromAccountId,
       'direction': 'out',
-      'amount': transfer.amount,
+      'amount': transfer.amount.toSql(),
       'reference': transfer.id,
       'movement_date': transfer.createdAt.toIso8601String(),
       'reconciled': 0,
@@ -252,7 +272,7 @@ class FinalEnterpriseCommandHandlers {
     await _repository.insertScoped('treasury_bank_movements', {
       'bank_account_id': transfer.toAccountId,
       'direction': 'in',
-      'amount': transfer.amount,
+      'amount': transfer.amount.toSql(),
       'reference': transfer.id,
       'movement_date': transfer.createdAt.toIso8601String(),
       'reconciled': 0,
@@ -298,7 +318,7 @@ class FinalEnterpriseCommandHandlers {
         'bank_account_id': _int(body['bank_account_id']),
         'reference': line['reference']?.toString() ?? '',
         'description': line['description']?.toString() ?? '',
-        'amount': _double(line['amount']),
+        'amount': (await _money(line['amount'])).toSql(),
         'movement_date': (_date(line['movement_date']) ?? DateTime.now())
             .toIso8601String(),
         'matched_movement_id': null,
@@ -332,10 +352,10 @@ class FinalEnterpriseCommandHandlers {
       final movements = await _repository.queryScoped(
         'treasury_bank_movements',
         where:
-            'bank_account_id = ? AND ABS(amount - ?) < 0.01 AND reference = ? AND reconciled = 0',
+            'bank_account_id = ? AND ABS(amount - ?) < 1 AND reference = ? AND reconciled = 0',
         whereArgs: [
           line['bank_account_id'],
-          (line['amount'] as num?)?.toDouble() ?? 0,
+          (line['amount'] as num?)?.toInt() ?? 0,
           line['reference']?.toString() ?? '',
         ],
         limit: 1,
@@ -455,9 +475,9 @@ class FinalEnterpriseCommandHandlers {
     final calculation = TaxCalculation(
       documentType: documentType,
       documentId: body['document_id']?.toString() ?? _id('doc'),
-      taxableBase: _double(body['taxable_base']),
-      tax: rule.taxFor(_double(body['taxable_base'])),
-      retention: rule.retentionFor(_double(body['taxable_base'])),
+      taxableBase: await _money(body['taxable_base']),
+      tax: rule.taxFor(await _money(body['taxable_base'])),
+      retention: rule.retentionFor(await _money(body['taxable_base'])),
       ruleCode: rule.code,
     );
     final id = await _repository.insertScoped('enterprise_tax_calculations', {
@@ -497,9 +517,11 @@ class FinalEnterpriseCommandHandlers {
     final asset = FixedAsset(
       id: body['id']?.toString() ?? _id('asset'),
       name: body['name']?.toString() ?? 'Activo',
-      cost: _double(body['cost']),
+      cost: await _money(body['cost']),
       usefulLifeMonths: _int(body['useful_life_months'], fallback: 60),
       acquiredAt: _date(body['acquired_at']) ?? DateTime.now(),
+      accumulatedDepreciation: await _money(0),
+      fiscalDepreciation: await _money(0),
     );
     await _repository.insertScoped('enterprise_fixed_assets', asset.toMap());
     await _repository.audit(
@@ -526,7 +548,7 @@ class FinalEnterpriseCommandHandlers {
       limit: 1,
     );
     if (rows.isEmpty) throw StateError('Activo fijo no encontrado.');
-    final current = _assetFromRow(rows.first);
+    final current = await _assetFromRow(rows.first);
     final depreciated = current.depreciate(
       months: _int(body['months'], fallback: 1),
       fiscalFactor: _double(body['fiscal_factor'] ?? 1),
@@ -542,7 +564,7 @@ class FinalEnterpriseCommandHandlers {
     await _repository.insertScoped('fixed_asset_events', {
       'asset_id': assetId,
       'event_type': 'depreciation',
-      'amount': amount,
+      'amount': amount.toSql(),
       'payload_json': jsonEncode(depreciated.toMap()),
       'created_at': DateTime.now().toIso8601String(),
     });
@@ -573,7 +595,7 @@ class FinalEnterpriseCommandHandlers {
       id: body['id']?.toString() ?? _id('opp'),
       customerId: _int(body['customer_id']),
       customerName: body['customer']?.toString() ?? 'Cliente',
-      value: _double(body['value']),
+      value: await _money(body['value']),
       stage: _stage(body['stage']?.toString()),
       nextFollowUpAt:
           _date(body['next_follow_up_at']) ??
@@ -735,16 +757,16 @@ class FinalEnterpriseCommandHandlers {
     if (rows.isEmpty) {
       return CreditRiskProfile(
         partyId: customerId,
-        limit: 0,
-        balance: 0,
+        limit: await _money(0),
+        balance: await _money(0),
         riskScore: 0,
       );
     }
     final row = rows.first;
     return CreditRiskProfile(
       partyId: customerId,
-      limit: (row['credit_limit'] as num?)?.toDouble() ?? 0,
-      balance: (row['balance'] as num?)?.toDouble() ?? 0,
+      limit: await _moneySql(row['credit_limit']),
+      balance: await _moneySql(row['balance']),
       riskScore: (row['risk_score'] as num?)?.toDouble() ?? 0,
       blocked: ((row['blocked'] as num?)?.toInt() ?? 0) == 1,
     );
@@ -759,8 +781,8 @@ class FinalEnterpriseCommandHandlers {
     );
     final values = {
       'customer_id': profile.partyId,
-      'credit_limit': profile.limit,
-      'balance': profile.balance,
+      'credit_limit': profile.limit.toSql(),
+      'balance': profile.balance.toSql(),
       'risk_score': profile.riskScore,
       'blocked': profile.blocked ? 1 : 0,
       'updated_at': DateTime.now().toIso8601String(),
@@ -777,16 +799,15 @@ class FinalEnterpriseCommandHandlers {
     }
   }
 
-  FixedAsset _assetFromRow(Map<String, Object?> row) {
+  Future<FixedAsset> _assetFromRow(Map<String, Object?> row) async {
     return FixedAsset(
       id: row['id']?.toString() ?? '',
       name: row['name']?.toString() ?? '',
-      cost: (row['cost'] as num?)?.toDouble() ?? 0,
+      cost: await _moneySql(row['cost']),
       usefulLifeMonths: (row['useful_life_months'] as num?)?.toInt() ?? 60,
       acquiredAt: _date(row['acquired_at']) ?? DateTime.now(),
-      accumulatedDepreciation:
-          (row['accumulated_depreciation'] as num?)?.toDouble() ?? 0,
-      fiscalDepreciation: (row['fiscal_depreciation'] as num?)?.toDouble() ?? 0,
+      accumulatedDepreciation: await _moneySql(row['accumulated_depreciation']),
+      fiscalDepreciation: await _moneySql(row['fiscal_depreciation']),
       status: AssetStatus.values.firstWhere(
         (item) => item.name == row['status']?.toString(),
         orElse: () => AssetStatus.active,

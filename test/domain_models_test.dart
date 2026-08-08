@@ -10,28 +10,28 @@ void main() {
   group('Product domain', () {
     test('calcula resumen de inventario por costo, venta y stock bajo', () {
       final products = [
-        const Product(
+        Product(
           name: 'Pan',
           unit: 'und',
           stock: 4,
-          cost: 1000,
-          price: 1500,
+          cost: testMoney('1000'),
+          price: testMoney('1500'),
           taxRate: 0,
         ),
-        const Product(
+        Product(
           name: 'Cafe',
           unit: 'lb',
           stock: 10,
-          cost: 12000,
-          price: 18000,
+          cost: testMoney('12000'),
+          price: testMoney('18000'),
           taxRate: 19,
         ),
       ];
 
       final summary = InventorySummary.fromProducts(products);
 
-      expect(summary.costValue, 124000);
-      expect(summary.saleValue, 186000);
+      expect(summary.costValue, testMoney('124000'));
+      expect(summary.saleValue, testMoney('186000'));
       expect(summary.productCount, 2);
       expect(summary.lowStockCount, 1);
     });

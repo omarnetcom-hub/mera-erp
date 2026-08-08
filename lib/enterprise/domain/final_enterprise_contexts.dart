@@ -1,4 +1,5 @@
 import '../../core/events/domain_event.dart';
+import '../../core/currency/money_value.dart';
 
 enum LedgerSide { debit, credit }
 
@@ -33,13 +34,14 @@ class LedgerEntry {
   final String documentId;
   final String documentType;
   final LedgerSide side;
-  final double amount;
-  final double openAmount;
+  final MoneyValue amount;
+  final MoneyValue openAmount;
   final DateTime dueDate;
   final DateTime occurredAt;
   final String description;
 
-  bool get overdue => openAmount > 0 && DateTime.now().isAfter(dueDate);
+  bool get overdue =>
+      openAmount.minorUnits > 0 && DateTime.now().isAfter(dueDate);
   int get daysPastDue =>
       overdue ? DateTime.now().difference(dueDate).inDays : 0;
 
@@ -50,8 +52,8 @@ class LedgerEntry {
     'document_id': documentId,
     'document_type': documentType,
     'side': side.name,
-    'amount': amount,
-    'open_amount': openAmount,
+    'amount': amount.toSql(),
+    'open_amount': openAmount.toSql(),
     'due_date': dueDate.toIso8601String(),
     'occurred_at': occurredAt.toIso8601String(),
     'description': description,
@@ -70,19 +72,23 @@ class CreditRiskProfile {
   });
 
   final int partyId;
-  final double limit;
-  final double balance;
+  final MoneyValue limit;
+  final MoneyValue balance;
   final double riskScore;
   final bool blocked;
 
-  bool get overLimit => limit > 0 && balance > limit;
+  bool get overLimit => limit.minorUnits > 0 && balance > limit;
   bool get shouldBlock => blocked || overLimit || riskScore >= 80;
 
-  CreditRiskProfile collect(double amount) {
+  CreditRiskProfile collect(MoneyValue amount) {
     return CreditRiskProfile(
       partyId: partyId,
       limit: limit,
-      balance: (balance - amount).clamp(0, double.infinity).toDouble(),
+      balance:
+          balance - amount <
+              MoneyValue(minorUnits: 0, currency: balance.currency)
+          ? MoneyValue(minorUnits: 0, currency: balance.currency)
+          : balance - amount,
       riskScore: riskScore,
       blocked: blocked && balance - amount > limit,
     );
@@ -100,8 +106,8 @@ class CreditRiskProfile {
 
   Map<String, Object?> toMap() => {
     'party_id': partyId,
-    'limit': limit,
-    'balance': balance,
+    'limit': limit.toSql(),
+    'balance': balance.toSql(),
     'risk_score': riskScore,
     'blocked': blocked,
     'over_limit': overLimit,
@@ -123,7 +129,7 @@ class PaymentSchedule {
   final String id;
   final int partyId;
   final String partyName;
-  final double amount;
+  final MoneyValue amount;
   final DateTime dueDate;
   final PaymentStatus status;
   final String? sourceDocumentId;
@@ -146,7 +152,7 @@ class PaymentSchedule {
     'id': id,
     'party_id': partyId,
     'party': partyName,
-    'amount': amount,
+    'amount': amount.toSql(),
     'due_date': dueDate.toIso8601String(),
     'status': status.name,
     'source_document_id': sourceDocumentId,
@@ -167,7 +173,7 @@ class TreasuryTransfer {
   final String id;
   final int fromAccountId;
   final int toAccountId;
-  final double amount;
+  final MoneyValue amount;
   final String requestedBy;
   final DateTime createdAt;
   final bool approved;
@@ -186,7 +192,7 @@ class TreasuryTransfer {
     'id': id,
     'from_account_id': fromAccountId,
     'to_account_id': toAccountId,
-    'amount': amount,
+    'amount': amount.toSql(),
     'requested_by': requestedBy,
     'created_at': createdAt.toIso8601String(),
     'approved': approved,
@@ -212,10 +218,13 @@ class TaxRule {
   final bool exempt;
   final String group;
 
-  double taxFor(double taxableBase) => exempt ? 0 : taxableBase * rate / 100;
+  MoneyValue taxFor(MoneyValue taxableBase) => exempt
+      ? MoneyValue(minorUnits: 0, currency: taxableBase.currency)
+      : taxableBase.percent(rate.toString());
 
-  double retentionFor(double taxableBase) =>
-      exempt ? 0 : taxableBase * retentionRate / 100;
+  MoneyValue retentionFor(MoneyValue taxableBase) => exempt
+      ? MoneyValue(minorUnits: 0, currency: taxableBase.currency)
+      : taxableBase.percent(retentionRate.toString());
 
   Map<String, Object?> toMap() => {
     'code': code,
@@ -240,20 +249,20 @@ class TaxCalculation {
 
   final String documentType;
   final String documentId;
-  final double taxableBase;
-  final double tax;
-  final double retention;
+  final MoneyValue taxableBase;
+  final MoneyValue tax;
+  final MoneyValue retention;
   final String ruleCode;
 
-  double get total => taxableBase + tax - retention;
+  MoneyValue get total => taxableBase + tax - retention;
 
   Map<String, Object?> toMap() => {
     'document_type': documentType,
     'document_id': documentId,
-    'taxable_base': taxableBase,
-    'tax': tax,
-    'retention': retention,
-    'total': total,
+    'taxable_base': taxableBase.toSql(),
+    'tax': tax.toSql(),
+    'retention': retention.toSql(),
+    'total': total.toSql(),
     'rule_code': ruleCode,
   };
 }
@@ -265,43 +274,44 @@ class FixedAsset {
     required this.cost,
     required this.usefulLifeMonths,
     required this.acquiredAt,
-    this.accumulatedDepreciation = 0,
-    this.fiscalDepreciation = 0,
+    required this.accumulatedDepreciation,
+    required this.fiscalDepreciation,
     this.status = AssetStatus.active,
   });
 
   final String id;
   final String name;
-  final double cost;
+  final MoneyValue cost;
   final int usefulLifeMonths;
   final DateTime acquiredAt;
-  final double accumulatedDepreciation;
-  final double fiscalDepreciation;
+  final MoneyValue accumulatedDepreciation;
+  final MoneyValue fiscalDepreciation;
   final AssetStatus status;
 
-  double get monthlyDepreciation =>
-      usefulLifeMonths <= 0 ? 0 : cost / usefulLifeMonths;
+  MoneyValue get monthlyDepreciation => usefulLifeMonths <= 0
+      ? MoneyValue(minorUnits: 0, currency: cost.currency)
+      : cost / usefulLifeMonths;
 
-  double get bookValue => (cost - accumulatedDepreciation).clamp(0, cost);
+  MoneyValue get bookValue {
+    final value = cost - accumulatedDepreciation;
+    return value < MoneyValue(minorUnits: 0, currency: cost.currency)
+        ? MoneyValue(minorUnits: 0, currency: cost.currency)
+        : value;
+  }
 
   FixedAsset depreciate({int months = 1, double fiscalFactor = 1}) {
-    final accounting = (accumulatedDepreciation + monthlyDepreciation * months)
-        .clamp(0, cost)
-        .toDouble();
+    final accounting = accumulatedDepreciation + monthlyDepreciation * months;
     final fiscal =
-        (fiscalDepreciation + monthlyDepreciation * fiscalFactor * months)
-            .clamp(0, cost)
-            .toDouble();
+        fiscalDepreciation +
+        monthlyDepreciation.multiplyDecimal(fiscalFactor.toString()) * months;
     return _copy(
       accumulatedDepreciation: accounting,
       fiscalDepreciation: fiscal,
     );
   }
 
-  FixedAsset impair(double amount) => _copy(
-    accumulatedDepreciation: (accumulatedDepreciation + amount)
-        .clamp(0, cost)
-        .toDouble(),
+  FixedAsset impair(MoneyValue amount) => _copy(
+    accumulatedDepreciation: accumulatedDepreciation + amount,
     status: AssetStatus.impaired,
   );
 
@@ -310,8 +320,8 @@ class FixedAsset {
   FixedAsset transfer() => _copy(status: AssetStatus.transferred);
 
   FixedAsset _copy({
-    double? accumulatedDepreciation,
-    double? fiscalDepreciation,
+    MoneyValue? accumulatedDepreciation,
+    MoneyValue? fiscalDepreciation,
     AssetStatus? status,
   }) => FixedAsset(
     id: id,
@@ -328,13 +338,13 @@ class FixedAsset {
   Map<String, Object?> toMap() => {
     'id': id,
     'name': name,
-    'cost': cost,
+    'cost': cost.toSql(),
     'useful_life_months': usefulLifeMonths,
     'acquired_at': acquiredAt.toIso8601String(),
-    'monthly_depreciation': monthlyDepreciation,
-    'accumulated_depreciation': accumulatedDepreciation,
-    'fiscal_depreciation': fiscalDepreciation,
-    'book_value': bookValue,
+    'monthly_depreciation': monthlyDepreciation.toSql(),
+    'accumulated_depreciation': accumulatedDepreciation.toSql(),
+    'fiscal_depreciation': fiscalDepreciation.toSql(),
+    'book_value': bookValue.toSql(),
     'status': status.name,
   };
 }
@@ -353,7 +363,7 @@ class CrmOpportunity {
   final String id;
   final int customerId;
   final String customerName;
-  final double value;
+  final MoneyValue value;
   final CrmStage stage;
   final DateTime nextFollowUpAt;
   final String owner;
@@ -372,7 +382,7 @@ class CrmOpportunity {
     'id': id,
     'customer_id': customerId,
     'customer': customerName,
-    'value': value,
+    'value': value.toSql(),
     'stage': stage.name,
     'next_follow_up_at': nextFollowUpAt.toIso8601String(),
     'owner': owner,
@@ -406,7 +416,7 @@ class EnterpriseReportDefinition {
 class InvoicePaidEvent extends IntegrationEvent {
   InvoicePaidEvent({
     required int customerId,
-    required double amount,
+    required MoneyValue amount,
     required int companyId,
     required int branchId,
     String? correlationId,
@@ -416,7 +426,7 @@ class InvoicePaidEvent extends IntegrationEvent {
            'aggregate_type': 'accounts_receivable',
            'aggregate_id': customerId.toString(),
            'customer_id': customerId,
-           'amount': amount,
+           'amount': amount.toWireMap(),
            'company_id': companyId,
            'branch_id': branchId,
            'correlation_id': correlationId,
@@ -427,7 +437,7 @@ class InvoicePaidEvent extends IntegrationEvent {
 class CustomerBlockedEvent extends IntegrationEvent {
   CustomerBlockedEvent({
     required int customerId,
-    required double balance,
+    required MoneyValue balance,
     required int companyId,
     required int branchId,
     String? reason,
@@ -437,7 +447,7 @@ class CustomerBlockedEvent extends IntegrationEvent {
            'aggregate_type': 'customer_credit',
            'aggregate_id': customerId.toString(),
            'customer_id': customerId,
-           'balance': balance,
+           'balance': balance.toWireMap(),
            'company_id': companyId,
            'branch_id': branchId,
            'reason': reason,
@@ -448,7 +458,7 @@ class CustomerBlockedEvent extends IntegrationEvent {
 class TreasuryTransferCreatedEvent extends IntegrationEvent {
   TreasuryTransferCreatedEvent({
     required String transferId,
-    required double amount,
+    required MoneyValue amount,
     required int companyId,
     required int branchId,
     String? correlationId,
@@ -458,7 +468,7 @@ class TreasuryTransferCreatedEvent extends IntegrationEvent {
            'aggregate_type': 'treasury_transfer',
            'aggregate_id': transferId,
            'transfer_id': transferId,
-           'amount': amount,
+           'amount': amount.toWireMap(),
            'company_id': companyId,
            'branch_id': branchId,
            'correlation_id': correlationId,
@@ -488,7 +498,7 @@ class BankReconciledEvent extends IntegrationEvent {
 class AssetDepreciatedEvent extends IntegrationEvent {
   AssetDepreciatedEvent({
     required String assetId,
-    required double depreciation,
+    required MoneyValue depreciation,
     required int companyId,
     required int branchId,
   }) : super(
@@ -497,7 +507,7 @@ class AssetDepreciatedEvent extends IntegrationEvent {
            'aggregate_type': 'fixed_asset',
            'aggregate_id': assetId,
            'asset_id': assetId,
-           'depreciation': depreciation,
+           'depreciation': depreciation.toWireMap(),
            'company_id': companyId,
            'branch_id': branchId,
          },

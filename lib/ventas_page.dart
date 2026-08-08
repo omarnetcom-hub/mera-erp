@@ -375,6 +375,7 @@ class _VentasPageState extends State<VentasPage> {
         final ubicacion = ProductLookupResult(
           product: producto,
           matchedBy: lookup?.matchedBy ?? 'codigo_barras',
+          currency: lookup?.currency ?? _currency!,
           lot: lote,
           suggestions: lookup?.suggestions ?? const [],
         ).location;

@@ -1,7 +1,5 @@
-// ============================================================
-// order_line.dart
-// Modelo para líneas de pedido
-// ============================================================
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_value.dart';
 
 class OrderLine {
   final int? id;
@@ -10,13 +8,13 @@ class OrderLine {
   final int productId;
   final String productName;
   final double quantity;
-  final double unitPrice;
-  final double unitCost;
-  final double discountAmount;
+  final MoneyValue unitPrice;
+  final MoneyValue unitCost;
+  final MoneyValue discountAmount;
   final double taxPercentage;
-  final double taxAmount;
-  final double subtotal;
-  final double total;
+  final MoneyValue taxAmount;
+  final MoneyValue subtotal;
+  final MoneyValue total;
   final String? notes;
   final DateTime createdAt;
 
@@ -29,9 +27,9 @@ class OrderLine {
     required this.quantity,
     required this.unitPrice,
     required this.unitCost,
-    this.discountAmount = 0,
+    required this.discountAmount,
     this.taxPercentage = 0,
-    this.taxAmount = 0,
+    required this.taxAmount,
     required this.subtotal,
     required this.total,
     this.notes,
@@ -45,13 +43,13 @@ class OrderLine {
     int? productId,
     String? productName,
     double? quantity,
-    double? unitPrice,
-    double? unitCost,
-    double? discountAmount,
+    MoneyValue? unitPrice,
+    MoneyValue? unitCost,
+    MoneyValue? discountAmount,
     double? taxPercentage,
-    double? taxAmount,
-    double? subtotal,
-    double? total,
+    MoneyValue? taxAmount,
+    MoneyValue? subtotal,
+    MoneyValue? total,
     String? notes,
     DateTime? createdAt,
   }) {
@@ -74,27 +72,28 @@ class OrderLine {
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'company_id': companyId,
-      'order_id': orderId,
-      'product_id': productId,
-      'product_name': productName,
-      'quantity': quantity,
-      'unit_price': unitPrice,
-      'unit_cost': unitCost,
-      'discount_amount': discountAmount,
-      'tax_percentage': taxPercentage,
-      'tax_amount': taxAmount,
-      'subtotal': subtotal,
-      'total': total,
-      'notes': notes,
-      'created_at': createdAt.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'company_id': companyId,
+    'order_id': orderId,
+    'product_id': productId,
+    'product_name': productName,
+    'quantity': quantity,
+    'unit_price': unitPrice.toSql(),
+    'unit_cost': unitCost.toSql(),
+    'discount_amount': discountAmount.toSql(),
+    'tax_percentage': taxPercentage,
+    'tax_amount': taxAmount.toSql(),
+    'subtotal': subtotal.toSql(),
+    'total': total.toSql(),
+    'notes': notes,
+    'created_at': createdAt.toIso8601String(),
+  };
 
-  factory OrderLine.fromMap(Map<String, dynamic> map) {
+  factory OrderLine.fromMap(
+    Map<String, dynamic> map, {
+    required Currency currency,
+  }) {
     return OrderLine(
       id: map['id'] as int?,
       companyId: map['company_id'] as int,
@@ -102,35 +101,44 @@ class OrderLine {
       productId: map['product_id'] as int,
       productName: map['product_name'] as String,
       quantity: (map['quantity'] as num).toDouble(),
-      unitPrice: (map['unit_price'] as num).toDouble(),
-      unitCost: (map['unit_cost'] as num).toDouble(),
-      discountAmount: (map['discount_amount'] as num?)?.toDouble() ?? 0,
+      unitPrice: MoneyValue.fromSql(map['unit_price'], currency: currency),
+      unitCost: MoneyValue.fromSql(map['unit_cost'], currency: currency),
+      discountAmount: MoneyValue.fromSql(
+        map['discount_amount'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
       taxPercentage: (map['tax_percentage'] as num?)?.toDouble() ?? 0,
-      taxAmount: (map['tax_amount'] as num?)?.toDouble() ?? 0,
-      subtotal: (map['subtotal'] as num).toDouble(),
-      total: (map['total'] as num).toDouble(),
+      taxAmount: MoneyValue.fromSql(
+        map['tax_amount'],
+        currency: currency,
+        nullableAsZero: true,
+      ),
+      subtotal: MoneyValue.fromSql(map['subtotal'], currency: currency),
+      total: MoneyValue.fromSql(map['total'], currency: currency),
       notes: map['notes'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
 
-  /// Calcula los totales automáticamente
   static OrderLine calculate({
     required int companyId,
     required int orderId,
     required int productId,
     required String productName,
     required double quantity,
-    required double unitPrice,
-    required double unitCost,
-    double discountAmount = 0,
+    required MoneyValue unitPrice,
+    required MoneyValue unitCost,
+    MoneyValue? discountAmount,
     double taxPercentage = 0,
     String? notes,
   }) {
-    final lineSubtotal = quantity * unitPrice;
-    final lineDiscount = discountAmount;
+    final lineSubtotal = unitPrice.multiplyDecimal(quantity.toString());
+    final lineDiscount =
+        discountAmount ??
+        MoneyValue(minorUnits: 0, currency: unitPrice.currency);
     final taxableAmount = lineSubtotal - lineDiscount;
-    final lineTax = taxableAmount * (taxPercentage / 100);
+    final lineTax = taxableAmount.percent(taxPercentage.toString());
     final lineTotal = taxableAmount + lineTax;
 
     return OrderLine(

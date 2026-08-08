@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import '../../core/branch/branch_context.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
 import '../../core/database/database_gateway.dart';
 import '../../db_helper.dart';
 
@@ -36,6 +38,8 @@ abstract class FinalEnterpriseRepository {
   });
 
   Future<BranchScope> scope();
+
+  Future<Currency> currency();
 }
 
 class SqliteFinalEnterpriseRepository implements FinalEnterpriseRepository {
@@ -53,6 +57,15 @@ class SqliteFinalEnterpriseRepository implements FinalEnterpriseRepository {
 
   @override
   Future<BranchScope> scope() => _scopeProvider.current();
+
+  @override
+  Future<Currency> currency() async {
+    final currentScope = await this.scope();
+    return MoneyCurrencyResolver.resolve(
+      await _db.database,
+      companyId: currentScope.companyId,
+    );
+  }
 
   @override
   Future<int> insertScoped(String table, Map<String, Object?> values) async {

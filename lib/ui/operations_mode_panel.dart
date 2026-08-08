@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import '../core/currency/currency.dart';
+import '../core/currency/money_currency_resolver.dart';
+import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 import '../services/merka_intelligence_service.dart';
 
@@ -29,6 +32,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
   double _totalEntries = 0.0;
   double _totalExits = 0.0;
   bool _loading = true;
+  Currency? _currency;
 
   @override
   void initState() {
@@ -41,15 +45,22 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
     try {
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+      final currency = await MoneyCurrencyResolver.resolve(
+        db,
+        companyId: companyId,
+      );
+      _currency = currency;
+
       // Load alerts
       final alerts = await _intelligence.operationalAlerts();
       _criticalStock = alerts.where((a) => a.kind == 'critical_stock').toList();
-      _expiringProducts = alerts.where((a) => a.kind == 'expiring_product').toList();
-      
+      _expiringProducts = alerts
+          .where((a) => a.kind == 'expiring_product')
+          .toList();
+
       // Load suppliers
       _suppliers = await DatabaseHelper.instance.obtenerProveedores();
-      
+
       // Load pending purchase orders
       _pendingOrders = await db.query(
         'compras',
@@ -62,7 +73,13 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
       // Sum entries and exits for month
       final now = DateTime.now();
       final monthStart = DateTime(now.year, now.month, 1).toIso8601String();
-      final monthEnd = DateTime(now.year, now.month + 1, 0, 23, 59).toIso8601String();
+      final monthEnd = DateTime(
+        now.year,
+        now.month + 1,
+        0,
+        23,
+        59,
+      ).toIso8601String();
 
       final entriesRows = await db.rawQuery(
         "SELECT COALESCE(SUM(total), 0) AS total FROM compras WHERE company_id = ? AND fecha BETWEEN ? AND ?",
@@ -73,8 +90,8 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
         [companyId, monthStart, monthEnd],
       );
 
-      _totalEntries = (entriesRows.first['total'] as num?)?.toDouble() ?? 0.0;
-      _totalExits = (exitsRows.first['total'] as num?)?.toDouble() ?? 0.0;
+      _totalEntries = _major(entriesRows.first['total'], currency);
+      _totalExits = _major(exitsRows.first['total'], currency);
     } catch (e) {
       debugPrint('Error loading operations mode data: $e');
     } finally {
@@ -87,13 +104,15 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)));
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+      );
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 900;
-        
+
         final leftColumn = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -109,24 +128,46 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                     child: _criticalStock.isEmpty
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Text('Todo el stock está correcto.', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+                            child: Text(
+                              'Todo el stock está correcto.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF4B5563),
+                              ),
+                            ),
                           )
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ..._criticalStock.take(3).map((a) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: Text('• ${a.title} (${a.detail.split(" ").first} und)', style: const TextStyle(fontSize: 12)),
-                              )),
+                              ..._criticalStock
+                                  .take(3)
+                                  .map(
+                                    (a) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 4,
+                                      ),
+                                      child: Text(
+                                        '• ${a.title} (${a.detail.split(" ").first} und)',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ),
                               const SizedBox(height: 8),
                               TextButton.icon(
                                 onPressed: widget.onOpenPurchases,
-                                icon: const Icon(Icons.shopping_bag_outlined, size: 14),
-                                label: const Text('Reabastecer en Compras', style: TextStyle(fontSize: 11)),
+                                icon: const Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 14,
+                                ),
+                                label: const Text(
+                                  'Reabastecer en Compras',
+                                  style: TextStyle(fontSize: 11),
+                                ),
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                   foregroundColor: Colors.blue,
                                 ),
                               ),
@@ -144,14 +185,30 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                     child: _expiringProducts.isEmpty
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Text('Sin lotes próximos a vencer.', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+                            child: Text(
+                              'Sin lotes próximos a vencer.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF4B5563),
+                              ),
+                            ),
                           )
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: _expiringProducts.take(3).map((a) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Text('• ${a.title}', style: const TextStyle(fontSize: 12)),
-                            )).toList(),
+                            children: _expiringProducts
+                                .take(3)
+                                .map(
+                                  (a) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    child: Text(
+                                      '• ${a.title}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                           ),
                   ),
                 ),
@@ -160,7 +217,10 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
             const SizedBox(height: 16),
 
             // Short cuts
-            Text('Accesos Rápidos de Operación', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Accesos Rápidos de Operación',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 12,
@@ -199,7 +259,10 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Movimiento de Inventario del Mes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text(
+                    'Movimiento de Inventario del Mes',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
                   const SizedBox(height: 20),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -209,7 +272,9 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                           label: 'Entradas (Compras)',
                           value: _totalEntries,
                           color: const Color(0xFF2563EB),
-                          max: _totalEntries > _totalExits ? _totalEntries : _totalExits,
+                          max: _totalEntries > _totalExits
+                              ? _totalEntries
+                              : _totalExits,
                         ),
                       ),
                       const SizedBox(width: 40),
@@ -218,7 +283,9 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                           label: 'Salidas (Ventas)',
                           value: _totalExits,
                           color: const Color(0xFFEF4444),
-                          max: _totalEntries > _totalExits ? _totalEntries : _totalExits,
+                          max: _totalEntries > _totalExits
+                              ? _totalEntries
+                              : _totalExits,
                         ),
                       ),
                     ],
@@ -246,26 +313,52 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Órdenes de Compra Pendientes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      const Icon(Icons.history_outlined, size: 16, color: Color(0xFF4B5563)),
+                      const Text(
+                        'Órdenes de Compra Pendientes',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.history_outlined,
+                        size: 16,
+                        color: Color(0xFF4B5563),
+                      ),
                     ],
                   ),
                   const Divider(height: 24),
                   if (_pendingOrders.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: Text('No hay órdenes de compra pendientes.', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563)))),
+                      child: Center(
+                        child: Text(
+                          'No hay órdenes de compra pendientes.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF4B5563),
+                          ),
+                        ),
+                      ),
                     )
                   else
                     ..._pendingOrders.map((ord) {
-                      final val = (ord['total'] as num?)?.toDouble() ?? 0.0;
+                      final val = _major(ord['total'], _currency!);
                       return ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF2563EB)),
+                        leading: const Icon(
+                          Icons.shopping_bag_outlined,
+                          color: Color(0xFF2563EB),
+                        ),
                         title: Text('Orden #${ord['id']}'),
-                        subtitle: Text('Fecha: ${ord['fecha'].toString().split("T").first}'),
-                        trailing: Text('\$${val.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                          'Fecha: ${ord['fecha'].toString().split("T").first}',
+                        ),
+                        trailing: Text(
+                          '\$${val.toStringAsFixed(0)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       );
                     }),
                 ],
@@ -284,28 +377,53 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Proveedores Principales', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text(
+                    'Proveedores Principales',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
                   const Divider(height: 24),
                   if (_suppliers.isEmpty)
-                    const Center(child: Text('No hay proveedores registrados.', style: TextStyle(fontSize: 12)))
+                    const Center(
+                      child: Text(
+                        'No hay proveedores registrados.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    )
                   else
-                    ..._suppliers.take(4).map((sup) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.business, size: 16, color: Color(0xFF4B5563)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              sup['nombre']?.toString() ?? 'Proveedor',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
+                    ..._suppliers
+                        .take(4)
+                        .map(
+                          (sup) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.business,
+                                  size: 16,
+                                  color: Color(0xFF4B5563),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    sup['nombre']?.toString() ?? 'Proveedor',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  sup['nit']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF4B5563),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(sup['nit']?.toString() ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF4B5563))),
-                        ],
-                      ),
-                    )),
+                        ),
                 ],
               ),
             ),
@@ -315,11 +433,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
         if (compact) {
           return SingleChildScrollView(
             child: Column(
-              children: [
-                leftColumn,
-                const SizedBox(height: 16),
-                rightColumn,
-              ],
+              children: [leftColumn, const SizedBox(height: 16), rightColumn],
             ),
           );
         }
@@ -335,6 +449,12 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
       },
     );
   }
+
+  double _major(Object? value, Currency currency) => MoneyValue.fromSql(
+    value,
+    currency: currency,
+    nullableAsZero: true,
+  ).toMajorUnitsDoubleForDisplay();
 }
 
 class _WidgetCard extends StatelessWidget {
@@ -368,11 +488,20 @@ class _WidgetCard extends StatelessWidget {
             children: [
               Icon(icon, color: iconColor, size: 20),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 10, color: Color(0xFF4B5563))),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF4B5563)),
+          ),
           const Divider(height: 16),
           child,
         ],
@@ -426,7 +555,10 @@ class _ChartBar extends StatelessWidget {
     final pct = max == 0 ? 0.05 : (value / max).clamp(0.05, 1.0);
     return Column(
       children: [
-        Text('\$${value.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        Text(
+          '\$${value.toStringAsFixed(0)}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
         const SizedBox(height: 8),
         Container(
           height: 120 * pct,
@@ -437,7 +569,14 @@ class _ChartBar extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF4B5563),
+          ),
+        ),
       ],
     );
   }

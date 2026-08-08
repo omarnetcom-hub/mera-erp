@@ -694,15 +694,20 @@ class ApiDispatcher {
 
   Future<Map<String, Object?>> _summary() async {
     final products = await _products.findAll();
-    final inventory = InventorySummary.fromProducts(products);
+    final currency = products.isEmpty
+        ? await _currencyResolver()
+        : products.first.cost.currency;
+    final inventory = products.isEmpty
+        ? InventorySummary.empty(currency)
+        : InventorySummary.fromProducts(products);
     final salesTotal = await _sales.totalSales();
     final purchasesTotal = await _purchases.totalPurchases();
     return {
       'inventory': {
         'products': inventory.productCount,
         'low_stock': inventory.lowStockCount,
-        'cost_value': inventory.costValue,
-        'sale_value': inventory.saleValue,
+        'cost_value': _moneyWire(inventory.costValue),
+        'sale_value': _moneyWire(inventory.saleValue),
       },
       'sales_total': _moneyWire(salesTotal),
       'purchases_total': _moneyWire(purchasesTotal),

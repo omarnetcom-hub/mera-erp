@@ -57,7 +57,7 @@ class FinalEnterpriseProjection implements EventProjection {
   Future<void> _insertMetric(
     EventEnvelope event,
     String metric,
-    double value,
+    int value,
   ) async {
     await _gateway.insert('enterprise_event_metrics', {
       'company_id': event.companyId,
@@ -70,9 +70,13 @@ class FinalEnterpriseProjection implements EventProjection {
     });
   }
 
-  double _amount(EventEnvelope event, String key) {
+  int _amount(EventEnvelope event, String key) {
     final value = event.payload[key];
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
+    if (value is Map) {
+      return (value['minor_units'] as num?)?.toInt() ?? 0;
+    }
+    return (value as num?)?.toInt() ??
+        int.tryParse(value?.toString() ?? '') ??
+        0;
   }
 }

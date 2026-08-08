@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
+import '../core/currency/money_currency_resolver.dart';
+import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 
 enum PseTransactionStatus { pendiente, procesando, exitoso, fallido, expirado }
@@ -34,7 +36,7 @@ class PseTransaction {
 
   final String transactionId;
   final String reference;
-  final double amount;
+  final MoneyValue amount;
   final PseTransactionStatus status;
   final DateTime createdAt;
   final String? bankCode;
@@ -46,7 +48,7 @@ class PseTransaction {
     return {
       'transaction_id': transactionId,
       'reference': reference,
-      'amount': amount,
+      'amount': amount.toSql(),
       'status': status.name,
       'created_at': createdAt.toIso8601String(),
       'bank_code': bankCode,
@@ -56,11 +58,14 @@ class PseTransaction {
     };
   }
 
-  static PseTransaction fromMap(Map<String, dynamic> map) {
+  static PseTransaction fromMap(
+    Map<String, dynamic> map, {
+    required MoneyValue Function(Object?) amountFromSql,
+  }) {
     return PseTransaction(
       transactionId: map['transaction_id'] as String,
       reference: map['reference'] as String,
-      amount: (map['amount'] as num).toDouble(),
+      amount: amountFromSql(map['amount']),
       status: PseTransactionStatus.values.firstWhere(
         (e) => e.name == map['status'],
         orElse: () => PseTransactionStatus.pendiente,
@@ -69,8 +74,8 @@ class PseTransaction {
       bankCode: map['bank_code'] as String?,
       bankName: map['bank_name'] as String?,
       returnUrl: map['return_url'] as String?,
-      processedAt: map['processed_at'] != null 
-          ? DateTime.parse(map['processed_at'] as String) 
+      processedAt: map['processed_at'] != null
+          ? DateTime.parse(map['processed_at'] as String)
           : null,
     );
   }
@@ -81,18 +86,18 @@ class PseService {
 
   static final PseService instance = PseService._();
 
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 30),
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: {'Content-Type': 'application/json'},
+    ),
+  );
 
   Future<PseConfig?> obtenerConfiguracion() async {
     final db = await DatabaseHelper.instance.database;
     final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-    
+
     final rows = await db.query(
       'integraciones',
       where: 'company_id = ? AND tipo = ? AND activo = ?',
@@ -124,18 +129,14 @@ class PseService {
       'endpoint': config.endpoint,
     });
 
-    await db.insert(
-      'integraciones',
-      {
-        'company_id': companyId,
-        'tipo': 'pse',
-        'nombre': 'PSE',
-        'config': configJson,
-        'activo': config.activo ? 1 : 0,
-        'creado_en': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('integraciones', {
+      'company_id': companyId,
+      'tipo': 'pse',
+      'nombre': 'PSE',
+      'config': configJson,
+      'activo': config.activo ? 1 : 0,
+      'creado_en': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     await DatabaseHelper.instance.registrarEventoAuditoria(
       accion: 'PSE_CONFIG_GUARDADA',
@@ -146,7 +147,7 @@ class PseService {
 
   Future<PseTransaction> iniciarTransaccion({
     required String reference,
-    required double amount,
+    required MoneyValue amount,
     required String returnUrl,
     String? bankCode,
     String? description,
@@ -158,13 +159,13 @@ class PseService {
 
     try {
       _dio.options.headers['Authorization'] = 'Bearer ${config.apiKey}';
-      
+
       final response = await _dio.post(
         '${config.endpoint}/transactions',
         data: {
           'merchant_id': config.merchantId,
           'reference': reference,
-          'amount': amount,
+          'amount': amount.toMajorUnitsString(),
           'currency': 'COP',
           'return_url': returnUrl,
           'bank_code': bankCode,
@@ -185,7 +186,7 @@ class PseService {
         );
 
         await _guardarTransaccion(transaction);
-        
+
         await DatabaseHelper.instance.registrarEventoAuditoria(
           accion: 'PSE_TRANSACCION_INICIADA',
           entidad: 'pagos',
@@ -209,7 +210,7 @@ class PseService {
 
     try {
       _dio.options.headers['Authorization'] = 'Bearer ${config.apiKey}';
-      
+
       final response = await _dio.get(
         '${config.endpoint}/transactions/$transactionId',
       );
@@ -217,7 +218,7 @@ class PseService {
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
         final statusStr = data['status'] as String;
-        
+
         final status = PseTransactionStatus.values.firstWhere(
           (e) => e.name == statusStr.toLowerCase(),
           orElse: () => PseTransactionStatus.pendiente,
@@ -275,15 +276,15 @@ class PseService {
     });
   }
 
-  Future<void> _actualizarEstadoTransaccion(String transactionId, PseTransactionStatus status) async {
+  Future<void> _actualizarEstadoTransaccion(
+    String transactionId,
+    PseTransactionStatus status,
+  ) async {
     final db = await DatabaseHelper.instance.database;
 
     await db.update(
       'pse_transacciones',
-      {
-        'status': status.name,
-        'processed_at': DateTime.now().toIso8601String(),
-      },
+      {'status': status.name, 'processed_at': DateTime.now().toIso8601String()},
       where: 'transaction_id = ?',
       whereArgs: [transactionId],
     );
@@ -291,7 +292,7 @@ class PseService {
 
   Future<PseTransaction?> _obtenerTransaccion(String transactionId) async {
     final db = await DatabaseHelper.instance.database;
-    
+
     final rows = await db.query(
       'pse_transacciones',
       where: 'transaction_id = ?',
@@ -300,7 +301,14 @@ class PseService {
     );
 
     if (rows.isEmpty) return null;
-    return PseTransaction.fromMap(rows.first);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: await DatabaseHelper.instance.obtenerEmpresaActivaId(),
+    );
+    return PseTransaction.fromMap(
+      rows.first,
+      amountFromSql: (value) => MoneyValue.fromSql(value, currency: currency),
+    );
   }
 
   Future<void> _procesarPagoExitoso(PseTransaction transaction) async {
@@ -312,7 +320,7 @@ class PseService {
       'company_id': companyId,
       'tipo': 'ingreso',
       'concepto': 'Pago PSE - Ref: ${transaction.reference}',
-      'monto': transaction.amount,
+      'monto': transaction.amount.toSql(),
       'fecha': DateTime.now().toIso8601String(),
       'origen': 'pse',
     });
@@ -328,7 +336,7 @@ class PseService {
       await db.insert('abonos_cxc', {
         'company_id': companyId,
         'cuenta_id': factura['id'],
-        'monto': transaction.amount,
+        'monto': transaction.amount.toSql(),
         'metodo_pago': 'PSE',
         'observacion': 'Transacción PSE: ${transaction.transactionId}',
         'fecha': DateTime.now().toIso8601String(),
@@ -338,7 +346,8 @@ class PseService {
     await DatabaseHelper.instance.registrarEventoAuditoria(
       accion: 'PSE_PAGO_PROCESADO',
       entidad: 'pagos',
-      detalle: 'Transaction ID: ${transaction.transactionId}, Amount: ${transaction.amount}',
+      detalle:
+          'Transaction ID: ${transaction.transactionId}, Amount: ${transaction.amount}',
     );
   }
 
@@ -350,10 +359,8 @@ class PseService {
 
     try {
       _dio.options.headers['Authorization'] = 'Bearer ${config.apiKey}';
-      
-      final response = await _dio.get(
-        '${config.endpoint}/banks',
-      );
+
+      final response = await _dio.get('${config.endpoint}/banks');
 
       if (response.statusCode == 200) {
         return (response.data['banks'] as List)
@@ -375,10 +382,8 @@ class PseService {
 
     try {
       _dio.options.headers['Authorization'] = 'Bearer ${config.apiKey}';
-      
-      final response = await _dio.get(
-        '${config.endpoint}/health',
-      );
+
+      final response = await _dio.get('${config.endpoint}/health');
 
       if (response.statusCode != 200) {
         throw Exception('Conexión fallida: ${response.statusCode}');

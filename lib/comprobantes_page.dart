@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'documento_pdf_service.dart';
 
@@ -13,6 +16,7 @@ class ComprobantesPage extends StatefulWidget {
 class _ComprobantesPageState extends State<ComprobantesPage> {
   List<Map<String, dynamic>> comprobantes = [];
   bool cargando = true;
+  Currency? _currency;
 
   @override
   void initState() {
@@ -25,15 +29,25 @@ class _ComprobantesPageState extends State<ComprobantesPage> {
   }
 
   Future<void> _cargar() async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final data = await DatabaseHelper.instance.obtenerComprobantes();
     if (!mounted) return;
     setState(() {
       comprobantes = data;
+      _currency = currency;
       cargando = false;
     });
   }
 
-  String _fmt(num valor) => '\$${valor.toStringAsFixed(2)}';
+  MoneyValue _money(Object? value) =>
+      MoneyValue.fromSql(value, currency: _currency, nullableAsZero: true);
+
+  String _fmt(MoneyValue valor) => valor.format();
 
   String _fecha(String iso) {
     try {
@@ -56,14 +70,12 @@ class _ComprobantesPageState extends State<ComprobantesPage> {
       showDragHandle: true,
       isScrollControlled: true,
       builder: (sheetContext) {
-        final totalDebito = detalle.fold<double>(
-          0,
-          (sum, l) => sum + ((l['debito'] as num?)?.toDouble() ?? 0),
-        );
-        final totalCredito = detalle.fold<double>(
-          0,
-          (sum, l) => sum + ((l['credito'] as num?)?.toDouble() ?? 0),
-        );
+        var totalDebito = MoneyValue(minorUnits: 0, currency: _currency!);
+        var totalCredito = MoneyValue(minorUnits: 0, currency: _currency!);
+        for (final line in detalle) {
+          totalDebito += _money(line['debito']);
+          totalCredito += _money(line['credito']);
+        }
 
         return DraggableScrollableSheet(
           expand: false,
@@ -130,10 +142,10 @@ class _ComprobantesPageState extends State<ComprobantesPage> {
                     'Debitos ${_fmt(totalDebito)} | Creditos ${_fmt(totalCredito)}',
                   ),
                   trailing: Icon(
-                    (totalDebito - totalCredito).abs() < 0.01
+                    (totalDebito - totalCredito).minorUnits == 0
                         ? Icons.check_circle
                         : Icons.warning,
-                    color: (totalDebito - totalCredito).abs() < 0.01
+                    color: (totalDebito - totalCredito).minorUnits == 0
                         ? Colors.green
                         : Colors.orange,
                   ),
@@ -141,8 +153,8 @@ class _ComprobantesPageState extends State<ComprobantesPage> {
               ),
               const SizedBox(height: 8),
               ...detalle.map((linea) {
-                final debito = (linea['debito'] as num?)?.toDouble() ?? 0;
-                final credito = (linea['credito'] as num?)?.toDouble() ?? 0;
+                final debito = _money(linea['debito']);
+                final credito = _money(linea['credito']);
                 return Card(
                   child: ListTile(
                     title: Text(
@@ -184,7 +196,7 @@ class _ComprobantesPageState extends State<ComprobantesPage> {
                 itemCount: comprobantes.length,
                 itemBuilder: (context, index) {
                   final c = comprobantes[index];
-                  final total = (c['total'] as num?)?.toDouble() ?? 0;
+                  final total = _money(c['total']);
 
                   return Card(
                     child: ListTile(

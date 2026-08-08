@@ -4671,7 +4671,7 @@ class DatabaseHelper {
     required String codigoLote,
     required String fechaVencimiento,
     required double cantidad,
-    required double costo,
+    required MoneyValue costo,
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
@@ -4681,7 +4681,7 @@ class DatabaseHelper {
       'codigo_lote': codigoLote,
       'fecha_vencimiento': fechaVencimiento,
       'cantidad': cantidad,
-      'costo': costo,
+      'costo': costo.toSql(),
       'created_at': DateTime.now().toIso8601String(),
     });
   }

@@ -7,6 +7,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'pdf_output_dialog.dart';
 
@@ -17,6 +19,10 @@ class DocumentoPdfService {
     final empresa = await DatabaseHelper.instance.obtenerEmpresaConfig();
     final detalle = await DatabaseHelper.instance.obtenerDetalleVenta(
       (venta['id'] as num).toInt(),
+    );
+    final currency = await MoneyCurrencyResolver.resolve(
+      await DatabaseHelper.instance.database,
+      companyId: await DatabaseHelper.instance.obtenerEmpresaActivaId(),
     );
 
     final pdf = pw.Document();
@@ -35,8 +41,16 @@ class DocumentoPdfService {
           _tablaProductos(
             detalle.map((item) {
               final cantidad = (item['cantidad'] as num?)?.toDouble() ?? 0;
-              final precio = (item['precio_unitario'] as num?)?.toDouble() ?? 0;
-              final subtotal = (item['subtotal'] as num?)?.toDouble() ?? 0;
+              final precio = MoneyValue.fromSql(
+                item['precio_unitario'],
+                currency: currency,
+                nullableAsZero: true,
+              );
+              final subtotal = MoneyValue.fromSql(
+                item['subtotal'],
+                currency: currency,
+                nullableAsZero: true,
+              );
               return [
                 item['producto']?.toString() ?? '',
                 _cantidad(cantidad),
@@ -47,9 +61,21 @@ class DocumentoPdfService {
           ),
           pw.SizedBox(height: 12),
           _totales(
-            subtotal: (venta['subtotal'] as num?)?.toDouble() ?? 0,
-            impuesto: (venta['impuesto_total'] as num?)?.toDouble() ?? 0,
-            total: (venta['total'] as num?)?.toDouble() ?? 0,
+            subtotal: MoneyValue.fromSql(
+              venta['subtotal'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
+            impuesto: MoneyValue.fromSql(
+              venta['impuesto_total'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
+            total: MoneyValue.fromSql(
+              venta['total'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
           ),
         ],
       ),
@@ -64,6 +90,10 @@ class DocumentoPdfService {
     final empresa = await DatabaseHelper.instance.obtenerEmpresaConfig();
     final detalle = await DatabaseHelper.instance.obtenerDetalleCompra(
       (compra['id'] as num).toInt(),
+    );
+    final currency = await MoneyCurrencyResolver.resolve(
+      await DatabaseHelper.instance.database,
+      companyId: await DatabaseHelper.instance.obtenerEmpresaActivaId(),
     );
 
     final pdf = pw.Document();
@@ -83,8 +113,16 @@ class DocumentoPdfService {
           _tablaProductos(
             detalle.map((item) {
               final cantidad = (item['cantidad'] as num?)?.toDouble() ?? 0;
-              final costo = (item['costo_unitario'] as num?)?.toDouble() ?? 0;
-              final subtotal = (item['subtotal'] as num?)?.toDouble() ?? 0;
+              final costo = MoneyValue.fromSql(
+                item['costo_unitario'],
+                currency: currency,
+                nullableAsZero: true,
+              );
+              final subtotal = MoneyValue.fromSql(
+                item['subtotal'],
+                currency: currency,
+                nullableAsZero: true,
+              );
               return [
                 item['producto']?.toString() ?? '',
                 _cantidad(cantidad),
@@ -95,9 +133,21 @@ class DocumentoPdfService {
           ),
           pw.SizedBox(height: 12),
           _totales(
-            subtotal: (compra['subtotal'] as num?)?.toDouble() ?? 0,
-            impuesto: (compra['impuesto_total'] as num?)?.toDouble() ?? 0,
-            total: (compra['total'] as num?)?.toDouble() ?? 0,
+            subtotal: MoneyValue.fromSql(
+              compra['subtotal'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
+            impuesto: MoneyValue.fromSql(
+              compra['impuesto_total'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
+            total: MoneyValue.fromSql(
+              compra['total'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
           ),
         ],
       ),
@@ -112,6 +162,10 @@ class DocumentoPdfService {
     final empresa = await DatabaseHelper.instance.obtenerEmpresaConfig();
     final detalle = await DatabaseHelper.instance.obtenerDetalleComprobante(
       (comprobante['id'] as num).toInt(),
+    );
+    final currency = await MoneyCurrencyResolver.resolve(
+      await DatabaseHelper.instance.database,
+      companyId: await DatabaseHelper.instance.obtenerEmpresaActivaId(),
     );
 
     final pdf = pw.Document();
@@ -138,8 +192,20 @@ class DocumentoPdfService {
               return [
                 '${linea['codigo']} ${linea['cuenta']}',
                 linea['descripcion']?.toString() ?? '',
-                _moneda((linea['debito'] as num?)?.toDouble() ?? 0),
-                _moneda((linea['credito'] as num?)?.toDouble() ?? 0),
+                _moneda(
+                  MoneyValue.fromSql(
+                    linea['debito'],
+                    currency: currency,
+                    nullableAsZero: true,
+                  ),
+                ),
+                _moneda(
+                  MoneyValue.fromSql(
+                    linea['credito'],
+                    currency: currency,
+                    nullableAsZero: true,
+                  ),
+                ),
               ];
             }).toList(),
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -153,7 +219,7 @@ class DocumentoPdfService {
           pw.Align(
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
-              'Total: ${_moneda((comprobante['total'] as num?)?.toDouble() ?? 0)}',
+              'Total: ${_moneda(MoneyValue.fromSql(comprobante['total'], currency: currency, nullableAsZero: true))}',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
             ),
           ),
@@ -295,9 +361,9 @@ class DocumentoPdfService {
   }
 
   static pw.Widget _totales({
-    required double subtotal,
-    required double impuesto,
-    required double total,
+    required MoneyValue subtotal,
+    required MoneyValue impuesto,
+    required MoneyValue total,
   }) {
     pw.Widget row(String label, String value, {bool strong = false}) {
       return pw.Row(
@@ -344,7 +410,7 @@ class DocumentoPdfService {
     return archivo;
   }
 
-  static String _moneda(double valor) => '\$${valor.toStringAsFixed(2)}';
+  static String _moneda(MoneyValue valor) => valor.format();
 
   static String _cantidad(double valor) =>
       valor % 1 == 0 ? valor.toInt().toString() : valor.toString();

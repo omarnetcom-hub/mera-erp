@@ -4,6 +4,7 @@ import 'package:merka_erp/core/api/api_dispatcher.dart';
 import 'package:merka_erp/core/branch/branch_context.dart';
 import 'package:merka_erp/core/events/domain_event.dart';
 import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/currency.dart';
 import 'package:merka_erp/enterprise/application/final_enterprise_command_handlers.dart';
 import 'package:merka_erp/enterprise/application/final_enterprise_query_handlers.dart';
 import 'package:merka_erp/enterprise/data/final_enterprise_repository.dart';
@@ -80,6 +81,9 @@ class _MemoryEnterpriseRepository implements FinalEnterpriseRepository {
       costCenterId: 4,
     );
   }
+
+  @override
+  Future<Currency> currency() async => testCop;
 
   @override
   Future<int> updateScoped(
@@ -371,13 +375,13 @@ void main() {
       );
 
       expect(taxRule.ok, isTrue);
-      expect((tax.data as Map)['tax'], 190);
+      expect((tax.data as Map)['tax'], 19000);
       expect(collect.statusCode, 201);
       expect(schedule.statusCode, 201);
       expect(transfer.statusCode, 201);
       expect((reconcile.data as Map)['matched'], 1);
-      expect((asset.data as Map)['book_value'], 1200);
-      expect((depreciation.data as Map)['accumulated_depreciation'], 200);
+      expect((asset.data as Map)['book_value'], 120000);
+      expect((depreciation.data as Map)['accumulated_depreciation'], 20000);
       expect(crm.statusCode, 201);
       expect(definition.statusCode, 201);
       expect((report.data as Map)['exports'], hasLength(3));

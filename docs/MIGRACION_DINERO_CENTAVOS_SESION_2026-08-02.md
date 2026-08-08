@@ -1258,3 +1258,120 @@ convertidos y los 25 tests dirigidos pasaron. Quedan 32 consumidores
 comerciales del inventario de 38, y la validacion de partida doble a nivel SQL
 queda pendiente de una migracion/transaccion especifica. No se toco el
 submodulo `backend`.
+
+## Cierre de Fase 3A - tramo final de 35 consumidores - 2026-08-08
+
+### Reconciliacion del universo
+
+El manifiesto directo tenia 79 consumidores comerciales. La contabilidad
+priorizada ya habia convertido 6 de los 38 pendientes; el cierre restante se
+reconcilio como 35 archivos exactos, agrupados asi:
+
+**Pedidos y cotizaciones (5):**
+
+- `lib/sales/domain/order.dart`
+- `lib/sales/domain/order_line.dart`
+- `lib/sales/domain/quote.dart`
+- `lib/sales/application/order_service.dart`
+- `lib/sales/application/quote_service.dart`
+
+**Otros documentos/API/pantallas (6):**
+
+- `lib/services/api_router.dart`
+- `lib/public_api_server.dart`
+- `lib/documento_pdf_service.dart`
+- `lib/detalle_compra_page.dart`
+- `lib/comprobantes_page.dart`
+- `lib/contabilidad_page.dart`
+
+**Inventario heredado (6):**
+
+- `lib/inventory/application/inventory_control_service.dart`
+- `lib/inventory/domain/inventory_lot.dart`
+- `lib/inventory/domain/inventory_summary.dart`
+- `lib/inventory/domain/price_history.dart`
+- `lib/inventory/domain/product.dart`
+- `lib/inventario_page.dart`
+
+**Reportes/proyecciones/integraciones (18):**
+
+- `lib/core/analytics/dashboard_analytics.dart`
+- `lib/core/multi_company/financial_consolidation.dart`
+- `lib/core/payments/payment_service.dart`
+- `lib/core/predictive/predictive_analytics.dart`
+- `lib/cqrs/application/dashboard_projection.dart`
+- `lib/cqrs/domain/read_models.dart`
+- `lib/enterprise/application/final_enterprise_command_handlers.dart`
+- `lib/enterprise/application/final_enterprise_projections.dart`
+- `lib/enterprise/application/final_enterprise_query_handlers.dart`
+- `lib/enterprise/domain/final_enterprise_contexts.dart`
+- `lib/services/enterprise_feature_service.dart`
+- `lib/services/merka_intelligence_service.dart`
+- `lib/services/nequi_service.dart`
+- `lib/services/pse_service.dart`
+- `lib/services/recetas_service.dart`
+- `lib/ui/finance_mode_panel.dart`
+- `lib/ui/operations_mode_panel.dart`
+- `lib/seed_operations.dart`
+
+Total del tramo: `5 + 6 + 6 + 18 = 35`; total de Fase 3A: `44 + 35 = 79`.
+
+### Decisiones y cambios
+
+- Los modelos, servicios y persistencia de estos 35 archivos usan `MoneyValue`
+  en calculos monetarios y `toSql()` para SQLite INTEGER.
+- Las salidas de API, eventos, auditoria y reportes usan `toWireMap()`; la
+  conversion a unidades mayores queda en UI/presentacion.
+- El seed comercial tambien fue actualizado: productos, ventas, compras,
+  asientos, caja y cierres se siembran en unidad menor sin aritmetica monetaria
+  con `double`.
+- Se agrego `test/phase3a_remaining_money_test.dart` como smoke de integracion
+  para dominio empresarial, depreciacion y esquema de pasarelas.
+- No se cambio `backend`; su submodulo permanece con cambios locales
+  preexistentes.
+
+### Evidencia cruda dirigida
+
+```text
+flutter test test/module_smoke_test.dart test/merka_intelligence_service_test.dart test/final_enterprise_contexts_test.dart test/architectural_consolidation_test.dart test/api_dispatcher_test.dart test/orders_quotes_money_test.dart test/inventory_legacy_money_test.dart --reporter expanded
+00:20 +22: All tests passed!
+
+flutter test test/phase3a_remaining_money_test.dart --reporter expanded
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/phase3a_remaining_money_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: bloque periférico conserva dinero exacto en dominio y API
+00:00 +1: pasarela persiste importes como INTEGER
+00:00 +2: (tearDownAll)
+00:00 +2: All tests passed!
+```
+
+### Suite completa y comparacion con la linea base
+
+```text
+flutter test --reporter silent --file-reporter json:phase3a_audit_suite_final.json --concurrency=4
+testDone=217 success=200 errors=17 skipped=3
+```
+
+Las 17 fallas son las mismas 17 ya clasificadas como ajenas a 3A: `login_widget_test.dart`, `acta_responsabilidad_service_test.dart`, `fut_territorial_service_test.dart`, `sia_observa_service_test.dart`, `configuracion_general_service_test.dart`, `onboarding_legado_migracion_test.dart`, dos casos de `presupuesto_pago_integracion_test.dart`, `sicodis_service_test.dart`, `exportacion_declaraciones_test.dart`, `facturacion_salud_service_test.dart`, `predial_ica_page_test.dart`, `presupuesto_publico_page_test.dart`, `salud_publica_page_test.dart`, `siif_service_test.dart` y dos casos de `widget_test.dart`. Los mensajes siguen siendo los fallos de esquema/fixtures/widgets sectoriales conocidos; no hay una falla nueva comercial.
+
+### Verificacion global pendiente
+
+El entorno sigue bloqueando los comandos globales. Omar debe correr al cierre
+de la fase, en su maquina:
+
+```text
+flutter analyze
+flutter build windows
+```
+
+La validacion de partida doble a nivel SQL sigue pendiente como trabajo
+separado; la capa de dominio ya valida igualdad exacta en unidades menores.
+
+**Fase 3A: 79/79 consumidores comerciales convertidos - COMPLETA.**
+
+### Cierre de la subtarea Fase 3A tramo final
+
+Estado: **Completo en el alcance comercial de la fase**. La suite dirigida
+paso y la suite completa mantuvo exactamente las 17 fallas sectoriales/widget
+conocidas. Queda pendiente solo la verificacion global manual de analyze/build
+y el trabajo separado de garantia SQL de partida doble.

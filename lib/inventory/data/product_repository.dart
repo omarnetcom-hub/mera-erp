@@ -1,6 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/company/company_context.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_currency_resolver.dart';
 import '../../core/database/database_gateway.dart';
 import '../../core/database/tenant_database_gateway.dart';
 import '../../db_helper.dart';
@@ -30,6 +32,11 @@ class SqliteProductRepository implements ProductRepository {
 
   final TenantDatabaseGateway _tenantGateway;
 
+  Future<Currency> _currencyFor(int companyId) async {
+    final db = await DatabaseHelper.instance.database;
+    return MoneyCurrencyResolver.resolve(db, companyId: companyId);
+  }
+
   @override
   Future<void> delete(int id) async {
     await DatabaseHelper.instance.validarFeatureHabilitada(
@@ -47,13 +54,16 @@ class SqliteProductRepository implements ProductRepository {
       'productos',
       query: const TenantQuery(orderBy: 'nombre ASC'),
     );
-    return rows.map(Product.fromMap).toList();
+    final currency = await _currencyFor(await _tenantGateway.companyId);
+    return rows.map((row) => Product.fromMap(row, currency: currency)).toList();
   }
 
   @override
   Future<Product?> findById(int id) async {
     final row = await _tenantGateway.findById('productos', id);
-    return row == null ? null : Product.fromMap(row);
+    if (row == null) return null;
+    final currency = await _currencyFor(await _tenantGateway.companyId);
+    return Product.fromMap(row, currency: currency);
   }
 
   @override

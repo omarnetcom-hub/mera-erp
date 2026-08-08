@@ -1,4 +1,6 @@
 import '../data/final_enterprise_repository.dart';
+import '../../core/currency/currency.dart';
+import '../../core/currency/money_value.dart';
 
 class FinalEnterpriseQueryHandlers {
   FinalEnterpriseQueryHandlers({required FinalEnterpriseRepository repository})
@@ -35,30 +37,31 @@ class FinalEnterpriseQueryHandlers {
       _aging(table: 'ap_supplier_ledger', openField: 'open_amount');
 
   Future<Map<String, Object?>> treasuryDashboard() async {
+    final currency = await _repository.currency();
     final accounts = await _repository.queryScoped('treasury_bank_accounts');
     final movements = await _repository.queryScoped('treasury_bank_movements');
-    final balance = accounts.fold<double>(
-      0,
-      (sum, row) => sum + ((row['balance'] as num?)?.toDouble() ?? 0),
+    final balance = accounts.fold<MoneyValue>(
+      MoneyValue(minorUnits: 0, currency: currency),
+      (sum, row) => sum + _moneySql(row['balance'], currency),
     );
     final inflow = movements
         .where((row) => row['direction'] == 'in')
-        .fold<double>(
-          0,
-          (sum, row) => sum + ((row['amount'] as num?)?.toDouble() ?? 0),
+        .fold<MoneyValue>(
+          MoneyValue(minorUnits: 0, currency: currency),
+          (sum, row) => sum + _moneySql(row['amount'], currency),
         );
     final outflow = movements
         .where((row) => row['direction'] == 'out')
-        .fold<double>(
-          0,
-          (sum, row) => sum + ((row['amount'] as num?)?.toDouble() ?? 0),
+        .fold<MoneyValue>(
+          MoneyValue(minorUnits: 0, currency: currency),
+          (sum, row) => sum + _moneySql(row['amount'], currency),
         );
     return {
       'bank_accounts': accounts.length,
-      'treasury_position': balance,
-      'projected_cash_flow': balance + inflow - outflow,
-      'inflow': inflow,
-      'outflow': outflow,
+      'treasury_position': balance.toWireMap(),
+      'projected_cash_flow': (balance + inflow - outflow).toWireMap(),
+      'inflow': inflow.toWireMap(),
+      'outflow': outflow.toWireMap(),
     };
   }
 
@@ -81,12 +84,19 @@ class FinalEnterpriseQueryHandlers {
   }
 
   Future<Map<String, Object?>> crmPipeline() async {
+    final currency = await _repository.currency();
     final rows = await _repository.queryScoped('crm_opportunities');
-    final totals = <String, double>{};
+    final totals = <String, Map<String, Object?>>{};
     for (final row in rows) {
       final stage = row['stage']?.toString() ?? 'lead';
-      totals[stage] =
-          (totals[stage] ?? 0) + ((row['value'] as num?)?.toDouble() ?? 0);
+      final previous = totals[stage] == null
+          ? MoneyValue(minorUnits: 0, currency: currency)
+          : MoneyValue.fromSql(
+              totals[stage]!['minor_units'],
+              currency: currency,
+            );
+      totals[stage] = (previous + _moneySql(row['value'], currency))
+          .toWireMap();
     }
     return {'count': rows.length, 'value_by_stage': totals, 'items': rows};
   }
@@ -104,17 +114,18 @@ class FinalEnterpriseQueryHandlers {
     required String openField,
   }) async {
     final rows = await _repository.queryScoped(table);
-    final buckets = {
-      'current': 0.0,
-      '1_30': 0.0,
-      '31_60': 0.0,
-      '61_90': 0.0,
-      '90_plus': 0.0,
+    final currency = await _repository.currency();
+    final buckets = <String, MoneyValue>{
+      'current': MoneyValue(minorUnits: 0, currency: currency),
+      '1_30': MoneyValue(minorUnits: 0, currency: currency),
+      '31_60': MoneyValue(minorUnits: 0, currency: currency),
+      '61_90': MoneyValue(minorUnits: 0, currency: currency),
+      '90_plus': MoneyValue(minorUnits: 0, currency: currency),
     };
     final now = DateTime.now();
     for (final row in rows) {
-      final amount = (row[openField] as num?)?.toDouble() ?? 0;
-      if (amount <= 0) continue;
+      final amount = _moneySql(row[openField], currency);
+      if (amount.minorUnits <= 0) continue;
       final dueDate =
           DateTime.tryParse(row['due_date']?.toString() ?? '') ?? now;
       final days = now.difference(dueDate).inDays;
@@ -130,6 +141,9 @@ class FinalEnterpriseQueryHandlers {
         buckets['90_plus'] = buckets['90_plus']! + amount;
       }
     }
-    return buckets;
+    return buckets.map((key, value) => MapEntry(key, value.toWireMap()));
   }
+
+  MoneyValue _moneySql(Object? value, Currency currency) =>
+      MoneyValue.fromSql(value, currency: currency, nullableAsZero: true);
 }

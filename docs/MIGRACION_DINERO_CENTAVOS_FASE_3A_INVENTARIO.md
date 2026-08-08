@@ -217,7 +217,7 @@ un `dynamic`, `num`, cast a `double` ni division manual como puente temporal. La
 dependencia se registra en el log y se deja para 3B si su implementacion vive
 exclusivamente bajo `lib/sector_publico/`.
 
-## Estado al cierre de esta entrega parcial
+## Estado histórico al cierre de la entrega parcial
 
 La compilacion incremental descubrio seis bordes comerciales que la busqueda
 inicial por tablas no habia clasificado como consumidores directos:
@@ -235,3 +235,81 @@ continuacion de Fase 3A. `order_service.dart`, `quote_service.dart`,
 `commission_service.dart`, `warranty_service.dart` y `order.dart` recibieron
 formateo mecanico durante la compilacion; esos cambios se revirtieron antes del
 commit. No se cuentan como convertidos y sus modelos monetarios siguen pendientes.
+
+## Cierre de Fase 3A - tramo final de 35 consumidores
+
+El inventario fue reconciliado contra el alcance directo de 79 consumidores:
+44 ya estaban convertidos antes de este tramo y los 35 siguientes quedaron
+convertidos en esta entrega.
+
+### Pedidos y cotizaciones
+
+- `lib/sales/domain/order.dart`
+- `lib/sales/domain/order_line.dart`
+- `lib/sales/domain/quote.dart`
+- `lib/sales/application/order_service.dart`
+- `lib/sales/application/quote_service.dart`
+
+### Otros documentos, API y pantallas comerciales
+
+- `lib/services/api_router.dart`
+- `lib/public_api_server.dart`
+- `lib/documento_pdf_service.dart`
+- `lib/detalle_compra_page.dart`
+- `lib/comprobantes_page.dart`
+- `lib/contabilidad_page.dart`
+
+### Inventario heredado
+
+- `lib/inventory/application/inventory_control_service.dart`
+- `lib/inventory/domain/inventory_lot.dart`
+- `lib/inventory/domain/inventory_summary.dart`
+- `lib/inventory/domain/price_history.dart`
+- `lib/inventory/domain/product.dart`
+- `lib/inventario_page.dart`
+
+### Reportes, proyecciones e integraciones
+
+- `lib/core/analytics/dashboard_analytics.dart`
+- `lib/core/multi_company/financial_consolidation.dart`
+- `lib/core/payments/payment_service.dart`
+- `lib/core/predictive/predictive_analytics.dart`
+- `lib/cqrs/application/dashboard_projection.dart`
+- `lib/cqrs/domain/read_models.dart`
+- `lib/enterprise/application/final_enterprise_command_handlers.dart`
+- `lib/enterprise/application/final_enterprise_projections.dart`
+- `lib/enterprise/application/final_enterprise_query_handlers.dart`
+- `lib/enterprise/domain/final_enterprise_contexts.dart`
+- `lib/services/enterprise_feature_service.dart`
+- `lib/services/merka_intelligence_service.dart`
+- `lib/services/nequi_service.dart`
+- `lib/services/pse_service.dart`
+- `lib/services/recetas_service.dart`
+- `lib/ui/finance_mode_panel.dart`
+- `lib/ui/operations_mode_panel.dart`
+- `lib/seed_operations.dart`
+
+### Evidencia dirigida
+
+- `flutter test test/module_smoke_test.dart test/merka_intelligence_service_test.dart test/final_enterprise_contexts_test.dart test/architectural_consolidation_test.dart test/api_dispatcher_test.dart test/orders_quotes_money_test.dart test/inventory_legacy_money_test.dart --reporter expanded`: `00:20 +22: All tests passed!`
+- `flutter test test/phase3a_remaining_money_test.dart --reporter expanded`: `00:00 +2: All tests passed!`
+- `dart format --output=none --set-exit-if-changed` sobre los archivos convertidos: verificación ejecutada después de formatear; sin cambios pendientes en la última pasada.
+
+### Suite completa
+
+Comando:
+
+```text
+flutter test --reporter silent --file-reporter json:phase3a_audit_suite_final.json --concurrency=4
+```
+
+Resultado: `217` tests no ocultos (`200` success, `17` errors, `3` skipped).
+Los 17 errores son los mismos fallos ajenos a 3A de la línea base: `login_widget_test.dart`, `acta_responsabilidad_service_test.dart`, `fut_territorial_service_test.dart`, `sia_observa_service_test.dart`, `configuracion_general_service_test.dart`, `onboarding_legado_migracion_test.dart`, `presupuesto_pago_integracion_test.dart` (2), `sicodis_service_test.dart`, `exportacion_declaraciones_test.dart`, `facturacion_salud_service_test.dart`, `predial_ica_page_test.dart`, `presupuesto_publico_page_test.dart`, `salud_publica_page_test.dart`, `siif_service_test.dart` y `widget_test.dart` (2). No apareció una falla nueva en los consumidores comerciales convertidos.
+
+### Cierre formal
+
+**Fase 3A: 79/79 consumidores comerciales convertidos - COMPLETA.**
+La validación de partida doble directamente a nivel SQL sigue pendiente como
+trabajo separado de esquema/transacción; no se presenta como resuelta por esta
+fase. El entorno no permitió cerrar la verificación global, por lo que Omar
+debe ejecutar manualmente `flutter analyze` y `flutter build windows`.

@@ -178,7 +178,10 @@ void main() {
 
       expect((events.data as List).single['idempotency_key'], 'evt-1');
       expect((replay.data as Map)['dispatched'], 25);
-      expect((dashboard.data as Map)['summary']['sales_total'], 500);
+      expect(
+        (dashboard.data as Map)['summary']['sales_total']['minor_units'],
+        50000,
+      );
     });
   });
 }
@@ -267,7 +270,7 @@ class _DashboardProjection extends DashboardReadModelProjection {
       metrics: [
         KpiMetric(
           key: 'sales_total',
-          value: 500,
+          value: testMoney('500.00'),
           updatedAt: DateTime(2026, 5, 27),
         ),
       ],

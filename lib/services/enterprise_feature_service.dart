@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 
+import '../core/currency/currency.dart';
+import '../core/currency/money_currency_resolver.dart';
+import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 
 class EnterpriseLineItem {
@@ -15,9 +18,10 @@ class EnterpriseLineItem {
   final int productoId;
   final String producto;
   final double cantidad;
-  final double precioUnitario;
+  final MoneyValue precioUnitario;
 
-  double get subtotal => cantidad * precioUnitario;
+  MoneyValue get subtotal =>
+      precioUnitario.multiplyDecimal(cantidad.toString());
 }
 
 class EnterpriseFeatureService {
@@ -35,6 +39,10 @@ class EnterpriseFeatureService {
   }) async {
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     return db.insert('bodegas', {
       'company_id': companyId,
       'codigo': codigo.trim().toUpperCase(),
@@ -57,16 +65,20 @@ class EnterpriseFeatureService {
     _validarItems(items);
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
-    final totals = _totales(items);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final totals = _totales(items, currency);
     return db.transaction((txn) async {
       final id = await txn.insert('cotizaciones', {
         'company_id': companyId,
         'cliente_id': clienteId,
         'cliente': cliente,
         'estado': 'borrador',
-        'subtotal': totals.subtotal,
-        'impuesto': totals.impuesto,
-        'total': totals.total,
+        'subtotal': totals.subtotal.toSql(),
+        'impuesto': totals.impuesto.toSql(),
+        'total': totals.total.toSql(),
         'fecha': DateTime.now().toIso8601String(),
         'vence_en': venceEn?.toIso8601String(),
         'observacion': observacion,
@@ -78,16 +90,15 @@ class EnterpriseFeatureService {
           'producto_id': item.productoId,
           'producto': item.producto,
           'cantidad': item.cantidad,
-          'precio_unitario': item.precioUnitario,
-          'subtotal': item.subtotal,
+          'precio_unitario': item.precioUnitario.toSql(),
+          'subtotal': item.subtotal.toSql(),
         });
       }
-      await _registrarEventoApi(
-        txn,
-        companyId,
-        'cotizacion.creada',
-        {'id': id, 'cliente': cliente, 'total': totals.total},
-      );
+      await _registrarEventoApi(txn, companyId, 'cotizacion.creada', {
+        'id': id,
+        'cliente': cliente,
+        'total': totals.total.toWireMap(),
+      });
       return id;
     });
   }
@@ -141,12 +152,10 @@ class EnterpriseFeatureService {
         where: 'id = ? AND company_id = ?',
         whereArgs: [cotizacionId, companyId],
       );
-      await _registrarEventoApi(
-        txn,
-        companyId,
-        'pedido.creado',
-        {'id': pedidoId, 'cotizacion_id': cotizacionId},
-      );
+      await _registrarEventoApi(txn, companyId, 'pedido.creado', {
+        'id': pedidoId,
+        'cotizacion_id': cotizacionId,
+      });
       return pedidoId;
     });
   }
@@ -214,12 +223,11 @@ class EnterpriseFeatureService {
         where: 'id = ? AND company_id = ?',
         whereArgs: [pedidoId, companyId],
       );
-      await _registrarEventoApi(
-        txn,
-        companyId,
-        'venta.creada',
-        {'id': ventaId, 'pedido_id': pedidoId, 'total': pedido['total']},
-      );
+      await _registrarEventoApi(txn, companyId, 'venta.creada', {
+        'id': ventaId,
+        'pedido_id': pedidoId,
+        'total': pedido['total'],
+      });
       return ventaId;
     });
   }
@@ -232,13 +240,18 @@ class EnterpriseFeatureService {
     _validarItems(items);
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
-    final total = items.fold<double>(0, (sum, item) => sum + item.subtotal);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    var total = MoneyValue(minorUnits: 0, currency: currency);
+    for (final item in items) total += item.subtotal;
     return db.transaction((txn) async {
       final id = await txn.insert('devoluciones_ventas', {
         'company_id': companyId,
         'venta_id': ventaId,
         'nota_credito': 'NC-$ventaId-${DateTime.now().millisecondsSinceEpoch}',
-        'total': total,
+        'total': total.toSql(),
         'motivo': motivo,
         'estado': 'emitida',
         'fecha': DateTime.now().toIso8601String(),
@@ -251,17 +264,16 @@ class EnterpriseFeatureService {
           'producto_id': item.productoId,
           'producto': item.producto,
           'cantidad': item.cantidad,
-          'precio_unitario': item.precioUnitario,
-          'subtotal': item.subtotal,
+          'precio_unitario': item.precioUnitario.toSql(),
+          'subtotal': item.subtotal.toSql(),
         });
         await _sumarStock(txn, companyId, item.productoId, item.cantidad);
       }
-      await _registrarEventoApi(
-        txn,
-        companyId,
-        'nota_credito.creada',
-        {'id': id, 'venta_id': ventaId, 'total': total},
-      );
+      await _registrarEventoApi(txn, companyId, 'nota_credito.creada', {
+        'id': id,
+        'venta_id': ventaId,
+        'total': total.toWireMap(),
+      });
       return id;
     });
   }
@@ -274,12 +286,17 @@ class EnterpriseFeatureService {
     _validarItems(items);
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
-    final total = items.fold<double>(0, (sum, item) => sum + item.subtotal);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    var total = MoneyValue(minorUnits: 0, currency: currency);
+    for (final item in items) total += item.subtotal;
     return db.transaction((txn) async {
       final id = await txn.insert('devoluciones_compras', {
         'company_id': companyId,
         'compra_id': compraId,
-        'total': total,
+        'total': total.toSql(),
         'motivo': motivo,
         'estado': 'emitida',
         'fecha': DateTime.now().toIso8601String(),
@@ -292,17 +309,16 @@ class EnterpriseFeatureService {
           'producto_id': item.productoId,
           'producto': item.producto,
           'cantidad': item.cantidad,
-          'costo_unitario': item.precioUnitario,
-          'subtotal': item.subtotal,
+          'costo_unitario': item.precioUnitario.toSql(),
+          'subtotal': item.subtotal.toSql(),
         });
         await _descontarStock(txn, companyId, item.productoId, item.cantidad);
       }
-      await _registrarEventoApi(
-        txn,
-        companyId,
-        'devolucion_compra.creada',
-        {'id': id, 'compra_id': compraId, 'total': total},
-      );
+      await _registrarEventoApi(txn, companyId, 'devolucion_compra.creada', {
+        'id': id,
+        'compra_id': compraId,
+        'total': total.toWireMap(),
+      });
       return id;
     });
   }
@@ -339,7 +355,11 @@ class EnterpriseFeatureService {
       limit: 1,
     );
     if (ventas.isEmpty) throw StateError('La venta no existe.');
-    final base = (ventas.first['total'] as num?)?.toDouble() ?? 0;
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final base = MoneyValue.fromSql(ventas.first['total'], currency: currency);
     final rules = await db.query(
       'comisiones_vendedor',
       where:
@@ -351,34 +371,42 @@ class EnterpriseFeatureService {
     final porcentaje = rules.isEmpty
         ? 0.0
         : (rules.first['porcentaje'] as num?)?.toDouble() ?? 0.0;
-    final comision = base * porcentaje / 100;
+    final comision = base.percent(porcentaje.toString());
     await db.insert('comisiones_liquidadas', {
       'company_id': companyId,
       'venta_id': ventaId,
       'usuario_id': usuarioId,
-      'base': base,
+      'base': base.toSql(),
       'porcentaje': porcentaje,
-      'comision': comision,
+      'comision': comision.toSql(),
       'periodo': DateTime.now().toIso8601String().substring(0, 7),
       'fecha': DateTime.now().toIso8601String(),
     });
-    return comision;
+    return comision.toMajorUnitsDoubleForDisplay();
   }
 
   Future<int> crearPresupuesto({
     required String periodo,
     int? cuentaId,
     String categoria = '',
-    required double monto,
+    required MoneyValue monto,
     double alertaPct = 90,
   }) async {
     final db = await _db.database;
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: await _db.obtenerEmpresaActivaId(),
+    );
+    if (monto.currencyCode != currency.code ||
+        monto.decimalPlaces != currency.decimalPlaces) {
+      throw StateError('Budget currency does not match the company currency');
+    }
     return db.insert('presupuesto_lineas', {
       'company_id': await _db.obtenerEmpresaActivaId(),
       'periodo': periodo,
       'cuenta_id': cuentaId,
       'categoria': categoria,
-      'monto_presupuestado': monto,
+      'monto_presupuestado': monto.toSql(),
       'alerta_pct': alertaPct,
       'creado_en': DateTime.now().toIso8601String(),
     });
@@ -393,19 +421,41 @@ class EnterpriseFeatureService {
       whereArgs: [companyId, periodo],
       orderBy: 'categoria ASC',
     );
-    final ventas = await _sum(db, 'ventas', 'total', companyId, periodo);
-    final compras = await _sum(db, 'compras', 'total', companyId, periodo);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final ventas = await _sum(
+      db,
+      'ventas',
+      'total',
+      companyId,
+      periodo,
+      currency,
+    );
+    final compras = await _sum(
+      db,
+      'compras',
+      'total',
+      companyId,
+      periodo,
+      currency,
+    );
     return rows.map((row) {
       final categoria = row['categoria']?.toString().toLowerCase() ?? '';
       final real = categoria.contains('venta') || categoria.contains('ingreso')
           ? ventas
           : compras;
-      final presupuesto =
-          (row['monto_presupuestado'] as num?)?.toDouble() ?? 0;
-      final pct = presupuesto == 0 ? 0 : (real / presupuesto) * 100;
+      final presupuesto = MoneyValue.fromSql(
+        row['monto_presupuestado'],
+        currency: currency,
+      );
+      final pct = presupuesto.minorUnits == 0
+          ? 0
+          : real.minorUnits * 100 / presupuesto.minorUnits;
       return {
         ...row,
-        'real': real,
+        'real': real.toWireMap(),
         'porcentaje_consumido': pct,
         'alerta': pct >= ((row['alerta_pct'] as num?)?.toDouble() ?? 90),
       };
@@ -489,14 +539,18 @@ class EnterpriseFeatureService {
   }) async {
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final lines = const LineSplitter()
         .convert(csv)
         .where((line) => line.trim().isNotEmpty)
         .toList();
     if (lines.length < 2) return 0;
-    final headers = _parseCsvLine(lines.first)
-        .map((header) => header.trim().toLowerCase())
-        .toList();
+    final headers = _parseCsvLine(
+      lines.first,
+    ).map((header) => header.trim().toLowerCase()).toList();
     var count = 0;
     for (final line in lines.skip(1)) {
       final values = _parseCsvLine(line);
@@ -510,8 +564,14 @@ class EnterpriseFeatureService {
           'nombre': row['nombre'] ?? '',
           'unidad_base': row['unidad'] ?? 'UND',
           'stock': double.tryParse(row['stock'] ?? '') ?? 0,
-          'costo': double.tryParse(row['costo'] ?? '') ?? 0,
-          'precio': double.tryParse(row['precio'] ?? '') ?? 0,
+          'costo': MoneyValue.fromMajorUnits(
+            row['costo'] ?? '0',
+            currency: currency,
+          ).toSql(),
+          'precio': MoneyValue.fromMajorUnits(
+            row['precio'] ?? '0',
+            currency: currency,
+          ).toSql(),
           'impuesto_pct': double.tryParse(row['impuesto'] ?? '') ?? 0,
           'codigo_barras': row['codigo_barras'] ?? '',
           'referencia': row['referencia'] ?? '',
@@ -551,7 +611,7 @@ class EnterpriseFeatureService {
   String generarEtiquetaSvg({
     required String nombre,
     required String codigo,
-    required double precio,
+    required MoneyValue precio,
     String size = '2x3',
   }) {
     final bars = codigo.codeUnits
@@ -573,7 +633,7 @@ class EnterpriseFeatureService {
   <text x="18" y="34" font-family="Inter, Arial" font-size="18" font-weight="700" fill="#1F2937">${_xml(nombre)}</text>
   <text x="18" y="58" font-family="Inter, Arial" font-size="14" fill="#4B5563">${_xml(size)} - ${_xml(codigo)}</text>
   <g fill="#111827">${rects.join()}</g>
-  <text x="18" y="162" font-family="Inter, Arial" font-size="24" font-weight="700" fill="#2563EB">\$${precio.toStringAsFixed(0)}</text>
+  <text x="18" y="162" font-family="Inter, Arial" font-size="24" font-weight="700" fill="#2563EB">\$${precio.toMajorUnitsDoubleForDisplay().toStringAsFixed(0)}</text>
 </svg>
 ''';
   }
@@ -601,11 +661,14 @@ class EnterpriseFeatureService {
     }
   }
 
-  ({double subtotal, double impuesto, double total}) _totales(
+  ({MoneyValue subtotal, MoneyValue impuesto, MoneyValue total}) _totales(
     List<EnterpriseLineItem> items,
+    Currency currency,
   ) {
-    final subtotal = items.fold<double>(0, (sum, item) => sum + item.subtotal);
-    return (subtotal: subtotal, impuesto: 0, total: subtotal);
+    var subtotal = MoneyValue(minorUnits: 0, currency: currency);
+    for (final item in items) subtotal += item.subtotal;
+    final impuesto = MoneyValue(minorUnits: 0, currency: currency);
+    return (subtotal: subtotal, impuesto: impuesto, total: subtotal);
   }
 
   Future<void> _descontarStock(
@@ -692,12 +755,13 @@ class EnterpriseFeatureService {
     });
   }
 
-  Future<double> _sum(
+  Future<MoneyValue> _sum(
     Database db,
     String table,
     String column,
     int companyId,
     String periodo,
+    Currency currency,
   ) async {
     final rows = await db.rawQuery(
       '''
@@ -707,7 +771,7 @@ class EnterpriseFeatureService {
       ''',
       [companyId, periodo],
     );
-    return (rows.first['total'] as num?)?.toDouble() ?? 0;
+    return MoneyValue.fromSql(rows.first['total'], currency: currency);
   }
 
   Future<void> _registrarEventoApi(

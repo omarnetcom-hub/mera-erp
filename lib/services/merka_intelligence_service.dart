@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../core/currency/currency.dart';
+import '../core/currency/money_currency_resolver.dart';
+import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 import 'control_center_endpoint.dart';
 
@@ -9,18 +12,24 @@ class ProductLookupResult {
   const ProductLookupResult({
     required this.product,
     required this.matchedBy,
+    required this.currency,
     this.lot,
     this.suggestions = const [],
   });
 
   final Map<String, dynamic> product;
   final String matchedBy;
+  final Currency currency;
   final Map<String, dynamic>? lot;
   final List<Map<String, dynamic>> suggestions;
 
   String get name => product['nombre']?.toString() ?? 'Producto';
   double get stock => (product['stock'] as num?)?.toDouble() ?? 0;
-  double get price => (product['precio'] as num?)?.toDouble() ?? 0;
+  double get price => MoneyValue.fromSql(
+    product['precio'],
+    currency: currency,
+    nullableAsZero: true,
+  ).toMajorUnitsDoubleForDisplay();
   String get location {
     final code = product['ubicacion_codigo']?.toString().trim() ?? '';
     if (code.isNotEmpty) return code;
@@ -121,10 +130,15 @@ class MerkaIntelligenceService {
       }
     }
     if (best == null) return null;
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final productId = (best['id'] as num).toInt();
     return ProductLookupResult(
       product: best,
       matchedBy: matchedBy,
+      currency: currency,
       lot: await nextFifoLot(productId),
       suggestions: await crossSellSuggestions(productId),
     );
@@ -146,6 +160,10 @@ class MerkaIntelligenceService {
   Future<List<Map<String, dynamic>>> crossSellSuggestions(int productId) async {
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final rows = await db.rawQuery(
       '''
       SELECT p.*, COUNT(*) AS score
@@ -177,6 +195,10 @@ class MerkaIntelligenceService {
     }
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final now = DateTime.now();
     final until = now.add(const Duration(days: 30)).toIso8601String();
     final expiringRows = await db.rawQuery(
@@ -234,7 +256,7 @@ class MerkaIntelligenceService {
         OperationalAlert(
           title: 'Cobranza pendiente',
           detail:
-              '${row['cliente'] ?? 'Cliente'} debe ${_money((row['saldo'] as num?)?.toDouble() ?? 0)}.',
+              '${row['cliente'] ?? 'Cliente'} debe ${_money(MoneyValue.fromSql(row['saldo'], currency: currency, nullableAsZero: true).toMajorUnitsDoubleForDisplay())}.',
           priority: 'info',
           kind: 'receivable',
         ),
@@ -255,8 +277,12 @@ class MerkaIntelligenceService {
     }
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     final now = DateTime.now();
-    final salesToday = await _sumSales(db, companyId, now, now);
+    final salesToday = await _sumSales(db, companyId, now, now, currency);
     final criticalRows = await db.rawQuery(
       'SELECT COUNT(*) AS total FROM productos WHERE company_id = ? AND stock <= 5',
       [companyId],
@@ -292,19 +318,42 @@ class MerkaIntelligenceService {
     final sales7 = <double>[];
     for (var i = 6; i >= 0; i--) {
       final day = now.subtract(Duration(days: i));
-      sales7.add(await _sumSales(db, companyId, day, day));
+      sales7.add(
+        (await _sumSales(
+          db,
+          companyId,
+          day,
+          day,
+          currency,
+        )).toMajorUnitsDoubleForDisplay(),
+      );
     }
-    final income = (incomeRows.first['total'] as num?)?.toDouble() ?? 0;
-    final expense = (expenseRows.first['total'] as num?)?.toDouble() ?? 0;
+    final income = MoneyValue.fromSql(
+      incomeRows.first['total'],
+      currency: currency,
+    );
+    final expense = MoneyValue.fromSql(
+      expenseRows.first['total'],
+      currency: currency,
+    );
+    final cashFlow = income - expense;
     return DashboardSnapshot(
-      salesToday: salesToday,
+      salesToday: salesToday.toMajorUnitsDoubleForDisplay(),
       criticalStock: (criticalRows.first['total'] as num?)?.toInt() ?? 0,
-      overdueReceivables:
-          (receivableRows.first['total'] as num?)?.toDouble() ?? 0,
-      cashFlow: income - expense,
+      overdueReceivables: MoneyValue.fromSql(
+        receivableRows.first['total'],
+        currency: currency,
+      ).toMajorUnitsDoubleForDisplay(),
+      cashFlow: cashFlow.toMajorUnitsDoubleForDisplay(),
       salesLast7Days: sales7,
-      incomeMonth: (monthIncomeRows.first['total'] as num?)?.toDouble() ?? 0,
-      expenseMonth: (monthExpenseRows.first['total'] as num?)?.toDouble() ?? 0,
+      incomeMonth: MoneyValue.fromSql(
+        monthIncomeRows.first['total'],
+        currency: currency,
+      ).toMajorUnitsDoubleForDisplay(),
+      expenseMonth: MoneyValue.fromSql(
+        monthExpenseRows.first['total'],
+        currency: currency,
+      ).toMajorUnitsDoubleForDisplay(),
     );
   }
 
@@ -316,6 +365,10 @@ class MerkaIntelligenceService {
     final normalized = _normalize(text);
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
 
     CopilotReply reply;
     if (_matches(normalized, [
@@ -329,12 +382,13 @@ class MerkaIntelligenceService {
         companyId,
         DateTime.now(),
         DateTime.now(),
+        currency,
       );
       reply = CopilotReply(
         intent: 'sales_today',
         moduleId: 'sales',
         response:
-            'Hoy vas en ${_money(total)} en ventas emitidas. Puedo abrir Ventas para revisar el detalle o generar el reporte.',
+            'Hoy vas en ${_money(total.toMajorUnitsDoubleForDisplay())} en ventas emitidas. Puedo abrir Ventas para revisar el detalle o generar el reporte.',
       );
     } else if (_matches(normalized, [
       'ventas mes',
@@ -347,12 +401,13 @@ class MerkaIntelligenceService {
         companyId,
         DateTime(now.year, now.month, 1),
         now,
+        currency,
       );
       reply = CopilotReply(
         intent: 'sales_month',
         moduleId: 'reports',
         response:
-            'Este mes llevas ${_money(total)} en ventas. Recomendacion: revisa top productos y cartera asociada.',
+            'Este mes llevas ${_money(total.toMajorUnitsDoubleForDisplay())} en ventas. Recomendacion: revisa top productos y cartera asociada.',
       );
     } else if (_matches(normalized, [
       'stock critico',
@@ -399,7 +454,7 @@ class MerkaIntelligenceService {
         intent: 'receivables',
         moduleId: 'receivables',
         response:
-            'La cartera pendiente registrada es ${_money((rows.first['total'] as num?)?.toDouble() ?? 0)}. Puedo llevarte a Cuentas por cobrar.',
+            'La cartera pendiente registrada es ${_money(MoneyValue.fromSql(rows.first['total'], currency: currency, nullableAsZero: true).toMajorUnitsDoubleForDisplay())}. Puedo llevarte a Cuentas por cobrar.',
       );
     } else if (_matches(normalized, [
       'pagar',
@@ -414,7 +469,7 @@ class MerkaIntelligenceService {
         intent: 'payables',
         moduleId: 'payables',
         response:
-            'Tienes ${_money((rows.first['total'] as num?)?.toDouble() ?? 0)} en cuentas por pagar. Revisa vencimientos antes de programar caja.',
+            'Tienes ${_money(MoneyValue.fromSql(rows.first['total'], currency: currency, nullableAsZero: true).toMajorUnitsDoubleForDisplay())} en cuentas por pagar. Revisa vencimientos antes de programar caja.',
       );
     } else if (_matches(normalized, [
       'crear compra',
@@ -466,29 +521,72 @@ class MerkaIntelligenceService {
         response:
             'El modulo de Licencias te permite consultar tu plan activo, copiar tu Identificador de Dispositivo (HWID) y activar o renovar tu clave de suscripcion empresarial.',
       );
-    } else if (_matches(normalized, [
-      'instalaciones',
-      'control center',
-    ])) {
+    } else if (_matches(normalized, ['instalaciones', 'control center'])) {
       reply = CopilotReply(
         intent: 'control_center_status',
         moduleId: 'erp_readiness',
         response: await controlCenterStatus(),
       );
-    } else if (_matches(normalized, ['como funciona', 'ayuda', 'explicacion', 'guia', 'manual', 'como hago', 'como se', 'que es'])) {
+    } else if (_matches(normalized, [
+      'como funciona',
+      'ayuda',
+      'explicacion',
+      'guia',
+      'manual',
+      'como hago',
+      'como se',
+      'que es',
+    ])) {
       String manualResponse = 'Aquí tienes ayuda sobre el sistema:\n\n';
-      if (_matches(normalized, ['caja', 'cierre', 'arqueo', 'dinero', 'billete', 'moneda'])) {
-        manualResponse += '• **Arqueo y Cierre de Caja**: Ahora puedes realizar el arqueo detallado utilizando la calculadora de Monedas y Billetes Colombianos (COP) en el diálogo de Cierre. Permite registrar billetes de \$100k a \$2k y monedas de \$1000 a \$50. El desglose se guarda en la observación del cierre y bloquea las operaciones para proteger el saldo.';
-      } else if (_matches(normalized, ['lote', 'vencimiento', 'vence', 'inventario', 'caduca'])) {
-        manualResponse += '• **Lotes y Vencimientos**: Al crear un nuevo producto con stock inicial, puedes indicar su código de lote y fecha de vencimiento. El sistema te alertará automáticamente si hay lotes a vencer en los próximos 30 días. Puedes ver los lotes de cada producto seleccionando "Ver lotes" en el listado de inventario.';
-      } else if (_matches(normalized, ['factura', 'dian', 'electronica', 'cufe', 'xml', 'ubl'])) {
-        manualResponse += '• **Facturación Electrónica DIAN**: El sistema genera el XML en formato oficial UBL 2.1 con firma digital y cálculo de CUFE (SHA-384 + PIN). Gestiona resoluciones vigentes, rangos autorizados y simula la transmisión (HTTP 200) ante el webservice de la DIAN. Al pagar en el POS, se previsualiza el ticket térmico de 80mm de forma realista.';
-      } else if (_matches(normalized, ['licencia', 'activar', 'suscripcion', 'hwid', 'plan'])) {
-        manualResponse += '• **Licenciamiento Empresarial**: El software se valida offline u online firmando el Hardware ID (HWID) del PC del cliente. Puedes ver tu plan activo, copiar tu HWID o renovar ingresando tu clave de activación desde el módulo de Licencias.';
-      } else if (_matches(normalized, ['puc', 'contabilidad', 'cuenta', 'asiento'])) {
-        manualResponse += '• **Plan de Cuentas (PUC)**: Se precarga el catálogo del Plan Único de Cuentas (PUC) comercial de Colombia con más de 80 cuentas jerárquicas operativas (Caja, Bancos, Cartera, IVA, Retenciones, etc.) integradas automáticamente con las ventas, compras y cobros.';
+      if (_matches(normalized, [
+        'caja',
+        'cierre',
+        'arqueo',
+        'dinero',
+        'billete',
+        'moneda',
+      ])) {
+        manualResponse +=
+            '• **Arqueo y Cierre de Caja**: Ahora puedes realizar el arqueo detallado utilizando la calculadora de Monedas y Billetes Colombianos (COP) en el diálogo de Cierre. Permite registrar billetes de \$100k a \$2k y monedas de \$1000 a \$50. El desglose se guarda en la observación del cierre y bloquea las operaciones para proteger el saldo.';
+      } else if (_matches(normalized, [
+        'lote',
+        'vencimiento',
+        'vence',
+        'inventario',
+        'caduca',
+      ])) {
+        manualResponse +=
+            '• **Lotes y Vencimientos**: Al crear un nuevo producto con stock inicial, puedes indicar su código de lote y fecha de vencimiento. El sistema te alertará automáticamente si hay lotes a vencer en los próximos 30 días. Puedes ver los lotes de cada producto seleccionando "Ver lotes" en el listado de inventario.';
+      } else if (_matches(normalized, [
+        'factura',
+        'dian',
+        'electronica',
+        'cufe',
+        'xml',
+        'ubl',
+      ])) {
+        manualResponse +=
+            '• **Facturación Electrónica DIAN**: El sistema genera el XML en formato oficial UBL 2.1 con firma digital y cálculo de CUFE (SHA-384 + PIN). Gestiona resoluciones vigentes, rangos autorizados y simula la transmisión (HTTP 200) ante el webservice de la DIAN. Al pagar en el POS, se previsualiza el ticket térmico de 80mm de forma realista.';
+      } else if (_matches(normalized, [
+        'licencia',
+        'activar',
+        'suscripcion',
+        'hwid',
+        'plan',
+      ])) {
+        manualResponse +=
+            '• **Licenciamiento Empresarial**: El software se valida offline u online firmando el Hardware ID (HWID) del PC del cliente. Puedes ver tu plan activo, copiar tu HWID o renovar ingresando tu clave de activación desde el módulo de Licencias.';
+      } else if (_matches(normalized, [
+        'puc',
+        'contabilidad',
+        'cuenta',
+        'asiento',
+      ])) {
+        manualResponse +=
+            '• **Plan de Cuentas (PUC)**: Se precarga el catálogo del Plan Único de Cuentas (PUC) comercial de Colombia con más de 80 cuentas jerárquicas operativas (Caja, Bancos, Cartera, IVA, Retenciones, etc.) integradas automáticamente con las ventas, compras y cobros.';
       } else {
-        manualResponse += 'MerkaERP cuenta con manuales detallados de:\n'
+        manualResponse +=
+            'MerkaERP cuenta con manuales detallados de:\n'
             '1. **Caja y Arqueo Detallado (COP)**: calculadora física de denominaciones.\n'
             '2. **Inventario y Lotes**: control de fechas de vencimiento y lotes iniciales.\n'
             '3. **Facturación Electrónica DIAN**: XML UBL 2.1, CUFE y firma digital.\n'
@@ -496,10 +594,7 @@ class MerkaIntelligenceService {
             '5. **Plan Único de Cuentas (PUC)**: catálogo contable oficial de Colombia.\n\n'
             'Pregúntame sobre cualquiera de estos temas para darte una explicación detallada.';
       }
-      reply = CopilotReply(
-        intent: 'manual_guide',
-        response: manualResponse,
-      );
+      reply = CopilotReply(intent: 'manual_guide', response: manualResponse);
     } else {
       reply = const CopilotReply(
         intent: 'fallback',
@@ -541,11 +636,12 @@ class MerkaIntelligenceService {
     }
   }
 
-  Future<double> _sumSales(
+  Future<MoneyValue> _sumSales(
     dynamic db,
     int companyId,
     DateTime from,
     DateTime to,
+    Currency currency,
   ) async {
     final start = DateTime(from.year, from.month, from.day).toIso8601String();
     final end = DateTime(
@@ -567,7 +663,7 @@ class MerkaIntelligenceService {
       ''',
       [companyId, start, end],
     );
-    return (rows.first['total'] as num?)?.toDouble() ?? 0;
+    return MoneyValue.fromSql(rows.first['total'], currency: currency);
   }
 
   Future<String> _controlCenterEndpoint() async {

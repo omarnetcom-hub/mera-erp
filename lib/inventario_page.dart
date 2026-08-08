@@ -8,6 +8,9 @@
 import 'package:flutter/material.dart';
 import 'catalog/application/catalog_service.dart';
 import 'catalog/domain/master_catalog.dart';
+import 'core/currency/currency.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'inventory/data/product_repository.dart';
 import 'inventory/domain/inventory_summary.dart';
@@ -25,6 +28,7 @@ class _InventarioPageState extends State<InventarioPage> {
   final ProductRepository _productosRepo = SqliteProductRepository();
   List<Product> _productos = [];
   List<TaxOption> _impuestosDisponibles = MasterCatalog.taxes;
+  Currency? _currency;
   String _busqueda = '';
   bool _soloStockBajo = false;
 
@@ -44,10 +48,17 @@ class _InventarioPageState extends State<InventarioPage> {
   Future<void> _cargarProductos() async {
     final data = await _productosRepo.findAll();
     final taxes = await CatalogService.instance.taxOptionsForActiveCompany();
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
     if (!mounted) return;
     setState(() {
       _productos = data;
       _impuestosDisponibles = taxes;
+      _currency = currency;
     });
   }
 
@@ -69,14 +80,22 @@ class _InventarioPageState extends State<InventarioPage> {
     String codigoLote = '',
     String fechaVencimiento = '',
   }) async {
+    final currency = _currency;
+    if (currency == null) {
+      throw StateError('La moneda de la empresa aun no esta resuelta.');
+    }
+    final costoMoney = MoneyValue.fromMajorUnits(
+      costo.toString(),
+      currency: currency,
+    );
     final generatedId = await _productosRepo.save(
       Product(
         id: id,
         name: nombre,
         unit: unidad,
         stock: stock,
-        cost: costo,
-        price: precio,
+        cost: costoMoney,
+        price: MoneyValue.fromMajorUnits(precio.toString(), currency: currency),
         taxRate: impuestoPct,
         barcode: codigoBarras,
         conversionName: convNombre,
@@ -90,9 +109,13 @@ class _InventarioPageState extends State<InventarioPage> {
         codigoLote: codigoLote,
         fechaVencimiento: fechaVencimiento.isNotEmpty
             ? fechaVencimiento
-            : DateTime.now().add(const Duration(days: 365)).toIso8601String().split('T').first,
+            : DateTime.now()
+                  .add(const Duration(days: 365))
+                  .toIso8601String()
+                  .split('T')
+                  .first,
         cantidad: stock,
-        costo: costo,
+        costo: costoMoney,
       );
     }
 
@@ -100,7 +123,9 @@ class _InventarioPageState extends State<InventarioPage> {
   }
 
   Future<void> _verLotesProducto(int productoId, String productoNombre) async {
-    final lotes = await DatabaseHelper.instance.obtenerLotesPorProducto(productoId);
+    final lotes = await DatabaseHelper.instance.obtenerLotesPorProducto(
+      productoId,
+    );
     if (!mounted) return;
 
     showDialog(
@@ -122,7 +147,10 @@ class _InventarioPageState extends State<InventarioPage> {
                     return ListTile(
                       title: Text('Lote: $codigo'),
                       subtitle: Text('Vence: $vencimiento'),
-                      trailing: Text('${_fmtNum(cant)} ud.', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      trailing: Text(
+                        '${_fmtNum(cant)} ud.',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     );
                   },
                 ),
@@ -176,10 +204,10 @@ class _InventarioPageState extends State<InventarioPage> {
       text: producto != null ? _fmtNum(producto.stock) : '',
     );
     final costoCtrl = TextEditingController(
-      text: producto != null ? _fmtNum(producto.cost) : '',
+      text: producto != null ? producto.cost.toMajorUnitsString() : '',
     );
     final precioCtrl = TextEditingController(
-      text: producto != null ? _fmtNum(producto.price) : '',
+      text: producto != null ? producto.price.toMajorUnitsString() : '',
     );
     final impuestoCtrl = TextEditingController(
       text: producto != null
@@ -274,12 +302,19 @@ class _InventarioPageState extends State<InventarioPage> {
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context,
-                        initialDate: DateTime.now().add(const Duration(days: 365)),
+                        initialDate: DateTime.now().add(
+                          const Duration(days: 365),
+                        ),
                         firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 3650)),
+                        lastDate: DateTime.now().add(
+                          const Duration(days: 3650),
+                        ),
                       );
                       if (picked != null) {
-                        fechaVencimientoCtrl.text = picked.toIso8601String().split('T').first;
+                        fechaVencimientoCtrl.text = picked
+                            .toIso8601String()
+                            .split('T')
+                            .first;
                       }
                     },
                   ),
@@ -317,11 +352,21 @@ class _InventarioPageState extends State<InventarioPage> {
                 unidad: unidadCtrl.text.trim(),
                 stock: double.parse(stockCtrl.text.trim().replaceAll(',', '.')),
                 costo: double.parse(costoCtrl.text.trim().replaceAll(',', '.')),
-                precio: double.parse(precioCtrl.text.trim().replaceAll(',', '.')),
-                impuestoPct: double.tryParse(impuestoCtrl.text.trim().replaceAll(',', '.')) ?? 0,
+                precio: double.parse(
+                  precioCtrl.text.trim().replaceAll(',', '.'),
+                ),
+                impuestoPct:
+                    double.tryParse(
+                      impuestoCtrl.text.trim().replaceAll(',', '.'),
+                    ) ??
+                    0,
                 codigoBarras: codigoBarrasCtrl.text.trim(),
                 convNombre: convNombreCtrl.text.trim(),
-                convCantidad: double.tryParse(convCantidadCtrl.text.trim().replaceAll(',', '.')) ?? 0,
+                convCantidad:
+                    double.tryParse(
+                      convCantidadCtrl.text.trim().replaceAll(',', '.'),
+                    ) ??
+                    0,
                 codigoLote: codigoLoteCtrl.text.trim(),
                 fechaVencimiento: fechaVencimientoCtrl.text.trim(),
               );
@@ -385,14 +430,18 @@ class _InventarioPageState extends State<InventarioPage> {
         : _impuestosDisponibles.first.rate;
   }
 
-  String _moneda(double valor) =>
-      '\$${valor.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+  String _moneda(MoneyValue valor) => valor.format();
 
   // ── Build ────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final resumen = InventorySummary.fromProducts(_productos);
+    if (_currency == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final resumen = _productos.isEmpty
+        ? InventorySummary.empty(_currency!)
+        : InventorySummary.fromProducts(_productos);
     final productosVisibles = _productos.where((p) {
       final texto = '${p.name} ${p.barcode}'.toLowerCase();
       final coincide = texto.contains(_busqueda.toLowerCase().trim());

@@ -1,6 +1,9 @@
 import '../../core/database/database_gateway.dart';
 import '../../core/events/event_dispatcher.dart';
 import '../../core/events/event_store.dart';
+import '../../core/currency/money_currency_resolver.dart';
+import '../../core/currency/money_value.dart';
+import '../../db_helper.dart';
 import '../domain/read_models.dart';
 
 class DashboardReadModelProjection implements EventProjection {
@@ -22,23 +25,39 @@ class DashboardReadModelProjection implements EventProjection {
 
     switch (event.name) {
       case 'sales.created':
-        await _increment(event, 'sales_total', _amount(event, 'total'));
-        await _increment(event, 'sales_count', 1);
+        await _increment(event, 'sales_total', await _amount(event, 'total'));
+        await _increment(
+          event,
+          'sales_count',
+          MoneyValue(minorUnits: 1, currency: await _currency(event.companyId)),
+        );
         break;
       case 'purchases.created':
       case 'purchases.approved':
-        await _increment(event, 'purchases_total', _amount(event, 'total'));
-        await _increment(event, 'purchases_count', 1);
+        await _increment(
+          event,
+          'purchases_total',
+          await _amount(event, 'total'),
+        );
+        await _increment(
+          event,
+          'purchases_count',
+          MoneyValue(minorUnits: 1, currency: await _currency(event.companyId)),
+        );
         break;
       case 'inventory.adjusted':
         await _increment(
           event,
           'inventory_adjustments',
-          _amount(event, 'quantity'),
+          await _amount(event, 'quantity'),
         );
         break;
       case 'payments.registered':
-        await _increment(event, 'payments_total', _amount(event, 'amount'));
+        await _increment(
+          event,
+          'payments_total',
+          await _amount(event, 'amount'),
+        );
         break;
     }
 
@@ -55,6 +74,7 @@ class DashboardReadModelProjection implements EventProjection {
       whereArgs: [companyId, branchId],
       orderBy: 'metric_key ASC',
     );
+    final currency = await _currency(companyId);
     return ExecutiveDashboardReadModel(
       companyId: companyId,
       branchId: branchId,
@@ -62,7 +82,11 @@ class DashboardReadModelProjection implements EventProjection {
           .map(
             (row) => KpiMetric(
               key: row['metric_key']?.toString() ?? '',
-              value: (row['metric_value'] as num?)?.toDouble() ?? 0,
+              value: MoneyValue.fromSql(
+                row['metric_value'],
+                currency: currency,
+                nullableAsZero: true,
+              ),
               updatedAt:
                   DateTime.tryParse(row['updated_at']?.toString() ?? '') ??
                   DateTime.now(),
@@ -107,7 +131,7 @@ class DashboardReadModelProjection implements EventProjection {
   Future<void> _increment(
     EventEnvelope event,
     String metric,
-    double amount,
+    MoneyValue amount,
   ) async {
     final rows = await _gateway.query(
       'executive_kpi_read_model',
@@ -121,23 +145,42 @@ class DashboardReadModelProjection implements EventProjection {
         'company_id': event.companyId,
         'branch_id': event.branchId,
         'metric_key': metric,
-        'metric_value': amount,
+        'metric_value': amount.toSql(),
         'updated_at': now,
       });
       return;
     }
-    final current = (rows.first['metric_value'] as num?)?.toDouble() ?? 0;
+    final current = MoneyValue.fromSql(
+      rows.first['metric_value'],
+      currency: await _currency(event.companyId),
+      nullableAsZero: true,
+    );
     await _gateway.update(
       'executive_kpi_read_model',
-      {'metric_value': current + amount, 'updated_at': now},
+      {'metric_value': (current + amount).toSql(), 'updated_at': now},
       where: 'company_id = ? AND branch_id = ? AND metric_key = ?',
       whereArgs: [event.companyId, event.branchId, metric],
     );
   }
 
-  double _amount(EventEnvelope event, String key) {
+  Future<MoneyValue> _amount(EventEnvelope event, String key) async {
     final value = event.payload[key];
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
+    if (value is Map && value['minor_units'] is int) {
+      return MoneyValue(
+        minorUnits: value['minor_units'] as int,
+        currency: await _currency(event.companyId),
+      );
+    }
+    return MoneyValue.fromMajorUnits(
+      value?.toString() ?? '0',
+      currency: await _currency(event.companyId),
+    );
+  }
+
+  Future<dynamic> _currency(int companyId) async {
+    return MoneyCurrencyResolver.resolve(
+      await DatabaseHelper.instance.database,
+      companyId: companyId,
+    );
   }
 }

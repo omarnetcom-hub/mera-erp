@@ -1,3 +1,5 @@
+import '../../core/currency/money_value.dart';
+
 class KpiMetric {
   const KpiMetric({
     required this.key,
@@ -6,12 +8,12 @@ class KpiMetric {
   });
 
   final String key;
-  final double value;
+  final MoneyValue value;
   final DateTime updatedAt;
 
   Map<String, Object?> toMap() => {
     'key': key,
-    'value': value,
+    'value': value.toSql(),
     'updated_at': updatedAt.toIso8601String(),
   };
 }
@@ -27,10 +29,16 @@ class ExecutiveDashboardReadModel {
   final int branchId;
   final List<KpiMetric> metrics;
 
-  double value(String key) {
+  MoneyValue value(String key) {
+    if (metrics.isEmpty) {
+      throw StateError('A currency-resolved KPI metric is required');
+    }
     return metrics
         .where((metric) => metric.key == key)
-        .fold<double>(0, (sum, metric) => sum + metric.value);
+        .fold<MoneyValue>(
+          MoneyValue(minorUnits: 0, currency: metrics.first.value.currency),
+          (sum, metric) => sum + metric.value,
+        );
   }
 
   Map<String, Object?> toMap() => {
@@ -38,10 +46,10 @@ class ExecutiveDashboardReadModel {
     'branch_id': branchId,
     'metrics': metrics.map((metric) => metric.toMap()).toList(),
     'summary': {
-      'sales_total': value('sales_total'),
-      'purchases_total': value('purchases_total'),
-      'inventory_adjustments': value('inventory_adjustments'),
-      'payments_total': value('payments_total'),
+      'sales_total': value('sales_total').toWireMap(),
+      'purchases_total': value('purchases_total').toWireMap(),
+      'inventory_adjustments': value('inventory_adjustments').toWireMap(),
+      'payments_total': value('payments_total').toWireMap(),
     },
   };
 }

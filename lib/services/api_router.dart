@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
+import '../core/currency/money_currency_resolver.dart';
+import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 import 'api_auth_service.dart';
 
@@ -46,27 +48,33 @@ class ApiRouter {
     final db = await DatabaseHelper.instance.database;
     try {
       await db.rawQuery('SELECT 1');
-      return Response.ok(jsonEncode({
-        'status': 'healthy',
-        'timestamp': DateTime.now().toIso8601String(),
-        'version': '1.0.0',
-      }));
+      return Response.ok(
+        jsonEncode({
+          'status': 'healthy',
+          'timestamp': DateTime.now().toIso8601String(),
+          'version': '1.0.0',
+        }),
+      );
     } catch (e) {
-      return Response(503, body: jsonEncode({
-        'status': 'unhealthy',
-        'error': e.toString(),
-      }));
+      return Response(
+        503,
+        body: jsonEncode({'status': 'unhealthy', 'error': e.toString()}),
+      );
     }
   }
 
   Future<Response> _listarProductosHandler(Request request) async {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/products', 'GET');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/products',
+        'GET',
+      );
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final productos = await db.query(
         'productos',
         where: 'company_id = ?',
@@ -74,16 +82,18 @@ class ApiRouter {
         columns: ['id', 'nombre', 'stock', 'precio', 'codigo_barras'],
       );
 
-      return Response.ok(jsonEncode({
-        'success': true,
-        'data': productos,
-        'count': productos.length,
-      }));
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'data': productos,
+          'count': productos.length,
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
@@ -91,11 +101,15 @@ class ApiRouter {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
       final id = int.parse(request.params['id'] as String);
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/products/$id', 'GET');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/products/$id',
+        'GET',
+      );
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final productos = await db.query(
         'productos',
         where: 'id = ? AND company_id = ?',
@@ -103,21 +117,23 @@ class ApiRouter {
       );
 
       if (productos.isEmpty) {
-        return Response(404, body: jsonEncode({
-          'success': false,
-          'error': 'Producto no encontrado',
-        }));
+        return Response(
+          404,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Producto no encontrado',
+          }),
+        );
       }
 
-      return Response.ok(jsonEncode({
-        'success': true,
-        'data': productos.first,
-      }));
+      return Response.ok(
+        jsonEncode({'success': true, 'data': productos.first}),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
@@ -125,11 +141,15 @@ class ApiRouter {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
       final id = int.parse(request.params['id'] as String);
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/products/$id/stock', 'GET');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/products/$id/stock',
+        'GET',
+      );
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final productos = await db.query(
         'productos',
         where: 'id = ? AND company_id = ?',
@@ -138,25 +158,30 @@ class ApiRouter {
       );
 
       if (productos.isEmpty) {
-        return Response(404, body: jsonEncode({
-          'success': false,
-          'error': 'Producto no encontrado',
-        }));
+        return Response(
+          404,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Producto no encontrado',
+          }),
+        );
       }
 
-      return Response.ok(jsonEncode({
-        'success': true,
-        'data': {
-          'id': productos.first['id'],
-          'nombre': productos.first['nombre'],
-          'stock': productos.first['stock'],
-        },
-      }));
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'id': productos.first['id'],
+            'nombre': productos.first['nombre'],
+            'stock': productos.first['stock'],
+          },
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
@@ -164,21 +189,29 @@ class ApiRouter {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
       final id = int.parse(request.params['id'] as String);
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/products/$id/stock', 'PATCH');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/products/$id/stock',
+        'PATCH',
+      );
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final nuevoStock = body['stock'] as num?;
 
       if (nuevoStock == null) {
-        return Response(400, body: jsonEncode({
-          'success': false,
-          'error': 'Se requiere el campo stock',
-        }));
+        return Response(
+          400,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Se requiere el campo stock',
+          }),
+        );
       }
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final count = await db.update(
         'productos',
         {'stock': nuevoStock.toDouble()},
@@ -187,10 +220,13 @@ class ApiRouter {
       );
 
       if (count == 0) {
-        return Response(404, body: jsonEncode({
-          'success': false,
-          'error': 'Producto no encontrado',
-        }));
+        return Response(
+          404,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Producto no encontrado',
+          }),
+        );
       }
 
       await DatabaseHelper.instance.registrarEventoAuditoria(
@@ -199,51 +235,64 @@ class ApiRouter {
         detalle: 'Producto ID: $id, Nuevo stock: $nuevoStock',
       );
 
-      return Response.ok(jsonEncode({
-        'success': true,
-        'data': {'id': id, 'stock': nuevoStock},
-      }));
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'data': {'id': id, 'stock': nuevoStock},
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
   Future<Response> _listarClientesHandler(Request request) async {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/customers', 'GET');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/customers',
+        'GET',
+      );
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final clientes = await db.query(
         'clientes',
         where: 'company_id = ?',
         whereArgs: [companyId],
       );
 
-      return Response.ok(jsonEncode({
-        'success': true,
-        'data': clientes,
-        'count': clientes.length,
-      }));
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'data': clientes,
+          'count': clientes.length,
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
   Future<Response> _crearClienteHandler(Request request) async {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/customers', 'POST');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/customers',
+        'POST',
+      );
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final nombre = body['nombre'] as String?;
       final nit = body['nit'] as String?;
       final telefono = body['telefono'] as String?;
@@ -251,15 +300,18 @@ class ApiRouter {
       final email = body['email'] as String?;
 
       if (nombre == null) {
-        return Response(400, body: jsonEncode({
-          'success': false,
-          'error': 'Se requiere el campo nombre',
-        }));
+        return Response(
+          400,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Se requiere el campo nombre',
+          }),
+        );
       }
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final id = await db.insert('clientes', {
         'company_id': companyId,
         'nombre': nombre,
@@ -277,15 +329,18 @@ class ApiRouter {
         detalle: 'Cliente ID: $id, Nombre: $nombre',
       );
 
-      return Response(201, body: jsonEncode({
-        'success': true,
-        'data': {'id': id, 'nombre': nombre},
-      }));
+      return Response(
+        201,
+        body: jsonEncode({
+          'success': true,
+          'data': {'id': id, 'nombre': nombre},
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
@@ -293,11 +348,15 @@ class ApiRouter {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
       final id = int.parse(request.params['id'] as String);
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/customers/$id', 'GET');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/customers/$id',
+        'GET',
+      );
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final clientes = await db.query(
         'clientes',
         where: 'id = ? AND company_id = ?',
@@ -305,43 +364,51 @@ class ApiRouter {
       );
 
       if (clientes.isEmpty) {
-        return Response(404, body: jsonEncode({
-          'success': false,
-          'error': 'Cliente no encontrado',
-        }));
+        return Response(
+          404,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Cliente no encontrado',
+          }),
+        );
       }
 
-      return Response.ok(jsonEncode({
-        'success': true,
-        'data': clientes.first,
-      }));
+      return Response.ok(jsonEncode({'success': true, 'data': clientes.first}));
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
   Future<Response> _crearOrdenHandler(Request request) async {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/orders', 'POST');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/orders',
+        'POST',
+      );
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final clienteId = body['cliente_id'] as int?;
       final items = body['items'] as List?;
 
       if (items == null || items.isEmpty) {
-        return Response(400, body: jsonEncode({
-          'success': false,
-          'error': 'Se requiere al menos un item en la orden',
-        }));
+        return Response(
+          400,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Se requiere al menos un item en la orden',
+          }),
+        );
       }
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       // Crear venta
       final ventaId = await db.insert('ventas', {
         'company_id': companyId,
@@ -351,12 +418,19 @@ class ApiRouter {
         'total': 0.0, // Se calculará después
       });
 
-      double total = 0;
+      final currency = await MoneyCurrencyResolver.resolve(
+        db,
+        companyId: companyId,
+      );
+      var total = MoneyValue(minorUnits: 0, currency: currency);
       for (final item in items) {
         final productoId = item['producto_id'] as int;
         final cantidad = (item['cantidad'] as num).toDouble();
-        final precio = (item['precio'] as num).toDouble();
-        final subtotal = cantidad * precio;
+        final precio = MoneyValue.fromMajorUnits(
+          item['precio'].toString(),
+          currency: currency,
+        );
+        final subtotal = precio.multiplyDecimal(cantidad.toString());
         total += subtotal;
 
         await db.insert('ventas_detalle', {
@@ -364,14 +438,14 @@ class ApiRouter {
           'venta_id': ventaId,
           'producto_id': productoId,
           'cantidad': cantidad,
-          'precio_unitario': precio,
-          'subtotal': subtotal,
+          'precio_unitario': precio.toSql(),
+          'subtotal': subtotal.toSql(),
         });
       }
 
       await db.update(
         'ventas',
-        {'total': total},
+        {'total': total.toSql()},
         where: 'id = ?',
         whereArgs: [ventaId],
       );
@@ -379,18 +453,21 @@ class ApiRouter {
       await DatabaseHelper.instance.registrarEventoAuditoria(
         accion: 'API_ORDEN_CREADA',
         entidad: 'ventas',
-        detalle: 'Venta ID: $ventaId, Total: $total',
+        detalle: 'Venta ID: $ventaId, Total: ${total.format()}',
       );
 
-      return Response(201, body: jsonEncode({
-        'success': true,
-        'data': {'id': ventaId, 'total': total},
-      }));
+      return Response(
+        201,
+        body: jsonEncode({
+          'success': true,
+          'data': {'id': ventaId, 'total': total.toWireMap()},
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
@@ -398,11 +475,15 @@ class ApiRouter {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
       final id = int.parse(request.params['id'] as String);
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/orders/$id', 'GET');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/orders/$id',
+        'GET',
+      );
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final ventas = await db.query(
         'ventas',
         where: 'id = ? AND company_id = ?',
@@ -410,10 +491,10 @@ class ApiRouter {
       );
 
       if (ventas.isEmpty) {
-        return Response(404, body: jsonEncode({
-          'success': false,
-          'error': 'Orden no encontrada',
-        }));
+        return Response(
+          404,
+          body: jsonEncode({'success': false, 'error': 'Orden no encontrada'}),
+        );
       }
 
       final detalles = await db.query(
@@ -422,18 +503,17 @@ class ApiRouter {
         whereArgs: [id, companyId],
       );
 
-      return Response.ok(jsonEncode({
-        'success': true,
-        'data': {
-          'venta': ventas.first,
-          'detalles': detalles,
-        },
-      }));
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'data': {'venta': ventas.first, 'detalles': detalles},
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
@@ -442,12 +522,16 @@ class ApiRouter {
       final apiKey = request.context['apiKey'] as ApiKey;
       final id = int.parse(request.params['id'] as String);
       final formato = request.url.queryParameters['format'] ?? 'json';
-      
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/invoices/$id', 'GET');
+
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/invoices/$id',
+        'GET',
+      );
 
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+
       final ventas = await db.query(
         'ventas',
         where: 'id = ? AND company_id = ?',
@@ -455,59 +539,76 @@ class ApiRouter {
       );
 
       if (ventas.isEmpty) {
-        return Response(404, body: jsonEncode({
-          'success': false,
-          'error': 'Factura no encontrada',
-        }));
+        return Response(
+          404,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Factura no encontrada',
+          }),
+        );
       }
 
       if (formato == 'json') {
-        return Response.ok(jsonEncode({
-          'success': true,
-          'data': ventas.first,
-        }));
+        return Response.ok(jsonEncode({'success': true, 'data': ventas.first}));
       }
 
       // Para PDF, se usaría el servicio existente de generación de PDF
-      return Response(501, body: jsonEncode({
-        'success': false,
-        'error': 'Formato PDF no implementado aún',
-      }));
+      return Response(
+        501,
+        body: jsonEncode({
+          'success': false,
+          'error': 'Formato PDF no implementado aún',
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
   Future<Response> _registrarPagoHandler(Request request) async {
     try {
       final apiKey = request.context['apiKey'] as ApiKey;
-      await ApiAuthService.instance.registrarAcceso(apiKey, '/api/v1/payments', 'POST');
+      await ApiAuthService.instance.registrarAcceso(
+        apiKey,
+        '/api/v1/payments',
+        'POST',
+      );
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final facturaId = body['factura_id'] as int?;
-      final monto = (body['monto'] as num).toDouble();
       final metodo = body['metodo'] as String?;
       final referencia = body['referencia'] as String?;
 
-      if (facturaId == null || monto <= 0) {
-        return Response(400, body: jsonEncode({
-          'success': false,
-          'error': 'Se requiere factura_id y monto válido',
-        }));
-      }
-
       final db = await DatabaseHelper.instance.database;
       final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-      
+      final currency = await MoneyCurrencyResolver.resolve(
+        db,
+        companyId: companyId,
+      );
+      final monto = MoneyValue.fromMajorUnits(
+        body['monto'].toString(),
+        currency: currency,
+      );
+      if (facturaId == null || monto.minorUnits <= 0) {
+        return Response(
+          400,
+          body: jsonEncode({
+            'success': false,
+            'error': 'Se requiere factura_id y monto válido',
+          }),
+        );
+      }
+
       // Registrar movimiento de caja
       await db.insert('movimientos_caja', {
         'company_id': companyId,
         'tipo': 'ingreso',
         'concepto': 'Pago API - Factura $facturaId',
-        'monto': monto,
+        'monto': monto.toSql(),
         'fecha': DateTime.now().toIso8601String(),
         'origen': 'api',
       });
@@ -518,19 +619,22 @@ class ApiRouter {
         detalle: 'Factura: $facturaId, Monto: $monto, Método: $metodo',
       );
 
-      return Response(201, body: jsonEncode({
-        'success': true,
-        'data': {
-          'factura_id': facturaId,
-          'monto': monto,
-          'referencia': referencia,
-        },
-      }));
+      return Response(
+        201,
+        body: jsonEncode({
+          'success': true,
+          'data': {
+            'factura_id': facturaId,
+            'monto': monto.toWireMap(),
+            'referencia': referencia,
+          },
+        }),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 
@@ -542,22 +646,21 @@ class ApiRouter {
 
       // Aquí se validaría la firma HMAC con el webhook processor
       // Por ahora, solo registramos el evento
-      
+
       await DatabaseHelper.instance.registrarEventoAuditoria(
         accion: 'API_WEBHOOK_RECIBIDO',
         entidad: 'webhooks',
         detalle: 'Evento: $evento, Signature: $signature',
       );
 
-      return Response.ok(jsonEncode({
-        'success': true,
-        'message': 'Webhook procesado',
-      }));
+      return Response.ok(
+        jsonEncode({'success': true, 'message': 'Webhook procesado'}),
+      );
     } catch (e) {
-      return Response(500, body: jsonEncode({
-        'success': false,
-        'error': e.toString(),
-      }));
+      return Response(
+        500,
+        body: jsonEncode({'success': false, 'error': e.toString()}),
+      );
     }
   }
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'db_helper.dart';
 import 'services/enterprise_feature_service.dart';
 
@@ -112,10 +114,13 @@ class PublicApiServer {
         final id = await EnterpriseFeatureService().crearCotizacion(
           clienteId: (body['cliente_id'] as num?)?.toInt(),
           cliente: body['cliente']?.toString() ?? 'Consumidor final',
-          items: _lineItems(body['items']),
+          items: await _lineItems(body['items']),
           observacion: body['observacion']?.toString() ?? '',
         );
-        await _json(request, {'ok': true, 'id': id}, status: HttpStatus.created);
+        await _json(request, {
+          'ok': true,
+          'id': id,
+        }, status: HttpStatus.created);
         return;
       }
       final pedidoMatch = RegExp(
@@ -125,7 +130,10 @@ class PublicApiServer {
         final id = await EnterpriseFeatureService().convertirCotizacionAPedido(
           int.parse(pedidoMatch.group(1)!),
         );
-        await _json(request, {'ok': true, 'id': id}, status: HttpStatus.created);
+        await _json(request, {
+          'ok': true,
+          'id': id,
+        }, status: HttpStatus.created);
         return;
       }
       final facturaMatch = RegExp(
@@ -138,7 +146,10 @@ class PublicApiServer {
           metodoPagoId: (body['metodo_pago_id'] as num?)?.toInt() ?? 1,
           bodegaId: (body['bodega_id'] as num?)?.toInt(),
         );
-        await _json(request, {'ok': true, 'id': id}, status: HttpStatus.created);
+        await _json(request, {
+          'ok': true,
+          'id': id,
+        }, status: HttpStatus.created);
         return;
       }
       if (request.method == 'POST' && request.uri.path == '/api/v1/webhooks') {
@@ -147,7 +158,10 @@ class PublicApiServer {
           evento: body['evento']?.toString() ?? '',
           url: body['url']?.toString() ?? '',
         );
-        await _json(request, {'ok': true, 'id': id}, status: HttpStatus.created);
+        await _json(request, {
+          'ok': true,
+          'id': id,
+        }, status: HttpStatus.created);
         return;
       }
       if (request.method == 'POST' && request.uri.path == '/api/v1/tokens') {
@@ -202,15 +216,23 @@ class PublicApiServer {
     throw const FormatException('JSON body must be an object.');
   }
 
-  static List<EnterpriseLineItem> _lineItems(Object? raw) {
+  static Future<List<EnterpriseLineItem>> _lineItems(Object? raw) async {
     if (raw is! List) throw const FormatException('items must be a list.');
+    final db = await DatabaseHelper.instance.database;
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: await DatabaseHelper.instance.obtenerEmpresaActivaId(),
+    );
     return raw.map((item) {
       if (item is! Map) throw const FormatException('invalid line item.');
       return EnterpriseLineItem(
         productoId: (item['producto_id'] as num).toInt(),
         producto: item['producto']?.toString() ?? '',
         cantidad: (item['cantidad'] as num).toDouble(),
-        precioUnitario: (item['precio_unitario'] as num).toDouble(),
+        precioUnitario: MoneyValue.fromMajorUnits(
+          item['precio_unitario'].toString(),
+          currency: currency,
+        ),
       );
     }).toList();
   }
@@ -288,9 +310,7 @@ class PublicApiServer {
         '/api/v1/cotizaciones/{id}/pedido': {
           'post': _path('Convierte cotizacion en pedido'),
         },
-        '/api/v1/pedidos/{id}/factura': {
-          'post': _path('Factura pedido'),
-        },
+        '/api/v1/pedidos/{id}/factura': {'post': _path('Factura pedido')},
         '/api/v1/webhooks': {'post': _path('Registra webhook')},
         '/api/v1/tokens': {'post': _path('Emite JWT local')},
       },

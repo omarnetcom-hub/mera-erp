@@ -7,18 +7,20 @@ import 'package:merka_erp/inventory/domain/product.dart';
 import 'package:merka_erp/purchases/domain/procurement_workflow.dart';
 import 'package:merka_erp/sales/domain/sales_workflow.dart';
 
+import 'support/test_money.dart';
+
 void main() {
   group('Complementos ERP', () {
     test('calcula reposicion y costo promedio ponderado', () {
       const service = InventoryControlService(reorderPoint: 5, targetStock: 20);
       final report = service.analyze([
-        const Product(
+        Product(
           id: 1,
           name: 'Pan',
           unit: 'und',
           stock: 3,
-          cost: 1000,
-          price: 1500,
+          cost: testMoney('1000'),
+          price: testMoney('1500'),
           taxRate: 0,
         ),
       ]);
@@ -27,11 +29,11 @@ void main() {
       expect(
         service.weightedAverageCost(
           currentStock: 10,
-          currentCost: 1000,
+          currentCost: testMoney('1000'),
           incomingQuantity: 10,
-          incomingCost: 1400,
+          incomingCost: testMoney('1400'),
         ),
-        1200,
+        testMoney('1200'),
       );
     });
 

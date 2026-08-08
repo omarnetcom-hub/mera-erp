@@ -1,7 +1,17 @@
 import 'dart:convert';
+import '../core/currency/currency.dart';
+import '../core/currency/money_currency_resolver.dart';
+import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 
-enum UnidadMedida { unidad, kilogramo, litro, metro, metro_cuadrado, metro_cubico }
+enum UnidadMedida {
+  unidad,
+  kilogramo,
+  litro,
+  metro,
+  metro_cuadrado,
+  metro_cubico,
+}
 
 class IngredienteReceta {
   const IngredienteReceta({
@@ -16,9 +26,15 @@ class IngredienteReceta {
   final String productoNombre;
   final double cantidad;
   final UnidadMedida unidad;
-  final double? costoUnitario;
+  final MoneyValue? costoUnitario;
 
-  double get costoTotal => (costoUnitario ?? 0) * cantidad;
+  MoneyValue get costoTotal {
+    final costo = costoUnitario;
+    if (costo == null) {
+      throw StateError('A currency-resolved unit cost is required');
+    }
+    return costo.multiplyDecimal(cantidad.toString());
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -26,11 +42,14 @@ class IngredienteReceta {
       'producto_nombre': productoNombre,
       'cantidad': cantidad,
       'unidad': unidad.name,
-      'costo_unitario': costoUnitario,
+      'costo_unitario': costoUnitario?.toSql(),
     };
   }
 
-  static IngredienteReceta fromJson(Map<String, dynamic> json) {
+  static IngredienteReceta fromJson(
+    Map<String, dynamic> json, {
+    required Currency currency,
+  }) {
     return IngredienteReceta(
       productoId: json['producto_id'] as int,
       productoNombre: json['producto_nombre'] as String,
@@ -39,7 +58,9 @@ class IngredienteReceta {
         (e) => e.name == json['unidad'],
         orElse: () => UnidadMedida.unidad,
       ),
-      costoUnitario: json['costo_unitario'] as double?,
+      costoUnitario: json['costo_unitario'] == null
+          ? null
+          : MoneyValue.fromSql(json['costo_unitario'], currency: currency),
     );
   }
 }
@@ -63,7 +84,7 @@ class Receta {
   final String productoNombre;
   final String nombre;
   final List<IngredienteReceta> ingredientes;
-  final double costoTotal;
+  final MoneyValue costoTotal;
   final DateTime creadoEn;
   final String? descripcion;
   final int version;
@@ -84,10 +105,18 @@ class Receta {
     };
   }
 
-  static Receta fromMap(Map<String, dynamic> map) {
+  static Receta fromMap(
+    Map<String, dynamic> map, {
+    required Currency currency,
+  }) {
     final ingredientesJson = jsonDecode(map['ingredientes'] as String) as List;
     final ingredientes = ingredientesJson
-        .map((i) => IngredienteReceta.fromJson(i as Map<String, dynamic>))
+        .map(
+          (i) => IngredienteReceta.fromJson(
+            i as Map<String, dynamic>,
+            currency: currency,
+          ),
+        )
         .toList();
 
     return Receta(
@@ -96,7 +125,7 @@ class Receta {
       productoNombre: map['producto_nombre'] as String,
       nombre: map['nombre'] as String,
       ingredientes: ingredientes,
-      costoTotal: (map['costo_total'] as num).toDouble(),
+      costoTotal: MoneyValue.fromSql(map['costo_total'], currency: currency),
       creadoEn: DateTime.parse(map['creado_en'] as String),
       descripcion: map['descripcion'] as String?,
       version: map['version'] as int? ?? 1,
@@ -119,9 +148,15 @@ class RecetasService {
   }) async {
     final db = await DatabaseHelper.instance.database;
     final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
 
     // Calcular costo total
-    double costoTotal = ingredientes.fold(0, (sum, ing) => sum + ing.costoTotal);
+    var costoTotal = MoneyValue(minorUnits: 0, currency: currency);
+    for (final ingrediente in ingredientes)
+      costoTotal += ingrediente.costoTotal;
 
     final id = await db.insert('recetas', {
       'company_id': companyId,
@@ -129,7 +164,7 @@ class RecetasService {
       'producto_nombre': productoNombre,
       'nombre': nombre,
       'ingredientes': jsonEncode(ingredientes.map((i) => i.toJson()).toList()),
-      'costo_total': costoTotal,
+      'costo_total': costoTotal.toSql(),
       'descripcion': descripcion,
       'version': 1,
       'activo': 1,
@@ -139,7 +174,8 @@ class RecetasService {
     await DatabaseHelper.instance.registrarEventoAuditoria(
       accion: 'RECETA_CREADA',
       entidad: 'produccion',
-      detalle: 'ID: $id, Producto: $productoNombre, Costo: $costoTotal',
+      detalle:
+          'ID: $id, Producto: $productoNombre, Costo: ${costoTotal.format()}',
     );
 
     return id;
@@ -157,7 +193,11 @@ class RecetasService {
     );
 
     if (rows.isEmpty) return null;
-    return Receta.fromMap(rows.first);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    return Receta.fromMap(rows.first, currency: currency);
   }
 
   Future<Receta?> obtenerRecetaPorProducto(int productoId) async {
@@ -172,7 +212,11 @@ class RecetasService {
     );
 
     if (rows.isEmpty) return null;
-    return Receta.fromMap(rows.first);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    return Receta.fromMap(rows.first, currency: currency);
   }
 
   Future<List<Receta>> listarRecetas({bool soloActivas = true}) async {
@@ -194,10 +238,15 @@ class RecetasService {
       orderBy: 'creado_en DESC',
     );
 
-    return rows.map((row) => Receta.fromMap(row)).toList();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    return rows.map((row) => Receta.fromMap(row, currency: currency)).toList();
   }
 
-  Future<void> actualizarReceta(int id, {
+  Future<void> actualizarReceta(
+    int id, {
     String? nombre,
     List<IngredienteReceta>? ingredientes,
     String? descripcion,
@@ -209,8 +258,17 @@ class RecetasService {
 
     if (nombre != null) updates['nombre'] = nombre;
     if (ingredientes != null) {
-      updates['ingredientes'] = jsonEncode(ingredientes.map((i) => i.toJson()).toList());
-      updates['costo_total'] = ingredientes.fold(0.0, (sum, ing) => sum + ing.costoTotal);
+      updates['ingredientes'] = jsonEncode(
+        ingredientes.map((i) => i.toJson()).toList(),
+      );
+      final currency = await MoneyCurrencyResolver.resolve(
+        db,
+        companyId: companyId,
+      );
+      var costoTotal = MoneyValue(minorUnits: 0, currency: currency);
+      for (final ingrediente in ingredientes)
+        costoTotal += ingrediente.costoTotal;
+      updates['costo_total'] = costoTotal.toSql();
       updates['version'] = FieldValue.increment(1);
     }
     if (descripcion != null) updates['descripcion'] = descripcion;
@@ -264,7 +322,9 @@ class RecetasService {
     );
   }
 
-  Future<Map<int, double>> calcularRequerimientosParaProduccion(Map<int, double> productosCantidad) async {
+  Future<Map<int, double>> calcularRequerimientosParaProduccion(
+    Map<int, double> productosCantidad,
+  ) async {
     final requerimientos = <int, double>{};
 
     for (final entry in productosCantidad.entries) {
@@ -275,7 +335,7 @@ class RecetasService {
       if (receta != null) {
         for (final ingrediente in receta.ingredientes) {
           final cantidadRequerida = ingrediente.cantidad * cantidad;
-          requerimientos[ingrediente.productoId] = 
+          requerimientos[ingrediente.productoId] =
               (requerimientos[ingrediente.productoId] ?? 0) + cantidadRequerida;
         }
       }
@@ -284,9 +344,17 @@ class RecetasService {
     return requerimientos;
   }
 
-  Future<Map<String, dynamic>> obtenerCostosProduccion(Map<int, double> productosCantidad) async {
-    double costoTotal = 0;
-    final desglose = <String, double>{};
+  Future<Map<String, dynamic>> obtenerCostosProduccion(
+    Map<int, double> productosCantidad,
+  ) async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    var costoTotal = MoneyValue(minorUnits: 0, currency: currency);
+    final desglose = <String, MoneyValue>{};
 
     for (final entry in productosCantidad.entries) {
       final productoId = entry.key;
@@ -294,15 +362,19 @@ class RecetasService {
 
       final receta = await obtenerRecetaPorProducto(productoId);
       if (receta != null) {
-        final costoProducto = receta.costoTotal * cantidad;
+        final costoProducto = receta.costoTotal.multiplyDecimal(
+          cantidad.toString(),
+        );
         costoTotal += costoProducto;
         desglose[receta.productoNombre] = costoProducto;
       }
     }
 
     return {
-      'costo_total': costoTotal,
-      'desglose': desglose,
+      'costo_total': costoTotal.toWireMap(),
+      'desglose': desglose.map(
+        (key, value) => MapEntry(key, value.toWireMap()),
+      ),
     };
   }
 
@@ -310,12 +382,15 @@ class RecetasService {
     final db = await DatabaseHelper.instance.database;
     final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
 
-    final rows = await db.rawQuery('''
+    final rows = await db.rawQuery(
+      '''
       SELECT p.id, p.nombre, p.stock, p.costo
       FROM productos p
       LEFT JOIN recetas r ON p.id = r.producto_id AND r.activo = 1
       WHERE p.company_id = ? AND r.id IS NULL
-    ''', [companyId]);
+    ''',
+      [companyId],
+    );
 
     return rows.map((row) => row as Map<String, dynamic>).toList();
   }
