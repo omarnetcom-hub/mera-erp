@@ -1,12 +1,10 @@
 /// Modelo de Contrato EPS / ADRES para servicios de Salud Pública / ESE Hospital
 library;
 
-enum RegimenSalud {
-  subsidiado,
-  contributivo,
-  vinculado,
-  especial,
-}
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
+
+enum RegimenSalud { subsidiado, contributivo, vinculado, especial }
 
 class ContratoEPS {
   final String id;
@@ -15,8 +13,8 @@ class ContratoEPS {
   final String epsAdresNombre;
   final String epsAdresNit;
   final RegimenSalud regimen;
-  final double montoContrato;
-  final double montoFacturado;
+  final MoneyValue montoContrato;
+  final MoneyValue montoFacturado;
   final DateTime fechaInicio;
   final DateTime fechaFin;
   final String estado; // activo, terminado, enConciliacion
@@ -48,8 +46,11 @@ class ContratoEPS {
         (e) => e.name == json['regimen'],
         orElse: () => RegimenSalud.subsidiado,
       ),
-      montoContrato: (json['monto_contrato'] as num).toDouble(),
-      montoFacturado: (json['monto_facturado'] as num?)?.toDouble() ?? 0.0,
+      montoContrato: publicMoneyFromSql(json['monto_contrato']),
+      montoFacturado: publicMoneyFromSql(
+        json['monto_facturado'],
+        nullableAsZero: true,
+      ),
       fechaInicio: DateTime.parse(json['fecha_inicio'] as String),
       fechaFin: DateTime.parse(json['fecha_fin'] as String),
       estado: json['estado'] as String,
@@ -65,8 +66,8 @@ class ContratoEPS {
       'eps_adres_nombre': epsAdresNombre,
       'eps_adres_nit': epsAdresNit,
       'regimen': regimen.name,
-      'monto_contrato': montoContrato,
-      'monto_facturado': montoFacturado,
+      'monto_contrato': montoContrato.toSql(),
+      'monto_facturado': montoFacturado.toSql(),
       'fecha_inicio': fechaInicio.toIso8601String(),
       'fecha_fin': fechaFin.toIso8601String(),
       'estado': estado,
@@ -74,5 +75,5 @@ class ContratoEPS {
     };
   }
 
-  double get saldoDisponibleFacturacion => montoContrato - montoFacturado;
+  MoneyValue get saldoDisponibleFacturacion => montoContrato - montoFacturado;
 }

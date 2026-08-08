@@ -12,7 +12,7 @@ import '../models/rips.dart';
 import '../models/glosa.dart';
 import '../models/contrato_eps.dart';
 import '../models/factura_salud.dart';
-import '../../../core/utils/currency_formatter.dart';
+import '../../../core/currency/public_sector_money.dart';
 
 class SaludPublicaPage extends StatefulWidget {
   final String entidadId;
@@ -266,7 +266,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          'Factura #${item.numeroFactura} | Servicio: ${item.nombreServicio} | Neto: ${CurrencyFormatter.format(item.valorNeto)}',
+                          'Factura #${item.numeroFactura} | Servicio: ${item.nombreServicio} | Neto: ${publicMoneyForDisplay(item.valorNeto)}',
                         ),
                       ),
                     );
@@ -332,7 +332,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          'Régimen: ${c.regimen.name} | Contratado: ${CurrencyFormatter.format(c.montoContrato)} | Facturado: ${CurrencyFormatter.format(c.montoFacturado)}',
+                          'Régimen: ${c.regimen.name} | Contratado: ${publicMoneyForDisplay(c.montoContrato)} | Facturado: ${publicMoneyForDisplay(c.montoFacturado)}',
                         ),
                       ),
                     );
@@ -396,7 +396,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          'Total: ${CurrencyFormatter.format(f.montoTotal)} | Glosado: ${CurrencyFormatter.format(f.montoGlosado)} | Estado: ${f.estado}',
+                          'Total: ${publicMoneyForDisplay(f.montoTotal)} | Glosado: ${publicMoneyForDisplay(f.montoGlosado)} | Estado: ${f.estado}',
                         ),
                         trailing: IconButton(
                           icon: Icon(
@@ -470,7 +470,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          'Factura #${glosa.numeroFactura} | Glosado: ${CurrencyFormatter.format(glosa.valorGlosado)} | Estado: ${glosa.estado.name}',
+                          'Factura #${glosa.numeroFactura} | Glosado: ${publicMoneyForDisplay(glosa.valorGlosado)} | Estado: ${glosa.estado.name}',
                         ),
                       ),
                     );
@@ -583,7 +583,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     epsAdresNombre: epsNombreCtrl.text,
                     epsAdresNit: epsNitCtrl.text,
                     regimen: regimenSeleccionado,
-                    montoContrato: double.parse(montoCtrl.text),
+                    montoContrato: publicMoneyFromMajor(montoCtrl.text),
                     fechaInicio: DateTime.now(),
                     fechaFin: DateTime.now().add(const Duration(days: 365)),
                   );
@@ -704,7 +704,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     contratoId: contratoSeleccionadoId,
                     numeroFactura: numFacCtrl.text,
                     periodo: periodoCtrl.text,
-                    montoTotal: double.parse(montoCtrl.text),
+                    montoTotal: publicMoneyFromMajor(montoCtrl.text),
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
@@ -896,10 +896,10 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     codigoServicioCtrl.text.isEmpty)
                   return;
                 try {
-                  final valor = double.parse(valorCtrl.text);
+                  final valor = publicMoneyFromMajor(valorCtrl.text);
                   final copago = copagoCtrl.text.isNotEmpty
-                      ? double.parse(copagoCtrl.text)
-                      : 0.0;
+                      ? publicMoneyFromMajor(copagoCtrl.text)
+                      : publicMoneyZero();
                   await _ripsService!.registrarRIPS(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
@@ -918,7 +918,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     nombreServicio: servicioNombreCtrl.text,
                     valorServicio: valor,
                     valorCopago: copago,
-                    valorModera: 0,
+                    valorModera: publicMoneyZero(),
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
@@ -1081,7 +1081,9 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     motivoCtrl.text.isEmpty)
                   return;
                 try {
-                  final valorGlosado = double.parse(valorGlosadoCtrl.text);
+                  final valorGlosado = publicMoneyFromMajor(
+                    valorGlosadoCtrl.text,
+                  );
                   await _glosasService!.generarGlosa(
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
@@ -1091,7 +1093,7 @@ class _SaludPublicaPageState extends State<SaludPublicaPage> {
                     tipoGlosa: tipoGlosaSeleccionada,
                     motivo: motivoCtrl.text,
                     valorGlosado: valorGlosado,
-                    valorAceptado: 0,
+                    valorAceptado: publicMoneyZero(),
                     valorRechazado: valorGlosado,
                   );
                   if (context.mounted) {

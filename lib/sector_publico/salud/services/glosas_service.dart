@@ -4,6 +4,7 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import '../models/glosa.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -24,9 +25,9 @@ class GlosasService {
     required String eps,
     required TipoGlosa tipoGlosa,
     required String motivo,
-    required double valorGlosado,
-    required double valorAceptado,
-    required double valorRechazado,
+    required MoneyValue valorGlosado,
+    required MoneyValue valorAceptado,
+    required MoneyValue valorRechazado,
     DateTime? fechaEnvio,
   }) async {
     final id = _uuid.v4();
@@ -68,7 +69,7 @@ class GlosasService {
       valorNuevo: {
         'glosa_id': id,
         'numero_glosa': numeroGlosa,
-        'valor_glosado': valorGlosado,
+        'valor_glosado': valorGlosado.toWireMap(),
       },
       referenciaId: id,
     );

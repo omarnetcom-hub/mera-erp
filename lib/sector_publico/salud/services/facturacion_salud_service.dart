@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/contrato_eps.dart';
 import '../models/factura_salud.dart';
 import '../../security/auditoria_service.dart';
@@ -14,10 +16,7 @@ class FacturacionSaludService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  FacturacionSaludService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  FacturacionSaludService({required this.db, required this.auditoriaService});
 
   /// Registra un contrato de capitación / evento con EPS o ADRES
   Future<ContratoEPS> registrarContratoEPS({
@@ -27,7 +26,7 @@ class FacturacionSaludService {
     required String epsAdresNombre,
     required String epsAdresNit,
     required RegimenSalud regimen,
-    required double montoContrato,
+    required MoneyValue montoContrato,
     required DateTime fechaInicio,
     required DateTime fechaFin,
     String? observaciones,
@@ -42,7 +41,7 @@ class FacturacionSaludService {
       epsAdresNit: epsAdresNit,
       regimen: regimen,
       montoContrato: montoContrato,
-      montoFacturado: 0.0,
+      montoFacturado: publicMoneyZero(),
       fechaInicio: fechaInicio,
       fechaFin: fechaFin,
       estado: 'activo',
@@ -62,7 +61,7 @@ class FacturacionSaludService {
         'contrato_id': id,
         'numero_contrato': numeroContrato,
         'eps_nombre': epsAdresNombre,
-        'monto_contrato': montoContrato,
+        'monto_contrato': montoContrato.toWireMap(),
       },
       referenciaId: id,
     );
@@ -77,10 +76,14 @@ class FacturacionSaludService {
     required String contratoId,
     required String numeroFactura,
     required String periodo,
-    required double montoTotal,
+    required MoneyValue montoTotal,
     String? observaciones,
   }) async {
-    final resContrato = await db.query('contratos_eps_adres', where: 'id = ?', whereArgs: [contratoId]);
+    final resContrato = await db.query(
+      'contratos_eps_adres',
+      where: 'id = ?',
+      whereArgs: [contratoId],
+    );
     if (resContrato.isEmpty) throw Exception('Contrato EPS no encontrado');
 
     final contrato = ContratoEPS.fromJson(resContrato.first);
@@ -94,8 +97,8 @@ class FacturacionSaludService {
       numeroFactura: numeroFactura,
       periodo: periodo,
       montoTotal: montoTotal,
-      montoGlosado: 0.0,
-      montoPagado: 0.0,
+      montoGlosado: publicMoneyZero(),
+      montoPagado: publicMoneyZero(),
       fechaEmision: DateTime.now(),
       estado: 'emitida',
       observaciones: observaciones,
@@ -107,7 +110,7 @@ class FacturacionSaludService {
     final nuevoMontoFacturado = contrato.montoFacturado + montoTotal;
     await db.update(
       'contratos_eps_adres',
-      {'monto_facturado': nuevoMontoFacturado},
+      {'monto_facturado': nuevoMontoFacturado.toSql()},
       where: 'id = ?',
       whereArgs: [contratoId],
     );
@@ -122,7 +125,7 @@ class FacturacionSaludService {
       valorNuevo: {
         'factura_id': id,
         'numero_factura': numeroFactura,
-        'monto_total': montoTotal,
+        'monto_total': montoTotal.toWireMap(),
         'contrato_id': contratoId,
       },
       referenciaId: id,
@@ -164,14 +167,24 @@ class FacturacionSaludService {
 
   /// Exportar Factura de Salud a formato plano .txt para cobro a EPS / ADRES
   Future<String> exportarFacturaAPlano(String facturaId) async {
-    final res = await db.query('facturas_salud', where: 'id = ?', whereArgs: [facturaId]);
+    final res = await db.query(
+      'facturas_salud',
+      where: 'id = ?',
+      whereArgs: [facturaId],
+    );
     if (res.isEmpty) throw Exception('Factura de salud no encontrada');
     final fac = FacturaSalud.fromJson(res.first);
 
     final buffer = StringBuffer();
-    buffer.writeln('FACTURA_SALUD_HEADER|${fac.numeroFactura}|${fac.entidadId}|CONTRATO|${fac.contratoId}');
-    buffer.writeln('VALORES|PERIODO|${fac.periodo}|MONTO_TOTAL|${fac.montoTotal}|GLOSADO|${fac.montoGlosado}|PAGADO|${fac.montoPagado}');
-    buffer.writeln('ESTADO|${fac.estado}|FECHA|${fac.fechaEmision.toIso8601String()}');
+    buffer.writeln(
+      'FACTURA_SALUD_HEADER|${fac.numeroFactura}|${fac.entidadId}|CONTRATO|${fac.contratoId}',
+    );
+    buffer.writeln(
+      'VALORES|PERIODO|${fac.periodo}|MONTO_TOTAL|${publicMoneyForDisplay(fac.montoTotal)}|GLOSADO|${publicMoneyForDisplay(fac.montoGlosado)}|PAGADO|${publicMoneyForDisplay(fac.montoPagado)}',
+    );
+    buffer.writeln(
+      'ESTADO|${fac.estado}|FECHA|${fac.fechaEmision.toIso8601String()}',
+    );
     buffer.writeln('FACTURA_SALUD_FOOTER|DOCUMENTO_OFICIAL_COBRO_EPS_ADRES');
 
     return buffer.toString();

@@ -2,6 +2,8 @@
 /// Ministerio de Salud - Formatos RIPS
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum TipoRIPS {
   ac, // Consulta
@@ -30,10 +32,10 @@ class RIPS {
   final String numeroIdentificacion;
   final String codigoServicio;
   final String nombreServicio;
-  final double valorServicio;
-  final double valorCopago;
-  final double valorModera;
-  final double valorNeto;
+  final MoneyValue valorServicio;
+  final MoneyValue valorCopago;
+  final MoneyValue valorModera;
+  final MoneyValue valorNeto;
   final String? diagnosticoPrincipal;
   final String? diagnosticoRelacionado;
   final String? observaciones;
@@ -82,10 +84,10 @@ class RIPS {
       numeroIdentificacion: json['numero_identificacion'] as String,
       codigoServicio: json['codigo_servicio'] as String,
       nombreServicio: json['nombre_servicio'] as String,
-      valorServicio: (json['valor_servicio'] as num).toDouble(),
-      valorCopago: (json['valor_copago'] as num).toDouble(),
-      valorModera: (json['valor_modera'] as num).toDouble(),
-      valorNeto: (json['valor_neto'] as num).toDouble(),
+      valorServicio: publicMoneyFromSql(json['valor_servicio']),
+      valorCopago: publicMoneyFromSql(json['valor_copago']),
+      valorModera: publicMoneyFromSql(json['valor_modera']),
+      valorNeto: publicMoneyFromSql(json['valor_neto']),
       diagnosticoPrincipal: json['diagnostico_principal'] as String?,
       diagnosticoRelacionado: json['diagnostico_relacionado'] as String?,
       observaciones: json['observaciones'] as String?,
@@ -109,10 +111,10 @@ class RIPS {
       'numero_identificacion': numeroIdentificacion,
       'codigo_servicio': codigoServicio,
       'nombre_servicio': nombreServicio,
-      'valor_servicio': valorServicio,
-      'valor_copago': valorCopago,
-      'valor_modera': valorModera,
-      'valor_neto': valorNeto,
+      'valor_servicio': valorServicio.toSql(),
+      'valor_copago': valorCopago.toSql(),
+      'valor_modera': valorModera.toSql(),
+      'valor_neto': valorNeto.toSql(),
       'diagnostico_principal': diagnosticoPrincipal,
       'diagnostico_relacionado': diagnosticoRelacionado,
       'observaciones': observaciones,
@@ -135,10 +137,10 @@ class RIPS {
     String? numeroIdentificacion,
     String? codigoServicio,
     String? nombreServicio,
-    double? valorServicio,
-    double? valorCopago,
-    double? valorModera,
-    double? valorNeto,
+    MoneyValue? valorServicio,
+    MoneyValue? valorCopago,
+    MoneyValue? valorModera,
+    MoneyValue? valorNeto,
     String? diagnosticoPrincipal,
     String? diagnosticoRelacionado,
     String? observaciones,
@@ -164,7 +166,8 @@ class RIPS {
       valorModera: valorModera ?? this.valorModera,
       valorNeto: valorNeto ?? this.valorNeto,
       diagnosticoPrincipal: diagnosticoPrincipal ?? this.diagnosticoPrincipal,
-      diagnosticoRelacionado: diagnosticoRelacionado ?? this.diagnosticoRelacionado,
+      diagnosticoRelacionado:
+          diagnosticoRelacionado ?? this.diagnosticoRelacionado,
       observaciones: observaciones ?? this.observaciones,
     );
   }

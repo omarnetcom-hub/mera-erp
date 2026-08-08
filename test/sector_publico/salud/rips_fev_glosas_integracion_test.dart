@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/salud/database/schema_salud.dart';
 import 'package:merka_erp/sector_publico/salud/models/glosa.dart';
 import 'package:merka_erp/sector_publico/salud/models/rips.dart';
@@ -126,7 +127,7 @@ void main() {
       numeroIdentificacion: '30303030',
       codigoServicio: '890201',
       nombreServicio: 'Consulta',
-      valorServicio: 60000,
+      valorServicio: publicMoneyFromMajor('60000'),
     );
     await glosas.generarGlosa(
       entidadId: 'ESE-001',
@@ -136,9 +137,9 @@ void main() {
       eps: 'EPS de prueba',
       tipoGlosa: TipoGlosa.errorFacturacion,
       motivo: 'Soporte pendiente',
-      valorGlosado: 60000,
-      valorAceptado: 0,
-      valorRechazado: 0,
+      valorGlosado: publicMoneyFromMajor('60000'),
+      valorAceptado: publicMoneyZero(),
+      valorRechazado: publicMoneyZero(),
       fechaEnvio: DateTime(2026, 5, 1),
     );
     final fila = (await db.query('glosas')).single;

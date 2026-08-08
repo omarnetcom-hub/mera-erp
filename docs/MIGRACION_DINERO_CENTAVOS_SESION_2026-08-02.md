@@ -1796,3 +1796,67 @@ El bloque contractual queda convertido a nivel de codigo y esquema. La
 evidencia de tests queda **pendiente de ejecucion** por el crash de assets
 nativos de Windows. Fase 3B continua en progreso; no se declara `X/X COMPLETA`.
 Commit de este bloque: el commit que contiene esta seccion de cierre.
+
+## Fase 3B - cierre del bloque de salud publica
+
+### Cambios
+
+Se convirtieron los consumidores monetarios de salud y sus pruebas:
+
+- `lib/sector_publico/salud/models/contrato_eps.dart`
+- `lib/sector_publico/salud/models/factura_salud.dart`
+- `lib/sector_publico/salud/models/glosa.dart`
+- `lib/sector_publico/salud/models/rips.dart`
+- `lib/sector_publico/salud/services/facturacion_salud_service.dart`
+- `lib/sector_publico/salud/services/glosas_service.dart`
+- `lib/sector_publico/salud/services/rips_service.dart`
+- `lib/sector_publico/salud/pages/salud_publica_page.dart`
+- `test/sector_publico/salud/facturacion_salud_service_test.dart`
+- `test/sector_publico/salud/rips_fev_glosas_integracion_test.dart`
+
+Contratos EPS, facturas, RIPS, glosas, copagos y saldos usan `MoneyValue` COP
+con persistencia INTEGER. La alerta de cinco dias habiles de glosas se
+conservo; los codigos RIPS-JSON, cantidades y campos clinicos no son dinero y
+no se modificaron. El modelo `rips_fev.dart` no contiene montos monetarios.
+
+### Evidencia cruda
+
+```text
+dart format [10 archivos del bloque]
+La ejecucion conjunta excedio 30 s sin salida; se aislo por grupos.
+dart format [4 modelos]
+Formatted 4 files (3 changed) in 0.02 seconds. Exit code: 0
+dart format [3 servicios]
+Formatted 3 files (1 changed) in 0.02 seconds. Exit code: 0
+dart format [pagina y 2 tests]
+Formatted 3 files (2 changed) in 0.06 seconds. Exit code: 0
+
+flutter test test/sector_publico/salud/facturacion_salud_service_test.dart test/sector_publico/salud/rips_fev_glosas_integracion_test.dart --reporter expanded
+This crash may already be reported.
+PathExistsException: Cannot copy file to 'C:\\Users\\PC\\Desktop\\Caja_simple\\build\\native_assets\\windows\\sqlite3.dll'
+path = 'C:\\Users\\PC\\Desktop\\Caja_simple\\.dart_tool\\hooks_runner\\shared\\sqlite3\\build\\download-7970568\\sqlite3.dll'
+OS Error: No se puede crear un archivo que ya existe, errno = 183
+Stack relevante: _File.copy -> _copyNativeCodeAssetsToBundleOnWindowsLinux ->
+_copyNativeCodeAssetsForOS -> installCodeAssets -> testCompilerBuildNativeAssets ->
+TestCommand.runCommand.
+Exit code: 1; ningun test llego a compilar o ejecutar aserciones.
+```
+
+### Bugs y decisiones
+
+- Se elimino el calculo de `valor_neto` con `double`; ahora se resta con
+  `MoneyValue` antes de persistir.
+- La exportacion plana de facturas convierte a pesos solo al formar el texto
+  externo.
+- La migracion de pruebas que crea `glosas` con `REAL` se conserva como
+  fixture historico para verificar compatibilidad de esquema; el esquema
+  productivo del modulo declara `INTEGER`.
+- El submodulo `backend` conserva sus cambios locales preexistentes y no fue
+  tocado.
+
+### Cierre de la subtarea salud publica
+
+El bloque de salud queda convertido a nivel de codigo y esquema declarativo.
+La evidencia de tests queda **pendiente de ejecucion** por el crash de assets
+nativos de Windows; Fase 3B continua en progreso y no se declara `X/X COMPLETA`.
+Commit de este bloque: el commit que contiene esta seccion de cierre.

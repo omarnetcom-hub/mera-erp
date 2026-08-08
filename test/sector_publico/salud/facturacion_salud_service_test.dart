@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/sector_publico/salud/database/schema_salud.dart';
 import 'package:merka_erp/sector_publico/salud/services/facturacion_salud_service.dart';
@@ -56,41 +57,47 @@ void main() {
     });
 
     auditoriaService = AuditoriaService(db);
-    service = FacturacionSaludService(db: db, auditoriaService: auditoriaService);
+    service = FacturacionSaludService(
+      db: db,
+      auditoriaService: auditoriaService,
+    );
   });
 
   tearDown(() async {
     await db.close();
   });
 
-  test('Registro de Contrato EPS/ADRES, Expedición de Factura de Salud y Exportación Plano', () async {
-    final contrato = await service.registrarContratoEPS(
-      entidadId: 'entidad-001',
-      usuarioId: 'usr-001',
-      numeroContrato: 'CNT-2026-001',
-      epsAdresNombre: 'Nueva EPS S.A.',
-      epsAdresNit: '900156877-1',
-      regimen: RegimenSalud.subsidiado,
-      montoContrato: 500000000.0,
-      fechaInicio: DateTime.now(),
-      fechaFin: DateTime.now().add(const Duration(days: 365)),
-    );
+  test(
+    'Registro de Contrato EPS/ADRES, Expedición de Factura de Salud y Exportación Plano',
+    () async {
+      final contrato = await service.registrarContratoEPS(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        numeroContrato: 'CNT-2026-001',
+        epsAdresNombre: 'Nueva EPS S.A.',
+        epsAdresNit: '900156877-1',
+        regimen: RegimenSalud.subsidiado,
+        montoContrato: publicMoneyFromMajor('500000000'),
+        fechaInicio: DateTime.now(),
+        fechaFin: DateTime.now().add(const Duration(days: 365)),
+      );
 
-    expect(contrato.numeroContrato, equals('CNT-2026-001'));
+      expect(contrato.numeroContrato, equals('CNT-2026-001'));
 
-    final factura = await service.generarFacturaSalud(
-      entidadId: 'entidad-001',
-      usuarioId: 'usr-001',
-      contratoId: contrato.id,
-      numeroFactura: 'FAC-2026-001',
-      periodo: '2026-03',
-      montoTotal: 45000000.0,
-    );
+      final factura = await service.generarFacturaSalud(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        contratoId: contrato.id,
+        numeroFactura: 'FAC-2026-001',
+        periodo: '2026-03',
+        montoTotal: publicMoneyFromMajor('45000000'),
+      );
 
-    expect(factura.numeroFactura, equals('FAC-2026-001'));
+      expect(factura.numeroFactura, equals('FAC-2026-001'));
 
-    final plano = await service.exportarFacturaAPlano(factura.id);
-    expect(plano, contains('FACTURA_SALUD_HEADER'));
-    expect(plano, contains('FAC-2026-001'));
-  });
+      final plano = await service.exportarFacturaAPlano(factura.id);
+      expect(plano, contains('FACTURA_SALUD_HEADER'));
+      expect(plano, contains('FAC-2026-001'));
+    },
+  );
 }

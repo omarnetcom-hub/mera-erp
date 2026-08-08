@@ -2,6 +2,8 @@
 /// Respuesta de glosa por parte de EPS
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum TipoGlosa {
   servicioNoPrestado,
@@ -29,9 +31,9 @@ class Glosa {
   final String numeroFactura;
   final String eps;
   final String motivo;
-  final double valorGlosado;
-  final double valorAceptado;
-  final double valorRechazado;
+  final MoneyValue valorGlosado;
+  final MoneyValue valorAceptado;
+  final MoneyValue valorRechazado;
   final DateTime fechaGeneracion;
   final DateTime fechaEnvio;
   final DateTime? fechaRespuesta;
@@ -71,9 +73,9 @@ class Glosa {
       numeroFactura: json['numero_factura'] as String,
       eps: json['eps'] as String,
       motivo: json['motivo'] as String,
-      valorGlosado: (json['valor_glosado'] as num).toDouble(),
-      valorAceptado: (json['valor_aceptado'] as num).toDouble(),
-      valorRechazado: (json['valor_rechazado'] as num).toDouble(),
+      valorGlosado: publicMoneyFromSql(json['valor_glosado']),
+      valorAceptado: publicMoneyFromSql(json['valor_aceptado']),
+      valorRechazado: publicMoneyFromSql(json['valor_rechazado']),
       fechaGeneracion: DateTime.parse(json['fecha_generacion'] as String),
       fechaEnvio: DateTime.parse(json['fecha_envio'] as String),
       fechaRespuesta: json['fecha_respuesta'] != null
@@ -97,9 +99,9 @@ class Glosa {
       'numero_factura': numeroFactura,
       'eps': eps,
       'motivo': motivo,
-      'valor_glosado': valorGlosado,
-      'valor_aceptado': valorAceptado,
-      'valor_rechazado': valorRechazado,
+      'valor_glosado': valorGlosado.toSql(),
+      'valor_aceptado': valorAceptado.toSql(),
+      'valor_rechazado': valorRechazado.toSql(),
       'fecha_generacion': fechaGeneracion.toIso8601String(),
       'fecha_envio': fechaEnvio.toIso8601String(),
       'fecha_respuesta': fechaRespuesta?.toIso8601String(),
@@ -111,9 +113,9 @@ class Glosa {
 
   bool estaRespondida() {
     return estado == EstadoGlosa.respondida ||
-           estado == EstadoGlosa.aceptada ||
-           estado == EstadoGlosa.rechazada ||
-           estado == EstadoGlosa.parcialmenteAceptada;
+        estado == EstadoGlosa.aceptada ||
+        estado == EstadoGlosa.rechazada ||
+        estado == EstadoGlosa.parcialmenteAceptada;
   }
 
   Glosa copyWith({
@@ -125,9 +127,9 @@ class Glosa {
     String? numeroFactura,
     String? eps,
     String? motivo,
-    double? valorGlosado,
-    double? valorAceptado,
-    double? valorRechazado,
+    MoneyValue? valorGlosado,
+    MoneyValue? valorAceptado,
+    MoneyValue? valorRechazado,
     DateTime? fechaGeneracion,
     DateTime? fechaEnvio,
     DateTime? fechaRespuesta,
@@ -151,7 +153,8 @@ class Glosa {
       fechaEnvio: fechaEnvio ?? this.fechaEnvio,
       fechaRespuesta: fechaRespuesta ?? this.fechaRespuesta,
       estado: estado ?? this.estado,
-      justificacionRespuesta: justificacionRespuesta ?? this.justificacionRespuesta,
+      justificacionRespuesta:
+          justificacionRespuesta ?? this.justificacionRespuesta,
       observaciones: observaciones ?? this.observaciones,
     );
   }

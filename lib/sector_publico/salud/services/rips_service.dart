@@ -5,6 +5,8 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -36,14 +38,14 @@ class RIPSService {
     required String numeroIdentificacion,
     required String codigoServicio,
     required String nombreServicio,
-    required double valorServicio,
-    double? valorCopago,
-    double? valorModera,
+    required MoneyValue valorServicio,
+    MoneyValue? valorCopago,
+    MoneyValue? valorModera,
     String? diagnosticoPrincipal,
     String? diagnosticoRelacionado,
   }) async {
-    final copago = valorCopago ?? 0;
-    final modera = valorModera ?? 0;
+    final copago = valorCopago ?? publicMoneyZero();
+    final modera = valorModera ?? publicMoneyZero();
     final rips = RIPS(
       id: _uuid.v4(),
       entidadId: entidadId,
