@@ -6,6 +6,8 @@ library;
 import 'package:sqflite/sqflite.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/proyecto_mga.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -15,7 +17,7 @@ class BancoProyectosService {
   final AuditoriaService auditoriaService;
   final Dio _dio;
   final Uuid _uuid = const Uuid();
-  
+
   // Configuración de BPIN DNP
   static const String _bpinBaseUrl = 'https://www.dnp.gov.co';
   static const String _bpinServicePath = '/api/v1/bpin';
@@ -26,17 +28,19 @@ class BancoProyectosService {
     required this.auditoriaService,
     String? apiKey,
     String? entidadId,
-  }) : _dio = Dio(BaseOptions(
-    baseUrl: _bpinBaseUrl,
-    connectTimeout: _timeout,
-    receiveTimeout: _timeout,
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (apiKey != null) 'Authorization': 'Bearer $apiKey',
-      'X-Entidad-ID': ?entidadId,
-    },
-  ));
+  }) : _dio = Dio(
+         BaseOptions(
+           baseUrl: _bpinBaseUrl,
+           connectTimeout: _timeout,
+           receiveTimeout: _timeout,
+           headers: {
+             'Content-Type': 'application/json',
+             'Accept': 'application/json',
+             if (apiKey != null) 'Authorization': 'Bearer $apiKey',
+             if (entidadId != null) 'X-Entidad-ID': entidadId,
+           },
+         ),
+       );
 
   /// Registra un proyecto en BPIN localmente
   Future<ProyectoMGA> registrarProyecto({
@@ -48,7 +52,7 @@ class BancoProyectosService {
     required String sector,
     required String programa,
     required String subprograma,
-    required double valorTotal,
+    required MoneyValue valorTotal,
     required DateTime fechaInicio,
     required DateTime fechaFin,
     required String responsable,
@@ -66,7 +70,7 @@ class BancoProyectosService {
       programa: programa,
       subprograma: subprograma,
       valorTotal: valorTotal,
-      valorEjecutado: 0,
+      valorEjecutado: publicMoneyZero(),
       saldoPorEjecutar: valorTotal,
       fechaInicio: fechaInicio,
       fechaFin: fechaFin,
@@ -87,7 +91,7 @@ class BancoProyectosService {
       valorNuevo: {
         'proyecto_id': id,
         'codigo_bpin': codigoBPIN,
-        'valor_total': valorTotal,
+        'valor_total': valorTotal.toWireMap(),
       },
       referenciaId: id,
     );
@@ -178,7 +182,7 @@ class BancoProyectosService {
     required String entidadId,
     required String usuarioId,
     required String proyectoId,
-    required double valorEjecutado,
+    required MoneyValue valorEjecutado,
   }) async {
     final proyectoResult = await db.query(
       'proyectos_mga',
@@ -201,8 +205,8 @@ class BancoProyectosService {
     await db.update(
       'proyectos_mga',
       {
-        'valor_ejecutado': valorEjecutado,
-        'saldo_por_ejecutar': nuevoSaldo,
+        'valor_ejecutado': valorEjecutado.toSql(),
+        'saldo_por_ejecutar': nuevoSaldo.toSql(),
       },
       where: 'id = ?',
       whereArgs: [proyectoId],
@@ -215,12 +219,12 @@ class BancoProyectosService {
       modulo: 'planeacion',
       accion: 'actualizacion_ejecucion_proyecto',
       valorAnterior: {
-        'valor_ejecutado_anterior': proyecto.valorEjecutado,
-        'saldo_anterior': proyecto.saldoPorEjecutar,
+        'valor_ejecutado_anterior': proyecto.valorEjecutado.toWireMap(),
+        'saldo_anterior': proyecto.saldoPorEjecutar.toWireMap(),
       },
       valorNuevo: {
-        'valor_ejecutado_nuevo': valorEjecutado,
-        'saldo_nuevo': nuevoSaldo,
+        'valor_ejecutado_nuevo': valorEjecutado.toWireMap(),
+        'saldo_nuevo': nuevoSaldo.toWireMap(),
       },
       referenciaId: proyectoId,
     );
@@ -275,7 +279,7 @@ class BancoProyectosService {
         'sector': proyecto.sector,
         'programa': proyecto.programa,
         'subprograma': proyecto.subprograma,
-        'valor_total': proyecto.valorTotal,
+        'valor_total': publicMoneyForDisplay(proyecto.valorTotal),
         'fecha_inicio': proyecto.fechaInicio.toIso8601String(),
         'fecha_fin': proyecto.fechaFin.toIso8601String(),
       };
@@ -286,7 +290,9 @@ class BancoProyectosService {
       );
 
       if (response.statusCode != 201) {
-        throw Exception('Error al sincronizar con BPIN: ${response.statusCode}');
+        throw Exception(
+          'Error al sincronizar con BPIN: ${response.statusCode}',
+        );
       }
 
       await auditoriaService.registrarEvento(
@@ -319,7 +325,9 @@ class BancoProyectosService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar proyecto en BPIN: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar proyecto en BPIN: ${response.statusCode}',
+        );
       }
 
       return response.data;
@@ -328,4 +336,3 @@ class BancoProyectosService {
     }
   }
 }
-

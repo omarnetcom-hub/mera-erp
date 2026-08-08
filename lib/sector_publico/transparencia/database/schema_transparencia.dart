@@ -40,7 +40,7 @@ class SchemaTransparencia {
         fecha_decision TEXT,
         estado TEXT NOT NULL,
         sancion TEXT,
-        monto_sancion REAL,
+        monto_sancion INTEGER,
         observaciones TEXT,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
       )
@@ -56,9 +56,9 @@ class SchemaTransparencia {
         entidad_destino TEXT NOT NULL,
         tipo_transferencia TEXT NOT NULL,
         descripcion TEXT NOT NULL,
-        valor_transferido REAL NOT NULL,
-        valor_ejecutado REAL NOT NULL DEFAULT 0,
-        valor_no_ejecutado REAL NOT NULL DEFAULT 0,
+        valor_transferido INTEGER NOT NULL,
+        valor_ejecutado INTEGER NOT NULL DEFAULT 0,
+        valor_no_ejecutado INTEGER NOT NULL DEFAULT 0,
         fecha_transferencia TEXT NOT NULL,
         proyecto TEXT,
         observaciones TEXT,
@@ -66,11 +66,23 @@ class SchemaTransparencia {
       )
     ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_reportes_entidad ON reportes_transparencia(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_reportes_estado ON reportes_transparencia(estado)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_procesos_entidad ON procesos_disciplinarios(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_procesos_estado ON procesos_disciplinarios(estado)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_consolidaciones_entidad ON consolidaciones_nicsp40(entidad_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_consolidaciones_vigencia ON consolidaciones_nicsp40(vigencia)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_reportes_entidad ON reportes_transparencia(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_reportes_estado ON reportes_transparencia(estado)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_procesos_entidad ON procesos_disciplinarios(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_procesos_estado ON procesos_disciplinarios(estado)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_consolidaciones_entidad ON consolidaciones_nicsp40(entidad_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_consolidaciones_vigencia ON consolidaciones_nicsp40(vigencia)',
+    );
   }
 }

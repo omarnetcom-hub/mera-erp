@@ -2,13 +2,10 @@
 /// NICSP 40 - Información a revelar sobre transferencias
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
-enum TipoTransferencia {
-  subsidio,
-  transferencia,
-  donacion,
-  otro,
-}
+enum TipoTransferencia { subsidio, transferencia, donacion, otro }
 
 class ConsolidacionNICSP40 {
   final String id;
@@ -19,9 +16,9 @@ class ConsolidacionNICSP40 {
   final String entidadDestino;
   final TipoTransferencia tipoTransferencia;
   final String descripcion;
-  final double valorTransferido;
-  final double valorEjecutado;
-  final double valorNoEjecutado;
+  final MoneyValue valorTransferido;
+  final MoneyValue valorEjecutado;
+  final MoneyValue valorNoEjecutado;
   final DateTime fechaTransferencia;
   final String? proyecto;
   final String? observaciones;
@@ -52,12 +49,13 @@ class ConsolidacionNICSP40 {
       entidadOrigen: json['entidad_origen'] as String,
       entidadDestino: json['entidad_destino'] as String,
       tipoTransferencia: TipoTransferencia.values.firstWhere(
-        (e) => e.toString() == 'TipoTransferencia.${json['tipo_transferencia']}',
+        (e) =>
+            e.toString() == 'TipoTransferencia.${json['tipo_transferencia']}',
       ),
       descripcion: json['descripcion'] as String,
-      valorTransferido: (json['valor_transferido'] as num).toDouble(),
-      valorEjecutado: (json['valor_ejecutado'] as num).toDouble(),
-      valorNoEjecutado: (json['valor_no_ejecutado'] as num).toDouble(),
+      valorTransferido: publicMoneyFromSql(json['valor_transferido']),
+      valorEjecutado: publicMoneyFromSql(json['valor_ejecutado']),
+      valorNoEjecutado: publicMoneyFromSql(json['valor_no_ejecutado']),
       fechaTransferencia: DateTime.parse(json['fecha_transferencia'] as String),
       proyecto: json['proyecto'] as String?,
       observaciones: json['observaciones'] as String?,
@@ -74,9 +72,9 @@ class ConsolidacionNICSP40 {
       'entidad_destino': entidadDestino,
       'tipo_transferencia': tipoTransferencia.toString().split('.').last,
       'descripcion': descripcion,
-      'valor_transferido': valorTransferido,
-      'valor_ejecutado': valorEjecutado,
-      'valor_no_ejecutado': valorNoEjecutado,
+      'valor_transferido': valorTransferido.toSql(),
+      'valor_ejecutado': valorEjecutado.toSql(),
+      'valor_no_ejecutado': valorNoEjecutado.toSql(),
       'fecha_transferencia': fechaTransferencia.toIso8601String(),
       'proyecto': proyecto,
       'observaciones': observaciones,
@@ -84,8 +82,8 @@ class ConsolidacionNICSP40 {
   }
 
   double calcularPorcentajeEjecucion() {
-    if (valorTransferido == 0) return 0;
-    return (valorEjecutado / valorTransferido) * 100;
+    if (valorTransferido == publicMoneyZero()) return 0;
+    return (valorEjecutado.minorUnits / valorTransferido.minorUnits) * 100;
   }
 
   ConsolidacionNICSP40 copyWith({
@@ -97,9 +95,9 @@ class ConsolidacionNICSP40 {
     String? entidadDestino,
     TipoTransferencia? tipoTransferencia,
     String? descripcion,
-    double? valorTransferido,
-    double? valorEjecutado,
-    double? valorNoEjecutado,
+    MoneyValue? valorTransferido,
+    MoneyValue? valorEjecutado,
+    MoneyValue? valorNoEjecutado,
     DateTime? fechaTransferencia,
     String? proyecto,
     String? observaciones,

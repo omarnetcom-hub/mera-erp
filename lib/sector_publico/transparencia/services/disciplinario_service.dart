@@ -4,6 +4,7 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
 import '../models/proceso_disciplinario.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -13,10 +14,7 @@ class DisciplinarioService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  DisciplinarioService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  DisciplinarioService({required this.db, required this.auditoriaService});
 
   /// Inicia un proceso disciplinario
   Future<ProcesoDisciplinario> iniciarProceso({
@@ -30,7 +28,8 @@ class DisciplinarioService {
     required String descripcion,
   }) async {
     final id = _uuid.v4();
-    final numeroProceso = 'PD-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroProceso =
+        'PD-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaInicio = DateTime.now();
 
     final proceso = ProcesoDisciplinario(
@@ -74,7 +73,7 @@ class DisciplinarioService {
     required String procesoId,
     required EstadoProcesoDisciplinario estadoDecision,
     String? sancion,
-    double? montoSancion,
+    MoneyValue? montoSancion,
   }) async {
     final procesoResult = await db.query(
       'procesos_disciplinarios',
@@ -100,7 +99,7 @@ class DisciplinarioService {
         'estado': estadoDecision.toString().split('.').last,
         'fecha_decision': fechaDecision.toIso8601String(),
         'sancion': sancion,
-        'monto_sancion': montoSancion,
+        'monto_sancion': montoSancion?.toSql(),
       },
       where: 'id = ?',
       whereArgs: [procesoId],
@@ -116,7 +115,7 @@ class DisciplinarioService {
       valorNuevo: {
         'estado_nuevo': estadoDecision.toString(),
         'sancion': sancion,
-        'monto_sancion': montoSancion,
+        'monto_sancion': montoSancion?.toWireMap(),
       },
       referenciaId: procesoId,
     );
@@ -151,4 +150,3 @@ class DisciplinarioService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-

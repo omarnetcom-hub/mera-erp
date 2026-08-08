@@ -2,6 +2,8 @@
 /// Banco de Proyectos de Inversión Pública - DNP
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum EstadoProyecto {
   perfil,
@@ -15,13 +17,7 @@ enum EstadoProyecto {
   cancelado,
 }
 
-enum TipoProyecto {
-  obra,
-  estudio,
-  consultoria,
-  adquisicion,
-  otro,
-}
+enum TipoProyecto { obra, estudio, consultoria, adquisicion, otro }
 
 class ProyectoMGA {
   final String id;
@@ -32,9 +28,9 @@ class ProyectoMGA {
   final String sector;
   final String programa;
   final String subprograma;
-  final double valorTotal;
-  final double valorEjecutado;
-  final double saldoPorEjecutar;
+  final MoneyValue valorTotal;
+  final MoneyValue valorEjecutado;
+  final MoneyValue saldoPorEjecutar;
   final DateTime fechaInicio;
   final DateTime fechaFin;
   final String responsable;
@@ -78,9 +74,9 @@ class ProyectoMGA {
       sector: json['sector'] as String,
       programa: json['programa'] as String,
       subprograma: json['subprograma'] as String,
-      valorTotal: (json['valor_total'] as num).toDouble(),
-      valorEjecutado: (json['valor_ejecutado'] as num).toDouble(),
-      saldoPorEjecutar: (json['saldo_por_ejecutar'] as num).toDouble(),
+      valorTotal: publicMoneyFromSql(json['valor_total']),
+      valorEjecutado: publicMoneyFromSql(json['valor_ejecutado']),
+      saldoPorEjecutar: publicMoneyFromSql(json['saldo_por_ejecutar']),
       fechaInicio: DateTime.parse(json['fecha_inicio'] as String),
       fechaFin: DateTime.parse(json['fecha_fin'] as String),
       responsable: json['responsable'] as String,
@@ -104,9 +100,9 @@ class ProyectoMGA {
       'sector': sector,
       'programa': programa,
       'subprograma': subprograma,
-      'valor_total': valorTotal,
-      'valor_ejecutado': valorEjecutado,
-      'saldo_por_ejecutar': saldoPorEjecutar,
+      'valor_total': valorTotal.toSql(),
+      'valor_ejecutado': valorEjecutado.toSql(),
+      'saldo_por_ejecutar': saldoPorEjecutar.toSql(),
       'fecha_inicio': fechaInicio.toIso8601String(),
       'fecha_fin': fechaFin.toIso8601String(),
       'responsable': responsable,
@@ -120,14 +116,16 @@ class ProyectoMGA {
 
   /// Verifica si tiene CDP y RP asociados
   bool tieneCDPyRP() {
-    return codigoCDP != null && codigoCDP!.isNotEmpty &&
-           codigoRP != null && codigoRP!.isNotEmpty;
+    return codigoCDP != null &&
+        codigoCDP!.isNotEmpty &&
+        codigoRP != null &&
+        codigoRP!.isNotEmpty;
   }
 
   /// Calcula el porcentaje de ejecución
   double calcularPorcentajeEjecucion() {
-    if (valorTotal == 0) return 0;
-    return (valorEjecutado / valorTotal) * 100;
+    if (valorTotal == publicMoneyZero()) return 0;
+    return (valorEjecutado.minorUnits / valorTotal.minorUnits) * 100;
   }
 
   /// Verifica si está en ejecución
@@ -144,9 +142,9 @@ class ProyectoMGA {
     String? sector,
     String? programa,
     String? subprograma,
-    double? valorTotal,
-    double? valorEjecutado,
-    double? saldoPorEjecutar,
+    MoneyValue? valorTotal,
+    MoneyValue? valorEjecutado,
+    MoneyValue? saldoPorEjecutar,
     DateTime? fechaInicio,
     DateTime? fechaFin,
     String? responsable,

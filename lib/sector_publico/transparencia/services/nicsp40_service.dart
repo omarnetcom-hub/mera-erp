@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/consolidacion_nicsp40.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
@@ -13,10 +15,7 @@ class NICSP40Service {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  NICSP40Service({
-    required this.db,
-    required this.auditoriaService,
-  });
+  NICSP40Service({required this.db, required this.auditoriaService});
 
   /// Registra una transferencia para consolidación NICSP 40
   Future<ConsolidacionNICSP40> registrarTransferencia({
@@ -27,12 +26,13 @@ class NICSP40Service {
     required String entidadDestino,
     required TipoTransferencia tipoTransferencia,
     required String descripcion,
-    required double valorTransferido,
+    required MoneyValue valorTransferido,
     required DateTime fechaTransferencia,
     String? proyecto,
   }) async {
     final id = _uuid.v4();
-    final numeroConsolidacion = 'CN-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroConsolidacion =
+        'CN-${DateTime.now().year}-${_generarNumeroSecuencial()}';
 
     final consolidacion = ConsolidacionNICSP40(
       id: id,
@@ -44,7 +44,7 @@ class NICSP40Service {
       tipoTransferencia: tipoTransferencia,
       descripcion: descripcion,
       valorTransferido: valorTransferido,
-      valorEjecutado: 0,
+      valorEjecutado: publicMoneyZero(),
       valorNoEjecutado: valorTransferido,
       fechaTransferencia: fechaTransferencia,
       proyecto: proyecto,
@@ -62,7 +62,7 @@ class NICSP40Service {
       valorNuevo: {
         'consolidacion_id': id,
         'numero_consolidacion': numeroConsolidacion,
-        'valor_transferido': valorTransferido,
+        'valor_transferido': valorTransferido.toWireMap(),
       },
       referenciaId: id,
     );
@@ -75,7 +75,7 @@ class NICSP40Service {
     required String entidadId,
     required String usuarioId,
     required String consolidacionId,
-    required double valorEjecutado,
+    required MoneyValue valorEjecutado,
   }) async {
     final consolidacionResult = await db.query(
       'consolidaciones_nicsp40',
@@ -87,10 +87,14 @@ class NICSP40Service {
       throw Exception('Consolidación no encontrada');
     }
 
-    final consolidacion = ConsolidacionNICSP40.fromJson(consolidacionResult.first);
+    final consolidacion = ConsolidacionNICSP40.fromJson(
+      consolidacionResult.first,
+    );
 
     if (valorEjecutado > consolidacion.valorTransferido) {
-      throw Exception('El valor ejecutado no puede exceder el valor transferido');
+      throw Exception(
+        'El valor ejecutado no puede exceder el valor transferido',
+      );
     }
 
     final valorNoEjecutado = consolidacion.valorTransferido - valorEjecutado;
@@ -98,8 +102,8 @@ class NICSP40Service {
     await db.update(
       'consolidaciones_nicsp40',
       {
-        'valor_ejecutado': valorEjecutado,
-        'valor_no_ejecutado': valorNoEjecutado,
+        'valor_ejecutado': valorEjecutado.toSql(),
+        'valor_no_ejecutado': valorNoEjecutado.toSql(),
       },
       where: 'id = ?',
       whereArgs: [consolidacionId],
@@ -112,12 +116,13 @@ class NICSP40Service {
       modulo: 'transparencia',
       accion: 'actualizacion_ejecucion_nicsp40',
       valorAnterior: {
-        'valor_ejecutado_anterior': consolidacion.valorEjecutado,
-        'valor_no_ejecutado_anterior': consolidacion.valorNoEjecutado,
+        'valor_ejecutado_anterior': consolidacion.valorEjecutado.toWireMap(),
+        'valor_no_ejecutado_anterior': consolidacion.valorNoEjecutado
+            .toWireMap(),
       },
       valorNuevo: {
-        'valor_ejecutado_nuevo': valorEjecutado,
-        'valor_no_ejecutado_nuevo': valorNoEjecutado,
+        'valor_ejecutado_nuevo': valorEjecutado.toWireMap(),
+        'valor_no_ejecutado_nuevo': valorNoEjecutado.toWireMap(),
       },
       referenciaId: consolidacionId,
     );
@@ -157,21 +162,29 @@ class NICSP40Service {
       whereArgs: [entidadId, vigencia],
     );
 
-    final totalTransferido = consolidaciones.fold(
-0.0, (sum, r) => sum + (r['valor_transferido'] as num).toDouble());
-    final totalEjecutado = consolidaciones.fold(
-0.0, (sum, r) => sum + (r['valor_ejecutado'] as num).toDouble());
-    final totalNoEjecutado = consolidaciones.fold(
-0.0, (sum, r) => sum + (r['valor_no_ejecutado'] as num).toDouble());
+    var totalTransferido = publicMoneyZero();
+    var totalEjecutado = publicMoneyZero();
+    var totalNoEjecutado = publicMoneyZero();
+    for (final consolidacion in consolidaciones) {
+      totalTransferido += publicMoneyFromSql(
+        consolidacion['valor_transferido'],
+      );
+      totalEjecutado += publicMoneyFromSql(consolidacion['valor_ejecutado']);
+      totalNoEjecutado += publicMoneyFromSql(
+        consolidacion['valor_no_ejecutado'],
+      );
+    }
 
     return {
       'entidad_id': entidadId,
       'vigencia': vigencia,
       'total_transferencias': consolidaciones.length,
-      'valor_total_transferido': totalTransferido,
-      'valor_total_ejecutado': totalEjecutado,
-      'valor_total_no_ejecutado': totalNoEjecutado,
-      'porcentaje_ejecucion': totalTransferido > 0 ? (totalEjecutado / totalTransferido) * 100 : 0,
+      'valor_total_transferido': publicMoneyForDisplay(totalTransferido),
+      'valor_total_ejecutado': publicMoneyForDisplay(totalEjecutado),
+      'valor_total_no_ejecutado': publicMoneyForDisplay(totalNoEjecutado),
+      'porcentaje_ejecucion': totalTransferido > publicMoneyZero()
+          ? (totalEjecutado.minorUnits / totalTransferido.minorUnits) * 100
+          : 0,
     };
   }
 
@@ -179,4 +192,3 @@ class NICSP40Service {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-

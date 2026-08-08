@@ -5,6 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
@@ -92,9 +94,9 @@ class RentasDepartamentalesService {
     required String contribuyenteId,
     required TipoImpuestoDepartamental tipoImpuesto,
     required String periodo,
-    required double baseGravable,
-    required double ingresosNoGravables,
-    required double ingresosExentos,
+    required MoneyValue baseGravable,
+    required MoneyValue ingresosNoGravables,
+    required MoneyValue ingresosExentos,
   }) async {
     final id = _uuid.v4();
 
@@ -105,7 +107,7 @@ class RentasDepartamentalesService {
     final tarifa = _tarifas[tipoImpuesto] ?? 0;
 
     // Calcular impuesto
-    final impuesto = baseGravableCalculada * tarifa;
+    final impuesto = baseGravableCalculada.multiplyDecimal(tarifa.toString());
 
     await db.insert('declaraciones_rentas_departamentales', {
       'id': id,
@@ -114,12 +116,12 @@ class RentasDepartamentalesService {
       'tipo_impuesto': tipoImpuesto.toString().split('.').last,
       'periodo': periodo,
       'fecha_declaracion': DateTime.now().toIso8601String(),
-      'ingresos_gravables': baseGravable,
-      'ingresos_no_gravables': ingresosNoGravables,
-      'ingresos_exentos': ingresosExentos,
-      'base_gravable': baseGravableCalculada,
+      'ingresos_gravables': baseGravable.toSql(),
+      'ingresos_no_gravables': ingresosNoGravables.toSql(),
+      'ingresos_exentos': ingresosExentos.toSql(),
+      'base_gravable': baseGravableCalculada.toSql(),
       'tarifa': tarifa,
-      'impuesto': impuesto,
+      'impuesto': impuesto.toSql(),
       'estado': 'pendiente_pago',
     });
 
@@ -133,7 +135,7 @@ class RentasDepartamentalesService {
       valorNuevo: {
         'declaracion_id': id,
         'periodo': periodo,
-        'impuesto': impuesto,
+        'impuesto': impuesto.toWireMap(),
       },
       referenciaId: id,
     );
@@ -141,7 +143,7 @@ class RentasDepartamentalesService {
     return {
       'declaracion_id': id,
       'periodo': periodo,
-      'impuesto': impuesto,
+      'impuesto': publicMoneyForDisplay(impuesto),
       'estado': 'pendiente_pago',
     };
   }
@@ -151,7 +153,7 @@ class RentasDepartamentalesService {
     required String entidadId,
     required String usuarioId,
     required String declaracionId,
-    required double valorPagado,
+    required MoneyValue valorPagado,
     required DateTime fechaPago,
     required String referenciaPago,
   }) async {
@@ -167,7 +169,7 @@ class RentasDepartamentalesService {
       throw Exception('Declaración no encontrada');
     }
 
-    final impuestoDeclarado = declaracion.first['impuesto'] as double;
+    final impuestoDeclarado = publicMoneyFromSql(declaracion.first['impuesto']);
 
     if (valorPagado > impuestoDeclarado) {
       throw Exception('El pago excede el impuesto declarado');
@@ -177,7 +179,7 @@ class RentasDepartamentalesService {
       'id': id,
       'entidad_id': entidadId,
       'declaracion_id': declaracionId,
-      'valor_pagado': valorPagado,
+      'valor_pagado': valorPagado.toSql(),
       'fecha_pago': fechaPago.toIso8601String(),
       'referencia_pago': referenciaPago,
       'fecha_registro': DateTime.now().toIso8601String(),
@@ -186,14 +188,13 @@ class RentasDepartamentalesService {
 
     // Actualizar estado de declaración
     final saldoPendiente = impuestoDeclarado - valorPagado;
-    final nuevoEstado = saldoPendiente <= 0 ? 'pagado' : 'parcialmente_pagado';
+    final nuevoEstado = saldoPendiente <= publicMoneyZero()
+        ? 'pagado'
+        : 'parcialmente_pagado';
 
     await db.update(
       'declaraciones_rentas_departamentales',
-      {
-        'estado': nuevoEstado,
-        'saldo_pendiente': saldoPendiente,
-      },
+      {'estado': nuevoEstado, 'saldo_pendiente': saldoPendiente.toSql()},
       where: 'id = ?',
       whereArgs: [declaracionId],
     );
@@ -208,7 +209,7 @@ class RentasDepartamentalesService {
       valorNuevo: {
         'pago_id': id,
         'declaracion_id': declaracionId,
-        'valor_pagado': valorPagado,
+        'valor_pagado': valorPagado.toWireMap(),
       },
       referenciaId: id,
     );
@@ -216,8 +217,8 @@ class RentasDepartamentalesService {
     return {
       'pago_id': id,
       'declaracion_id': declaracionId,
-      'valor_pagado': valorPagado,
-      'saldo_pendiente': saldoPendiente,
+      'valor_pagado': publicMoneyForDisplay(valorPagado),
+      'saldo_pendiente': publicMoneyForDisplay(saldoPendiente),
       'estado_declaracion': nuevoEstado,
     };
   }
@@ -239,25 +240,26 @@ class RentasDepartamentalesService {
       whereArgs: [entidadId],
     );
 
-    double totalDeclarado = declaraciones.fold<double>(
-      0,
-      (sum, r) => sum + (r['impuesto'] as num).toDouble(),
-    );
-
-    double totalRecaudado = pagos.fold<double>(
-      0,
-      (sum, r) => sum + (r['valor_pagado'] as num).toDouble(),
-    );
+    var totalDeclarado = publicMoneyZero();
+    for (final declaracion in declaraciones) {
+      totalDeclarado += publicMoneyFromSql(declaracion['impuesto']);
+    }
+    var totalRecaudado = publicMoneyZero();
+    for (final pago in pagos) {
+      totalRecaudado += publicMoneyFromSql(pago['valor_pagado']);
+    }
 
     // Por tipo de impuesto
-    final porTipo = <String, double>{};
+    final porTipo = <String, MoneyValue>{};
     for (final d in declaraciones) {
       final tipo = d['tipo_impuesto'] as String;
-      porTipo[tipo] = (porTipo[tipo] ?? 0) + (d['impuesto'] as num).toDouble();
+      porTipo[tipo] =
+          (porTipo[tipo] ?? publicMoneyZero()) +
+          publicMoneyFromSql(d['impuesto']);
     }
 
     // Por municipio
-    final porMunicipio = <String, double>{};
+    final porMunicipio = <String, MoneyValue>{};
     for (final d in declaraciones) {
       final contribuyente = await db.query(
         'contribuyentes_rentas_departamentales',
@@ -266,19 +268,27 @@ class RentasDepartamentalesService {
       );
       if (contribuyente.isNotEmpty) {
         final municipio = contribuyente.first['municipio'] as String;
-        porMunicipio[municipio] = (porMunicipio[municipio] ?? 0) + (d['impuesto'] as num).toDouble();
+        porMunicipio[municipio] =
+            (porMunicipio[municipio] ?? publicMoneyZero()) +
+            publicMoneyFromSql(d['impuesto']);
       }
     }
 
     return {
       'periodo': periodo,
       'total_declaraciones': declaraciones.length,
-      'total_declarado': totalDeclarado,
-      'total_recaudado': totalRecaudado,
-      'porcentaje_recaudo': totalDeclarado > 0 ? (totalRecaudado / totalDeclarado) * 100 : 0,
-      'saldo_pendiente': totalDeclarado - totalRecaudado,
-      'por_tipo': porTipo,
-      'por_municipio': porMunicipio,
+      'total_declarado': publicMoneyForDisplay(totalDeclarado),
+      'total_recaudado': publicMoneyForDisplay(totalRecaudado),
+      'porcentaje_recaudo': totalDeclarado > publicMoneyZero()
+          ? (totalRecaudado.minorUnits / totalDeclarado.minorUnits) * 100
+          : 0,
+      'saldo_pendiente': publicMoneyForDisplay(totalDeclarado - totalRecaudado),
+      'por_tipo': porTipo.map(
+        (key, value) => MapEntry(key, publicMoneyForDisplay(value)),
+      ),
+      'por_municipio': porMunicipio.map(
+        (key, value) => MapEntry(key, publicMoneyForDisplay(value)),
+      ),
     };
   }
 
@@ -288,7 +298,8 @@ class RentasDepartamentalesService {
     TipoImpuestoDepartamental? tipoImpuesto,
     String? municipio,
   }) async {
-    String query = 'SELECT * FROM contribuyentes_rentas_departamentales WHERE entidad_id = ? AND estado = ?';
+    String query =
+        'SELECT * FROM contribuyentes_rentas_departamentales WHERE entidad_id = ? AND estado = ?';
     List<dynamic> args = [entidadId, 'activo'];
 
     if (tipoImpuesto != null) {
@@ -314,7 +325,8 @@ class RentasDepartamentalesService {
     TipoImpuestoDepartamental? tipoImpuesto,
     String? estado,
   }) async {
-    String query = 'SELECT * FROM declaraciones_rentas_departamentales WHERE entidad_id = ?';
+    String query =
+        'SELECT * FROM declaraciones_rentas_departamentales WHERE entidad_id = ?';
     List<dynamic> args = [entidadId];
 
     if (periodo != null) {
@@ -344,11 +356,11 @@ class RentasDepartamentalesService {
   }
 
   /// Calcula el impuesto según tipo y base gravable
-  double calcularImpuesto({
+  MoneyValue calcularImpuesto({
     required TipoImpuestoDepartamental tipo,
-    required double baseGravable,
+    required MoneyValue baseGravable,
   }) {
     final tarifa = _tarifas[tipo] ?? 0;
-    return baseGravable * tarifa;
+    return baseGravable.multiplyDecimal(tarifa.toString());
   }
 }

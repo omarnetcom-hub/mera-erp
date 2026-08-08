@@ -2,6 +2,7 @@
 library;
 
 import 'package:sqflite/sqflite.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 class SeguimientoProyectoRubroMeta {
   const SeguimientoProyectoRubroMeta({
@@ -84,9 +85,11 @@ class TrazabilidadPlanPresupuestoService {
     );
 
     return filas.map((fila) {
-      final apropiado = (fila['valor_apropiado'] as num).toDouble();
-      final pagado = (fila['valor_pagado'] as num).toDouble();
-      final financiero = apropiado == 0 ? 0.0 : (pagado / apropiado) * 100;
+      final apropiado = publicMoneyFromSql(fila['valor_apropiado']);
+      final pagado = publicMoneyFromSql(fila['valor_pagado']);
+      final financiero = apropiado == publicMoneyZero()
+          ? 0.0
+          : (pagado.minorUnits / apropiado.minorUnits) * 100;
       final fisico = (fila['avance_fisico_porcentaje'] as num).toDouble();
       return SeguimientoProyectoRubroMeta(
         metaCodigo: fila['meta_codigo'] as String,

@@ -2,12 +2,10 @@
 /// Control disciplinario - Código Disciplinario Único
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
-enum TipoProceso {
-  investigacion,
-  sancion,
-  otro,
-}
+enum TipoProceso { investigacion, sancion, otro }
 
 enum EstadoProcesoDisciplinario {
   iniciado,
@@ -32,7 +30,7 @@ class ProcesoDisciplinario {
   final DateTime? fechaDecision;
   final EstadoProcesoDisciplinario estado;
   final String? sancion;
-  final double? montoSancion;
+  final MoneyValue? montoSancion;
   final String? observaciones;
 
   ProcesoDisciplinario({
@@ -75,7 +73,7 @@ class ProcesoDisciplinario {
       ),
       sancion: json['sancion'] as String?,
       montoSancion: json['monto_sancion'] != null
-          ? (json['monto_sancion'] as num).toDouble()
+          ? publicMoneyFromSql(json['monto_sancion'])
           : null,
       observaciones: json['observaciones'] as String?,
     );
@@ -96,7 +94,7 @@ class ProcesoDisciplinario {
       'fecha_decision': fechaDecision?.toIso8601String(),
       'estado': estado.toString().split('.').last,
       'sancion': sancion,
-      'monto_sancion': montoSancion,
+      'monto_sancion': montoSancion?.toSql(),
       'observaciones': observaciones,
     };
   }
@@ -115,7 +113,7 @@ class ProcesoDisciplinario {
     DateTime? fechaDecision,
     EstadoProcesoDisciplinario? estado,
     String? sancion,
-    double? montoSancion,
+    MoneyValue? montoSancion,
     String? observaciones,
   }) {
     return ProcesoDisciplinario(

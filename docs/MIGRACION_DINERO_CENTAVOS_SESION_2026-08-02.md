@@ -1673,3 +1673,71 @@ declarativo del modulo. La ejecucion de tests queda **pendiente**, porque el
 runner no produjo salida antes de quedar bloqueado; no se declara evidencia
 ejecutada ni se marca la Fase 3B como completa. El commit de este bloque es
 el que contiene esta seccion de cierre.
+
+## Fase 3B - cierre del bloque de planeacion, consolidacion y rentas
+
+### Cambios
+
+Se alinearon a unidades menores las declaraciones monetarias de los esquemas
+de presupuesto, contabilidad, activos, planeacion, contratacion, salud y
+transparencia que aun declaraban `REAL`, sin cambiar a `INTEGER` las tarifas,
+porcentajes o cantidades no monetarias. Tambien se convirtieron estos
+consumidores publicos:
+
+- `lib/sector_publico/planeacion/models/proyecto_mga.dart`
+- `lib/sector_publico/planeacion/services/banco_proyectos_service.dart`
+- `lib/sector_publico/planeacion/services/dnp_service.dart`
+- `lib/sector_publico/planeacion/services/trazabilidad_plan_presupuesto_service.dart`
+- `lib/sector_publico/transparencia/models/consolidacion_nicsp40.dart`
+- `lib/sector_publico/transparencia/services/nicsp40_service.dart`
+- `lib/sector_publico/transparencia/models/proceso_disciplinario.dart`
+- `lib/sector_publico/transparencia/services/disciplinario_service.dart`
+- `lib/sector_publico/rentas_departamentales/services/rentas_departamentales_service.dart`
+
+Los calculos y acumulados monetarios usan `MoneyValue` COP con escala fija 2,
+las escrituras SQL usan `toSql()` y los reportes convierten a pesos solo al
+salir del servicio. `DNPService` conserva como `double` los porcentajes de
+transferencia; las tarifas porcentuales de rentas tambien permanecen como
+tasas no monetarias. No se inventaron tablas para las superficies de rentas
+que no tienen esquema declarado en el manifiesto congelado.
+
+### Evidencia cruda
+
+```text
+dart format [16 archivos del bloque]
+Formatted 16 files (12 changed) in 0.13 seconds.
+Exit code: 0
+
+dart format --output=none --set-exit-if-changed [16 archivos del bloque]
+El formateador vuelve a reportar cambios en estos archivos por la normalizacion
+de saltos de linea de Windows; no produjo errores sintacticos. Se uso la
+ejecucion normal de `dart format` como comprobacion efectiva de formato.
+Exit code: 1
+
+flutter test test/sector_publico/planeacion/trazabilidad_plan_presupuesto_test.dart test/sector_publico/rentas/exportacion_declaraciones_test.dart test/sector_publico/rentas/intereses_moratorios_service_test.dart test/sector_publico/rentas/proceso_cobro_coactivo_transiciones_test.dart --reporter expanded
+This crash may already be reported.
+PathExistsException: Cannot copy file to 'C:\\Users\\PC\\Desktop\\Caja_simple\\build\\native_assets\\windows\\sqlite3.dll'
+path = 'C:\\Users\\PC\\Desktop\\Caja_simple\\.dart_tool\\hooks_runner\\shared\\sqlite3\\build\\download-7970568\\sqlite3.dll'
+OS Error: No se puede crear un archivo que ya existe, errno = 183
+Stack relevante: _File.copy -> _copyNativeCodeAssetsToBundleOnWindowsLinux ->
+_copyNativeCodeAssetsForOS -> installCodeAssets -> TestCommand.runCommand.
+Exit code: 1; no asercion de estos tests llego a ejecutarse.
+```
+
+### Bugs y decisiones
+
+- Se corrigieron dos encabezados HTTP que contenian expresiones condicionales
+  invalidas (`X-Entidad-ID` y `X-Operador-ID`) al convertir estos consumidores.
+- Se mantuvo el fail-closed de `MoneyValue.fromSql`; no se agrego conversion
+  silenciosa desde `REAL` en el dominio.
+- La validacion SQL de partida doble sigue siendo trabajo separado.
+- El submodulo `backend` conserva sus cambios locales preexistentes y no fue
+  tocado.
+
+### Cierre de la subtarea planeacion, consolidacion y rentas
+
+El bloque queda convertido a nivel de codigo y declaraciones de esquema
+revisadas. La evidencia de tests queda **pendiente de ejecucion** por el crash
+reproducible de assets nativos; por ello Fase 3B continua en progreso y no se
+declara `X/X COMPLETA`. Commit de este bloque: el commit que contiene esta
+seccion de cierre.

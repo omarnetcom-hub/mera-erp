@@ -5,25 +5,34 @@ library;
 
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 class DNPService {
   final Dio _soda3Dio;
   static const Duration _timeout = Duration(seconds: 30);
 
   // Endpoints SODA3 del DNP
-  static const String _sisbenUrl = 'https://datos.gov.co/resource/hq2v-5umk.json';
+  static const String _sisbenUrl =
+      'https://datos.gov.co/resource/hq2v-5umk.json';
   static const String _sgrUrl = 'https://datos.gov.co/resource/p54v-f343.json';
-  static const String _tipologiasUrl = 'https://datos.gov.co/resource/66v2-w4r9.json';
+  static const String _tipologiasUrl =
+      'https://datos.gov.co/resource/66v2-w4r9.json';
 
-  DNPService({Dio? dio}) : _soda3Dio = dio ?? Dio(BaseOptions(
-    connectTimeout: _timeout,
-    receiveTimeout: _timeout,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-App-Token': dotenv.env['SOCRATA_APP_TOKEN'] ?? '',
-      'Authorization': dotenv.env['SOCRATA_AUTH_HEADER'] ?? '',
-    },
-  ));
+  DNPService({Dio? dio})
+    : _soda3Dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: _timeout,
+              receiveTimeout: _timeout,
+              headers: {
+                'Content-Type': 'application/json',
+                'X-App-Token': dotenv.env['SOCRATA_APP_TOKEN'] ?? '',
+                'Authorization': dotenv.env['SOCRATA_AUTH_HEADER'] ?? '',
+              },
+            ),
+          );
 
   /// Consulta datos del Sisbén (muestras de población)
   /// Uso: Caracterización socioeconómica y estadísticas de ciudadanos
@@ -91,11 +100,13 @@ class DNPService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar estadísticas Sisbén: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar estadísticas Sisbén: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
-      
+
       // Calcular totales
       int totalPoblacion = data.fold<int>(
         0,
@@ -157,7 +168,9 @@ class DNPService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar proyectos SGR: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar proyectos SGR: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
@@ -174,14 +187,13 @@ class DNPService {
     try {
       final response = await _soda3Dio.get(
         _sgrUrl,
-        queryParameters: {
-          'codigo_bpin': bpin,
-          '\$limit': 1,
-        },
+        queryParameters: {'codigo_bpin': bpin, '\$limit': 1},
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar proyecto SGR: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar proyecto SGR: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
@@ -203,12 +215,15 @@ class DNPService {
         queryParameters: {
           'codigo_municipio': codigoMunicipio,
           '\$where': "anio_vigencia = '$anio'",
-          '\$select': 'SUM(valor_asignado) as total_asignado, SUM(valor_ejecutado) as total_ejecutado, COUNT(*) as total_proyectos',
+          '\$select':
+              'SUM(valor_asignado) as total_asignado, SUM(valor_ejecutado) as total_ejecutado, COUNT(*) as total_proyectos',
         },
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar ejecución SGR: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar ejecución SGR: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
@@ -224,15 +239,21 @@ class DNPService {
       }
 
       final resultado = data.first;
-      final totalAsignado = double.parse(resultado['total_asignado'].toString());
-      final totalEjecutado = double.parse(resultado['total_ejecutado'].toString());
-      final porcentajeEjecucion = totalAsignado > 0 ? (totalEjecutado / totalAsignado) * 100 : 0;
+      final totalAsignado = publicMoneyFromMajor(
+        resultado['total_asignado'].toString(),
+      );
+      final totalEjecutado = publicMoneyFromMajor(
+        resultado['total_ejecutado'].toString(),
+      );
+      final porcentajeEjecucion = totalAsignado > publicMoneyZero()
+          ? (totalEjecutado.minorUnits / totalAsignado.minorUnits) * 100
+          : 0;
 
       return {
         'codigo_municipio': codigoMunicipio,
         'anio': anio,
-        'total_asignado': totalAsignado,
-        'total_ejecutado': totalEjecutado,
+        'total_asignado': publicMoneyForDisplay(totalAsignado),
+        'total_ejecutado': publicMoneyForDisplay(totalEjecutado),
         'total_proyectos': int.parse(resultado['total_proyectos'].toString()),
         'porcentaje_ejecucion': porcentajeEjecucion,
       };
@@ -276,13 +297,17 @@ class DNPService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar tipologías municipales: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar tipologías municipales: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
       return data.cast<Map<String, dynamic>>();
     } on DioException catch (e) {
-      throw Exception('Error de conexión con API SODA3 (Tipologías): ${e.message}');
+      throw Exception(
+        'Error de conexión con API SODA3 (Tipologías): ${e.message}',
+      );
     }
   }
 
@@ -293,21 +318,22 @@ class DNPService {
     try {
       final response = await _soda3Dio.get(
         _tipologiasUrl,
-        queryParameters: {
-          'codigo_municipio': codigoMunicipio,
-          '\$limit': 1,
-        },
+        queryParameters: {'codigo_municipio': codigoMunicipio, '\$limit': 1},
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar tipología municipal: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar tipología municipal: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
       if (data.isEmpty) return null;
       return data.first as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw Exception('Error de conexión con API SODA3 (Tipologías): ${e.message}');
+      throw Exception(
+        'Error de conexión con API SODA3 (Tipologías): ${e.message}',
+      );
     }
   }
 
@@ -315,17 +341,19 @@ class DNPService {
   /// Basado en categorías de descentralización del DNP
   Future<Map<String, dynamic>> calcularTransferencias({
     required String codigoMunicipio,
-    required double baseCalculo,
+    required MoneyValue baseCalculo,
   }) async {
     try {
-      final tipologia = await consultarTipologiaMunicipio(codigoMunicipio: codigoMunicipio);
+      final tipologia = await consultarTipologiaMunicipio(
+        codigoMunicipio: codigoMunicipio,
+      );
 
       if (tipologia == null) {
         throw Exception('No se encontró tipología para el municipio');
       }
 
       final categoria = tipologia['categoria_municipal'] as String;
-      
+
       // Porcentajes de transferencia según categoría (ejemplo)
       final porcentajesTransferencia = <String, double>{
         'Especial': 1.0,
@@ -338,18 +366,20 @@ class DNPService {
       };
 
       final porcentaje = porcentajesTransferencia[categoria] ?? 0.70;
-      final transferencia = baseCalculo * porcentaje;
+      final transferencia = baseCalculo.multiplyDecimal(porcentaje.toString());
 
       return {
         'codigo_municipio': codigoMunicipio,
         'categoria': categoria,
-        'base_calculo': baseCalculo,
+        'base_calculo': publicMoneyForDisplay(baseCalculo),
         'porcentaje_transferencia': porcentaje,
-        'transferencia_calculada': transferencia,
+        'transferencia_calculada': publicMoneyForDisplay(transferencia),
         'tipologia_completa': tipologia,
       };
     } on DioException catch (e) {
-      throw Exception('Error de conexión con API SODA3 (Tipologías): ${e.message}');
+      throw Exception(
+        'Error de conexión con API SODA3 (Tipologías): ${e.message}',
+      );
     }
   }
 
@@ -367,13 +397,17 @@ class DNPService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Error al consultar municipios por departamento: ${response.statusCode}');
+        throw Exception(
+          'Error al consultar municipios por departamento: ${response.statusCode}',
+        );
       }
 
       final List<dynamic> data = response.data;
       return data.cast<Map<String, dynamic>>();
     } on DioException catch (e) {
-      throw Exception('Error de conexión con API SODA3 (Tipologías): ${e.message}');
+      throw Exception(
+        'Error de conexión con API SODA3 (Tipologías): ${e.message}',
+      );
     }
   }
 }
