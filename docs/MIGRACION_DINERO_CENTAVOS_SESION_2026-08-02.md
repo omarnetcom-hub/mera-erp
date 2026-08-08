@@ -1956,3 +1956,5 @@ flutter analyze
 flutter build windows
 flutter test --reporter silent --file-reporter json:phase3b_full_suite.json --concurrency=4
 ```
+
+Commit del bloque: `3713db8`.
