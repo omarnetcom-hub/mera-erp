@@ -5,6 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
@@ -28,10 +30,7 @@ class HorasExtraService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  HorasExtraService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  HorasExtraService({required this.db, required this.auditoriaService});
 
   /// Registra horas extra de un empleado
   Future<Map<String, dynamic>> registrarHorasExtra({
@@ -41,7 +40,7 @@ class HorasExtraService {
     required TipoHoraExtra tipo,
     required DateTime fecha,
     required double cantidadHoras,
-    required double salarioHora,
+    required MoneyValue salarioHora,
     String? motivo,
     String? aprobadoPor,
   }) async {
@@ -49,8 +48,11 @@ class HorasExtraService {
 
     // Calcular recargo según tipo
     final porcentajeRecargo = _obtenerPorcentajeRecargo(tipo);
-    final valorRecargo = salarioHora * cantidadHoras * porcentajeRecargo;
-    final valorTotal = salarioHora * cantidadHoras + valorRecargo;
+    final valorBase = salarioHora.multiplyDecimal(cantidadHoras.toString());
+    final valorRecargo = valorBase.multiplyDecimal(
+      porcentajeRecargo.toString(),
+    );
+    final valorTotal = valorBase + valorRecargo;
 
     await db.insert('horas_extra', {
       'id': id,
@@ -59,10 +61,10 @@ class HorasExtraService {
       'tipo_hora': tipo.toString().split('.').last,
       'fecha': fecha.toIso8601String(),
       'cantidad_horas': cantidadHoras,
-      'salario_hora': salarioHora,
+      'salario_hora': salarioHora.toSql(),
       'porcentaje_recargo': porcentajeRecargo,
-      'valor_recargo': valorRecargo,
-      'valor_total': valorTotal,
+      'valor_recargo': valorRecargo.toSql(),
+      'valor_total': valorTotal.toSql(),
       'motivo': motivo,
       'aprobado_por': aprobadoPor,
       'fecha_registro': DateTime.now().toIso8601String(),
@@ -81,7 +83,7 @@ class HorasExtraService {
         'empleado_id': empleadoId,
         'tipo_hora': tipo.toString(),
         'cantidad_horas': cantidadHoras,
-        'valor_total': valorTotal,
+        'valor_total': valorTotal.toWireMap(),
       },
       referenciaId: id,
     );
@@ -91,8 +93,8 @@ class HorasExtraService {
       'empleado_id': empleadoId,
       'tipo_hora': tipo.toString(),
       'cantidad_horas': cantidadHoras,
-      'valor_recargo': valorRecargo,
-      'valor_total': valorTotal,
+      'valor_recargo': valorRecargo.toWireMap(),
+      'valor_total': valorTotal.toWireMap(),
       'estado': 'aprobado',
     };
   }
@@ -105,14 +107,16 @@ class HorasExtraService {
     required TipoRecargo tipo,
     required DateTime fecha,
     required double cantidadHoras,
-    required double salarioHora,
+    required MoneyValue salarioHora,
     String? motivo,
   }) async {
     final id = _uuid.v4();
 
     // Calcular recargo según tipo
     final porcentajeRecargo = _obtenerPorcentajeRecargoTipo(tipo);
-    final valorRecargo = salarioHora * cantidadHoras * porcentajeRecargo;
+    final valorRecargo = salarioHora
+        .multiplyDecimal(cantidadHoras.toString())
+        .multiplyDecimal(porcentajeRecargo.toString());
 
     await db.insert('recargos', {
       'id': id,
@@ -121,9 +125,9 @@ class HorasExtraService {
       'tipo_recargo': tipo.toString().split('.').last,
       'fecha': fecha.toIso8601String(),
       'cantidad_horas': cantidadHoras,
-      'salario_hora': salarioHora,
+      'salario_hora': salarioHora.toSql(),
       'porcentaje_recargo': porcentajeRecargo,
-      'valor_recargo': valorRecargo,
+      'valor_recargo': valorRecargo.toSql(),
       'motivo': motivo,
       'fecha_registro': DateTime.now().toIso8601String(),
       'estado': 'aprobado',
@@ -141,7 +145,7 @@ class HorasExtraService {
         'empleado_id': empleadoId,
         'tipo_recargo': tipo.toString(),
         'cantidad_horas': cantidadHoras,
-        'valor_recargo': valorRecargo,
+        'valor_recargo': valorRecargo.toWireMap(),
       },
       referenciaId: id,
     );
@@ -151,7 +155,7 @@ class HorasExtraService {
       'empleado_id': empleadoId,
       'tipo_recargo': tipo.toString(),
       'cantidad_horas': cantidadHoras,
-      'valor_recargo': valorRecargo,
+      'valor_recargo': valorRecargo.toWireMap(),
       'estado': 'aprobado',
     };
   }
@@ -163,7 +167,7 @@ class HorasExtraService {
     required String empleadoId,
     required DateTime fechaInicio,
     required DateTime fechaFin,
-    required double salarioHora,
+    required MoneyValue salarioHora,
   }) async {
     // Obtener registros de asistencia del periodo
     final registrosAsistencia = await db.query(
@@ -176,57 +180,75 @@ class HorasExtraService {
       ],
     );
 
-    double totalHorasExtra = 0;
-    double totalRecargos = 0;
+    var totalHorasExtra = publicMoneyZero();
+    var totalRecargos = publicMoneyZero();
     final detalles = <Map<String, dynamic>>[];
 
     for (final registro in registrosAsistencia) {
       final fecha = DateTime.parse(registro['fecha'] as String);
-      final horaEntrada = DateTime.parse('${fecha.toIso8601String().split('T')[0]}T${registro['hora_entrada'] as String}');
-      final horaSalida = DateTime.parse('${fecha.toIso8601String().split('T')[0]}T${registro['hora_salida'] as String}');
-      final horaFinJornada = DateTime.parse('${fecha.toIso8601String().split('T')[0]}T18:00:00'); // 6 PM
+      final horaEntrada = DateTime.parse(
+        '${fecha.toIso8601String().split('T')[0]}T${registro['hora_entrada'] as String}',
+      );
+      final horaSalida = DateTime.parse(
+        '${fecha.toIso8601String().split('T')[0]}T${registro['hora_salida'] as String}',
+      );
+      final horaFinJornada = DateTime.parse(
+        '${fecha.toIso8601String().split('T')[0]}T18:00:00',
+      ); // 6 PM
 
       // Verificar si trabajó después de las 6 PM (recargo nocturno)
       if (horaSalida.isAfter(horaFinJornada)) {
-        final duracionNocturna = horaSalida.difference(horaFinJornada).inHours.toDouble();
+        final duracionNocturna = horaSalida
+            .difference(horaFinJornada)
+            .inHours
+            .toDouble();
         if (duracionNocturna > 0) {
-          final valorRecargo = salarioHora * duracionNocturna * 0.35; // 35% recargo nocturno
+          final valorRecargo = salarioHora
+              .multiplyDecimal(duracionNocturna.toString())
+              .multiplyDecimal('0.35'); // 35% recargo nocturno
           totalRecargos += valorRecargo;
 
           detalles.add({
             'fecha': fecha.toIso8601String(),
             'tipo': 'recargo_nocturno',
             'horas': duracionNocturna,
-            'valor': valorRecargo,
+            'valor': publicMoneyForDisplay(valorRecargo),
           });
         }
       }
 
       // Verificar si trabajó más de 8 horas (hora extra diurna)
-      final duracionJornada = horaSalida.difference(horaEntrada).inHours.toDouble();
+      final duracionJornada = horaSalida
+          .difference(horaEntrada)
+          .inHours
+          .toDouble();
       if (duracionJornada > 8) {
         final horasExtra = duracionJornada - 8;
-        final valorExtra = salarioHora * horasExtra * 0.25; // 25% recargo hora extra diurna
+        final valorExtra = salarioHora
+            .multiplyDecimal(horasExtra.toString())
+            .multiplyDecimal('0.25'); // 25% recargo hora extra diurna
         totalHorasExtra += valorExtra;
 
         detalles.add({
           'fecha': fecha.toIso8601String(),
           'tipo': 'hora_extra_diurna',
           'horas': horasExtra,
-          'valor': valorExtra,
+          'valor': publicMoneyForDisplay(valorExtra),
         });
       }
 
       // Verificar si trabajó en domingo/festivo
       if (_esDominicoFestivo(fecha)) {
-        final valorDominical = salarioHora * duracionJornada * 0.75; // 75% recargo dominical
+        final valorDominical = salarioHora
+            .multiplyDecimal(duracionJornada.toString())
+            .multiplyDecimal('0.75'); // 75% recargo dominical
         totalRecargos += valorDominical;
 
         detalles.add({
           'fecha': fecha.toIso8601String(),
           'tipo': 'recargo_dominical',
           'horas': duracionJornada,
-          'valor': valorDominical,
+          'valor': publicMoneyForDisplay(valorDominical),
         });
       }
     }
@@ -235,9 +257,9 @@ class HorasExtraService {
       'empleado_id': empleadoId,
       'periodo_inicio': fechaInicio.toIso8601String(),
       'periodo_fin': fechaFin.toIso8601String(),
-      'total_horas_extra': totalHorasExtra,
-      'total_recargos': totalRecargos,
-      'total_pagar': totalHorasExtra + totalRecargos,
+      'total_horas_extra': publicMoneyForDisplay(totalHorasExtra),
+      'total_recargos': publicMoneyForDisplay(totalRecargos),
+      'total_pagar': publicMoneyForDisplay(totalHorasExtra + totalRecargos),
       'detalles': detalles,
     };
   }
@@ -290,7 +312,8 @@ class HorasExtraService {
       '12-25', // Navidad
     ];
 
-    final fechaStr = '${fecha.month.toString().padLeft(2, '0')}-${fecha.day.toString().padLeft(2, '0')}';
+    final fechaStr =
+        '${fecha.month.toString().padLeft(2, '0')}-${fecha.day.toString().padLeft(2, '0')}';
     return festivos.contains(fechaStr);
   }
 
@@ -361,9 +384,9 @@ class HorasExtraService {
       ],
     );
 
-    final totalHorasExtra = horasExtra.fold<double>(
-      0,
-      (sum, r) => sum + (r['valor_total'] as num).toDouble(),
+    final totalHorasExtra = horasExtra.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['valor_total']),
     );
 
     // Total de recargos
@@ -377,33 +400,41 @@ class HorasExtraService {
       ],
     );
 
-    final totalRecargos = recargos.fold<double>(
-      0,
-      (sum, r) => sum + (r['valor_recargo'] as num).toDouble(),
+    final totalRecargos = recargos.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, r) => sum + publicMoneyFromSql(r['valor_recargo']),
     );
 
     // Por tipo de hora extra
-    final porTipo = <String, double>{};
+    final porTipo = <String, MoneyValue>{};
     for (final he in horasExtra) {
       final tipo = he['tipo_hora'] as String;
-      porTipo[tipo] = (porTipo[tipo] ?? 0) + (he['valor_total'] as num).toDouble();
+      porTipo[tipo] =
+          (porTipo[tipo] ?? publicMoneyZero()) +
+          publicMoneyFromSql(he['valor_total']);
     }
 
     // Por tipo de recargo
-    final porTipoRecargo = <String, double>{};
+    final porTipoRecargo = <String, MoneyValue>{};
     for (final r in recargos) {
       final tipo = r['tipo_recargo'] as String;
-      porTipoRecargo[tipo] = (porTipoRecargo[tipo] ?? 0) + (r['valor_recargo'] as num).toDouble();
+      porTipoRecargo[tipo] =
+          (porTipoRecargo[tipo] ?? publicMoneyZero()) +
+          publicMoneyFromSql(r['valor_recargo']);
     }
 
     return {
       'periodo_inicio': fechaInicio.toIso8601String(),
       'periodo_fin': fechaFin.toIso8601String(),
-      'total_horas_extra': totalHorasExtra,
-      'total_recargos': totalRecargos,
-      'total_pagar': totalHorasExtra + totalRecargos,
-      'por_tipo_hora_extra': porTipo,
-      'por_tipo_recargo': porTipoRecargo,
+      'total_horas_extra': publicMoneyForDisplay(totalHorasExtra),
+      'total_recargos': publicMoneyForDisplay(totalRecargos),
+      'total_pagar': publicMoneyForDisplay(totalHorasExtra + totalRecargos),
+      'por_tipo_hora_extra': porTipo.map(
+        (key, value) => MapEntry(key, publicMoneyForDisplay(value)),
+      ),
+      'por_tipo_recargo': porTipoRecargo.map(
+        (key, value) => MapEntry(key, publicMoneyForDisplay(value)),
+      ),
       'cantidad_registros_horas_extra': horasExtra.length,
       'cantidad_registros_recargos': recargos.length,
     };

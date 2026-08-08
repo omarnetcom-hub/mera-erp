@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../../../../db_helper.dart';
 import '../../security/auditoria_service.dart';
 import '../services/nomina_service.dart';
@@ -44,8 +46,8 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
   Map<String, dynamic>? _pilaReporte;
 
   // Configuración Legal (SMMLV y Auxilio de Transporte)
-  double _smmlvConfig = 1300000.0;
-  double _auxilioTransporteConfig = 162000.0;
+  MoneyValue _smmlvConfig = publicMoneyFromMajor('1300000');
+  MoneyValue _auxilioTransporteConfig = publicMoneyFromMajor('162000');
 
   final List<String> _titulos = [
     'Gestión de Empleados',
@@ -107,11 +109,12 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
         );
         setState(() {
           if (config.containsKey('smmlv')) {
-            _smmlvConfig = (config['smmlv'] as num).toDouble();
+            _smmlvConfig = publicMoneyFromMajor(config['smmlv'].toString());
           }
           if (config.containsKey('auxilio_transporte')) {
-            _auxilioTransporteConfig = (config['auxilio_transporte'] as num)
-                .toDouble();
+            _auxilioTransporteConfig = publicMoneyFromMajor(
+              config['auxilio_transporte'].toString(),
+            );
           }
         });
       }
@@ -650,10 +653,10 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
   Widget _buildConfiguracionTab() {
     final formKey = GlobalKey<FormState>();
     final smmlvController = TextEditingController(
-      text: _smmlvConfig.toString(),
+      text: _smmlvConfig.toMajorUnitsString(),
     );
     final auxilioController = TextEditingController(
-      text: _auxilioTransporteConfig.toString(),
+      text: _auxilioTransporteConfig.toMajorUnitsString(),
     );
 
     return Padding(
@@ -708,10 +711,12 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                   try {
                     final db = await DatabaseHelper.instance.database;
                     final valorJson = jsonEncode({
-                      'smmlv': double.parse(smmlvController.text),
-                      'auxilio_transporte': double.parse(
+                      'smmlv': publicMoneyFromMajor(
+                        smmlvController.text,
+                      ).toMajorUnitsString(),
+                      'auxilio_transporte': publicMoneyFromMajor(
                         auxilioController.text,
-                      ),
+                      ).toMajorUnitsString(),
                     });
 
                     final existente = await db.query(
@@ -985,7 +990,9 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                       tipoVinculacion: vinculacionSeleccionada,
                       regimenNomina: regimenSeleccionado,
                       claseRiesgoArl: claseRiesgoArl,
-                      salarioBasico: double.parse(salarioController.text),
+                      salarioBasico: publicMoneyFromMajor(
+                        salarioController.text,
+                      ),
                       fechaIngreso: fechaIngreso,
                       activo: true,
                       banco: bancoController.text.isEmpty
@@ -1123,8 +1130,12 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                       empleadoId: empleadoSeleccionado!.id,
                       periodo: periodoController.text,
                       diasTrabajados: int.parse(diasController.text),
-                      horasExtra: double.parse(horasExtraController.text),
-                      recargoNocturno: double.parse(recargoController.text),
+                      horasExtra: publicMoneyFromMajor(
+                        horasExtraController.text,
+                      ),
+                      recargoNocturno: publicMoneyFromMajor(
+                        recargoController.text,
+                      ),
                     );
                     _mostrarExito('Nómina liquidada correctamente');
                     await _cargarDatos();
@@ -1188,7 +1199,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                         empleadoSeleccionado = val;
                         if (val != null) {
                           anteriorSalarioController.text = val.salarioBasico
-                              .toString();
+                              .toMajorUnitsString();
                         }
                       });
                     },
@@ -1305,10 +1316,12 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                       motivo: motivoController.text,
                       fechaInicio: fechaInicio,
                       fechaFin: fechaFin,
-                      salarioAnterior: double.parse(
+                      salarioAnterior: publicMoneyFromMajor(
                         anteriorSalarioController.text,
                       ),
-                      salarioNuevo: double.parse(nuevoSalarioController.text),
+                      salarioNuevo: publicMoneyFromMajor(
+                        nuevoSalarioController.text,
+                      ),
                       tipoRetroactivo: tipoSeleccionado,
                     );
                     _mostrarExito('Retroactivo calculado exitosamente');
@@ -1401,7 +1414,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
   void _registrarPagoRetroactivo(Retroactivo ret) {
     final formKey = GlobalKey<FormState>();
     final montoController = TextEditingController(
-      text: ret.saldoPendiente.toString(),
+      text: ret.saldoPendiente.toMajorUnitsString(),
     );
 
     showDialog(
@@ -1445,7 +1458,7 @@ class _NominaPublicaPageState extends State<NominaPublicaPage> {
                     entidadId: widget.entidadId,
                     usuarioId: widget.usuarioId,
                     retroactivoId: ret.id,
-                    montoPago: double.parse(montoController.text),
+                    montoPago: publicMoneyFromMajor(montoController.text),
                   );
                   _mostrarExito('Pago registrado correctamente');
                   await _cargarDatos();

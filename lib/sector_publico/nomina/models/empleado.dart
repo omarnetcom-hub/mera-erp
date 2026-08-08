@@ -2,6 +2,9 @@
 /// Para nómina pública con cálculo de aportes parafiscales
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
+
 enum TipoContrato {
   indefinido,
   fijo,
@@ -36,7 +39,7 @@ class Empleado {
   final TipoVinculacion tipoVinculacion;
   final RegimenNominaPublica regimenNomina;
   final int claseRiesgoArl;
-  final double salarioBasico;
+  final MoneyValue salarioBasico;
   final DateTime fechaIngreso;
   final DateTime? fechaRetiro;
   final bool activo;
@@ -92,7 +95,7 @@ class Empleado {
             _regimenPorVinculacion(json['tipo_vinculacion'] as String),
       ),
       claseRiesgoArl: (json['clase_riesgo_arl'] as num?)?.toInt() ?? 1,
-      salarioBasico: (json['salario_basico'] as num).toDouble(),
+      salarioBasico: publicMoneyFromSql(json['salario_basico']),
       fechaIngreso: DateTime.parse(json['fecha_ingreso'] as String),
       fechaRetiro: json['fecha_retiro'] != null
           ? DateTime.parse(json['fecha_retiro'] as String)
@@ -120,7 +123,7 @@ class Empleado {
       'tipo_vinculacion': tipoVinculacion.toString().split('.').last,
       'regimen_nomina': regimenNomina.name,
       'clase_riesgo_arl': claseRiesgoArl,
-      'salario_basico': salarioBasico,
+      'salario_basico': salarioBasico.toSql(),
       'fecha_ingreso': fechaIngreso.toIso8601String(),
       'fecha_retiro': fechaRetiro?.toIso8601String(),
       'activo': activo,
@@ -158,7 +161,7 @@ class Empleado {
     TipoVinculacion? tipoVinculacion,
     RegimenNominaPublica? regimenNomina,
     int? claseRiesgoArl,
-    double? salarioBasico,
+    MoneyValue? salarioBasico,
     DateTime? fechaIngreso,
     DateTime? fechaRetiro,
     bool? activo,

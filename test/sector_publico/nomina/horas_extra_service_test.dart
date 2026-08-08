@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/nomina/database/schema_nomina.dart';
 import 'package:merka_erp/sector_publico/nomina/services/horas_extra_service.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
@@ -51,7 +52,7 @@ void main() {
       tipo: TipoHoraExtra.diurna,
       fecha: DateTime(2026, 7, 30),
       cantidadHoras: 2,
-      salarioHora: 10000,
+      salarioHora: publicMoneyFromMajor('10000'),
     );
 
     final registros = await db.query(
@@ -65,8 +66,9 @@ void main() {
     expect(registros.single['empleado_id'], 'empleado-001');
     expect(registros.single['tipo_hora'], 'diurna');
     expect(registros.single['cantidad_horas'], 2.0);
-    expect(registros.single['valor_recargo'], 5000.0);
-    expect(registros.single['valor_total'], 25000.0);
+    expect(registros.single['salario_hora'], 1000000);
+    expect(registros.single['valor_recargo'], 500000);
+    expect(registros.single['valor_total'], 2500000);
     expect(auditorias, hasLength(1));
   });
 }

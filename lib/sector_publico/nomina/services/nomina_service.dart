@@ -5,6 +5,8 @@ library;
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/empleado.dart';
 import '../models/liquidacion_nomina.dart';
 import '../../models/registro_auditoria.dart';
@@ -43,8 +45,8 @@ class NominaService {
     required String empleadoId,
     required String periodo,
     required int diasTrabajados,
-    double? horasExtra,
-    double? recargoNocturno,
+    MoneyValue? horasExtra,
+    MoneyValue? recargoNocturno,
   }) async {
     final empleadoResult = await db.query(
       'empleados_sp',
@@ -66,8 +68,8 @@ class NominaService {
     );
 
     // Decreto 1469/2025 y Decreto 1470/2025, vigencia 2026.
-    double smmlv = 1750905.0;
-    double auxilioTransporteConfig = 249095.0;
+    MoneyValue smmlv = publicMoneyFromMajor('1750905');
+    MoneyValue auxilioTransporteConfig = publicMoneyFromMajor('249095');
     bool configPorDefecto = true;
 
     if (configResult.isNotEmpty) {
@@ -78,11 +80,12 @@ class NominaService {
         bool hasSmmlv = config.containsKey('smmlv');
         bool hasAux = config.containsKey('auxilio_transporte');
         if (hasSmmlv) {
-          smmlv = (config['smmlv'] as num).toDouble();
+          smmlv = publicMoneyFromMajor(config['smmlv'].toString());
         }
         if (hasAux) {
-          auxilioTransporteConfig = (config['auxilio_transporte'] as num)
-              .toDouble();
+          auxilioTransporteConfig = publicMoneyFromMajor(
+            config['auxilio_transporte'].toString(),
+          );
         }
         if (hasSmmlv && hasAux) {
           configPorDefecto = false;
@@ -98,23 +101,26 @@ class NominaService {
       smmlv: smmlv,
       auxilioTransporte: auxilioTransporteConfig,
     );
-    final auxilioAlimentacion = 0.0; // Implementar según política (Gap F3)
+    final auxilioAlimentacion =
+        publicMoneyZero(); // Implementar según política (Gap F3)
 
     final totalDevengado = _calcularTotalDevengado(
       salarioDevengado: salarioDevengado,
       auxTrans: auxilioTransporte,
       auxAlim: auxilioAlimentacion,
-      hExtra: horasExtra ?? 0.0,
-      recNoct: recargoNocturno ?? 0.0,
+      hExtra: horasExtra ?? publicMoneyZero(),
+      recNoct: recargoNocturno ?? publicMoneyZero(),
     );
 
     // El auxilio de transporte no integra el IBC. Horas extra y recargos si
     // constituyen salario; los componentes no salariales deben venir ya
     // identificados por el acto o convencion aplicable a cada regimen.
     final baseAportes =
-        salarioDevengado + (horasExtra ?? 0) + (recargoNocturno ?? 0);
-    final salud = baseAportes * _saludPatronal;
-    final pension = baseAportes * _pensionPatronal;
+        salarioDevengado +
+        (horasExtra ?? publicMoneyZero()) +
+        (recargoNocturno ?? publicMoneyZero());
+    final salud = baseAportes.multiplyDecimal(_saludPatronal.toString());
+    final pension = baseAportes.multiplyDecimal(_pensionPatronal.toString());
     final fondoSolidaridad = _calcularFondoSolidaridad(baseAportes, smmlv);
     final tarifaArl = _tarifasArl[empleado.claseRiesgoArl];
     if (tarifaArl == null) {
@@ -124,11 +130,13 @@ class NominaService {
         'Debe estar entre I y V',
       );
     }
-    final riesgosLaborales = baseAportes * tarifaArl;
+    final riesgosLaborales = baseAportes.multiplyDecimal(tarifaArl.toString());
 
-    final cajaCompensacion = baseAportes * _cajaCompensacion;
-    final sena = baseAportes * _sena;
-    final icbf = baseAportes * _icbf;
+    final cajaCompensacion = baseAportes.multiplyDecimal(
+      _cajaCompensacion.toString(),
+    );
+    final sena = baseAportes.multiplyDecimal(_sena.toString());
+    final icbf = baseAportes.multiplyDecimal(_icbf.toString());
 
     final totalAportes =
         salud +
@@ -139,8 +147,8 @@ class NominaService {
         sena +
         icbf;
     final descuentosTrabajador =
-        (baseAportes * _saludTrabajador) +
-        (baseAportes * _pensionTrabajador) +
+        baseAportes.multiplyDecimal(_saludTrabajador.toString()) +
+        baseAportes.multiplyDecimal(_pensionTrabajador.toString()) +
         fondoSolidaridad;
     final netoPagar = totalDevengado - descuentosTrabajador;
 
@@ -173,8 +181,8 @@ class NominaService {
       salarioDevengado: salarioDevengado,
       auxilioTransporte: auxilioTransporte,
       auxilioAlimentacion: auxilioAlimentacion,
-      horasExtra: horasExtra ?? 0.0,
-      recargoNocturno: recargoNocturno ?? 0.0,
+      horasExtra: horasExtra ?? publicMoneyZero(),
+      recargoNocturno: recargoNocturno ?? publicMoneyZero(),
       totalDevengado: totalDevengado,
       salud: salud,
       pension: pension,
@@ -202,7 +210,7 @@ class NominaService {
       valorNuevo: {
         'liquidacion_id': id,
         'numero_liquidacion': numeroLiquidacion,
-        'neto_pagar': netoPagar,
+        'neto_pagar': netoPagar.toWireMap(),
       },
       referenciaId: id,
     );
@@ -210,21 +218,21 @@ class NominaService {
     return liquidacion;
   }
 
-  double _calcularTotalDevengado({
-    required double salarioDevengado,
-    required double auxTrans,
-    required double auxAlim,
-    required double hExtra,
-    required double recNoct,
+  MoneyValue _calcularTotalDevengado({
+    required MoneyValue salarioDevengado,
+    required MoneyValue auxTrans,
+    required MoneyValue auxAlim,
+    required MoneyValue hExtra,
+    required MoneyValue recNoct,
   }) {
     return salarioDevengado + auxTrans + auxAlim + hExtra + recNoct;
   }
 
   /// Calcula auxilio de transporte (hasta 2 SMMLV)
-  double _calcularAuxilioTransporte({
-    required double salarioBasico,
-    required double smmlv,
-    required double auxilioTransporte,
+  MoneyValue _calcularAuxilioTransporte({
+    required MoneyValue salarioBasico,
+    required MoneyValue smmlv,
+    required MoneyValue auxilioTransporte,
   }) {
     if (salarioBasico <= (smmlv * 2)) {
       return auxilioTransporte;
@@ -233,18 +241,18 @@ class NominaService {
   }
 
   /// Calcula fondo de solidaridad (1-2% según salario)
-  double _calcularFondoSolidaridad(double base, double smmlv) {
+  MoneyValue _calcularFondoSolidaridad(MoneyValue base, MoneyValue smmlv) {
     if (base <= (smmlv * 4)) {
-      return base * 0.0; // 0%
+      return publicMoneyZero(); // 0%
     } else if (base <= (smmlv * 16)) {
-      return base * 0.01; // 1%
+      return base.multiplyDecimal('0.01'); // 1%
     }
     // Ley 797/2003, art. 7: 1% base mas aporte adicional gradual desde 16 SMMLV.
-    if (base <= (smmlv * 17)) return base * 0.012;
-    if (base <= (smmlv * 18)) return base * 0.014;
-    if (base <= (smmlv * 19)) return base * 0.016;
-    if (base <= (smmlv * 20)) return base * 0.018;
-    return base * 0.02;
+    if (base <= (smmlv * 17)) return base.multiplyDecimal('0.012');
+    if (base <= (smmlv * 18)) return base.multiplyDecimal('0.014');
+    if (base <= (smmlv * 19)) return base.multiplyDecimal('0.016');
+    if (base <= (smmlv * 20)) return base.multiplyDecimal('0.018');
+    return base.multiplyDecimal('0.02');
   }
 
   String _descripcionRegimen(RegimenNominaPublica regimen) {

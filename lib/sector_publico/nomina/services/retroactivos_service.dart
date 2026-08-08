@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../models/empleado.dart';
 import '../models/retroactivo.dart';
 import '../../models/registro_auditoria.dart';
@@ -14,10 +16,7 @@ class RetroactivosService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  RetroactivosService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  RetroactivosService({required this.db, required this.auditoriaService});
 
   /// Calcula retroactivo por ajuste salarial
   Future<Retroactivo> calcularRetroactivo({
@@ -27,8 +26,8 @@ class RetroactivosService {
     required String motivo,
     required DateTime fechaInicio,
     required DateTime fechaFin,
-    required double salarioAnterior,
-    required double salarioNuevo,
+    required MoneyValue salarioAnterior,
+    required MoneyValue salarioNuevo,
     required TipoRetroactivo tipoRetroactivo,
   }) async {
     final empleadoResult = await db.query(
@@ -44,11 +43,14 @@ class RetroactivosService {
     final empleado = Empleado.fromJson(empleadoResult.first);
 
     final diferenciaMensual = salarioNuevo - salarioAnterior;
-    final meses = ((fechaFin.year - fechaInicio.year) * 12) + (fechaFin.month - fechaInicio.month);
+    final meses =
+        ((fechaFin.year - fechaInicio.year) * 12) +
+        (fechaFin.month - fechaInicio.month);
     final valorTotal = diferenciaMensual * meses;
 
     final id = _uuid.v4();
-    final numeroRetroactivo = 'RT-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroRetroactivo =
+        'RT-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaCalculo = DateTime.now();
 
     final retroactivo = Retroactivo(
@@ -67,7 +69,7 @@ class RetroactivosService {
       salarioNuevo: salarioNuevo,
       diferenciaMensual: diferenciaMensual,
       valorTotal: valorTotal,
-      valorPagado: 0,
+      valorPagado: publicMoneyZero(),
       saldoPendiente: valorTotal,
       estado: EstadoRetroactivo.calculado,
       fechaCalculo: fechaCalculo,
@@ -85,7 +87,7 @@ class RetroactivosService {
       valorNuevo: {
         'retroactivo_id': id,
         'numero_retroactivo': numeroRetroactivo,
-        'valor_total': valorTotal,
+        'valor_total': valorTotal.toWireMap(),
       },
       referenciaId: id,
     );
@@ -155,7 +157,7 @@ class RetroactivosService {
     required String entidadId,
     required String usuarioId,
     required String retroactivoId,
-    required double montoPago,
+    required MoneyValue montoPago,
   }) async {
     final retroactivoResult = await db.query(
       'retroactivos',
@@ -177,15 +179,15 @@ class RetroactivosService {
     final nuevoSaldoPendiente = retroactivo.saldoPendiente - montoPago;
 
     EstadoRetroactivo nuevoEstado = retroactivo.estado;
-    if (nuevoSaldoPendiente == 0) {
+    if (nuevoSaldoPendiente == publicMoneyZero()) {
       nuevoEstado = EstadoRetroactivo.pagado;
     }
 
     await db.update(
       'retroactivos',
       {
-        'valor_pagado': nuevoValorPagado,
-        'saldo_pendiente': nuevoSaldoPendiente,
+        'valor_pagado': nuevoValorPagado.toSql(),
+        'saldo_pendiente': nuevoSaldoPendiente.toSql(),
         'estado': nuevoEstado.toString().split('.').last,
       },
       where: 'id = ?',
@@ -199,13 +201,13 @@ class RetroactivosService {
       modulo: 'nomina',
       accion: 'pago_retroactivo',
       valorAnterior: {
-        'valor_pagado_anterior': retroactivo.valorPagado,
-        'saldo_anterior': retroactivo.saldoPendiente,
+        'valor_pagado_anterior': retroactivo.valorPagado.toWireMap(),
+        'saldo_anterior': retroactivo.saldoPendiente.toWireMap(),
       },
       valorNuevo: {
-        'monto_pago': montoPago,
-        'valor_pagado_nuevo': nuevoValorPagado,
-        'saldo_nuevo': nuevoSaldoPendiente,
+        'monto_pago': montoPago.toWireMap(),
+        'valor_pagado_nuevo': nuevoValorPagado.toWireMap(),
+        'saldo_nuevo': nuevoSaldoPendiente.toWireMap(),
       },
       referenciaId: retroactivoId,
     );
@@ -239,4 +241,3 @@ class RetroactivosService {
     return DateTime.now().millisecondsSinceEpoch.toString().substring(8);
   }
 }
-

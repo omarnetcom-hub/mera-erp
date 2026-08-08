@@ -2,13 +2,10 @@
 /// Con cálculo de aportes parafiscales y PILA
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
-enum EstadoLiquidacion {
-  generada,
-  aprobada,
-  pagada,
-  anulada,
-}
+enum EstadoLiquidacion { generada, aprobada, pagada, anulada }
 
 class LiquidacionNomina {
   final String id;
@@ -19,22 +16,22 @@ class LiquidacionNomina {
   final String empleadoNombre;
   final String empleadoIdentificacion;
   final int diasTrabajados;
-  final double salarioBasico;
-  final double salarioDevengado;
-  final double auxilioTransporte;
-  final double auxilioAlimentacion;
-  final double horasExtra;
-  final double recargoNocturno;
-  final double totalDevengado;
-  final double salud; // 8.5%
-  final double pension; // 12%
-  final double fondoSolidaridad; // 1-2% según salario
-  final double riesgosLaborales; // 0.522% - 8.7%
-  final double cajaCompensacion; // 4%
-  final double sena; // 2%
-  final double icbf; // 3%
-  final double totalAportes;
-  final double netoPagar;
+  final MoneyValue salarioBasico;
+  final MoneyValue salarioDevengado;
+  final MoneyValue auxilioTransporte;
+  final MoneyValue auxilioAlimentacion;
+  final MoneyValue horasExtra;
+  final MoneyValue recargoNocturno;
+  final MoneyValue totalDevengado;
+  final MoneyValue salud; // 8.5%
+  final MoneyValue pension; // 12%
+  final MoneyValue fondoSolidaridad; // 1-2% según salario
+  final MoneyValue riesgosLaborales; // 0.522% - 8.7%
+  final MoneyValue cajaCompensacion; // 4%
+  final MoneyValue sena; // 2%
+  final MoneyValue icbf; // 3%
+  final MoneyValue totalAportes;
+  final MoneyValue netoPagar;
   final EstadoLiquidacion estado;
   final DateTime fechaLiquidacion;
   final DateTime? fechaPago;
@@ -83,22 +80,22 @@ class LiquidacionNomina {
       empleadoNombre: json['empleado_nombre'] as String,
       empleadoIdentificacion: json['empleado_identificacion'] as String,
       diasTrabajados: json['dias_trabajados'] as int,
-      salarioBasico: (json['salario_basico'] as num).toDouble(),
-      salarioDevengado: (json['salario_devengado'] as num).toDouble(),
-      auxilioTransporte: (json['auxilio_transporte'] as num).toDouble(),
-      auxilioAlimentacion: (json['auxilio_alimentacion'] as num).toDouble(),
-      horasExtra: (json['horas_extra'] as num).toDouble(),
-      recargoNocturno: (json['recargo_nocturno'] as num).toDouble(),
-      totalDevengado: (json['total_devengado'] as num).toDouble(),
-      salud: (json['salud'] as num).toDouble(),
-      pension: (json['pension'] as num).toDouble(),
-      fondoSolidaridad: (json['fondo_solidaridad'] as num).toDouble(),
-      riesgosLaborales: (json['riesgos_laborales'] as num).toDouble(),
-      cajaCompensacion: (json['caja_compensacion'] as num).toDouble(),
-      sena: (json['sena'] as num).toDouble(),
-      icbf: (json['icbf'] as num).toDouble(),
-      totalAportes: (json['total_aportes'] as num).toDouble(),
-      netoPagar: (json['neto_pagar'] as num).toDouble(),
+      salarioBasico: publicMoneyFromSql(json['salario_basico']),
+      salarioDevengado: publicMoneyFromSql(json['salario_devengado']),
+      auxilioTransporte: publicMoneyFromSql(json['auxilio_transporte']),
+      auxilioAlimentacion: publicMoneyFromSql(json['auxilio_alimentacion']),
+      horasExtra: publicMoneyFromSql(json['horas_extra']),
+      recargoNocturno: publicMoneyFromSql(json['recargo_nocturno']),
+      totalDevengado: publicMoneyFromSql(json['total_devengado']),
+      salud: publicMoneyFromSql(json['salud']),
+      pension: publicMoneyFromSql(json['pension']),
+      fondoSolidaridad: publicMoneyFromSql(json['fondo_solidaridad']),
+      riesgosLaborales: publicMoneyFromSql(json['riesgos_laborales']),
+      cajaCompensacion: publicMoneyFromSql(json['caja_compensacion']),
+      sena: publicMoneyFromSql(json['sena']),
+      icbf: publicMoneyFromSql(json['icbf']),
+      totalAportes: publicMoneyFromSql(json['total_aportes']),
+      netoPagar: publicMoneyFromSql(json['neto_pagar']),
       estado: EstadoLiquidacion.values.firstWhere(
         (e) => e.toString() == 'EstadoLiquidacion.${json['estado']}',
       ),
@@ -121,22 +118,22 @@ class LiquidacionNomina {
       'empleado_nombre': empleadoNombre,
       'empleado_identificacion': empleadoIdentificacion,
       'dias_trabajados': diasTrabajados,
-      'salario_basico': salarioBasico,
-      'salario_devengado': salarioDevengado,
-      'auxilio_transporte': auxilioTransporte,
-      'auxilio_alimentacion': auxilioAlimentacion,
-      'horas_extra': horasExtra,
-      'recargo_nocturno': recargoNocturno,
-      'total_devengado': totalDevengado,
-      'salud': salud,
-      'pension': pension,
-      'fondo_solidaridad': fondoSolidaridad,
-      'riesgos_laborales': riesgosLaborales,
-      'caja_compensacion': cajaCompensacion,
-      'sena': sena,
-      'icbf': icbf,
-      'total_aportes': totalAportes,
-      'neto_pagar': netoPagar,
+      'salario_basico': salarioBasico.toSql(),
+      'salario_devengado': salarioDevengado.toSql(),
+      'auxilio_transporte': auxilioTransporte.toSql(),
+      'auxilio_alimentacion': auxilioAlimentacion.toSql(),
+      'horas_extra': horasExtra.toSql(),
+      'recargo_nocturno': recargoNocturno.toSql(),
+      'total_devengado': totalDevengado.toSql(),
+      'salud': salud.toSql(),
+      'pension': pension.toSql(),
+      'fondo_solidaridad': fondoSolidaridad.toSql(),
+      'riesgos_laborales': riesgosLaborales.toSql(),
+      'caja_compensacion': cajaCompensacion.toSql(),
+      'sena': sena.toSql(),
+      'icbf': icbf.toSql(),
+      'total_aportes': totalAportes.toSql(),
+      'neto_pagar': netoPagar.toSql(),
       'estado': estado.toString().split('.').last,
       'fecha_liquidacion': fechaLiquidacion.toIso8601String(),
       'fecha_pago': fechaPago?.toIso8601String(),
@@ -162,22 +159,22 @@ class LiquidacionNomina {
     String? empleadoNombre,
     String? empleadoIdentificacion,
     int? diasTrabajados,
-    double? salarioBasico,
-    double? salarioDevengado,
-    double? auxilioTransporte,
-    double? auxilioAlimentacion,
-    double? horasExtra,
-    double? recargoNocturno,
-    double? totalDevengado,
-    double? salud,
-    double? pension,
-    double? fondoSolidaridad,
-    double? riesgosLaborales,
-    double? cajaCompensacion,
-    double? sena,
-    double? icbf,
-    double? totalAportes,
-    double? netoPagar,
+    MoneyValue? salarioBasico,
+    MoneyValue? salarioDevengado,
+    MoneyValue? auxilioTransporte,
+    MoneyValue? auxilioAlimentacion,
+    MoneyValue? horasExtra,
+    MoneyValue? recargoNocturno,
+    MoneyValue? totalDevengado,
+    MoneyValue? salud,
+    MoneyValue? pension,
+    MoneyValue? fondoSolidaridad,
+    MoneyValue? riesgosLaborales,
+    MoneyValue? cajaCompensacion,
+    MoneyValue? sena,
+    MoneyValue? icbf,
+    MoneyValue? totalAportes,
+    MoneyValue? netoPagar,
     EstadoLiquidacion? estado,
     DateTime? fechaLiquidacion,
     DateTime? fechaPago,
@@ -191,7 +188,8 @@ class LiquidacionNomina {
       periodo: periodo ?? this.periodo,
       empleadoId: empleadoId ?? this.empleadoId,
       empleadoNombre: empleadoNombre ?? this.empleadoNombre,
-      empleadoIdentificacion: empleadoIdentificacion ?? this.empleadoIdentificacion,
+      empleadoIdentificacion:
+          empleadoIdentificacion ?? this.empleadoIdentificacion,
       diasTrabajados: diasTrabajados ?? this.diasTrabajados,
       salarioBasico: salarioBasico ?? this.salarioBasico,
       salarioDevengado: salarioDevengado ?? this.salarioDevengado,

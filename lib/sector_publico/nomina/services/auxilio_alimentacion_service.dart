@@ -5,6 +5,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
@@ -14,7 +16,9 @@ class AuxilioAlimentacionService {
   final Uuid _uuid = const Uuid();
 
   // Valor actual del auxilio de alimentación (actualizado por decreto)
-  static const double _valorAuxilioActual = 162000; // Valor 2024
+  static final MoneyValue _valorAuxilioActual = publicMoneyFromMajor(
+    '162000',
+  ); // Valor 2024
 
   AuxilioAlimentacionService({
     required this.db,
@@ -28,7 +32,7 @@ class AuxilioAlimentacionService {
     required String empleadoId,
     required String periodo, // Formato: '2024-06'
     required int diasTrabajados,
-    required double valorDia,
+    required MoneyValue valorDia,
     String? observaciones,
   }) async {
     final id = _uuid.v4();
@@ -39,7 +43,7 @@ class AuxilioAlimentacionService {
     }
 
     // Calcular valor total del auxilio
-    final valorTotal = diasTrabajados * valorDia;
+    final valorTotal = valorDia * diasTrabajados;
 
     await db.insert('auxilio_alimentacion', {
       'id': id,
@@ -47,8 +51,8 @@ class AuxilioAlimentacionService {
       'empleado_id': empleadoId,
       'periodo': periodo,
       'dias_trabajados': diasTrabajados,
-      'valor_dia': valorDia,
-      'valor_total': valorTotal,
+      'valor_dia': valorDia.toSql(),
+      'valor_total': valorTotal.toSql(),
       'observaciones': observaciones,
       'fecha_registro': DateTime.now().toIso8601String(),
       'estado': 'pagado',
@@ -66,7 +70,7 @@ class AuxilioAlimentacionService {
         'empleado_id': empleadoId,
         'periodo': periodo,
         'dias_trabajados': diasTrabajados,
-        'valor_total': valorTotal,
+        'valor_total': valorTotal.toWireMap(),
       },
       referenciaId: id,
     );
@@ -76,7 +80,7 @@ class AuxilioAlimentacionService {
       'empleado_id': empleadoId,
       'periodo': periodo,
       'dias_trabajados': diasTrabajados,
-      'valor_total': valorTotal,
+      'valor_total': publicMoneyForDisplay(valorTotal),
       'estado': 'pagado',
     };
   }
@@ -118,7 +122,7 @@ class AuxilioAlimentacionService {
     final valorDia = _valorAuxilioActual / 30;
 
     // Calcular valor total
-    final valorTotal = diasTrabajados * valorDia;
+    final valorTotal = valorDia * diasTrabajados;
 
     return {
       'empleado_id': empleadoId,
@@ -143,7 +147,7 @@ class AuxilioAlimentacionService {
       whereArgs: [entidadId, 'activo'],
     );
 
-    double totalAuxilio = 0;
+    var totalAuxilio = publicMoneyZero();
     final detalles = <Map<String, dynamic>>[];
 
     for (final empleado in empleados) {
@@ -156,7 +160,8 @@ class AuxilioAlimentacionService {
       );
 
       if (calculo['dias_trabajados'] > 0) {
-        totalAuxilio += calculo['valor_total'];
+        final valorTotal = calculo['valor_total'] as MoneyValue;
+        totalAuxilio += valorTotal;
         detalles.add({
           'empleado_id': empleadoId,
           'empleado_nombre': empleado['nombre'],
@@ -171,7 +176,7 @@ class AuxilioAlimentacionService {
       'periodo': periodo,
       'total_empleados': empleados.length,
       'empleados_con_auxilio': detalles.length,
-      'total_auxilio': totalAuxilio,
+      'total_auxilio': publicMoneyForDisplay(totalAuxilio),
       'detalles': detalles,
     };
   }
@@ -180,7 +185,7 @@ class AuxilioAlimentacionService {
   Future<Map<String, dynamic>> actualizarValorAuxilio({
     required String entidadId,
     required String usuarioId,
-    required double nuevoValor,
+    required MoneyValue nuevoValor,
     required String decretoReferencia,
     required DateTime fechaVigencia,
   }) async {
@@ -192,8 +197,8 @@ class AuxilioAlimentacionService {
     await db.insert('historico_valor_auxilio', {
       'id': _uuid.v4(),
       'entidad_id': entidadId,
-      'valor_anterior': _valorAuxilioActual,
-      'valor_nuevo': nuevoValor,
+      'valor_anterior': _valorAuxilioActual.toSql(),
+      'valor_nuevo': nuevoValor.toSql(),
       'decreto_referencia': decretoReferencia,
       'fecha_vigencia': fechaVigencia.toIso8601String(),
       'fecha_actualizacion': DateTime.now().toIso8601String(),
@@ -206,19 +211,17 @@ class AuxilioAlimentacionService {
       tipoEvento: TipoEventoAuditoria.modificacionRegistro,
       modulo: 'nomina',
       accion: 'actualizacion_valor_auxilio_alimentacion',
-      valorAnterior: {
-        'valor_anterior': _valorAuxilioActual,
-      },
+      valorAnterior: {'valor_anterior': _valorAuxilioActual.toWireMap()},
       valorNuevo: {
-        'valor_nuevo': nuevoValor,
+        'valor_nuevo': nuevoValor.toWireMap(),
         'decreto_referencia': decretoReferencia,
         'fecha_vigencia': fechaVigencia.toIso8601String(),
       },
     );
 
     return {
-      'valor_anterior': _valorAuxilioActual,
-      'valor_nuevo': nuevoValor,
+      'valor_anterior': publicMoneyForDisplay(_valorAuxilioActual),
+      'valor_nuevo': publicMoneyForDisplay(nuevoValor),
       'decreto_referencia': decretoReferencia,
       'fecha_vigencia': fechaVigencia.toIso8601String(),
     };
@@ -258,7 +261,7 @@ class AuxilioAlimentacionService {
   }
 
   /// Obtiene el valor actual del auxilio de alimentación
-  double obtenerValorActual() {
+  MoneyValue obtenerValorActual() {
     return _valorAuxilioActual;
   }
 
@@ -274,10 +277,10 @@ class AuxilioAlimentacionService {
       whereArgs: [entidadId, periodoInicio, periodoFin],
     );
 
-    double totalPagado = pagos.fold<double>(
-      0,
-      (sum, r) => sum + (r['valor_total'] as num).toDouble(),
-    );
+    var totalPagado = publicMoneyZero();
+    for (final pago in pagos) {
+      totalPagado += publicMoneyFromSql(pago['valor_total']);
+    }
 
     int totalDias = pagos.fold<int>(
       0,
@@ -292,11 +295,13 @@ class AuxilioAlimentacionService {
         porEmpleado[empleadoId] = {
           'empleado_id': empleadoId,
           'total_dias': 0,
-          'total_valor': 0,
+          'total_valor': publicMoneyZero(),
         };
       }
       porEmpleado[empleadoId]!['total_dias'] += pago['dias_trabajados'] as int;
-      porEmpleado[empleadoId]!['total_valor'] += (pago['valor_total'] as num).toDouble();
+      porEmpleado[empleadoId]!['total_valor'] =
+          (porEmpleado[empleadoId]!['total_valor'] as MoneyValue) +
+          publicMoneyFromSql(pago['valor_total']);
     }
 
     return {
@@ -304,9 +309,14 @@ class AuxilioAlimentacionService {
       'periodo_fin': periodoFin,
       'total_pagos': pagos.length,
       'total_dias': totalDias,
-      'total_pagado': totalPagado,
-      'promedio_por_empleado': pagos.isNotEmpty ? totalPagado / pagos.length : 0,
-      'por_empleado': porEmpleado.values.toList(),
+      'total_pagado': publicMoneyForDisplay(totalPagado),
+      'promedio_por_empleado': pagos.isNotEmpty
+          ? publicMoneyForDisplay(totalPagado / pagos.length)
+          : 0,
+      'por_empleado': porEmpleado.values.map((detalle) {
+        final valor = detalle['total_valor'] as MoneyValue;
+        return {...detalle, 'total_valor': publicMoneyForDisplay(valor)};
+      }).toList(),
     };
   }
 }

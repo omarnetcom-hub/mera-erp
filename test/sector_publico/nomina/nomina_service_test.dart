@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 import 'package:merka_erp/sector_publico/nomina/database/schema_nomina.dart';
 import 'package:merka_erp/sector_publico/nomina/models/empleado.dart';
 import 'package:merka_erp/sector_publico/nomina/services/nomina_service.dart';
@@ -69,19 +70,19 @@ void main() {
 
       final liquidacion = await _liquidar(service, 'CARRERA');
 
-    expect(liquidacion.salud, closeTo(170000, 0.01));
-    expect(liquidacion.pension, closeTo(240000, 0.01));
-    expect(liquidacion.riesgosLaborales, closeTo(10440, 0.01));
-    expect(liquidacion.cajaCompensacion, closeTo(80000, 0.01));
-    expect(liquidacion.sena, closeTo(40000, 0.01));
-    expect(liquidacion.icbf, closeTo(60000, 0.01));
-    expect(liquidacion.auxilioTransporte, closeTo(249095, 0.01));
-    expect(liquidacion.netoPagar, closeTo(2089095, 0.01));
+      expect(liquidacion.salud, publicMoneyFromMajor('170000'));
+      expect(liquidacion.pension, publicMoneyFromMajor('240000'));
+      expect(liquidacion.riesgosLaborales, publicMoneyFromMajor('10440'));
+      expect(liquidacion.cajaCompensacion, publicMoneyFromMajor('80000'));
+      expect(liquidacion.sena, publicMoneyFromMajor('40000'));
+      expect(liquidacion.icbf, publicMoneyFromMajor('60000'));
+      expect(liquidacion.auxilioTransporte, publicMoneyFromMajor('249095'));
+      expect(liquidacion.netoPagar, publicMoneyFromMajor('2089095'));
     },
   );
 
   test('aplica ARL por clase y solidaridad gradual desde 16 SMMLV', () async {
-    final salario = 17 * 1750905.0;
+    final salario = publicMoneyFromMajor('29765385');
     await _insertarEmpleado(
       db,
       id: 'OFICIAL',
@@ -92,11 +93,14 @@ void main() {
 
     final liquidacion = await _liquidar(service, 'OFICIAL');
 
-    expect(liquidacion.riesgosLaborales, closeTo(salario * 0.0696, 0.01));
-    expect(liquidacion.fondoSolidaridad, closeTo(salario * 0.012, 0.01));
+    expect(liquidacion.riesgosLaborales, salario.multiplyDecimal('0.0696'));
+    expect(liquidacion.fondoSolidaridad, salario.multiplyDecimal('0.012'));
     expect(
       liquidacion.netoPagar,
-      closeTo(salario * (1 - 0.04 - 0.04 - 0.012), 0.01),
+      salario -
+          salario.multiplyDecimal('0.04') -
+          salario.multiplyDecimal('0.04') -
+          salario.multiplyDecimal('0.012'),
     );
   });
 
@@ -107,14 +111,14 @@ void main() {
         await _insertarEmpleado(
           db,
           id: regimen.name,
-          salario: 4000000,
+          salario: publicMoneyFromMajor('4000000'),
           regimen: regimen,
           arl: 2,
         );
         final liquidacion = await _liquidar(service, regimen.name);
-      expect(liquidacion.estado.toString(), 'EstadoLiquidacion.generada');
-      expect(liquidacion.observaciones, isNotEmpty);
-        expect(liquidacion.riesgosLaborales, 41760);
+        expect(liquidacion.estado.toString(), 'EstadoLiquidacion.generada');
+        expect(liquidacion.observaciones, isNotEmpty);
+        expect(liquidacion.riesgosLaborales, publicMoneyFromMajor('41760'));
       }
     },
   );
@@ -123,7 +127,7 @@ void main() {
 Future<void> _insertarEmpleado(
   Database db, {
   required String id,
-  required double salario,
+  required dynamic salario,
   required RegimenNominaPublica regimen,
   required int arl,
 }) {
@@ -138,7 +142,9 @@ Future<void> _insertarEmpleado(
     'tipo_vinculacion': 'carrera',
     'regimen_nomina': regimen.name,
     'clase_riesgo_arl': arl,
-    'salario_basico': salario,
+    'salario_basico': salario is int
+        ? publicMoneyFromMajor(salario.toString()).toSql()
+        : (salario as dynamic).toSql(),
     'fecha_ingreso': '2026-01-01',
     'activo': 1,
   });

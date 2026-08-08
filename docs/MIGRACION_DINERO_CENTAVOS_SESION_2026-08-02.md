@@ -1605,3 +1605,71 @@ El bloque de los consumidores SGR/SGP queda convertido a nivel de codigo y
 esquema v75 del modulo. La evidencia ejecutada de tests queda pendiente por
 el crash de assets nativos; Fase 3B sigue en progreso y no se declara
 `X/X COMPLETA`.
+
+## Fase 3B - cierre del bloque de nomina publica
+
+### Cambios
+
+Se convirtieron los consumidores del bloque de nomina publica:
+
+- `lib/sector_publico/nomina/database/schema_nomina.dart`
+- `lib/sector_publico/nomina/models/empleado.dart`
+- `lib/sector_publico/nomina/models/liquidacion_nomina.dart`
+- `lib/sector_publico/nomina/models/retroactivo.dart`
+- `lib/sector_publico/nomina/pages/horas_extra_form_page.dart`
+- `lib/sector_publico/nomina/pages/nomina_publica_page.dart`
+- `lib/sector_publico/nomina/services/auxilio_alimentacion_service.dart`
+- `lib/sector_publico/nomina/services/horas_extra_service.dart`
+- `lib/sector_publico/nomina/services/nomina_service.dart`
+- `lib/sector_publico/nomina/services/pila_service.dart`
+- `lib/sector_publico/nomina/services/regimen_docente_service.dart`
+- `lib/sector_publico/nomina/services/retroactivos_service.dart`
+- `test/sector_publico/nomina/horas_extra_service_test.dart`
+- `test/sector_publico/nomina/nomina_service_test.dart`
+
+Los salarios, devengados, aportes, retroactivos, horas extra, recargos,
+prestaciones docentes y agregados de PILA ahora se calculan como `MoneyValue`
+COP y se persisten con `toSql()` en unidades menores. Las horas, porcentajes,
+tarifas ARL y otros factores no monetarios siguen siendo `double`. Las
+respuestas de reporte y las pantallas convierten a pesos solo en el borde.
+Tambien se corrigio una expresion condicional invalida en el encabezado de
+PILA (`X-Operador-ID`) que impedía compilar ese consumidor.
+
+### Evidencia cruda
+
+```text
+dart format --output=none --set-exit-if-changed [12 archivos lib de nomina]
+Changed 11 files
+Formatted 12 files (0 changed after the formatting pass).
+Exit code: 1 en la primera comprobacion porque el formateador reporto los
+cambios; se ejecuto despues `dart format [12 archivos]` y termino con exit 0.
+
+flutter test test/sector_publico/nomina/nomina_service_test.dart --reporter expanded
+flutter test test/sector_publico/nomina/horas_extra_service_test.dart --reporter expanded
+Salida capturada en archivos temporales: vacia (0 bytes en stdout y stderr).
+Ambos procesos no produjeron salida ni terminaron dentro del limite de la
+sesion; fueron terminados por el entorno. No se afirma que los tests pasaron.
+Los cuatro archivos temporales fueron eliminados despues de la captura.
+```
+
+### Bugs y decisiones
+
+- Se elimino el uso de `double` en calculos monetarios de nomina y se
+  conservaron los factores porcentuales como magnitudes no monetarias.
+- `PILAService` convierte a pesos solamente al crear el reporte/exportacion;
+  la agregacion se hace con `MoneyValue` para no acumular centavos en
+  `double`.
+- Las tablas auxiliares consultadas por auxilio de alimentacion y regimen
+  docente no tienen definicion de esquema en este modulo ni en el manifiesto
+  congelado; no se invento una tabla nueva en esta subtarea.
+- La validacion SQL de partida doble sigue fuera del alcance de este bloque.
+- `flutter analyze` y `flutter build windows` siguen pendientes para Omar por
+  el bloqueo estructural de esta sesion.
+
+### Cierre de la subtarea nomina publica
+
+El bloque de nomina publica queda convertido a nivel de codigo y esquema
+declarativo del modulo. La ejecucion de tests queda **pendiente**, porque el
+runner no produjo salida antes de quedar bloqueado; no se declara evidencia
+ejecutada ni se marca la Fase 3B como completa. El commit de este bloque es
+el que contiene esta seccion de cierre.

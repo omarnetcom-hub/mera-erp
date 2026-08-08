@@ -3,6 +3,9 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
+import 'package:merka_erp/core/utils/currency_formatter.dart';
 import '../services/horas_extra_service.dart';
 
 class HorasExtraFormPage extends StatefulWidget {
@@ -52,7 +55,7 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
         fecha: DateTime.parse(_fechaController.text),
         tipo: _tipoHoraExtra!,
         cantidadHoras: _cantidadHoras,
-        salarioHora: _valorHora,
+        salarioHora: publicMoneyFromMajor(_valorHora.toStringAsFixed(2)),
       );
 
       if (mounted) {
@@ -63,9 +66,9 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       setState(() {
@@ -86,9 +89,7 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registro de Horas Extra'),
-      ),
+      appBar: AppBar(title: const Text('Registro de Horas Extra')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -104,7 +105,10 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
                     children: [
                       const Text(
                         'Información del Registro',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -160,7 +164,9 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      Text('Cantidad de Horas: ${_cantidadHoras.toStringAsFixed(1)}'),
+                      Text(
+                        'Cantidad de Horas: ${_cantidadHoras.toStringAsFixed(1)}',
+                      ),
                       Slider(
                         value: _cantidadHoras,
                         min: 0,
@@ -174,7 +180,9 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      Text('Valor por Hora: \$${_valorHora.toStringAsFixed(0)}'),
+                      Text(
+                        'Valor por Hora: ${CurrencyFormatter.format(publicMoneyFromMajor(_valorHora.toStringAsFixed(2)))}',
+                      ),
                       Slider(
                         value: _valorHora,
                         min: 0,
@@ -188,7 +196,9 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      if (_tipoHoraExtra != null && _cantidadHoras > 0 && _valorHora > 0)
+                      if (_tipoHoraExtra != null &&
+                          _cantidadHoras > 0 &&
+                          _valorHora > 0)
                         Card(
                           color: Colors.blue.shade50,
                           child: Padding(
@@ -201,9 +211,15 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 8),
-                                Text('Recargo: ${_obtenerRecargo(_tipoHoraExtra!)}%'),
-                                Text('Valor Base: \$${(_cantidadHoras * _valorHora).toStringAsFixed(0)}'),
-                                Text('Valor Total: \$${(_cantidadHoras * _valorHora * (1 + _obtenerRecargo(_tipoHoraExtra!) / 100)).toStringAsFixed(0)}'),
+                                Text(
+                                  'Recargo: ${_obtenerRecargo(_tipoHoraExtra!)}%',
+                                ),
+                                Text(
+                                  'Valor Base: ${CurrencyFormatter.format(_valorBasePreview())}',
+                                ),
+                                Text(
+                                  'Valor Total: ${CurrencyFormatter.format(_valorTotalPreview())}',
+                                ),
                               ],
                             ),
                           ),
@@ -261,5 +277,16 @@ class _HorasExtraFormPageState extends State<HorasExtraFormPage> {
       case TipoHoraExtra.festivoNocturna:
         return 1.50;
     }
+  }
+
+  MoneyValue _valorBasePreview() {
+    final valorHora = publicMoneyFromMajor(_valorHora.toStringAsFixed(2));
+    return valorHora.multiplyDecimal(_cantidadHoras.toString());
+  }
+
+  MoneyValue _valorTotalPreview() {
+    final base = _valorBasePreview();
+    final factor = 1 + _obtenerRecargo(_tipoHoraExtra!) / 100;
+    return base.multiplyDecimal(factor.toString());
   }
 }

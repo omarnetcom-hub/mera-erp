@@ -2,6 +2,8 @@
 /// Cálculo de retroactivos por ajustes salariales o sentencias
 library;
 
+import 'package:merka_erp/core/currency/money_value.dart';
+import 'package:merka_erp/core/currency/public_sector_money.dart';
 
 enum TipoRetroactivo {
   ajusteSalarial,
@@ -11,13 +13,7 @@ enum TipoRetroactivo {
   otro,
 }
 
-enum EstadoRetroactivo {
-  calculado,
-  aprobado,
-  enPago,
-  pagado,
-  anulado,
-}
+enum EstadoRetroactivo { calculado, aprobado, enPago, pagado, anulado }
 
 class Retroactivo {
   final String id;
@@ -31,12 +27,12 @@ class Retroactivo {
   final DateTime fechaInicio;
   final DateTime fechaFin;
   final int meses;
-  final double salarioAnterior;
-  final double salarioNuevo;
-  final double diferenciaMensual;
-  final double valorTotal;
-  final double valorPagado;
-  final double saldoPendiente;
+  final MoneyValue salarioAnterior;
+  final MoneyValue salarioNuevo;
+  final MoneyValue diferenciaMensual;
+  final MoneyValue valorTotal;
+  final MoneyValue valorPagado;
+  final MoneyValue saldoPendiente;
   final EstadoRetroactivo estado;
   final DateTime fechaCalculo;
   final DateTime? fechaAprobacion;
@@ -83,12 +79,12 @@ class Retroactivo {
       fechaInicio: DateTime.parse(json['fecha_inicio'] as String),
       fechaFin: DateTime.parse(json['fecha_fin'] as String),
       meses: json['meses'] as int,
-      salarioAnterior: (json['salario_anterior'] as num).toDouble(),
-      salarioNuevo: (json['salario_nuevo'] as num).toDouble(),
-      diferenciaMensual: (json['diferencia_mensual'] as num).toDouble(),
-      valorTotal: (json['valor_total'] as num).toDouble(),
-      valorPagado: (json['valor_pagado'] as num).toDouble(),
-      saldoPendiente: (json['saldo_pendiente'] as num).toDouble(),
+      salarioAnterior: publicMoneyFromSql(json['salario_anterior']),
+      salarioNuevo: publicMoneyFromSql(json['salario_nuevo']),
+      diferenciaMensual: publicMoneyFromSql(json['diferencia_mensual']),
+      valorTotal: publicMoneyFromSql(json['valor_total']),
+      valorPagado: publicMoneyFromSql(json['valor_pagado']),
+      saldoPendiente: publicMoneyFromSql(json['saldo_pendiente']),
       estado: EstadoRetroactivo.values.firstWhere(
         (e) => e.toString() == 'EstadoRetroactivo.${json['estado']}',
       ),
@@ -114,12 +110,12 @@ class Retroactivo {
       'fecha_inicio': fechaInicio.toIso8601String(),
       'fecha_fin': fechaFin.toIso8601String(),
       'meses': meses,
-      'salario_anterior': salarioAnterior,
-      'salario_nuevo': salarioNuevo,
-      'diferencia_mensual': diferenciaMensual,
-      'valor_total': valorTotal,
-      'valor_pagado': valorPagado,
-      'saldo_pendiente': saldoPendiente,
+      'salario_anterior': salarioAnterior.toSql(),
+      'salario_nuevo': salarioNuevo.toSql(),
+      'diferencia_mensual': diferenciaMensual.toSql(),
+      'valor_total': valorTotal.toSql(),
+      'valor_pagado': valorPagado.toSql(),
+      'saldo_pendiente': saldoPendiente.toSql(),
       'estado': estado.toString().split('.').last,
       'fecha_calculo': fechaCalculo.toIso8601String(),
       'fecha_aprobacion': fechaAprobacion?.toIso8601String(),
@@ -129,7 +125,8 @@ class Retroactivo {
   }
 
   bool estaPagado() {
-    return estado == EstadoRetroactivo.pagado || saldoPendiente == 0;
+    return estado == EstadoRetroactivo.pagado ||
+        saldoPendiente == publicMoneyZero();
   }
 
   Retroactivo copyWith({
@@ -144,12 +141,12 @@ class Retroactivo {
     DateTime? fechaInicio,
     DateTime? fechaFin,
     int? meses,
-    double? salarioAnterior,
-    double? salarioNuevo,
-    double? diferenciaMensual,
-    double? valorTotal,
-    double? valorPagado,
-    double? saldoPendiente,
+    MoneyValue? salarioAnterior,
+    MoneyValue? salarioNuevo,
+    MoneyValue? diferenciaMensual,
+    MoneyValue? valorTotal,
+    MoneyValue? valorPagado,
+    MoneyValue? saldoPendiente,
     EstadoRetroactivo? estado,
     DateTime? fechaCalculo,
     DateTime? fechaAprobacion,
@@ -162,7 +159,8 @@ class Retroactivo {
       numeroRetroactivo: numeroRetroactivo ?? this.numeroRetroactivo,
       empleadoId: empleadoId ?? this.empleadoId,
       empleadoNombre: empleadoNombre ?? this.empleadoNombre,
-      empleadoIdentificacion: empleadoIdentificacion ?? this.empleadoIdentificacion,
+      empleadoIdentificacion:
+          empleadoIdentificacion ?? this.empleadoIdentificacion,
       tipoRetroactivo: tipoRetroactivo ?? this.tipoRetroactivo,
       motivo: motivo ?? this.motivo,
       fechaInicio: fechaInicio ?? this.fechaInicio,
