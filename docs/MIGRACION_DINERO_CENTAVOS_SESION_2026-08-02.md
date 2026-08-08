@@ -871,3 +871,72 @@ El fail-closed de `MoneyValue` conserva exactamente el mensaje
 `A resolved currency is required for MoneyValue`.
 
 Commit de la correccion: `031a080`.
+
+## Auditoria posterior del cambio de sintoma en presupuesto publico - 2026-08-08
+
+### Resultado del aislamiento
+
+Se ejecuto el archivo en aislamiento:
+
+```text
+flutter test test/sector_publico/presupuesto/presupuesto_publico_page_test.dart --reporter expanded
+```
+
+El proceso no emitio salida en los archivos de texto y agoto 180 segundos.
+Se repitio con reporter JSON para recuperar los eventos:
+
+```text
+flutter test --reporter silent --file-reporter json:presupuesto_publico_aislado.json test/sector_publico/presupuesto/presupuesto_publico_page_test.dart
+```
+
+El test pedido fallo exactamente asi:
+
+```text
+Test: Presupuesto Público Page Tests Crear apropiación y verificar en base de datos
+Resultado: error
+Mensaje: pumpAndSettle timed out
+Stack:
+#0      WidgetTester.pumpAndSettle.<anonymous closure> (package:flutter_test/src/widget_tester.dart:717:11)
+#1      TestAsyncUtils.guard.<anonymous closure> (package:flutter_test/src/test_async_utils.dart:130:27)
+#2      main.<anonymous closure>.<anonymous closure> (file:///C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_publico_page_test.dart:196:7)
+#3      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+#4      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+```
+
+La falla ocurre en la espera de carga, antes de `tap('Crear Apropiación')`,
+antes de llenar el formulario y antes de la consulta/assert de la fila en
+`apropiaciones`. No es un mensaje de columna inexistente ni de dato inválido
+de apropiación.
+
+### Determinacion de alcance
+
+`git hash-object test/sector_publico/presupuesto/presupuesto_publico_page_test.dart`
+coincide con `git rev-parse 765404c:test/sector_publico/presupuesto/presupuesto_publico_page_test.dart`.
+El diff `765404c..031a080` solo contiene Ventas, Compras, la prueba de carga
+comercial y documentación; no contiene ningún archivo de presupuesto público,
+modelo público ni esquema público.
+
+La página pública inicia una carga asíncrona en `initState()` y mantiene
+`_loading = true` hasta el final de `_cargarDatos()`. El test usa
+`pumpAndSettle()` sin límite en la línea 196, por lo que un futuro/consulta
+que no complete deja el `CircularProgressIndicator` animando indefinidamente.
+La causa inmediata confirmada es ese desacople del arnés de widget con la
+carga pública; el test nunca alcanza la aserción de apropiación. El cambio
+comercial no puede explicar esta falla por alcance de archivos y el test es
+idéntico al de `765404c`.
+
+Estado: **pendiente conocido de Fase 3B**. No se corrige aquí ni se atribuye
+al fix `MoneyValue`.
+
+### Verificacion de analyze y build
+
+`flutter analyze` completo, con salida redirigida y sondeo, no produjo bytes y
+agotó 300 segundos. El subconjunto también se probó sin resultado:
+
+```text
+dart analyze lib/ventas_page.dart lib/compras_page.dart lib/caja_page.dart lib/cuentas_por_cobrar_page.dart lib/cuentas_por_pagar_page.dart lib/nomina_page.dart lib/db_helper.dart
+Resultado: timeout a los 180 segundos, sin diagnosticos.
+```
+
+`flutter build windows`, con stdout/stderr redirigidos, tampoco produjo bytes y
+agotó 300 segundos. No se declara build exitoso.
