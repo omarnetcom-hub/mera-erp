@@ -312,7 +312,7 @@ marco por empresa y expone politicas distintas, pero aun no clasifica
 automaticamente por activos/ingresos/empleados/relaciones ni genera el
 conjunto completo de revelaciones de cada grupo.
 
-Commit de implementacion: pendiente de crear despues de esta evidencia.
+Commit de implementacion: `845676f`.
 
 ## Bloque 6 - Marco NIIF configurable por empresa
 
