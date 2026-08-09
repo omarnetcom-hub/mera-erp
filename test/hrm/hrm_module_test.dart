@@ -21,8 +21,11 @@ void main() {
   late int companyId;
   late int employeeId;
   late int leaveTypeId;
+  late int noEntitlementTypeId;
+  late int noBalanceTypeId;
   late DateTime periodFrom;
   late DateTime periodTo;
+  late Database db;
 
   setUpAll(() async {
     sqfliteFfiInit();
@@ -30,7 +33,7 @@ void main() {
     await DatabaseHelper.resetForTests();
     dir = await Directory.systemTemp.createTemp('merkaerp_hrm_');
     await databaseFactory.setDatabasesPath(dir.path);
-    final db = await DatabaseHelper.instance.database;
+    db = await DatabaseHelper.instance.database;
     companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
     final jobId = await HrmJobTitleService().create(
       HrmJobTitle(companyId: companyId, title: 'Analista HRM'),
@@ -47,6 +50,10 @@ void main() {
     final types = await HrmLeaveTypeService().list();
     expect(types, hasLength(8));
     leaveTypeId = types.first.id!;
+    noEntitlementTypeId = types
+        .singleWhere((type) => type.code == 'permiso_no_remunerado')
+        .id!;
+    noBalanceTypeId = types.firstWhere((type) => type.id != leaveTypeId).id!;
     periodFrom = DateTime(DateTime.now().year, 1, 1);
     periodTo = DateTime(DateTime.now().year, 12, 31, 23, 59, 59);
     await HrmLeaveEntitlementService().create(
@@ -110,6 +117,13 @@ void main() {
       ),
     );
     expect(attendanceId, greaterThan(0));
+    final attendance = await db.query(
+      'hrm_attendance_records',
+      where: 'id = ?',
+      whereArgs: [attendanceId],
+    );
+    expect(attendance.single['state'], 'IN_PROGRESS');
+    expect(attendance.single['punch_out'], isNull);
   });
 
   test(
@@ -139,4 +153,182 @@ void main() {
       );
     },
   );
+
+  test(
+    'aprueba un tipo que no requiere entitlement sin descontar saldo',
+    () async {
+      final requestId = await HrmLeaveRequestService().create(
+        HrmLeaveRequest(
+          companyId: companyId,
+          employeeId: employeeId,
+          leaveTypeId: noEntitlementTypeId,
+          dateApplied: DateTime.now(),
+        ),
+      );
+      final leaveId = await HrmLeaveService().create(
+        HrmLeave(
+          companyId: companyId,
+          leaveRequestId: requestId,
+          employeeId: employeeId,
+          leaveTypeId: noEntitlementTypeId,
+          date: DateTime(DateTime.now().year, 4, 4),
+          lengthDays: 3,
+        ),
+      );
+      await HrmLeaveService().approve(leaveId: leaveId, approvedBy: 101);
+      final row = (await db.query(
+        'hrm_leaves',
+        where: 'id = ?',
+        whereArgs: [leaveId],
+      )).single;
+      expect(row['status'], 'aprobado');
+      expect(row['reviewed_by'], 101);
+      expect(
+        await db.query(
+          'hrm_leave_entitlements',
+          where: 'employee_id = ? AND leave_type_id = ?',
+          whereArgs: [employeeId, noEntitlementTypeId],
+        ),
+        isEmpty,
+      );
+    },
+  );
+
+  test('bloquea ausencia solapada con otra ya aprobada', () async {
+    Future<int> createLeave(DateTime date) async {
+      final requestId = await HrmLeaveRequestService().create(
+        HrmLeaveRequest(
+          companyId: companyId,
+          employeeId: employeeId,
+          leaveTypeId: leaveTypeId,
+          dateApplied: DateTime.now(),
+        ),
+      );
+      return HrmLeaveService().create(
+        HrmLeave(
+          companyId: companyId,
+          leaveRequestId: requestId,
+          employeeId: employeeId,
+          leaveTypeId: leaveTypeId,
+          date: date,
+          lengthDays: 1,
+        ),
+      );
+    }
+
+    final firstId = await createLeave(DateTime(DateTime.now().year, 5, 5));
+    await HrmLeaveService().approve(leaveId: firstId, approvedBy: 102);
+    final overlappingId = await createLeave(
+      DateTime(DateTime.now().year, 5, 5),
+    );
+    await expectLater(
+      () => HrmLeaveService().approve(leaveId: overlappingId, approvedBy: 102),
+      throwsStateError,
+    );
+    expect(
+      (await db.query(
+        'hrm_leaves',
+        where: 'id = ?',
+        whereArgs: [overlappingId],
+      )).single['status'],
+      'pendiente',
+    );
+  });
+
+  test('bloquea aprobacion sin entitlement configurado', () async {
+    final requestId = await HrmLeaveRequestService().create(
+      HrmLeaveRequest(
+        companyId: companyId,
+        employeeId: employeeId,
+        leaveTypeId: noBalanceTypeId,
+        dateApplied: DateTime.now(),
+      ),
+    );
+    final leaveId = await HrmLeaveService().create(
+      HrmLeave(
+        companyId: companyId,
+        leaveRequestId: requestId,
+        employeeId: employeeId,
+        leaveTypeId: noBalanceTypeId,
+        date: DateTime(DateTime.now().year, 6, 6),
+        lengthDays: 1,
+      ),
+    );
+    await expectLater(
+      () => HrmLeaveService().approve(leaveId: leaveId, approvedBy: 103),
+      throwsStateError,
+    );
+    expect(
+      (await db.query(
+        'hrm_leaves',
+        where: 'id = ?',
+        whereArgs: [leaveId],
+      )).single['status'],
+      'pendiente',
+    );
+  });
+
+  test('rechazo deja responsable, fecha y motivo auditables', () async {
+    final requestId = await HrmLeaveRequestService().create(
+      HrmLeaveRequest(
+        companyId: companyId,
+        employeeId: employeeId,
+        leaveTypeId: noEntitlementTypeId,
+        dateApplied: DateTime.now(),
+      ),
+    );
+    final leaveId = await HrmLeaveService().create(
+      HrmLeave(
+        companyId: companyId,
+        leaveRequestId: requestId,
+        employeeId: employeeId,
+        leaveTypeId: noEntitlementTypeId,
+        date: DateTime(DateTime.now().year, 7, 7),
+        lengthDays: 1,
+      ),
+    );
+    await HrmLeaveService().reject(
+      leaveId: leaveId,
+      rejectedBy: 104,
+      reason: 'Soporte incompleto',
+    );
+    final row = (await db.query(
+      'hrm_leaves',
+      where: 'id = ?',
+      whereArgs: [leaveId],
+    )).single;
+    expect(row['status'], 'rechazado');
+    expect(row['reviewed_by'], 104);
+    expect(row['reviewed_at'], isNotNull);
+    expect(row['rejection_reason'], 'Soporte incompleto');
+  });
+
+  test('no permite terminar empleado con ausencias pendientes', () async {
+    final requestId = await HrmLeaveRequestService().create(
+      HrmLeaveRequest(
+        companyId: companyId,
+        employeeId: employeeId,
+        leaveTypeId: noEntitlementTypeId,
+        dateApplied: DateTime.now(),
+      ),
+    );
+    await HrmLeaveService().create(
+      HrmLeave(
+        companyId: companyId,
+        leaveRequestId: requestId,
+        employeeId: employeeId,
+        leaveTypeId: noEntitlementTypeId,
+        date: DateTime(DateTime.now().year, 8, 8),
+        lengthDays: 1,
+      ),
+    );
+    await expectLater(
+      () => HrmEmployeeService().terminate(
+        employeeId: employeeId,
+        terminationDate: DateTime(DateTime.now().year, 12, 31),
+      ),
+      throwsStateError,
+    );
+    expect((await HrmEmployeeService().findById(employeeId))?.status, 'activo');
+  });
 }

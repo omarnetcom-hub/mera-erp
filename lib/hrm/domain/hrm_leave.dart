@@ -11,6 +11,9 @@ class HrmLeave {
     this.status = 'pendiente',
     this.approvedBy,
     this.comments,
+    this.reviewedBy,
+    this.reviewedAt,
+    this.rejectionReason,
   });
   final int? id;
   final int companyId;
@@ -23,6 +26,9 @@ class HrmLeave {
   final String status;
   final int? approvedBy;
   final String? comments;
+  final int? reviewedBy;
+  final DateTime? reviewedAt;
+  final String? rejectionReason;
   Map<String, Object?> toMap() => {
     'company_id': companyId,
     'leave_request_id': leaveRequestId,
@@ -34,6 +40,9 @@ class HrmLeave {
     'status': status,
     'approved_by': approvedBy,
     'comments': comments,
+    'reviewed_by': reviewedBy,
+    'reviewed_at': reviewedAt?.toIso8601String(),
+    'rejection_reason': rejectionReason,
   };
   factory HrmLeave.fromMap(Map<String, dynamic> m) => HrmLeave(
     id: (m['id'] as num?)?.toInt(),
@@ -47,5 +56,8 @@ class HrmLeave {
     status: m['status']?.toString() ?? 'pendiente',
     approvedBy: (m['approved_by'] as num?)?.toInt(),
     comments: m['comments']?.toString(),
+    reviewedBy: (m['reviewed_by'] as num?)?.toInt(),
+    reviewedAt: DateTime.tryParse(m['reviewed_at']?.toString() ?? ''),
+    rejectionReason: m['rejection_reason']?.toString(),
   );
 }

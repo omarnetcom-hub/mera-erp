@@ -13,7 +13,11 @@ class SchemaHrm {
     {'code': 'licencia_paternidad', 'name': 'Licencia de paternidad'},
     {'code': 'luto', 'name': 'Licencia por luto'},
     {'code': 'permiso_remunerado', 'name': 'Permiso remunerado'},
-    {'code': 'permiso_no_remunerado', 'name': 'Permiso no remunerado'},
+    {
+      'code': 'permiso_no_remunerado',
+      'name': 'Permiso no remunerado',
+      'requires_entitlement': 0,
+    },
   ];
 
   static Future<void> crearTablas(DatabaseExecutor db) async {
@@ -91,11 +95,17 @@ class SchemaHrm {
         status TEXT NOT NULL DEFAULT 'pendiente',
         approved_by INTEGER,
         comments TEXT,
+        reviewed_by INTEGER,
+        reviewed_at TEXT,
+        rejection_reason TEXT,
         FOREIGN KEY(leave_request_id) REFERENCES hrm_leave_requests(id),
         FOREIGN KEY(employee_id) REFERENCES empleados(id),
         FOREIGN KEY(leave_type_id) REFERENCES hrm_leave_types(id)
       )
     ''');
+    await _addColumn(db, 'hrm_leaves', 'reviewed_by', 'INTEGER');
+    await _addColumn(db, 'hrm_leaves', 'reviewed_at', 'TEXT');
+    await _addColumn(db, 'hrm_leaves', 'rejection_reason', 'TEXT');
     await db.execute('''
       CREATE TABLE IF NOT EXISTS hrm_attendance_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,6 +125,12 @@ class SchemaHrm {
       'CREATE INDEX IF NOT EXISTS idx_hrm_attendance_employee ON hrm_attendance_records(company_id, employee_id, punch_in)',
     );
     await _seedLeaveTypes(db);
+    await db.update(
+      'hrm_leave_types',
+      {'requires_entitlement': 0},
+      where: 'code = ?',
+      whereArgs: ['permiso_no_remunerado'],
+    );
   }
 
   static Future<void> _seedLeaveTypes(DatabaseExecutor db) async {

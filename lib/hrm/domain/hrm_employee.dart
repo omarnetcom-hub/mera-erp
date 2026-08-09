@@ -63,4 +63,23 @@ class HrmEmployee {
     address: m['direccion']?.toString(),
     entityType: m['entity_type']?.toString() ?? 'comercial',
   );
+
+  HrmEmployee copyWith({String? status, DateTime? terminationDate}) {
+    return HrmEmployee(
+      id: id,
+      companyId: companyId,
+      name: name,
+      employeeCode: employeeCode,
+      document: document,
+      jobTitleId: jobTitleId,
+      jobTitle: jobTitle,
+      status: status ?? this.status,
+      joinedDate: joinedDate,
+      terminationDate: terminationDate ?? this.terminationDate,
+      email: email,
+      phone: phone,
+      address: address,
+      entityType: entityType,
+    );
+  }
 }

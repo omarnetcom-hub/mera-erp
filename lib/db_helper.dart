@@ -337,7 +337,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 79,
+      version: 80,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -366,6 +366,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 79) {
       await SchemaMrp.crearTablas(db);
+    }
+    if (oldVersion < 80) {
+      await SchemaHrm.crearTablas(db);
     }
 
     if (oldVersion < 49) {
