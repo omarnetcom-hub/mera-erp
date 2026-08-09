@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'ui/widgets/expandable_record_card.dart';
 import 'core/tracing/traceability_record_action.dart';
+import 'ui/widgets/semantic_zoom_record_list.dart';
 
 import 'core/currency/currency.dart';
 import 'core/currency/money_currency_resolver.dart';
@@ -226,10 +227,11 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
       appBar: AppBar(title: const Text('Cuentas por cobrar')),
       body: cuentas.isEmpty
           ? const Center(child: Text('No hay cuentas por cobrar'))
-          : ListView.builder(
-              itemCount: cuentas.length,
-              itemBuilder: (context, i) {
-                final c = cuentas[i];
+          : SemanticZoomRecordList<Map<String, dynamic>>(
+              records: cuentas,
+              title: 'Zoom de cartera',
+              statusOf: (row) => row['estado']?.toString() ?? 'Sin estado',
+              itemBuilder: (context, c, {required initiallyExpanded}) {
                 final estado = c['estado']?.toString() ?? '';
 
                 return ExpandableRecordCard(
@@ -295,6 +297,7 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
                       value: c['descripcion']?.toString() ?? '',
                     ),
                   ],
+                  initiallyExpanded: initiallyExpanded,
                 );
               },
             ),
