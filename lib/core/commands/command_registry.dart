@@ -150,9 +150,15 @@ class CommandRegistry extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<CommandDefinition> available({String query = ''}) {
+  List<CommandDefinition> available({
+    String query = '',
+    CommandContext? commandContext,
+  }) {
     final normalized = query.trim().toLowerCase();
-    final commands = _commands.values.where(_isVisible).where((command) {
+    final activeContext = commandContext ?? _context;
+    final commands = _commands.values
+        .where((command) => _isVisible(command, activeContext))
+        .where((command) {
       if (normalized.isEmpty) return true;
       final haystack =
           '${command.label} ${command.description} ${command.moduleId} '

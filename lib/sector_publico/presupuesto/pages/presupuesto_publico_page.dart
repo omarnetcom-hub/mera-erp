@@ -17,6 +17,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/currency/public_sector_money.dart';
 import '../../../ui/merka_theme_tokens.dart';
+import '../../../ui/widgets/expandable_record_card.dart';
 
 class PresupuestoPublicoPage extends StatefulWidget {
   final String entidadId;
@@ -232,42 +233,61 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemCount: _apropiaciones.length,
       itemBuilder: (context, index) {
         final apropiacion = _apropiaciones[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            title: Text(
-              '${apropiacion.codigoRubro} - ${apropiacion.nombreRubro}',
+        return ExpandableRecordCard(
+          criticalFields: [
+            RecordCardField(
+              label: 'Vigencia',
+              value: apropiacion.vigencia,
+              icon: Icons.calendar_today,
+              emphasized: true,
             ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Vigencia: ${apropiacion.vigencia}'),
-                Text(
-                  'Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.valorApropiado))}',
-                ),
-                Text(
-                  'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.saldoDisponible))}',
-                ),
-                const SizedBox(height: 4),
-                LinearProgressIndicator(
-                  value: apropiacion.valorApropiado > publicMoneyZero()
-                      ? apropiacion.valorPagado.minorUnits /
-                            apropiacion.valorApropiado.minorUnits
-                      : 0,
-                  backgroundColor: MerkaThemeTokens.paper100,
-                ),
-              ],
+            RecordCardField(
+              label: 'Rubro',
+              value: apropiacion.codigoRubro,
+              icon: Icons.account_tree,
+              emphasized: true,
             ),
-            trailing: Chip(
-              label: Text(
-                apropiacion.valorApropiado > publicMoneyZero()
-                    ? '${((apropiacion.valorPagado.minorUnits / apropiacion.valorApropiado.minorUnits) * 100).toStringAsFixed(1)}%'
-                    : '0.0%',
+            RecordCardField(
+              label: 'Apropiado',
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(apropiacion.valorApropiado),
               ),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              labelStyle: TextStyle(color: Colors.white),
+              icon: Icons.account_balance_wallet,
+              emphasized: true,
             ),
-          ),
+            RecordCardField(
+              label: 'Saldo disponible',
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(apropiacion.saldoDisponible),
+              ),
+              icon: Icons.savings,
+              emphasized: true,
+            ),
+          ],
+          secondaryFields: [
+            RecordCardField(label: 'Nombre del rubro', value: apropiacion.nombreRubro),
+            RecordCardField(
+              label: 'Pagado',
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(apropiacion.valorPagado),
+              ),
+            ),
+            RecordCardField(
+              label: 'CDP acumulado',
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(apropiacion.valorCDP),
+              ),
+            ),
+            RecordCardField(
+              label: 'RP acumulado',
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(apropiacion.valorRP),
+              ),
+            ),
+            RecordCardField(label: 'Fuente', value: apropiacion.fuenteFinanciacion),
+            RecordCardField(label: 'Sector / programa', value: '${apropiacion.sector} / ${apropiacion.programa}'),
+            RecordCardField(label: 'Acto administrativo', value: apropiacion.actoAdministrativo),
+          ],
         );
       },
     );
@@ -315,34 +335,32 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemCount: _cdps.length,
       itemBuilder: (context, index) {
         final cdp = _cdps[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            title: Text(cdp.numeroCDP),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Rubro: ${cdp.codigoRubro}'),
-                Text(
-                  'Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.valorCDP))}',
-                ),
-                Text(
-                  'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible))}',
-                ),
-                Text('Vence: ${DateFormatter.format(cdp.fechaVigencia)}'),
-                const SizedBox(height: 4),
-                Chip(
-                  label: Text(
-                    cdp.estado.toString().split('.').last.toUpperCase(),
-                  ),
-                  backgroundColor: cdp.estaVigente()
-                      ? MerkaThemeTokens.success
-                      : MerkaThemeTokens.warning,
-                  labelStyle: const TextStyle(color: Colors.white),
-                ),
-              ],
+        return ExpandableRecordCard(
+          criticalFields: [
+            RecordCardField(label: 'CDP', value: cdp.numeroCDP, icon: Icons.description, emphasized: true),
+            RecordCardField(label: 'Rubro', value: cdp.codigoRubro, icon: Icons.account_tree),
+            RecordCardField(
+              label: 'Valor',
+              value: CurrencyFormatter.format(publicMoneyForDisplay(cdp.valorCDP)),
+              icon: Icons.payments,
+              emphasized: true,
             ),
-          ),
+            RecordCardField(
+              label: 'Saldo',
+              value: CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible)),
+              icon: Icons.savings,
+              emphasized: true,
+            ),
+          ],
+          secondaryFields: [
+            RecordCardField(label: 'Vigencia', value: cdp.vigencia),
+            RecordCardField(label: 'Vence', value: DateFormatter.format(cdp.fechaVigencia)),
+            RecordCardField(label: 'Funcionario expedidor', value: cdp.funcionarioExpedidor),
+            RecordCardField(label: 'Funcionario solicitante', value: cdp.funcionarioSolicitante),
+            RecordCardField(label: 'Objeto del gasto', value: cdp.objetoGasto),
+            RecordCardField(label: 'Contrato', value: cdp.contratoNumero ?? 'Sin contrato asociado'),
+            RecordCardField(label: 'Estado', value: cdp.estado.toString().split('.').last.toUpperCase()),
+          ],
         );
       },
     );
@@ -390,34 +408,32 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemCount: _rps.length,
       itemBuilder: (context, index) {
         final rp = _rps[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            title: Text(rp.numeroRP),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('CDP: ${rp.numeroCDP}'),
-                Text('Contrato: ${rp.contratoNumero}'),
-                Text(
-                  'Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(rp.valorRP))}',
-                ),
-                Text(
-                  'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible))}',
-                ),
-                const SizedBox(height: 4),
-                Chip(
-                  label: Text(
-                    rp.estado.toString().split('.').last.toUpperCase(),
-                  ),
-                  backgroundColor: rp.estaVigente()
-                      ? MerkaThemeTokens.success
-                      : MerkaThemeTokens.warning,
-                  labelStyle: const TextStyle(color: Colors.white),
-                ),
-              ],
+        return ExpandableRecordCard(
+          criticalFields: [
+            RecordCardField(label: 'RP', value: rp.numeroRP, icon: Icons.assignment, emphasized: true),
+            RecordCardField(label: 'Rubro', value: rp.codigoRubro, icon: Icons.account_tree),
+            RecordCardField(
+              label: 'Valor',
+              value: CurrencyFormatter.format(publicMoneyForDisplay(rp.valorRP)),
+              icon: Icons.payments,
+              emphasized: true,
             ),
-          ),
+            RecordCardField(
+              label: 'Saldo',
+              value: CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible)),
+              icon: Icons.savings,
+              emphasized: true,
+            ),
+          ],
+          secondaryFields: [
+            RecordCardField(label: 'CDP asociado', value: rp.numeroCDP),
+            RecordCardField(label: 'Contrato', value: rp.contratoNumero),
+            RecordCardField(label: 'Vigencia', value: rp.vigencia),
+            RecordCardField(label: 'Vence', value: DateFormatter.format(rp.fechaVigencia)),
+            RecordCardField(label: 'Funcionario expedidor', value: rp.funcionarioExpedidor),
+            RecordCardField(label: 'Objeto del gasto', value: rp.objetoGasto),
+            RecordCardField(label: 'Estado', value: rp.estado.toString().split('.').last.toUpperCase()),
+          ],
         );
       },
     );

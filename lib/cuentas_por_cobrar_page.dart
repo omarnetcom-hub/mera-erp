@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'ui/widgets/expandable_record_card.dart';
+
 import 'core/currency/currency.dart';
 import 'core/currency/money_currency_resolver.dart';
 import 'core/currency/money_value.dart';
@@ -229,49 +231,52 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
                 final c = cuentas[i];
                 final estado = c['estado']?.toString() ?? '';
 
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: colorEstado(
-                        estado,
-                      ).withValues(alpha: 0.15),
-                      child: Icon(
-                        Icons.request_quote,
-                        color: colorEstado(estado),
-                      ),
+                return ExpandableRecordCard(
+                  criticalFields: [
+                    RecordCardField(
+                      label: 'Cliente',
+                      value: c['cliente']?.toString() ?? 'Cliente general',
+                      icon: Icons.person,
+                      emphasized: true,
                     ),
-                    title: Text(
-                      c['cliente']?.toString() ?? 'Cliente general',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    RecordCardField(
+                      label: 'Venta',
+                      value: '#${c['venta_id'] ?? '-'}',
+                      icon: Icons.receipt_long,
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Venta: #${c['venta_id'] ?? '-'}'),
-                        Text('Saldo: ${_formatSql(c['saldo'])}'),
-                        Text(
-                          'Estado: ${FinancialUiHelpers.accountStatusLabel(estado)}',
-                        ),
-                      ],
+                    RecordCardField(
+                      label: 'Saldo',
+                      value: _formatSql(c['saldo']),
+                      icon: Icons.account_balance_wallet,
+                      emphasized: true,
                     ),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'abonar') _mostrarDialogoAbono(c);
-                        if (value == 'historial') _mostrarHistorialAbonos(c);
-                      },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(value: 'abonar', child: Text('Cobrar')),
-                        PopupMenuItem(
-                          value: 'historial',
-                          child: Text('Ver historial'),
-                        ),
-                      ],
+                    RecordCardField(
+                      label: 'Estado',
+                      value: FinancialUiHelpers.accountStatusLabel(estado),
+                      icon: Icons.flag,
+                      emphasized: true,
                     ),
-                  ),
+                  ],
+                  secondaryFields: [
+                    RecordCardField(label: 'Total', value: _formatSql(c['total'])),
+                    RecordCardField(label: 'Fecha', value: c['fecha']?.toString() ?? ''),
+                    RecordCardField(label: 'Vencimiento', value: c['vencimiento']?.toString() ?? ''),
+                    RecordCardField(label: 'Descripción', value: c['descripcion']?.toString() ?? ''),
+                  ],
+                  actions: [
+                    RecordCardAction(
+                      id: 'abonar',
+                      label: 'Cobrar',
+                      icon: Icons.payments,
+                      onPressed: (_) async => _mostrarDialogoAbono(c),
+                    ),
+                    RecordCardAction(
+                      id: 'historial',
+                      label: 'Ver historial',
+                      icon: Icons.history,
+                      onPressed: (_) async => _mostrarHistorialAbonos(c),
+                    ),
+                  ],
                 );
               },
             ),

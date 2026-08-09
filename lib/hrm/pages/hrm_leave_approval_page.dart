@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app_session.dart';
 import '../../core/commands/command_registry.dart';
+import '../../ui/widgets/expandable_record_card.dart';
 import '../application/hrm_leave_service.dart';
 
 class HrmLeaveApprovalPage extends StatefulWidget {
@@ -73,26 +74,58 @@ class _HrmLeaveApprovalPageState extends State<HrmLeaveApprovalPage> {
     final date = row['date']?.toString() ?? '';
     final days = row['length_days']?.toString() ?? '';
     final leaveId = (row['id'] as num).toInt();
-    return ListTile(
-      onTap: () => _activateCommandContext(context, row),
-      leading: const Icon(Icons.pending_actions, color: Colors.orange),
-      title: Text('$employee - $leaveName'),
-      subtitle: Text('$date - $days dia(s)'),
-      trailing: Wrap(
-        spacing: 4,
-        children: [
-          IconButton(
-            tooltip: 'Aprobar',
-            icon: const Icon(Icons.check_circle, color: Colors.green),
-            onPressed: () => _approve(context, leaveId),
-          ),
-          IconButton(
-            tooltip: 'Rechazar',
-            icon: const Icon(Icons.cancel, color: Colors.red),
-            onPressed: () => _reject(context, leaveId),
-          ),
-        ],
-      ),
+    return ExpandableRecordCard(
+      criticalFields: [
+        RecordCardField(
+          label: 'Empleado',
+          value: employee,
+          icon: Icons.badge,
+          emphasized: true,
+        ),
+        RecordCardField(
+          label: 'Tipo de ausencia',
+          value: leaveName,
+          icon: Icons.event_busy,
+          emphasized: true,
+        ),
+        RecordCardField(
+          label: 'Periodo',
+          value: date,
+          icon: Icons.calendar_today,
+        ),
+        RecordCardField(
+          label: 'Dias',
+          value: days,
+          icon: Icons.timelapse,
+          emphasized: true,
+        ),
+      ],
+      secondaryFields: [
+        RecordCardField(label: 'Solicitud', value: '#$leaveId'),
+        RecordCardField(label: 'Estado', value: 'Pendiente de aprobación'),
+      ],
+      actions: [
+        RecordCardAction(
+          id: 'approve',
+          label: 'Aprobar',
+          icon: Icons.check_circle,
+          visible: widget.canApprove,
+          onPressed: (_) async {
+            _activateCommandContext(context, row);
+            await _approve(context, leaveId);
+          },
+        ),
+        RecordCardAction(
+          id: 'reject',
+          label: 'Rechazar',
+          icon: Icons.cancel,
+          visible: widget.canApprove,
+          onPressed: (_) async {
+            _activateCommandContext(context, row);
+            await _reject(context, leaveId);
+          },
+        ),
+      ],
     );
   }
 

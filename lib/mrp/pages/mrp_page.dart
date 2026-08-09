@@ -6,6 +6,7 @@ import '../application/mrp_services.dart';
 import '../domain/mrp_bom.dart';
 import '../domain/mrp_bom_item.dart';
 import '../domain/mrp_work_order.dart';
+import '../../ui/widgets/expandable_record_card.dart';
 
 class MrpPage extends StatefulWidget {
   const MrpPage({super.key});
@@ -162,21 +163,96 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
           order.status == MrpWorkOrderStatus.borrador ||
           order.status == MrpWorkOrderStatus.noIniciada;
       final blocked = canBeBlocked && !stockOk;
-      return ListTile(
-        onTap: () => _activateOrderContext(context, order),
-        leading: Icon(
-          blocked ? Icons.lock : Icons.precision_manufacturing,
-          color: blocked ? Colors.orange : null,
+      final actions = <RecordCardAction>[
+        if (order.status == MrpWorkOrderStatus.noIniciada)
+          RecordCardAction(
+            id: 'start',
+            label: 'Iniciar producción',
+            icon: Icons.play_arrow,
+            visible: !blocked,
+            onPressed: (_) async {
+              _activateOrderContext(context, order);
+              await _orderService.transition(
+                order.id!,
+                MrpWorkOrderStatus.enProceso,
+              );
+              if (mounted) setState(_reload);
+            },
+          ),
+        if (order.status == MrpWorkOrderStatus.enProceso)
+          RecordCardAction(
+            id: 'complete',
+            label: 'Completar orden',
+            icon: Icons.task_alt,
+            onPressed: (_) async {
+              _activateOrderContext(context, order);
+              await _orderService.transition(
+                order.id!,
+                MrpWorkOrderStatus.completada,
+              );
+              if (mounted) setState(_reload);
+            },
+          ),
+        RecordCardAction(
+          id: 'bom',
+          label: 'Ver BOM',
+          icon: Icons.account_tree,
+          onPressed: (_) async {
+            _activateOrderContext(context, order);
+            final boms = await _bomService.list();
+            MrpBom? matchingBom;
+            for (final bom in boms) {
+              if (bom.id == order.bomId) {
+                matchingBom = bom;
+                break;
+              }
+            }
+            if (matchingBom != null && mounted) {
+              _tabs.index = 0;
+              await _showBomStructure(matchingBom);
+            }
+          },
         ),
-        title: Text('Orden #${order.id} - Producto #${order.productionItemId}'),
-        subtitle: Text(
-          blocked
-              ? 'Bloqueada: stock insuficiente - '
-                    'Cantidad ${order.qtyPlanned} - '
-                    'Total ${order.totalCost.toMajorUnitsString()}'
-              : 'Cantidad ${order.qtyPlanned} - '
-                    'Total ${order.totalCost.toMajorUnitsString()}',
-        ),
+      ];
+      return ExpandableRecordCard(
+        criticalFields: [
+          RecordCardField(
+            label: 'Orden',
+            value: '#${order.id}',
+            icon: blocked ? Icons.lock : Icons.precision_manufacturing,
+            emphasized: true,
+          ),
+          RecordCardField(
+            label: 'Producto',
+            value: '#${order.productionItemId}',
+            icon: Icons.inventory_2,
+            emphasized: true,
+          ),
+          RecordCardField(
+            label: 'Cantidad',
+            value: order.qtyPlanned.toString(),
+            icon: Icons.numbers,
+          ),
+          RecordCardField(
+            label: 'Estado',
+            value: blocked ? 'Bloqueada: stock insuficiente' : _statusLabel(order.status),
+            icon: blocked ? Icons.warning : Icons.flag,
+            emphasized: true,
+          ),
+        ],
+        secondaryFields: [
+          RecordCardField(label: 'BOM', value: '#${order.bomId}'),
+          RecordCardField(label: 'Costo total', value: order.totalCost.toMajorUnitsString()),
+          RecordCardField(label: 'Materia prima', value: order.rawMaterialCost.toMajorUnitsString()),
+          RecordCardField(
+            label: 'Operación',
+            value: order.plannedOperatingCost.toMajorUnitsString(),
+          ),
+          RecordCardField(label: 'Bodega WIP', value: '${order.wipWarehouseId}'),
+          RecordCardField(label: 'Bodega producto terminado', value: '${order.fgWarehouseId}'),
+          RecordCardField(label: 'Fecha límite', value: order.plannedEndDate?.toIso8601String() ?? 'Sin fecha'),
+        ],
+        actions: actions,
       );
     },
   );
