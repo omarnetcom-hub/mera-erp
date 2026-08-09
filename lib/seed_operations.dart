@@ -492,7 +492,7 @@ void main() async {
           'concepto': 'Venta POS #$saleId',
           'referencia': 'V-$saleId',
           'origen': 'ventas',
-          'estado': 'registrado',
+          'estado': 'borrador',
         });
 
         await db.insert('asiento_lineas', {
@@ -546,6 +546,13 @@ void main() async {
           'credito': saleCostoTotal.toSql(),
           'tercero': clientName,
         });
+
+        await db.update(
+          'asientos_contables',
+          {'estado': 'registrado'},
+          where: 'id = ?',
+          whereArgs: [seatId],
+        );
 
         saleCounter++;
       }
@@ -651,7 +658,7 @@ void main() async {
           'concepto': 'Compra Proveedor #$purchaseId',
           'referencia': 'C-$purchaseId',
           'origen': 'compras',
-          'estado': 'registrado',
+          'estado': 'borrador',
         });
 
         await db.insert('asiento_lineas', {
@@ -685,6 +692,13 @@ void main() async {
           'credito': purchaseTotal.toSql(),
           'tercero': supplierName,
         });
+
+        await db.update(
+          'asientos_contables',
+          {'estado': 'registrado'},
+          where: 'id = ?',
+          whereArgs: [seatId],
+        );
 
         purchaseCounter++;
       }

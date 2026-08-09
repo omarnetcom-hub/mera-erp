@@ -18,10 +18,7 @@ class ContabilidadNICSPService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  ContabilidadNICSPService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  ContabilidadNICSPService({required this.db, required this.auditoriaService});
 
   Future<RolSectorPublico> _validarPermisoYSegregacion({
     required String entidadId,
@@ -36,11 +33,15 @@ class ContabilidadNICSPService {
     );
 
     if (rol == null) {
-      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+      throw Exception(
+        'Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId',
+      );
     }
 
     if (!RolesPermisosService.tienePermiso(rol, permiso)) {
-      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+      throw Exception(
+        'Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}',
+      );
     }
 
     if (rolQuienCrea != null) {
@@ -50,7 +51,9 @@ class ContabilidadNICSPService {
         accion: permiso,
       );
       if (!esValido) {
-        throw Exception('Segregación de funciones violada: Un ${rol.name} no puede ejecutar la acción ${permiso.name} sobre un registro creado por ${rolQuienCrea.name}');
+        throw Exception(
+          'Segregación de funciones violada: Un ${rol.name} no puede ejecutar la acción ${permiso.name} sobre un registro creado por ${rolQuienCrea.name}',
+        );
       }
     }
 
@@ -74,7 +77,8 @@ class ContabilidadNICSPService {
       permiso: Permiso.crearAsientoContable,
     );
     final id = _uuid.v4();
-    final numeroAsiento = 'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroAsiento =
+        'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
 
     // Calcular totales
     final totalDebito = detalles.fold<MoneyValue>(
@@ -90,7 +94,7 @@ class ContabilidadNICSPService {
     if (totalDebito != totalCredito) {
       throw Exception(
         'El asiento no está cuadrado. '
-        'Débito: $totalDebito, Crédito: $totalCredito'
+        'Débito: $totalDebito, Crédito: $totalCredito',
       );
     }
 
@@ -166,7 +170,8 @@ class ContabilidadNICSPService {
     required List<DetalleAsiento> detalles,
   }) async {
     final id = _uuid.v4();
-    final numeroAsiento = 'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroAsiento =
+        'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
 
     final totalDebito = detalles.fold<MoneyValue>(
       publicMoneyZero(),
@@ -199,8 +204,11 @@ class ContabilidadNICSPService {
       'numero_asiento': numeroAsiento,
       'fecha_asiento': fechaAsiento.toIso8601String(),
       'descripcion': descripcion,
-      'tipo_asiento': TipoAsiento.automaticoPresupuestal.toString().split('.').last,
-      'estado': EstadoAsiento.registrado.toString().split('.').last,
+      'tipo_asiento': TipoAsiento.automaticoPresupuestal
+          .toString()
+          .split('.')
+          .last,
+      'estado': EstadoAsiento.borrador.toString().split('.').last,
       'total_debito': totalDebito.toSql(),
       'total_credito': totalCredito.toSql(),
       'usuario_creo': usuarioId,
@@ -219,6 +227,13 @@ class ContabilidadNICSPService {
         'referencia_id': detalle.referenciaId,
       });
     }
+
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': EstadoAsiento.registrado.toString().split('.').last},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
 
     // Actualizar saldos de cuentas
     await _actualizarSaldosCuentas(
@@ -283,7 +298,8 @@ class ContabilidadNICSPService {
       fechaAsiento: fechaReconocimiento,
       tipoDocumento: 'OBLIGACION',
       referenciaOrigen: obligacionId,
-      descripcion: 'Reconocimiento de obligación $numeroObligacion - $terceroNombre',
+      descripcion:
+          'Reconocimiento de obligación $numeroObligacion - $terceroNombre',
       detalles: detalles,
     );
   }
@@ -348,9 +364,7 @@ class ContabilidadNICSPService {
 
     await db.update(
       'asientos_contables_sp',
-      {
-        'estado': EstadoAsiento.registrado.toString().split('.').last,
-      },
+      {'estado': EstadoAsiento.registrado.toString().split('.').last},
       where: 'id = ?',
       whereArgs: [asientoId],
     );
@@ -418,14 +432,16 @@ class ContabilidadNICSPService {
     }).toList();
 
     final id = _uuid.v4();
-    final numeroAsiento = 'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroAsiento =
+        'AS-${DateTime.now().year}-${_generarNumeroSecuencial()}';
 
     final asientoReversa = AsientoContable(
       id: id,
       entidadId: entidadId,
       numeroAsiento: numeroAsiento,
       fechaAsiento: DateTime.now(),
-      descripcion: 'REVERSA del asiento ${asientoOriginal.numeroAsiento} - $motivo',
+      descripcion:
+          'REVERSA del asiento ${asientoOriginal.numeroAsiento} - $motivo',
       tipoAsiento: TipoAsiento.reversa,
       estado: EstadoAsiento.registrado,
       detalles: detallesReversa,
@@ -444,7 +460,7 @@ class ContabilidadNICSPService {
       'fecha_asiento': asientoReversa.fechaAsiento.toIso8601String(),
       'descripcion': asientoReversa.descripcion,
       'tipo_asiento': TipoAsiento.reversa.toString().split('.').last,
-      'estado': EstadoAsiento.registrado.toString().split('.').last,
+      'estado': EstadoAsiento.borrador.toString().split('.').last,
       'total_debito': asientoReversa.totalDebito.toSql(),
       'total_credito': asientoReversa.totalCredito.toSql(),
       'usuario_creo': usuarioId,
@@ -465,12 +481,17 @@ class ContabilidadNICSPService {
       });
     }
 
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': EstadoAsiento.registrado.toString().split('.').last},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
     // Actualizar estado del asiento original
     await db.update(
       'asientos_contables_sp',
-      {
-        'estado': EstadoAsiento.reversado.toString().split('.').last,
-      },
+      {'estado': EstadoAsiento.reversado.toString().split('.').last},
       where: 'id = ?',
       whereArgs: [asientoId],
     );
@@ -513,7 +534,9 @@ class ContabilidadNICSPService {
       whereArgs: [id],
     );
 
-    final detalles = detallesResult.map((d) => DetalleAsiento.fromJson(d)).toList();
+    final detalles = detallesResult
+        .map((d) => DetalleAsiento.fromJson(d))
+        .toList();
 
     return AsientoContable(
       id: asientoData['id'] as String,
@@ -575,8 +598,10 @@ class ContabilidadNICSPService {
       } else {
         // Actualizar saldo existente
         final saldoData = saldoActual.first;
-        final nuevoDeudor = publicMoneyFromSql(saldoData['saldo_deudor']) + detalle.debito;
-        final nuevoAcreedor = publicMoneyFromSql(saldoData['saldo_acreedor']) + detalle.credito;
+        final nuevoDeudor =
+            publicMoneyFromSql(saldoData['saldo_deudor']) + detalle.debito;
+        final nuevoAcreedor =
+            publicMoneyFromSql(saldoData['saldo_acreedor']) + detalle.credito;
 
         await db.update(
           'saldos_cuentas',
@@ -615,7 +640,9 @@ class ContabilidadNICSPService {
       saldoDeudor: publicMoneyFromSql(data['saldo_deudor']),
       saldoAcreedor: publicMoneyFromSql(data['saldo_acreedor']),
       saldoNeto: publicMoneyFromSql(data['saldo_neto']),
-      fechaUltimoMovimiento: DateTime.parse(data['fecha_ultimo_movimiento'] as String),
+      fechaUltimoMovimiento: DateTime.parse(
+        data['fecha_ultimo_movimiento'] as String,
+      ),
     );
   }
 

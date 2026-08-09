@@ -10,20 +10,14 @@ import '../../../core/currency/public_sector_money.dart';
 import '../../models/registro_auditoria.dart';
 import '../../security/auditoria_service.dart';
 
-enum MetodoRevalorizacion {
-  valorRazonable,
-  revaluacionEspecializada,
-}
+enum MetodoRevalorizacion { valorRazonable, revaluacionEspecializada }
 
 class RevalorizacionService {
   final Database db;
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  RevalorizacionService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  RevalorizacionService({required this.db, required this.auditoriaService});
 
   /// Registra una revalorización de activo
   Future<Map<String, dynamic>> registrarRevalorizacion({
@@ -54,7 +48,9 @@ class RevalorizacionService {
 
     // Validar que el valor nuevo sea mayor al anterior
     if (valorNuevo <= valorAnterior) {
-      throw Exception('El valor nuevo debe ser mayor al valor anterior para revalorización');
+      throw Exception(
+        'El valor nuevo debe ser mayor al valor anterior para revalorización',
+      );
     }
 
     // Calcular incremento
@@ -64,7 +60,9 @@ class RevalorizacionService {
 
     // Validar que el incremento sea significativo (mínimo 10% según NICSP 17)
     if (porcentajeIncremento < 10) {
-      throw Exception('El incremento debe ser al menos del 10% para proceder con revalorización');
+      throw Exception(
+        'El incremento debe ser al menos del 10% para proceder con revalorización',
+      );
     }
 
     await db.insert('revalorizaciones', {
@@ -91,9 +89,10 @@ class RevalorizacionService {
       'activos_estado',
       {
         'valor_libros': valorNuevo.toSql(),
-        'valor_neto': (valorNuevo -
-                publicMoneyFromSql(activo.first['depreciacion_acumulada']))
-            .toSql(),
+        'valor_neto':
+            (valorNuevo -
+                    publicMoneyFromSql(activo.first['depreciacion_acumulada']))
+                .toSql(),
       },
       where: 'id = ?',
       whereArgs: [activoId],
@@ -116,9 +115,7 @@ class RevalorizacionService {
       tipoEvento: TipoEventoAuditoria.modificacionRegistro,
       modulo: 'activos',
       accion: 'revalorizacion_activo',
-      valorAnterior: {
-        'valor_anterior': valorAnterior.toSql(),
-      },
+      valorAnterior: {'valor_anterior': valorAnterior.toSql()},
       valorNuevo: {
         'valor_nuevo': valorNuevo.toSql(),
         'incremento': incremento.toSql(),
@@ -135,7 +132,7 @@ class RevalorizacionService {
       'incremento': incremento.toSql(),
       'porcentaje_incremento': porcentajeIncremento,
       'asiento_id': asientoId,
-      'estado': 'aprobado',
+      'estado': 'borrador',
     };
   }
 
@@ -166,7 +163,7 @@ class RevalorizacionService {
       'fecha_asiento': fechaAsiento.toIso8601String(),
       'descripcion': 'Revalorización de activo - $activoId',
       'tipo_asiento': 'automatico',
-      'estado': 'aprobado',
+      'estado': 'borrador',
       'total_debito': incremento.toSql(),
       'total_credito': incremento.toSql(),
       'usuario_creo': usuarioId,
@@ -174,7 +171,8 @@ class RevalorizacionService {
       'fecha_revision': DateTime.now().toIso8601String(),
       'referencia_origen': revalorizacionId,
       'tipo_documento_origen': 'revalorizacion',
-      'observaciones': 'Asiento generado automáticamente por revalorización NICSP 17',
+      'observaciones':
+          'Asiento generado automáticamente por revalorización NICSP 17',
     });
 
     await db.insert('detalles_asientos', {
@@ -186,6 +184,13 @@ class RevalorizacionService {
       'credito': publicMoneyZero().toSql(),
       'referencia_id': revalorizacionId,
     });
+
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': 'aprobado'},
+      where: 'id = ?',
+      whereArgs: [asientoId],
+    );
 
     await db.insert('detalles_asientos', {
       'id': _uuid.v4(),
@@ -267,9 +272,11 @@ class RevalorizacionService {
 
     double promedioPorcentaje = revalorizaciones.isNotEmpty
         ? revalorizaciones.fold<double>(
-            0,
-            (sum, r) => sum + (r['porcentaje_incremento'] as num).toDouble(),
-          ) / revalorizaciones.length
+                0,
+                (sum, r) =>
+                    sum + (r['porcentaje_incremento'] as num).toDouble(),
+              ) /
+              revalorizaciones.length
         : 0;
 
     // Por método

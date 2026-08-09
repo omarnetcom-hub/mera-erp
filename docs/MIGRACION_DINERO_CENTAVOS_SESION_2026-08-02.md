@@ -2067,3 +2067,58 @@ no al alcance de dinero. El submodulo `backend` conserva sus cambios locales
 preexistentes y no fue tocado.
 
 Commit de la correccion y verificacion: `d4bdcd2`.
+
+## Fase 4 - Parte A: partida doble a nivel SQL
+
+### Diagnostico y decision
+
+Se identificaron tres representaciones contables: `asientos_contables` +
+`asiento_lineas` (comercial legado), `accounting_journal_entries` +
+`accounting_journal_lines` (journal comercial) y `asientos_contables_sp` +
+`detalles_asientos` (sector publico). Antes de esta fase, la igualdad
+debitos=creditos se comprobaba en Dart por `DatabaseHelper` y
+`ContabilidadNICSPService`, pero un INSERT SQL directo podia dejar lineas
+desbalanceadas.
+
+SQLite no ofrece triggers diferibles al COMMIT. La decision conservadora fue
+usar estado `borrador`: el encabezado se inserta en borrador, se insertan todas
+las lineas dentro de la transaccion normal y el cambio a `registrado`/`posted`
+valida suma, al menos dos lineas, debe positivo y, en sector publico, los
+totales del encabezado. Una vez cerrado, INSERT/UPDATE/DELETE de lineas que
+rompa el balance aborta por trigger. La migracion v76 crea los triggers solo
+si existen las dos tablas de cada par y no reescribe filas existentes.
+
+Se actualizaron los productores existentes para cerrar el asiento despues de
+insertar sus lineas: `DatabaseHelper`, `seed_operations.dart`,
+`JournalEntryRepository`, `ContabilidadNICSPService`, `ProvisionesService`,
+`DepreciacionJobService`, `RevalorizacionService` y
+`DepreciacionUnidadesService`.
+
+### Evidencia cruda
+
+```text
+dart format test/sector_publico/contabilidad/partida_doble_sql_test.dart
+Formatted 1 file (0 changed) in 0.01 seconds.
+
+flutter test test/sector_publico/contabilidad/partida_doble_sql_test.dart --reporter expanded
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/contabilidad/partida_doble_sql_test.dart
+00:00 +0: SQLite acepta un asiento publico balanceado y rechaza una linea directa extra
+00:00 +1: SQLite rechaza al cerrar un asiento publico desbalanceado por SQL directo
+00:00 +2: La ruta comercial normal registra el asiento balanceado con la proteccion activa
+Inicializando tablas del Sector Público para nueva instalación...
+00:08 +3: La ruta accounting journal cierra el borrador solo despues de validar el balance
+00:08 +4: La migracion v76 conserva asientos existentes y activa la validacion SQL
+00:08 +5: All tests passed!
+Exit code: 0
+```
+
+La prueba incluye INSERT SQL balanceado, cierre SQL desbalanceado rechazado,
+una linea extra sobre asiento cerrado rechazada, las rutas comerciales normal
+y journal, y conservacion de un asiento previo al activar v76.
+
+### Cierre de la subtarea A
+
+Parte A queda implementada y verificada por cinco pruebas en
+`partida_doble_sql_test.dart`. La validacion a nivel de servicio sigue siendo
+util, pero SQLite ya no depende de que el consumidor pase por Dart. La
+verificacion global de analyze/build queda para el cierre de Fase 4.

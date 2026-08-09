@@ -24,10 +24,7 @@ class ProvisionesService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  ProvisionesService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  ProvisionesService({required this.db, required this.auditoriaService});
 
   MoneyValue _moneyCriterion(Object? value) {
     if (value == null) return publicMoneyZero();
@@ -112,10 +109,15 @@ class ProvisionesService {
     switch (tipo) {
       case TipoProvision.litigios:
         // Provisionar X% del valor de contratos en litigio
-        final valorContratos = _moneyCriterion(criterios['valor_contratos_litigio']);
-        final porcentaje = criterios['porcentaje_provision'] as double? ?? 0.1; // 10% por defecto
+        final valorContratos = _moneyCriterion(
+          criterios['valor_contratos_litigio'],
+        );
+        final porcentaje =
+            criterios['porcentaje_provision'] as double? ??
+            0.1; // 10% por defecto
         valorCalculado = valorContratos.multiplyDecimal(porcentaje.toString());
-        descripcion = 'Provisión para litigios - ${porcentaje * 100}% de contratos en litigio';
+        descripcion =
+            'Provisión para litigios - ${porcentaje * 100}% de contratos en litigio';
         referenciaDocumento = criterios['referencia_contratos'];
         break;
 
@@ -128,9 +130,11 @@ class ProvisionesService {
 
       case TipoProvision.beneficiosEmpleados:
         // Provisionar vacaciones y primas acumuladas
-        valorCalculado = _moneyCriterion(criterios['vacaciones_acumuladas']) +
+        valorCalculado =
+            _moneyCriterion(criterios['vacaciones_acumuladas']) +
             _moneyCriterion(criterios['primas_acumuladas']);
-        descripcion = 'Provisión para beneficios a empleados (vacaciones + primas)';
+        descripcion =
+            'Provisión para beneficios a empleados (vacaciones + primas)';
         break;
 
       case TipoProvision.contratosOnerosos:
@@ -165,8 +169,8 @@ class ProvisionesService {
       tipo: tipo,
       descripcion: descripcion,
       valorProvision: valorCalculado,
-      fechaVencimiento: criterios['fecha_vencimiento'] != null 
-          ? DateTime.parse(criterios['fecha_vencimiento']) 
+      fechaVencimiento: criterios['fecha_vencimiento'] != null
+          ? DateTime.parse(criterios['fecha_vencimiento'])
           : null,
       referenciaDocumento: referenciaDocumento,
     );
@@ -194,7 +198,9 @@ class ProvisionesService {
     final saldoDisponible = publicMoneyFromSql(provision['saldo_disponible']);
 
     if (valorUtilizar > saldoDisponible) {
-      throw Exception('El valor a utilizar excede el saldo disponible de la provisión');
+      throw Exception(
+        'El valor a utilizar excede el saldo disponible de la provisión',
+      );
     }
 
     final nuevoSaldo = saldoDisponible - valorUtilizar;
@@ -275,10 +281,7 @@ class ProvisionesService {
 
     await db.update(
       'provisiones',
-      {
-        'estado': 'revertida',
-        'saldo_disponible': publicMoneyZero().toSql(),
-      },
+      {'estado': 'revertida', 'saldo_disponible': publicMoneyZero().toSql()},
       where: 'id = ?',
       whereArgs: [provisionId],
     );
@@ -344,7 +347,7 @@ class ProvisionesService {
       'fecha_asiento': fechaAsiento.toIso8601String(),
       'descripcion': 'Provisión - $descripcion',
       'tipo_asiento': 'automatico',
-      'estado': 'aprobado',
+      'estado': 'borrador',
       'total_debito': valor.toSql(),
       'total_credito': valor.toSql(),
       'usuario_creo': usuarioId,
@@ -352,7 +355,8 @@ class ProvisionesService {
       'fecha_revision': DateTime.now().toIso8601String(),
       'referencia_origen': provisionId,
       'tipo_documento_origen': 'provision',
-      'observaciones': 'Asiento generado automáticamente por provisión NICSP 19',
+      'observaciones':
+          'Asiento generado automáticamente por provisión NICSP 19',
     });
 
     await db.insert('detalles_asientos', {
@@ -364,6 +368,13 @@ class ProvisionesService {
       'credito': publicMoneyZero().toSql(),
       'referencia_id': provisionId,
     });
+
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': 'aprobado'},
+      where: 'id = ?',
+      whereArgs: [asientoId],
+    );
 
     await db.insert('detalles_asientos', {
       'id': _uuid.v4(),
@@ -398,7 +409,9 @@ class ProvisionesService {
     );
 
     final tipoProvision = TipoProvision.values.firstWhere(
-      (e) => e.toString().split('.').last == provisionResult.first['tipo_provision'],
+      (e) =>
+          e.toString().split('.').last ==
+          provisionResult.first['tipo_provision'],
     );
 
     final cuentaGasto = _obtenerCuentaGastoProvision(tipoProvision);
@@ -411,7 +424,7 @@ class ProvisionesService {
       'fecha_asiento': fechaAsiento.toIso8601String(),
       'descripcion': 'Reversión de provisión - $motivo',
       'tipo_asiento': 'automatico',
-      'estado': 'aprobado',
+      'estado': 'borrador',
       'total_debito': valor.toSql(),
       'total_credito': valor.toSql(),
       'usuario_creo': usuarioId,
@@ -419,7 +432,8 @@ class ProvisionesService {
       'fecha_revision': DateTime.now().toIso8601String(),
       'referencia_origen': provisionId,
       'tipo_documento_origen': 'reversion_provision',
-      'observaciones': 'Asiento generado automáticamente por reversión de provisión NICSP 19',
+      'observaciones':
+          'Asiento generado automáticamente por reversión de provisión NICSP 19',
     });
 
     await db.insert('detalles_asientos', {
@@ -431,6 +445,13 @@ class ProvisionesService {
       'credito': publicMoneyZero().toSql(),
       'referencia_id': provisionId,
     });
+
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': 'aprobado'},
+      where: 'id = ?',
+      whereArgs: [asientoId],
+    );
 
     await db.insert('detalles_asientos', {
       'id': _uuid.v4(),
@@ -449,15 +470,30 @@ class ProvisionesService {
   Map<String, String> _obtenerCuentaGastoProvision(TipoProvision tipo) {
     switch (tipo) {
       case TipoProvision.litigios:
-        return {'codigo': '540101', 'nombre': 'Gastos por provisiones - Litigios'};
+        return {
+          'codigo': '540101',
+          'nombre': 'Gastos por provisiones - Litigios',
+        };
       case TipoProvision.garantias:
-        return {'codigo': '540102', 'nombre': 'Gastos por provisiones - Garantías'};
+        return {
+          'codigo': '540102',
+          'nombre': 'Gastos por provisiones - Garantías',
+        };
       case TipoProvision.beneficiosEmpleados:
-        return {'codigo': '540103', 'nombre': 'Gastos por provisiones - Beneficios a empleados'};
+        return {
+          'codigo': '540103',
+          'nombre': 'Gastos por provisiones - Beneficios a empleados',
+        };
       case TipoProvision.contratosOnerosos:
-        return {'codigo': '540104', 'nombre': 'Gastos por provisiones - Contratos onerosos'};
+        return {
+          'codigo': '540104',
+          'nombre': 'Gastos por provisiones - Contratos onerosos',
+        };
       case TipoProvision.perdidasOperacionales:
-        return {'codigo': '540105', 'nombre': 'Gastos por provisiones - Pérdidas operacionales'};
+        return {
+          'codigo': '540105',
+          'nombre': 'Gastos por provisiones - Pérdidas operacionales',
+        };
       case TipoProvision.otros:
         return {'codigo': '540199', 'nombre': 'Gastos por provisiones - Otros'};
     }
@@ -471,11 +507,20 @@ class ProvisionesService {
       case TipoProvision.garantias:
         return {'codigo': '250102', 'nombre': 'Provisiones - Garantías'};
       case TipoProvision.beneficiosEmpleados:
-        return {'codigo': '250103', 'nombre': 'Provisiones - Beneficios a empleados'};
+        return {
+          'codigo': '250103',
+          'nombre': 'Provisiones - Beneficios a empleados',
+        };
       case TipoProvision.contratosOnerosos:
-        return {'codigo': '250104', 'nombre': 'Provisiones - Contratos onerosos'};
+        return {
+          'codigo': '250104',
+          'nombre': 'Provisiones - Contratos onerosos',
+        };
       case TipoProvision.perdidasOperacionales:
-        return {'codigo': '250105', 'nombre': 'Provisiones - Pérdidas operacionales'};
+        return {
+          'codigo': '250105',
+          'nombre': 'Provisiones - Pérdidas operacionales',
+        };
       case TipoProvision.otros:
         return {'codigo': '250199', 'nombre': 'Provisiones - Otros'};
     }
@@ -520,4 +565,3 @@ class ProvisionesService {
     return resultados;
   }
 }
-

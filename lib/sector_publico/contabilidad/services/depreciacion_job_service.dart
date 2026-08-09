@@ -16,10 +16,7 @@ class DepreciacionJobService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  DepreciacionJobService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  DepreciacionJobService({required this.db, required this.auditoriaService});
 
   /// Ejecuta el job de depreciación mensual
   Future<Map<String, dynamic>> ejecutarDepreciacionMensual({
@@ -28,8 +25,12 @@ class DepreciacionJobService {
     required String periodo, // Formato: '2024-06'
   }) async {
     final fechaPeriodo = DateTime.parse('$periodo-01');
-    final fechaUltimoDia = DateTime(fechaPeriodo.year, fechaPeriodo.month + 1, 0);
-    
+    final fechaUltimoDia = DateTime(
+      fechaPeriodo.year,
+      fechaPeriodo.month + 1,
+      0,
+    );
+
     // 1. Consultar activos activos
     final activos = await db.query(
       'activos_estado',
@@ -97,16 +98,18 @@ class DepreciacionJobService {
         totalDepreciacion += depreciacionMensual;
 
         // Actualizar depreciación acumulada del activo
-        final depreciacionAcumuladaActual =
-            publicMoneyFromSql(activo['depreciacion_acumulada']);
+        final depreciacionAcumuladaActual = publicMoneyFromSql(
+          activo['depreciacion_acumulada'],
+        );
         await db.update(
           'activos_estado',
           {
             'depreciacion_acumulada':
                 (depreciacionAcumuladaActual + depreciacionMensual).toSql(),
-            'valor_neto': (valorAdquisicion -
-                    (depreciacionAcumuladaActual + depreciacionMensual))
-                .toSql(),
+            'valor_neto':
+                (valorAdquisicion -
+                        (depreciacionAcumuladaActual + depreciacionMensual))
+                    .toSql(),
           },
           where: 'id = ?',
           whereArgs: [activo['id']],
@@ -203,7 +206,7 @@ class DepreciacionJobService {
       'fecha_asiento': fechaAsiento.toIso8601String(),
       'descripcion': 'Depreciación mensual de activos fijos - $periodo',
       'tipo_asiento': 'automatico',
-      'estado': 'aprobado',
+      'estado': 'borrador',
       'total_debito': totalDepreciacion.toSql(),
       'total_credito': totalDepreciacion.toSql(),
       'usuario_creo': usuarioId,
@@ -211,7 +214,8 @@ class DepreciacionJobService {
       'fecha_revision': DateTime.now().toIso8601String(),
       'referencia_origen': 'job_depreciacion',
       'tipo_documento_origen': 'job',
-      'observaciones': 'Asiento generado automáticamente por job de depreciación',
+      'observaciones':
+          'Asiento generado automáticamente por job de depreciación',
     });
 
     // Crear detalle de débito (gasto)
@@ -224,6 +228,13 @@ class DepreciacionJobService {
       'credito': publicMoneyZero().toSql(),
       'referencia_id': asientoId,
     });
+
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': 'aprobado'},
+      where: 'id = ?',
+      whereArgs: [asientoId],
+    );
 
     // Crear detalle de crédito (depreciación acumulada)
     await db.insert('detalles_asientos', {
@@ -327,11 +338,11 @@ class DepreciacionJobService {
   }) async {
     final resultado = await db.query(
       'asientos_contables_sp',
-      where: 'entidad_id = ? AND tipo_documento_origen = ? AND referencia_origen = ? AND fecha_asiento LIKE ?',
+      where:
+          'entidad_id = ? AND tipo_documento_origen = ? AND referencia_origen = ? AND fecha_asiento LIKE ?',
       whereArgs: [entidadId, 'job', 'job_depreciacion', '$periodo%'],
     );
 
     return resultado.isNotEmpty;
   }
 }
-

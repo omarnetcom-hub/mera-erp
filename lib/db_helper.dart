@@ -334,7 +334,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 75,
+      version: 76,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -939,6 +939,10 @@ class DatabaseHelper {
 
     if (oldVersion < 75) {
       await MoneySchemaMigration.migrateV75(db);
+    }
+
+    if (oldVersion < 76) {
+      await SchemaContabilidad.crearTriggersPartidaDoble(db);
     }
   }
 
@@ -8132,7 +8136,7 @@ class DatabaseHelper {
         'concepto': concepto,
         'referencia': referencia,
         'origen': origen,
-        'estado': 'registrado',
+        'estado': 'borrador',
       });
 
       for (final linea in lineas) {
@@ -8189,6 +8193,13 @@ class DatabaseHelper {
           'tercero': linea['tercero'],
         });
       }
+
+      await txn.update(
+        'asientos_contables',
+        {'estado': 'registrado'},
+        where: 'id = ?',
+        whereArgs: [asientoId],
+      );
 
       await _registrarComprobanteEnTransaccion(
         txn,
@@ -8353,7 +8364,7 @@ class DatabaseHelper {
         'concepto': concepto,
         'referencia': referencia,
         'origen': origen,
-        'estado': 'registrado',
+        'estado': 'borrador',
       });
 
       for (final linea in lineasConCuenta) {
@@ -8375,6 +8386,13 @@ class DatabaseHelper {
           'tercero': linea['tercero'],
         });
       }
+
+      await t.update(
+        'asientos_contables',
+        {'estado': 'registrado'},
+        where: 'id = ?',
+        whereArgs: [asientoId],
+      );
 
       final terceros = lineasConCuenta
           .map((linea) => linea['tercero'])

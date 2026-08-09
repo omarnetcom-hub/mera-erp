@@ -44,7 +44,7 @@ class SqliteJournalEntryRepository implements JournalEntryRepository {
         'concept': entry.concept,
         'reference': entry.reference,
         'origin': entry.origin,
-        'status': entry.status.name,
+        'status': JournalEntryStatus.draft.name,
         'reversed_entry_id': entry.reversedEntryId,
         'correlation_id': entry.correlationId,
         'created_at': DateTime.now().toIso8601String(),
@@ -69,6 +69,13 @@ class SqliteJournalEntryRepository implements JournalEntryRepository {
           'exchange_rate': dimension.exchangeRate,
         });
       }
+
+      await txn.update(
+        'accounting_journal_entries',
+        {'status': entry.status.name},
+        where: 'id = ?',
+        whereArgs: [entry.id],
+      );
     });
   }
 

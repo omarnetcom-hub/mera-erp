@@ -73,9 +73,7 @@ class DepreciacionUnidadesService {
     // Actualizar método de depreciación del activo
     await db.update(
       'activos_estado',
-      {
-        'metodo_depreciacion': 'unidades_produccion',
-      },
+      {'metodo_depreciacion': 'unidades_produccion'},
       where: 'id = ?',
       whereArgs: [activoId],
     );
@@ -86,9 +84,7 @@ class DepreciacionUnidadesService {
       tipoEvento: TipoEventoAuditoria.modificacionRegistro,
       modulo: 'activos',
       accion: 'configuracion_depreciacion_unidades',
-      valorAnterior: {
-        'metodo_anterior': activo.first['metodo_depreciacion'],
-      },
+      valorAnterior: {'metodo_anterior': activo.first['metodo_depreciacion']},
       valorNuevo: {
         'metodo_nuevo': 'unidades_produccion',
         'unidades_totales_estimadas': unidadesTotalesEstimadas,
@@ -129,10 +125,13 @@ class DepreciacionUnidadesService {
     }
 
     final configuracion = config.first;
-    final costoPorUnidad = publicMoneyFromSql(configuracion['costo_por_unidad']);
-    final unidadesAcumuladas = (configuracion['unidades_producidas_acumuladas'] as num).toDouble();
-    final unidadesTotales =
-        (configuracion['unidades_totales_estimadas'] as num).toDouble();
+    final costoPorUnidad = publicMoneyFromSql(
+      configuracion['costo_por_unidad'],
+    );
+    final unidadesAcumuladas =
+        (configuracion['unidades_producidas_acumuladas'] as num).toDouble();
+    final unidadesTotales = (configuracion['unidades_totales_estimadas'] as num)
+        .toDouble();
 
     // Validar que no exceda las unidades totales
     if (unidadesAcumuladas + unidadesProducidas > unidadesTotales) {
@@ -166,7 +165,8 @@ class DepreciacionUnidadesService {
     await db.update(
       'configuracion_depreciacion_unidades',
       {
-        'unidades_producidas_acumuladas': unidadesAcumuladas + unidadesProducidas,
+        'unidades_producidas_acumuladas':
+            unidadesAcumuladas + unidadesProducidas,
         'depreciacion_acumulada': nuevaDepreciacionAcumulada.toSql(),
       },
       where: 'id = ?',
@@ -176,9 +176,7 @@ class DepreciacionUnidadesService {
     // Actualizar depreciación acumulada del activo
     await db.update(
       'activos_estado',
-      {
-        'depreciacion_acumulada': nuevaDepreciacionAcumulada.toSql(),
-      },
+      {'depreciacion_acumulada': nuevaDepreciacionAcumulada.toSql()},
       where: 'id = ?',
       whereArgs: [configuracion['activo_id']],
     );
@@ -242,7 +240,7 @@ class DepreciacionUnidadesService {
       'fecha_asiento': fechaAsiento.toIso8601String(),
       'descripcion': 'Depreciación por unidades de producción - $activoId',
       'tipo_asiento': 'automatico',
-      'estado': 'aprobado',
+      'estado': 'borrador',
       'total_debito': depreciacionPeriodo.toSql(),
       'total_credito': depreciacionPeriodo.toSql(),
       'usuario_creo': usuarioId,
@@ -250,7 +248,8 @@ class DepreciacionUnidadesService {
       'fecha_revision': DateTime.now().toIso8601String(),
       'referencia_origen': registroId,
       'tipo_documento_origen': 'depreciacion_unidades',
-      'observaciones': 'Asiento generado automáticamente por depreciación por unidades',
+      'observaciones':
+          'Asiento generado automáticamente por depreciación por unidades',
     });
 
     await db.insert('detalles_asientos', {
@@ -262,6 +261,13 @@ class DepreciacionUnidadesService {
       'credito': publicMoneyZero().toSql(),
       'referencia_id': registroId,
     });
+
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': 'aprobado'},
+      where: 'id = ?',
+      whereArgs: [asientoId],
+    );
 
     await db.insert('detalles_asientos', {
       'id': _uuid.v4(),
@@ -281,7 +287,8 @@ class DepreciacionUnidadesService {
     required String entidadId,
     String? activoId,
   }) async {
-    String query = 'SELECT * FROM configuracion_depreciacion_unidades WHERE entidad_id = ?';
+    String query =
+        'SELECT * FROM configuracion_depreciacion_unidades WHERE entidad_id = ?';
     List<dynamic> args = [entidadId];
 
     if (activoId != null) {
@@ -301,7 +308,8 @@ class DepreciacionUnidadesService {
     DateTime? fechaInicio,
     DateTime? fechaFin,
   }) async {
-    String query = 'SELECT * FROM registros_produccion WHERE configuracion_id = ?';
+    String query =
+        'SELECT * FROM registros_produccion WHERE configuracion_id = ?';
     List<dynamic> args = [configuracionId];
 
     if (fechaInicio != null) {
@@ -325,7 +333,8 @@ class DepreciacionUnidadesService {
     required String entidadId,
     String? periodo,
   }) async {
-    String query = 'SELECT * FROM configuracion_depreciacion_unidades WHERE entidad_id = ? AND estado = ?';
+    String query =
+        'SELECT * FROM configuracion_depreciacion_unidades WHERE entidad_id = ? AND estado = ?';
     List<dynamic> args = [entidadId, 'activo'];
 
     final configuraciones = await db.rawQuery(query, args);
@@ -336,7 +345,9 @@ class DepreciacionUnidadesService {
 
     for (final config in configuraciones) {
       final configId = config['id'] as String;
-      final registros = await consultarRegistrosProduccion(configuracionId: configId);
+      final registros = await consultarRegistrosProduccion(
+        configuracionId: configId,
+      );
 
       final unidadesConfig = registros.fold<double>(
         0,
@@ -355,9 +366,13 @@ class DepreciacionUnidadesService {
         'activo_id': config['activo_id'],
         'numero_inventario': config['numero_inventario'],
         'unidades_totales_estimadas': config['unidades_totales_estimadas'],
-        'unidades_producidas_acumuladas': config['unidades_producidas_acumuladas'],
+        'unidades_producidas_acumuladas':
+            config['unidades_producidas_acumuladas'],
         'depreciacion_acumulada': config['depreciacion_acumulada'],
-        'porcentaje_uso': (config['unidades_producidas_acumuladas'] as num).toDouble() / (config['unidades_totales_estimadas'] as num).toDouble() * 100,
+        'porcentaje_uso':
+            (config['unidades_producidas_acumuladas'] as num).toDouble() /
+            (config['unidades_totales_estimadas'] as num).toDouble() *
+            100,
       });
     }
 
@@ -384,8 +399,10 @@ class DepreciacionUnidadesService {
       throw Exception('Configuración no encontrada');
     }
 
-    final unidadesProducidas = config.first['unidades_producidas_acumuladas'] as double;
-    final unidadesTotales = config.first['unidades_totales_estimadas'] as double;
+    final unidadesProducidas =
+        config.first['unidades_producidas_acumuladas'] as double;
+    final unidadesTotales =
+        config.first['unidades_totales_estimadas'] as double;
 
     return (unidadesProducidas / unidadesTotales) * 100;
   }

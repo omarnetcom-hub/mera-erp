@@ -145,6 +145,186 @@ class SchemaContabilidad {
     ''');
 
     await crearTablasConciliacionesReciprocas(db);
+    await crearTriggersPartidaDoble(db);
+  }
+
+  /// Protege la partida doble en SQLite sin impedir la construccion por lineas.
+  ///
+  /// SQLite no tiene triggers diferibles al COMMIT. Por eso los cuatro
+  /// esquemas de asientos usan un estado borrador: las lineas se insertan en
+  /// ese estado y el cierre a registrado/posted valida la suma completa.
+  /// Una vez cerrado, cualquier INSERT/UPDATE/DELETE de lineas que rompa el
+  /// balance tambien aborta la sentencia.
+  static Future<void> crearTriggersPartidaDoble(DatabaseExecutor db) async {
+    await _crearTriggersParaAsientos(
+      db,
+      headerTable: 'asientos_contables_sp',
+      lineTable: 'detalles_asientos',
+      headerId: 'id',
+      lineHeaderId: 'asiento_id',
+      statusColumn: 'estado',
+      draftValue: 'borrador',
+      closedPredicate: "NEW.estado <> 'borrador'",
+      headerBalancePredicate: '''
+        COALESCE((SELECT SUM(debito) FROM detalles_asientos WHERE asiento_id = NEW.id), 0) =
+          COALESCE((SELECT SUM(credito) FROM detalles_asientos WHERE asiento_id = NEW.id), 0)
+        AND COALESCE((SELECT COUNT(*) FROM detalles_asientos WHERE asiento_id = NEW.id), 0) >= 2
+        AND COALESCE((SELECT SUM(debito) FROM detalles_asientos WHERE asiento_id = NEW.id), 0) > 0
+        AND NEW.total_debito = COALESCE((SELECT SUM(debito) FROM detalles_asientos WHERE asiento_id = NEW.id), 0)
+        AND NEW.total_credito = COALESCE((SELECT SUM(credito) FROM detalles_asientos WHERE asiento_id = NEW.id), 0)
+      ''',
+      lineBalancePredicate: '''
+        COALESCE((SELECT SUM(debito) FROM detalles_asientos WHERE asiento_id = NEW.asiento_id), 0) =
+          COALESCE((SELECT SUM(credito) FROM detalles_asientos WHERE asiento_id = NEW.asiento_id), 0)
+      ''',
+      lineDebitColumn: 'debito',
+      lineCreditColumn: 'credito',
+      oldLineBalancePredicate: '''
+        COALESCE((SELECT SUM(debito) FROM detalles_asientos WHERE asiento_id = OLD.asiento_id), 0) =
+          COALESCE((SELECT SUM(credito) FROM detalles_asientos WHERE asiento_id = OLD.asiento_id), 0)
+      ''',
+    );
+
+    await _crearTriggersParaAsientos(
+      db,
+      headerTable: 'asientos_contables',
+      lineTable: 'asiento_lineas',
+      headerId: 'id',
+      lineHeaderId: 'asiento_id',
+      statusColumn: 'estado',
+      draftValue: 'borrador',
+      closedPredicate: "NEW.estado <> 'borrador'",
+      headerBalancePredicate: '''
+        COALESCE((SELECT SUM(debito) FROM asiento_lineas WHERE asiento_id = NEW.id), 0) =
+          COALESCE((SELECT SUM(credito) FROM asiento_lineas WHERE asiento_id = NEW.id), 0)
+        AND COALESCE((SELECT COUNT(*) FROM asiento_lineas WHERE asiento_id = NEW.id), 0) >= 2
+        AND COALESCE((SELECT SUM(debito) FROM asiento_lineas WHERE asiento_id = NEW.id), 0) > 0
+      ''',
+      lineBalancePredicate: '''
+        COALESCE((SELECT SUM(debito) FROM asiento_lineas WHERE asiento_id = NEW.asiento_id), 0) =
+          COALESCE((SELECT SUM(credito) FROM asiento_lineas WHERE asiento_id = NEW.asiento_id), 0)
+      ''',
+      lineDebitColumn: 'debito',
+      lineCreditColumn: 'credito',
+      oldLineBalancePredicate: '''
+        COALESCE((SELECT SUM(debito) FROM asiento_lineas WHERE asiento_id = OLD.asiento_id), 0) =
+          COALESCE((SELECT SUM(credito) FROM asiento_lineas WHERE asiento_id = OLD.asiento_id), 0)
+      ''',
+    );
+
+    await _crearTriggersParaAsientos(
+      db,
+      headerTable: 'accounting_journal_entries',
+      lineTable: 'accounting_journal_lines',
+      headerId: 'id',
+      lineHeaderId: 'entry_id',
+      statusColumn: 'status',
+      draftValue: 'draft',
+      closedPredicate: "NEW.status <> 'draft'",
+      headerBalancePredicate: '''
+        COALESCE((SELECT SUM(local_debit) FROM accounting_journal_lines WHERE entry_id = NEW.id), 0) =
+          COALESCE((SELECT SUM(local_credit) FROM accounting_journal_lines WHERE entry_id = NEW.id), 0)
+        AND COALESCE((SELECT COUNT(*) FROM accounting_journal_lines WHERE entry_id = NEW.id), 0) >= 2
+        AND COALESCE((SELECT SUM(local_debit) FROM accounting_journal_lines WHERE entry_id = NEW.id), 0) > 0
+      ''',
+      lineBalancePredicate: '''
+        COALESCE((SELECT SUM(local_debit) FROM accounting_journal_lines WHERE entry_id = NEW.entry_id), 0) =
+          COALESCE((SELECT SUM(local_credit) FROM accounting_journal_lines WHERE entry_id = NEW.entry_id), 0)
+      ''',
+      lineDebitColumn: 'local_debit',
+      lineCreditColumn: 'local_credit',
+      oldLineBalancePredicate: '''
+        COALESCE((SELECT SUM(local_debit) FROM accounting_journal_lines WHERE entry_id = OLD.entry_id), 0) =
+          COALESCE((SELECT SUM(local_credit) FROM accounting_journal_lines WHERE entry_id = OLD.entry_id), 0)
+      ''',
+    );
+  }
+
+  static Future<void> _crearTriggersParaAsientos(
+    DatabaseExecutor db, {
+    required String headerTable,
+    required String lineTable,
+    required String headerId,
+    required String lineHeaderId,
+    required String statusColumn,
+    required String draftValue,
+    required String closedPredicate,
+    required String headerBalancePredicate,
+    required String lineBalancePredicate,
+    required String lineDebitColumn,
+    required String lineCreditColumn,
+    required String oldLineBalancePredicate,
+  }) async {
+    final exists = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (?, ?)",
+      [headerTable, lineTable],
+    );
+    if (exists.length != 2) return;
+
+    final prefix = headerTable.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_${prefix}_draft_insert
+      BEFORE INSERT ON $headerTable
+      FOR EACH ROW
+      WHEN NEW.$statusColumn <> '$draftValue'
+      BEGIN
+        SELECT RAISE(ABORT, 'Un asiento debe crearse en borrador antes de cerrarse');
+      END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_${prefix}_close_balance
+      BEFORE UPDATE OF $statusColumn ON $headerTable
+      FOR EACH ROW
+      WHEN NEW.$statusColumn = '$draftValue' AND OLD.$statusColumn <> '$draftValue'
+      BEGIN
+        SELECT RAISE(ABORT, 'Un asiento contabilizado no puede volver a borrador');
+      END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_${prefix}_close_requires_balance
+      BEFORE UPDATE OF $statusColumn ON $headerTable
+      FOR EACH ROW
+      WHEN $closedPredicate AND NOT ($headerBalancePredicate)
+      BEGIN
+        SELECT RAISE(ABORT, 'El asiento no esta balanceado al cerrarse');
+      END
+    ''');
+
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_${prefix}_line_insert_balance
+      AFTER INSERT ON $lineTable
+      FOR EACH ROW
+      WHEN COALESCE((SELECT $statusColumn FROM $headerTable WHERE $headerId = NEW.$lineHeaderId), '$draftValue') <> '$draftValue'
+        AND NOT ($lineBalancePredicate)
+      BEGIN
+        SELECT RAISE(ABORT, 'La modificacion deja el asiento desbalanceado');
+      END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_${prefix}_line_update_balance
+      AFTER UPDATE OF $lineDebitColumn, $lineCreditColumn, $lineHeaderId ON $lineTable
+      FOR EACH ROW
+      WHEN COALESCE((SELECT $statusColumn FROM $headerTable WHERE $headerId = NEW.$lineHeaderId), '$draftValue') <> '$draftValue'
+        AND (NOT ($lineBalancePredicate) OR NOT ($oldLineBalancePredicate))
+      BEGIN
+        SELECT RAISE(ABORT, 'La modificacion deja el asiento desbalanceado');
+      END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS trg_${prefix}_line_delete_balance
+      AFTER DELETE ON $lineTable
+      FOR EACH ROW
+      WHEN COALESCE((SELECT $statusColumn FROM $headerTable WHERE $headerId = OLD.$lineHeaderId), '$draftValue') <> '$draftValue'
+        AND (
+          COALESCE((SELECT SUM($lineDebitColumn) FROM $lineTable WHERE $lineHeaderId = OLD.$lineHeaderId), 0) <>
+            COALESCE((SELECT SUM($lineCreditColumn) FROM $lineTable WHERE $lineHeaderId = OLD.$lineHeaderId), 0)
+          OR COALESCE((SELECT COUNT(*) FROM $lineTable WHERE $lineHeaderId = OLD.$lineHeaderId), 0) < 2
+          OR COALESCE((SELECT SUM($lineDebitColumn) FROM $lineTable WHERE $lineHeaderId = OLD.$lineHeaderId), 0) <= 0
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'El borrado deja el asiento desbalanceado');
+      END
+    ''');
   }
 
   /// Crea la capa de eliminacion NICSP 40 sin alterar los asientos fuente.
