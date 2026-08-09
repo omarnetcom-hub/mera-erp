@@ -963,6 +963,41 @@ flutter analyze
 flutter build windows
 ```
 
+## Verificacion solicitada posterior a la Parte B - 2026-08-08
+
+Se ejecuto la limpieza indicada: terminacion de `flutter_tester.exe` y
+eliminacion exclusiva de `build/native_assets/windows/sqlite3.dll`.
+
+### Evidencia cruda
+
+```text
+flutter analyze
+216 issues found. (ran in 11.6s)
+Exit code: 1 por issues de lint/info; no aparecio ningun error de compilacion.
+
+flutter test
+Oops; flutter has exited unexpectedly: "PathExistsException: Cannot copy file
+to 'C:\\Users\\PC\\Desktop\\Caja_simple\\build\\native_assets\\windows\\sqlite3.dll'
+(OS Error: No se puede crear un archivo que ya existe, errno = 183)".
+Exit code: 1. El runner no alcanzo a ejecutar los tests.
+
+flutter build windows
+Building Windows application... 98.2s
+Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe
+stderr: Nuget.exe not found, trying to download or use cached version.
+Exit code: 0.
+
+flutter test --no-test-assets
+Sin salida de tests hasta timeout del entorno (244 s). Se terminaron los
+procesos flutter_tester/dart/dartvm restantes. No se toma como suite pasada.
+```
+
+El resultado de `flutter analyze` es limpio de errores, pero conserva 216
+issues de lint/info. El build Windows fue exitoso. La Fase 4 no puede
+declararse 100% cerrada porque la suite completa sigue bloqueada antes del
+runner por native assets, y su variante sin assets se queda esperando sin
+producir resultados.
+
 ### Verificacion global posterior
 
 Se intento la verificacion solicitada despues de publicar la Parte B. Los
