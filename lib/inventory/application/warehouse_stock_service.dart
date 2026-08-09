@@ -7,6 +7,22 @@ class WarehouseStockService {
     : _database = database ?? DatabaseHelper.instance;
   final DatabaseHelper _database;
 
+  Future<double> availableQuantity({
+    required int productId,
+    required int warehouseId,
+  }) async {
+    final db = await _database.database;
+    final companyId = await _database.obtenerEmpresaActivaId();
+    final rows = await db.query(
+      'stock_bodega',
+      columns: ['cantidad'],
+      where: 'company_id = ? AND producto_id = ? AND bodega_id = ?',
+      whereArgs: [companyId, productId, warehouseId],
+      limit: 1,
+    );
+    return rows.isEmpty ? 0 : (rows.single['cantidad'] as num).toDouble();
+  }
+
   Future<int> transfer({
     required int productId,
     required int fromWarehouseId,

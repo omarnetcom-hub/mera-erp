@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+
+import '../../core/currency/money_value.dart';
 import '../application/mrp_services.dart';
 import '../domain/mrp_bom.dart';
+import '../domain/mrp_bom_item.dart';
 import '../domain/mrp_work_order.dart';
 
 class MrpPage extends StatefulWidget {
   const MrpPage({super.key});
+
   @override
   State<MrpPage> createState() => _MrpPageState();
 }
@@ -54,12 +58,14 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
   Widget _buildBoms() => FutureBuilder<List<MrpBom>>(
     future: _boms,
     builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done)
+      if (snapshot.connectionState != ConnectionState.done) {
         return const Center(child: CircularProgressIndicator());
-      if (snapshot.hasError)
+      }
+      if (snapshot.hasError) {
         return Center(
           child: Text('No se pudieron cargar las BOM: ${snapshot.error}'),
         );
+      }
       final boms = snapshot.data ?? const <MrpBom>[];
       return ListView(
         padding: const EdgeInsets.all(16),
@@ -82,15 +88,30 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
           if (boms.isEmpty) const Text('No hay BOM registradas.'),
           ...boms.map(
             (bom) => Card(
-              child: ListTile(
-                leading: const Icon(Icons.account_tree),
-                title: Text('Producto #${bom.itemId}'),
-                subtitle: Text(
-                  'Cantidad ${bom.quantity} ${bom.uom} • Costo total ${bom.totalCost.toMajorUnitsString()}',
-                ),
-                trailing: Icon(
-                  bom.isActive ? Icons.check_circle : Icons.pause_circle,
-                ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.account_tree),
+                    title: Text('Producto #${bom.itemId}'),
+                    subtitle: Text(
+                      'Cantidad ${bom.quantity} ${bom.uom} - '
+                      'Costo total ${bom.totalCost.toMajorUnitsString()}',
+                    ),
+                    trailing: Icon(
+                      bom.isActive ? Icons.check_circle : Icons.pause_circle,
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: bom.id == null
+                          ? null
+                          : () => _showBomStructure(bom),
+                      icon: const Icon(Icons.edit_note),
+                      label: const Text('Editar estructura'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -102,12 +123,14 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
   Widget _buildOrders() => FutureBuilder<List<MrpWorkOrder>>(
     future: _orders,
     builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done)
+      if (snapshot.connectionState != ConnectionState.done) {
         return const Center(child: CircularProgressIndicator());
-      if (snapshot.hasError)
+      }
+      if (snapshot.hasError) {
         return Center(
           child: Text('No se pudieron cargar ordenes: ${snapshot.error}'),
         );
+      }
       final orders = snapshot.data ?? const <MrpWorkOrder>[];
       return ListView(
         padding: const EdgeInsets.all(16),
@@ -120,20 +143,35 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
             initiallyExpanded: true,
             children: group.isEmpty
                 ? [const ListTile(title: Text('Sin ordenes'))]
-                : group
-                      .map(
-                        (order) => ListTile(
-                          title: Text(
-                            'Orden #${order.id} • Producto #${order.productionItemId}',
-                          ),
-                          subtitle: Text(
-                            'Cantidad ${order.qtyPlanned} • Total ${order.totalCost.toMajorUnitsString()}',
-                          ),
-                        ),
-                      )
-                      .toList(),
+                : group.map(_buildOrderTile).toList(),
           );
         }).toList(),
+      );
+    },
+  );
+
+  Widget _buildOrderTile(MrpWorkOrder order) => FutureBuilder<bool>(
+    future: _orderService.hasSufficientStock(order.id!),
+    builder: (context, snapshot) {
+      final stockOk = snapshot.data ?? true;
+      final canBeBlocked =
+          order.status == MrpWorkOrderStatus.borrador ||
+          order.status == MrpWorkOrderStatus.noIniciada;
+      final blocked = canBeBlocked && !stockOk;
+      return ListTile(
+        leading: Icon(
+          blocked ? Icons.lock : Icons.precision_manufacturing,
+          color: blocked ? Colors.orange : null,
+        ),
+        title: Text('Orden #${order.id} - Producto #${order.productionItemId}'),
+        subtitle: Text(
+          blocked
+              ? 'Bloqueada: stock insuficiente - '
+                    'Cantidad ${order.qtyPlanned} - '
+                    'Total ${order.totalCost.toMajorUnitsString()}'
+              : 'Cantidad ${order.qtyPlanned} - '
+                    'Total ${order.totalCost.toMajorUnitsString()}',
+        ),
       );
     },
   );
@@ -182,6 +220,166 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
     );
     if (created == true && mounted) setState(_reload);
   }
+
+  Future<void> _showBomStructure(MrpBom bom) async {
+    if (bom.id == null) return;
+    var current = bom;
+    var itemsFuture = _bomService.items(bom.id!);
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Estructura BOM #${bom.id}'),
+          content: SizedBox(
+            width: 520,
+            child: FutureBuilder<List<MrpBomItem>>(
+              future: itemsFuture,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const SizedBox(
+                    height: 120,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final items = snapshot.data!;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Costo total: ${current.totalCost.toMajorUnitsString()}',
+                    ),
+                    Text(
+                      'Materiales: ${current.rawMaterialCost.toMajorUnitsString()} '
+                      '- Operacion: ${current.operatingCost.toMajorUnitsString()}',
+                    ),
+                    const SizedBox(height: 12),
+                    if (items.isEmpty)
+                      const Text('La BOM no tiene componentes.'),
+                    ...items.map(
+                      (item) => ListTile(
+                        dense: true,
+                        leading: Icon(
+                          item.isSubAssemblyItem
+                              ? Icons.account_tree
+                              : Icons.inventory_2,
+                        ),
+                        title: Text('Producto #${item.itemId}'),
+                        subtitle: Text(
+                          'Cantidad ${item.qty} - '
+                          '${item.isSubAssemblyItem ? 'Sub-ensamble' : 'Materia prima'}',
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          final added = await _showAddBomItem(bom);
+                          if (added != true) return;
+                          current = await _bomService.recalculate(bom.id!);
+                          itemsFuture = _bomService.items(bom.id!);
+                          setDialogState(() {});
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Agregar componente'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (mounted) setState(_reload);
+  }
+
+  Future<bool?> _showAddBomItem(MrpBom bom) => showDialog<bool>(
+    context: context,
+    builder: (context) {
+      final item = TextEditingController();
+      final quantity = TextEditingController(text: '1');
+      final rate = TextEditingController(text: '0');
+      var isSubAssembly = false;
+      return StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Agregar componente'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: item,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'ID producto'),
+              ),
+              TextField(
+                controller: quantity,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Cantidad'),
+              ),
+              TextField(
+                controller: rate,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Costo unitario'),
+              ),
+              CheckboxListTile(
+                value: isSubAssembly,
+                onChanged: (value) =>
+                    setState(() => isSubAssembly = value ?? false),
+                title: const Text('Es sub-ensamble'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final itemId = int.tryParse(item.text);
+                final qty = double.tryParse(quantity.text);
+                final rateValue = double.tryParse(rate.text);
+                if (itemId == null ||
+                    qty == null ||
+                    qty <= 0 ||
+                    rateValue == null ||
+                    rateValue < 0) {
+                  return;
+                }
+                final rateMoney = MoneyValue.fromMajorUnits(
+                  rate.text,
+                  currency: bom.totalCost.currency,
+                );
+                await _bomService.addItem(
+                  MrpBomItem(
+                    companyId: bom.companyId,
+                    bomId: bom.id!,
+                    itemId: itemId,
+                    qty: qty,
+                    rate: rateMoney,
+                    amount: rateMoney.multiplyDecimal(qty.toString()),
+                    isSubAssemblyItem: isSubAssembly,
+                  ),
+                );
+                if (context.mounted) Navigator.pop(context, true);
+              },
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 
   String _statusLabel(MrpWorkOrderStatus status) => switch (status) {
     MrpWorkOrderStatus.borrador => 'Borrador',
