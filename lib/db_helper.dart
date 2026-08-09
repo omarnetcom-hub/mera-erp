@@ -56,6 +56,7 @@ import 'sector_publico/siif/database/schema_siif.dart';
 import 'impact/database/schema_impact.dart';
 import 'taxes/retention_schema_migration.dart';
 import 'taxes/retention_policy.dart';
+import 'taxes/tax_report_schema_migration.dart';
 
 part 'core/database/database_initializer.dart';
 
@@ -77,7 +78,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 87;
+  static const int schemaVersion = 88;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1010,6 +1011,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 87) {
       await RetentionSchemaMigration.migrateV87(db);
+    }
+    if (oldVersion < 88) {
+      await TaxReportSchemaMigration.migrateV88(db);
     }
   }
 
@@ -9244,18 +9248,144 @@ class DatabaseHelper {
   }
 
   /// Borrador Formulario 300 (IVA) - DIAN Colombia.
+  Future<List<Map<String, dynamic>>> obtenerDetalleFormulario300({
+    required int anio,
+    required int mes,
+  }) async {
+    final db = await database;
+    final companyId = await obtenerEmpresaActivaId();
+    final inicio = DateTime(anio, mes, 1).toIso8601String();
+    final fin = DateTime(anio, mes + 1, 1).toIso8601String();
+    final rows = <Map<String, dynamic>>[];
+
+    rows.addAll(
+      await db.rawQuery(
+        '''
+      SELECT vd.id AS documento_id, 'venta' AS origen,
+             COALESCE(vd.impuesto_pct, v.impuesto_pct, 0) AS tarifa,
+             vd.subtotal AS base, COALESCE(vd.impuesto_total, 0) AS impuesto
+      FROM ventas_detalle vd
+      INNER JOIN ventas v ON v.id = vd.venta_id
+      WHERE v.company_id = ? AND v.fecha >= ? AND v.fecha < ?
+        AND COALESCE(v.estado, 'emitida') != 'anulada'
+    ''',
+        [companyId, inicio, fin],
+      ),
+    );
+    rows.addAll(
+      await db.rawQuery(
+        '''
+      SELECT v.id AS documento_id, 'venta' AS origen,
+             COALESCE(v.impuesto_pct, 0) AS tarifa,
+             v.subtotal AS base, COALESCE(v.impuesto_total, 0) AS impuesto
+      FROM ventas v
+      WHERE v.company_id = ? AND v.fecha >= ? AND v.fecha < ?
+        AND COALESCE(v.estado, 'emitida') != 'anulada'
+        AND NOT EXISTS (
+          SELECT 1 FROM ventas_detalle vd WHERE vd.venta_id = v.id
+        )
+    ''',
+        [companyId, inicio, fin],
+      ),
+    );
+    rows.addAll(
+      await db.rawQuery(
+        '''
+      SELECT cd.id AS documento_id, 'compra' AS origen,
+             COALESCE(cd.impuesto_pct, c.impuesto_pct, 0) AS tarifa,
+             cd.subtotal AS base, COALESCE(cd.impuesto_total, 0) AS impuesto
+      FROM compras_detalle cd
+      INNER JOIN compras c ON c.id = cd.compra_id
+      WHERE c.company_id = ? AND c.fecha >= ? AND c.fecha < ?
+        AND COALESCE(c.estado, 'pagada') != 'anulada'
+    ''',
+        [companyId, inicio, fin],
+      ),
+    );
+    rows.addAll(
+      await db.rawQuery(
+        '''
+      SELECT c.id AS documento_id, 'compra' AS origen,
+             COALESCE(c.impuesto_pct, 0) AS tarifa,
+             c.subtotal AS base, COALESCE(c.impuesto_total, 0) AS impuesto
+      FROM compras c
+      WHERE c.company_id = ? AND c.fecha >= ? AND c.fecha < ?
+        AND COALESCE(c.estado, 'pagada') != 'anulada'
+        AND NOT EXISTS (
+          SELECT 1 FROM compras_detalle cd WHERE cd.compra_id = c.id
+        )
+    ''',
+        [companyId, inicio, fin],
+      ),
+    );
+    return rows;
+  }
+
   Future<Map<String, MoneyValue>> obtenerBorradorFormulario300({
     required int anio,
     required int mes,
   }) async {
+    final db = await database;
+    final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+    var base0 = zero;
+    var base5 = zero;
+    var base19 = zero;
+    var baseOther = zero;
+    var iva0 = zero;
+    var iva5 = zero;
+    var iva19 = zero;
+    var ivaOther = zero;
+    var ivaDescontable = zero;
+
+    for (final row in await obtenerDetalleFormulario300(anio: anio, mes: mes)) {
+      final base = MoneyValue.fromSql(row['base'], currency: currency);
+      final tax = MoneyValue.fromSql(
+        row['impuesto'],
+        currency: currency,
+        nullableAsZero: true,
+      );
+      final rate = (row['tarifa'] as num?)?.toDouble() ?? 0;
+      if (row['origen'] == 'compra') {
+        ivaDescontable += tax;
+        continue;
+      }
+      switch (rate) {
+        case 0:
+          base0 += base;
+          iva0 += tax;
+        case 5:
+          base5 += base;
+          iva5 += tax;
+        case 19:
+          base19 += base;
+          iva19 += tax;
+        default:
+          baseOther += base;
+          ivaOther += tax;
+      }
+    }
+    final ivaGenerado = iva0 + iva5 + iva19 + ivaOther;
+    final baseGravada = base5 + base19 + baseOther;
     final fiscal = await obtenerReporteFiscal(anio: anio, mes: mes);
-    final baseGravada = fiscal['ventas']!.divideDecimal('1.19');
     return {
-      'ingresos_gravados': fiscal['ventas']!,
+      'ingresos_gravados': baseGravada,
       'base_gravada': baseGravada,
-      'iva_generado': fiscal['iva_generado']!,
-      'iva_descontable': fiscal['iva_descontable']!,
-      'saldo_pagar': fiscal['iva_por_pagar']!,
+      'base_gravada_0': base0,
+      'base_gravada_5': base5,
+      'base_gravada_19': base19,
+      'base_gravada_otra': baseOther,
+      'iva_generado': ivaGenerado,
+      'iva_generado_0': iva0,
+      'iva_generado_5': iva5,
+      'iva_generado_19': iva19,
+      'iva_generado_otra': ivaOther,
+      'iva_descontable': ivaDescontable,
+      'saldo_pagar': ivaGenerado - ivaDescontable,
       'reteiva_practicada': fiscal['reteiva_practicada']!,
     };
   }

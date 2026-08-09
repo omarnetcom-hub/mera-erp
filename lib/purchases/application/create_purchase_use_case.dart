@@ -222,6 +222,10 @@ class CreatePurchaseUseCase {
           'cantidad': item.quantity,
           'costo_unitario': item.unitCost.toSql(),
           'subtotal': item.subtotal.toSql(),
+          'impuesto_pct': request.taxRate,
+          'impuesto_total': item.subtotal
+              .percent(request.taxRate.toString())
+              .toSql(),
         });
         await txn.update(
           'productos',

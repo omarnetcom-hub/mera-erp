@@ -238,6 +238,9 @@ extension DatabaseInitializer on DatabaseHelper {
     if (version >= 87) {
       await RetentionSchemaMigration.migrateV87(db);
     }
+    if (version >= 88) {
+      await TaxReportSchemaMigration.migrateV88(db);
+    }
   }
 
   /// Migraciones incrementales entre versiones de la base de datos.
@@ -1048,6 +1051,18 @@ extension DatabaseInitializer on DatabaseHelper {
     await _agregarColumnaSiNoExiste(db, 'ventas', 'reteica', 'REAL DEFAULT 0');
     await _agregarColumnaSiNoExiste(
       db,
+      'ventas_detalle',
+      'impuesto_pct',
+      'REAL NOT NULL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'ventas_detalle',
+      'impuesto_total',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
       'ventas',
       'retefuente_concepto',
       "TEXT NOT NULL DEFAULT 'otros_ingresos'",
@@ -1073,6 +1088,18 @@ extension DatabaseInitializer on DatabaseHelper {
     );
     await _agregarColumnaSiNoExiste(db, 'compras', 'reteiva', 'REAL DEFAULT 0');
     await _agregarColumnaSiNoExiste(db, 'compras', 'reteica', 'REAL DEFAULT 0');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'compras_detalle',
+      'impuesto_pct',
+      'REAL NOT NULL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'compras_detalle',
+      'impuesto_total',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
     await _agregarColumnaSiNoExiste(
       db,
       'compras',

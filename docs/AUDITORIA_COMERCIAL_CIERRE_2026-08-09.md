@@ -123,3 +123,29 @@ Analyze: `240 issues found`, sin errores; build Windows exitoso.
 Bloque 2 implementado y verificado con 16 pruebas dirigidas y regresiones de
 ventas/ledger. La lista de archivos temporales permanentes está en la carpeta
 de evidencia indicada. Commit: `451156b`.
+
+## Bloque 3 - F300 confiable
+
+### Hallazgo y decisión
+
+El detalle comercial no guardaba tarifa ni IVA por línea y el borrador
+calculaba `baseGravada = ventas / 1.19`. Se agregó la migración v88 con
+`impuesto_pct` e `impuesto_total` en `ventas_detalle` y `compras_detalle`.
+F300 ahora agrupa bases e IVA generado por 0/5/19 y separa el IVA descontable
+por origen de compra. Los encabezados sin detalle se usan solo como fallback
+histórico, sin inferir una tarifa distinta.
+
+### Evidencia cruda
+
+- `docs/evidencias/auditoria_comercial_bloque_3/block3_tests_final.txt`
+- `docs/evidencias/auditoria_comercial_bloque_3/block3_analyze_final.txt`
+- `docs/evidencias/auditoria_comercial_bloque_3/block3_build_final.txt`
+
+La salida de tests terminó en `00:21 +14: All tests passed!`. Analyze terminó
+en `240 issues found` y build en `Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe`.
+
+### Cierre de la subtarea 3
+
+Bloque 3 implementado y verificado con 14 pruebas. La regresión de la corrida
+conjunta por teardown de fixtures fue corregida antes de esta evidencia final.
+Commit: pendiente de crear en esta entrega.

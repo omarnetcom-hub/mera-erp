@@ -95,6 +95,21 @@ con crédito tropieza en una instalación fresca porque `cuentas_por_pagar` no
 tiene todavía `proveedor_id`/`compra_id`; no se alteró esa tabla al no ser un
 problema de costeo/Kardex.
 
+### Actualización del Bloque 3 (2026-08-09)
+
+F300 ahora obtiene la base y el IVA desde las líneas de ventas/compras y
+separa las tarifas 0 %, 5 % y 19 %. Las líneas nuevas persisten `impuesto_pct`
+e `impuesto_total`; los documentos históricos sin detalle usan únicamente sus
+propios campos de encabezado como fallback. Ya no se divide el total de ventas
+entre 1,19 ni se toma todo el IVA de compras sin procedencia.
+
+Evidencia ejecutada: `flutter test test/commercial_tax_block1_test.dart
+test/commercial_inventory_block2_test.dart test/commercial_f300_block3_test.dart
+test/sales_flow_test.dart test/architectural_consolidation_test.dart
+--reporter expanded` — **14 pruebas pasaron**. `commercial_f300_block3_test.dart`
+verifica bases 0/5/19 exactas, IVA generado 67.000, IVA descontable 19.000 y
+saldo 48.000.
+
 ## 3. Lógica contable comercial
 
 | Requisito / criterio | Norma o referencia | Archivo(s) que lo implementan | Test que lo cubre | Evidencia | Estado |

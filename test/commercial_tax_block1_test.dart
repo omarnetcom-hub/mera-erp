@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/core/currency/currency.dart';
 import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/db_helper.dart';
+import 'package:merka_erp/features/company_configuration_service.dart';
 import 'package:merka_erp/sales/application/create_sale_use_case.dart';
 import 'package:merka_erp/taxes/retention_policy.dart';
 
@@ -25,6 +26,7 @@ void main() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     await DatabaseHelper.resetForTests();
+    CompanyConfigurationService.instance.resetForTests();
     dbDir = await Directory.systemTemp.createTemp('merkaerp_tax_block1_');
     await databaseFactory.setDatabasesPath(dbDir.path);
     helper = DatabaseHelper.instance;
@@ -33,6 +35,7 @@ void main() {
   });
 
   tearDownAll(() async {
+    CompanyConfigurationService.instance.resetForTests();
     await DatabaseHelper.resetForTests();
     if (await dbDir.exists()) await dbDir.delete(recursive: true);
   });

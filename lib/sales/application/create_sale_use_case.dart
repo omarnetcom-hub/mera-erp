@@ -471,6 +471,8 @@ class CreateSaleUseCase {
           'cantidad': item.quantity,
           'precio_unitario': item.unitPrice.toSql(),
           'subtotal': item.subtotal.toSql(),
+          'impuesto_pct': item.taxRate,
+          'impuesto_total': item.taxTotal.toSql(),
         });
       }
       await _db.registrarAsientoVenta(

@@ -260,7 +260,13 @@ class _DeclaracionesTributariasPageState
                     _filas(_f300, {
                       'ingresos_gravados': 'Ingresos gravados',
                       'base_gravada': 'Base gravada',
+                      'base_gravada_0': 'Base IVA 0%',
+                      'base_gravada_5': 'Base IVA 5%',
+                      'base_gravada_19': 'Base IVA 19%',
                       'iva_generado': 'IVA generado',
+                      'iva_generado_0': 'IVA generado 0%',
+                      'iva_generado_5': 'IVA generado 5%',
+                      'iva_generado_19': 'IVA generado 19%',
                       'iva_descontable': 'IVA descontable',
                       'reteiva_practicada': 'ReteIVA practicada',
                       'saldo_pagar': 'Saldo a pagar / a favor',
