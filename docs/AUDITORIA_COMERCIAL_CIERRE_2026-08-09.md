@@ -239,4 +239,4 @@ Bloque 5 implementado y verificado. La fila de nómina que exigía atomicidad y
 retención deja de estar Pendiente y pasa a Parcial por las deducciones
 laborales aún no modeladas; las demás filas conservan estados honestos.
 
-Commit: se generará después de incorporar este log y la matriz.
+Commit: `2e336b6`.
