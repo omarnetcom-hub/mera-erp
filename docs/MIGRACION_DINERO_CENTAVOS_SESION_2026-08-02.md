@@ -1098,6 +1098,14 @@ diagnostico mostraron callbacks de animacion del propio framework y un
 no se encontro un error de negocio nuevo en el flujo de apropiacion. No se
 declara cerrada la subtarea ni `Fase 4: COMPLETA`.
 
+## Actualizacion posterior: deadlock FFI resuelto (2026-08-09)
+
+La seccion anterior es historica y queda supersedida por la investigacion y
+evidencia de `## Investigacion y correccion del deadlock FFI de presupuesto
+(2026-08-09)`. En esta corrida el test aislado de presupuesto ejecuto los 7
+casos en 13 segundos y paso; la suite completa termino con 254 pasados, 3
+omitidos preexistentes y 0 fallos. El arreglo esta en el commit `6b3bf5f`.
+
 Comando exacto pendiente para Omar, despues de cerrar procesos
 `flutter_tester.exe` y limpiar solo `build/native_assets`:
 
