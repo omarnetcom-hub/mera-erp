@@ -963,6 +963,114 @@ flutter analyze
 flutter build windows
 ```
 
+## Investigacion y correccion del deadlock FFI de presupuesto (2026-08-09)
+
+### Diagnostico
+
+La evidencia de Omar mostro un `TimeoutException` despues de 10 minutos con
+`dart:isolate _RawReceivePort._handleMessage`. Se reviso el flujo real:
+
+- `lib/sector_publico/presupuesto/pages/presupuesto_publico_page.dart:56-70`
+  inicializa el servicio, espera `DatabaseHelper.instance.database` y luego
+  ejecuta las consultas de `_cargarDatos`.
+- `lib/sector_publico/presupuesto/pages/presupuesto_publico_page.dart:72-123`
+  hace cinco consultas secuenciales a apropiaciones, CDPs, RPs, obligaciones y
+  pagos.
+- `lib/sector_publico/presupuesto/services/presupuesto_service.dart:35-91`
+  `crearApropiacion` hace un `insert` directo y no abre una transaccion anidada.
+  No se encontro un segundo `Database` ni un `await` dentro de un callback de
+  la base de datos en ese camino.
+
+La prueba minima `test/sector_publico/presupuesto/
+presupuesto_crear_apropiacion_deadlock_test.dart` ejecuto el servicio puro con
+`databaseFactoryFfi` y paso. El bloqueo se reprodujo solamente al ejecutar la
+operacion FFI desde el widget test con el fake async de `WidgetTester`: la
+respuesta del isolate secundario esperaba ser atendida por `RawReceivePort`.
+Por tanto, la causa es el fixture de pruebas, no un deadlock del servicio de
+produccion. La app de produccion no usa `sqflite_common_ffi` ni su factory FFI;
+no se modificaron transacciones ni reglas contables productivas.
+
+### Correccion
+
+1. `test/sector_publico/presupuesto/presupuesto_publico_page_test.dart` usa
+   `databaseFactoryFfiNoIsolate`, que ejecuta SQLite en el mismo isolate del
+   `WidgetTester` y elimina la espera circular.
+2. `PresupuestoPublicoPage` expone el callback opcional `onReady` en las lineas
+   19-29 y entrega el Future de inicializacion en las lineas 55-60. El test
+   espera ese Future mediante `tester.runAsync`, sin timeout, skip ni retry.
+   En produccion no se pasa callback y el comportamiento es el mismo.
+3. El fixture se alineo con el flujo vigente: inicializacion de locale `es_CO`,
+   valores INTEGER en centavos y contrato firmado real antes de expedir RP.
+   La validacion normativa de contrato firmado no se debilito.
+
+### Evidencia cruda
+
+Prueba minima:
+
+```text
+flutter test test/sector_publico/presupuesto/presupuesto_crear_apropiacion_deadlock_test.dart --reporter expanded
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_crear_apropiacion_deadlock_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: crear apropiacion en servicio puro no bloquea FFI
+00:00 +1: (tearDownAll)
+00:00 +1: All tests passed!
+```
+
+Grupo de presupuesto, siete tests, ejecutado en aislamiento:
+
+```text
+flutter test test/sector_publico/presupuesto/presupuesto_publico_page_test.dart --reporter compact
+00:00 +0: loading C:/Users/PC/Desktop/Caja_simple/test/sector_publico/presupuesto/presupuesto_publico_page_test.dart
+00:02 +0: (setUpAll)
+00:05 +1: Presupuesto Público Page Tests Crear apropiación y verificar en base de datos
+00:06 +2: Presupuesto Público Page Tests Bloqueo normativo: CDP excede saldo disponible
+00:09 +3: Presupuesto Público Page Tests Crear CDP válido y verificar en base de datos
+00:09 +4: Presupuesto Público Page Tests Bloqueo normativo: RP sin contrato (Ley 80/1993 Art. 41)
+00:10 +5: Presupuesto Público Page Tests Crear RP válido con contrato y verificar en base de datos
+00:12 +6: Presupuesto Público Page Tests Bloqueo normativo: Obligación sin acta de recibo ni factura
+00:13 +7: Presupuesto Público Page Tests Crear obligación válida con acta de recibo y verificar en base de datos
+00:13 +7: (tearDownAll)
+00:13 +7: All tests passed!
+```
+
+Suite completa:
+
+```text
+flutter test --reporter compact
+03:37 +254 ~3: 3 skipped tests.
+03:37 +254 ~3: All other tests passed!
+```
+
+Los tres skips son preexistentes y no pertenecen al flujo de presupuesto.
+La suite no reporto fallos nuevos ni bloqueo FFI.
+
+Analyze y build finales:
+
+```text
+flutter analyze
+flutter : 244 issues found. (ran in 7.1s)
+error_lines=0
+
+flutter build windows
+Building Windows application...
+Nuget.exe not found, trying to download or use cached version.
+17.2s
+Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe
+```
+
+El build termino con `exit=0`; el aviso de NuGet no impidio usar la version
+cacheada. Analyze conserva 244 issues informativos/warnings y cero errores.
+
+### Cierre de la subtarea: deadlock de presupuesto
+
+El deadlock FFI quedo resuelto y reproducido/cubierto por una prueba minima de
+servicio y por los siete tests de widget, sin timeouts ni skips agregados. La
+suite completa termino con 254 tests pasando, 3 skips preexistentes y 0 fallos.
+La pagina de produccion no fue alterada en su acceso a SQLite; solo se agrego
+un callback opcional de observabilidad de inicializacion. El backend no se
+modifico. La Fase 4 puede considerarse cerrada respecto a este bloqueo, sujeto
+a conservar los tres skips preexistentes documentados.
+
 ## Correccion del skip de presupuesto publico
 
 En `f08658a`, el cierre del grupo `Presupuesto Público Page Tests` era

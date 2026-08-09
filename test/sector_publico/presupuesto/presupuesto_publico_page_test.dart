@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/db_helper.dart';
 import 'package:merka_erp/core/currency/public_sector_money.dart';
@@ -19,18 +20,86 @@ import 'package:merka_erp/sector_publico/contratacion/database/schema_contrataci
 import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
 import 'package:merka_erp/sector_publico/presupuesto/database/schema_presupuesto.dart';
 
-Future<void> _pumpBudgetUi(WidgetTester tester) async {
-  await tester.pump(const Duration(milliseconds: 100));
-  await tester.runAsync(() async {
-    await Future<void>.delayed(const Duration(seconds: 2));
+Future<void>? _pageReady;
+
+Future<void> _seedSignedContract(
+  Database db, {
+  required String entidadId,
+  required String cdpId,
+  required String numeroCdp,
+}) async {
+  await db.insert('procesos_contratacion', {
+    'id': 'process-001',
+    'entidad_id': entidadId,
+    'numero_proceso': 'PROC-001',
+    'objeto_contrato': 'Servicios de prueba',
+    'modalidad': 'contratacionDirecta',
+    'valor_estimado': 100000000,
+    'tipo_contrato': 'prestacionServicios',
+    'dependencia_solicitante': 'Presupuesto',
+    'responsable_proceso': 'Funcionario de prueba',
+    'fecha_inicio': DateTime(2026).toIso8601String(),
+    'fecha_publicacion': DateTime(2026).toIso8601String(),
+    'fecha_cierre': DateTime(2026).toIso8601String(),
+    'estado': 'adjudicado',
+    'cdp_id': cdpId,
+    'numero_cdp': numeroCdp,
+    'secop_id': null,
+    'observaciones': null,
   });
-  await tester.pump(const Duration(milliseconds: 500));
+  await db.insert('contratos', {
+    'id': 'contract-001',
+    'entidad_id': entidadId,
+    'numero_contrato': 'CT-001-2026',
+    'proceso_id': 'process-001',
+    'numero_proceso': 'PROC-001',
+    'objeto_contrato': 'Servicios de prueba',
+    'tipo_contrato': 'prestacionServicios',
+    'valor_contrato': 100000000,
+    'contratista_id': 'supplier-001',
+    'contratista_nombre': 'Proveedor de prueba',
+    'contratista_identificacion': '900000001',
+    'cdp_id': cdpId,
+    'numero_cdp': numeroCdp,
+    'rp_id': null,
+    'numero_rp': null,
+    'fecha_firma': DateTime(2026).toIso8601String(),
+    'fecha_inicio_ejecucion': DateTime(2026).toIso8601String(),
+    'fecha_fin_ejecucion': DateTime(2027).toIso8601String(),
+    'duracion_dias': 365,
+    'estado': 'firmado',
+    'fecha_legalizacion': null,
+    'fecha_terminacion': null,
+    'fecha_liquidacion': null,
+    'supervisor_id': null,
+    'supervisor_nombre': null,
+    'interventor_id': null,
+    'interventor_nombre': null,
+    'observaciones': null,
+  });
+}
+
+Future<void> _pumpBudgetUi(WidgetTester tester) async {
+  final ready = _pageReady;
+  if (ready != null) {
+    await tester.runAsync(() async {
+      await ready;
+    });
+    _pageReady = null;
+  }
+  await tester.runAsync(() async {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  });
+  await tester.pump();
 }
 
 void main() {
-  setUpAll(() {
+  setUpAll(() async {
     sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    await initializeDateFormatting('es_CO');
+    // WidgetTester ya corre en un isolate; usar otro isolate para SQLite
+    // deja las respuestas FFI esperando en RawReceivePort bajo fake async.
+    databaseFactory = databaseFactoryFfiNoIsolate;
   });
 
   group('Presupuesto Público Page Tests', () {
@@ -188,6 +257,17 @@ void main() {
 
       testEntidadId = 'test-entidad-${DateTime.now().millisecondsSinceEpoch}';
       testUsuarioId = 'test-usuario-${DateTime.now().millisecondsSinceEpoch}';
+      await db.insert('funcionarios_entidad', {
+        'id': 'FUNC-$testUsuarioId',
+        'entidad_id': testEntidadId,
+        'usuario_id': testUsuarioId,
+        'cargo_clave': 'rector',
+        'nombre_completo': 'Rector de prueba',
+        'identificacion': 'ID-$testUsuarioId',
+        'telefono': '3000000000',
+        'email': 'presupuesto@prueba.gov.co',
+        'direccion': 'Direccion de prueba',
+      });
 
       // Limpiar datos de prueba anteriores
       await db.delete(
@@ -257,18 +337,12 @@ void main() {
           home: PresupuestoPublicoPage(
             entidadId: testEntidadId,
             usuarioId: testUsuarioId,
+            onReady: (ready) => _pageReady = ready,
           ),
         ),
       );
 
-      // Esperar a que cargue
-      // La pagina puede mantener un indicador indeterminado mientras carga;
-      // esperar asentamiento infinito no es una condicion valida. La base
-      // SQLite necesita tiempo real, no solo tiempo virtual del tester.
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(seconds: 3));
-      });
-      await tester.pump();
+      await _pumpBudgetUi(tester);
 
       // Verificar que estamos en la pestaña de apropiaciones
       expect(find.text('Apropiaciones Presupuestales'), findsOneWidget);
@@ -384,6 +458,7 @@ void main() {
           home: PresupuestoPublicoPage(
             entidadId: testEntidadId,
             usuarioId: testUsuarioId,
+            onReady: (ready) => _pageReady = ready,
           ),
         ),
       );
@@ -401,7 +476,7 @@ void main() {
       // Seleccionar la apropiación
       await tester.tap(find.byType(DropdownButtonFormField<Apropiacion>));
       await _pumpBudgetUi(tester);
-      await tester.tap(find.text('01-01-01-00-000 - \$1,000,000.00'));
+      await tester.tap(find.textContaining('01-01-01-00-000'));
       await _pumpBudgetUi(tester);
 
       // Intentar expedir CDP con valor mayor al saldo disponible
@@ -458,6 +533,7 @@ void main() {
           home: PresupuestoPublicoPage(
             entidadId: testEntidadId,
             usuarioId: testUsuarioId,
+            onReady: (ready) => _pageReady = ready,
           ),
         ),
       );
@@ -475,7 +551,7 @@ void main() {
       // Seleccionar la apropiación
       await tester.tap(find.byType(DropdownButtonFormField<Apropiacion>));
       await _pumpBudgetUi(tester);
-      await tester.tap(find.text('01-01-01-00-000 - \$1,000,000.00'));
+      await tester.tap(find.textContaining('01-01-01-00-000'));
       await _pumpBudgetUi(tester);
 
       // Llenar el formulario con valor válido
@@ -510,8 +586,8 @@ void main() {
       expect(cdpsResult.length, 1, reason: 'Debe haber un CDP creado');
 
       final cdpData = cdpsResult.first;
-      expect(cdpData['valor_cdp'], 500000.0);
-      expect(cdpData['saldo_disponible'], 500000.0);
+      expect(cdpData['valor_cdp'], 50000000);
+      expect(cdpData['saldo_disponible'], 50000000);
       expect(cdpData['estado'], 'vigente');
 
       // Verificar que la apropiación se actualizó
@@ -522,8 +598,8 @@ void main() {
       );
 
       final apropiacionData = apropiacionesResult.first;
-      expect(apropiacionData['valor_cdp'], 500000.0);
-      expect(apropiacionData['saldo_disponible'], 500000.0);
+      expect(apropiacionData['valor_cdp'], 50000000);
+      expect(apropiacionData['saldo_disponible'], 50000000);
     });
 
     testWidgets('Bloqueo normativo: RP sin contrato (Ley 80/1993 Art. 41)', (
@@ -565,6 +641,7 @@ void main() {
           home: PresupuestoPublicoPage(
             entidadId: testEntidadId,
             usuarioId: testUsuarioId,
+            onReady: (ready) => _pageReady = ready,
           ),
         ),
       );
@@ -650,6 +727,7 @@ void main() {
           home: PresupuestoPublicoPage(
             entidadId: testEntidadId,
             usuarioId: testUsuarioId,
+            onReady: (ready) => _pageReady = ready,
           ),
         ),
       );
@@ -670,10 +748,21 @@ void main() {
       await tester.tap(find.textContaining(cdp.numeroCDP));
       await _pumpBudgetUi(tester);
 
+      await _seedSignedContract(
+        db,
+        entidadId: testEntidadId,
+        cdpId: cdp.id,
+        numeroCdp: cdp.numeroCDP,
+      );
+
       // Llenar el formulario con contrato (cumple normativa)
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Número Contrato *'),
         'CT-001-2026',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'ID Contrato'),
+        'contract-001',
       );
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Valor RP'),
@@ -706,8 +795,8 @@ void main() {
       expect(rpsResult.length, 1, reason: 'Debe haber un RP creado');
 
       final rpData = rpsResult.first;
-      expect(rpData['valor_rp'], 300000.0);
-      expect(rpData['saldo_disponible'], 300000.0);
+      expect(rpData['valor_rp'], 30000000);
+      expect(rpData['saldo_disponible'], 30000000);
       expect(rpData['contrato_numero'], 'CT-001-2026');
       expect(rpData['estado'], 'vigente');
     });
@@ -745,6 +834,12 @@ void main() {
         contratoNumero: null,
       );
 
+      await _seedSignedContract(
+        db,
+        entidadId: testEntidadId,
+        cdpId: cdp.id,
+        numeroCdp: cdp.numeroCDP,
+      );
       final rp = await presupuestoService.expedirRP(
         entidadId: testEntidadId,
         usuarioId: testUsuarioId,
@@ -763,6 +858,7 @@ void main() {
           home: PresupuestoPublicoPage(
             entidadId: testEntidadId,
             usuarioId: testUsuarioId,
+            onReady: (ready) => _pageReady = ready,
           ),
         ),
       );
@@ -782,6 +878,15 @@ void main() {
       await _pumpBudgetUi(tester);
       await tester.tap(find.textContaining(rp.numeroRP));
       await _pumpBudgetUi(tester);
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Número Contrato'),
+        'CT-001-2026',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'ID Contrato'),
+        'contract-001',
+      );
 
       // Llenar el formulario SIN acta de recibo ni factura (violación normativa)
       await tester.enterText(
@@ -842,6 +947,12 @@ void main() {
           contratoNumero: null,
         );
 
+        await _seedSignedContract(
+          db,
+          entidadId: testEntidadId,
+          cdpId: cdp.id,
+          numeroCdp: cdp.numeroCDP,
+        );
         final rp = await presupuestoService.expedirRP(
           entidadId: testEntidadId,
           usuarioId: testUsuarioId,
@@ -860,6 +971,7 @@ void main() {
             home: PresupuestoPublicoPage(
               entidadId: testEntidadId,
               usuarioId: testUsuarioId,
+              onReady: (ready) => _pageReady = ready,
             ),
           ),
         );
@@ -879,6 +991,15 @@ void main() {
         await _pumpBudgetUi(tester);
         await tester.tap(find.textContaining(rp.numeroRP));
         await _pumpBudgetUi(tester);
+
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Número Contrato'),
+          'CT-001-2026',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'ID Contrato'),
+          'contract-001',
+        );
 
         // Llenar el formulario con acta de recibo (cumple normativa)
         await tester.enterText(
@@ -920,8 +1041,8 @@ void main() {
         );
 
         final obligacionData = obligacionesResult.first;
-        expect(obligacionData['valor_obligacion'], 200000.0);
-        expect(obligacionData['saldo_pendiente'], 200000.0);
+        expect(obligacionData['valor_obligacion'], 20000000);
+        expect(obligacionData['saldo_pendiente'], 20000000);
         expect(obligacionData['tercero_nombre'], 'Empresa XYZ');
         expect(obligacionData['acta_recibo_numero'], 'ACTA-001');
         expect(obligacionData['estado'], 'pendiente');

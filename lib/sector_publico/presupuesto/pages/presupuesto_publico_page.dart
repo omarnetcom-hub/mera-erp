@@ -19,11 +19,13 @@ import '../../../core/currency/public_sector_money.dart';
 class PresupuestoPublicoPage extends StatefulWidget {
   final String entidadId;
   final String usuarioId;
+  final void Function(Future<void> ready)? onReady;
 
   const PresupuestoPublicoPage({
     super.key,
     required this.entidadId,
     required this.usuarioId,
+    this.onReady,
   });
 
   @override
@@ -53,7 +55,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
   @override
   void initState() {
     super.initState();
-    _inicializarServicio();
+    final ready = _inicializarServicio();
+    widget.onReady?.call(ready);
   }
 
   Future<void> _inicializarServicio() async {
