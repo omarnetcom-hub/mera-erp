@@ -963,6 +963,54 @@ flutter analyze
 flutter build windows
 ```
 
+## Suite completa sondeada despues de limpieza - 2026-08-08
+
+Se lanzo `flutter test --reporter compact` en segundo plano con salida a
+`phase4_full_suite.txt`. El proceso si avanzo y el archivo llego a 145430
+bytes, pero quedo detenido en el test de presupuesto publico.
+
+### Evidencia cruda relevante
+
+```text
+01:35 +143 ~1 -1: .../conciliacion_reciprocas_integracion_test.dart:
+NICSP 40 conserva la reciproca sin conciliar y la elimina solo tras aprobacion
+contable [E]
+SqfliteFfiException(sqlite_error: 1811): Un asiento debe crearse en borrador
+antes de cerrarse.
+Causing statement: INSERT INTO asientos_contables_sp (... estado ...)
+parameters: ..., registrado, 10000, 10000, ...
+
+01:36 +143 ~1 -2: .../depreciacion_job_service_test.dart:
+ejecuta el job mensual, actualiza activo y genera asiento NICSP 17 [E]
+SqfliteFfiException(sqlite_error: 1811): El asiento no esta balanceado al
+cerrarse.
+Causing statement: UPDATE asientos_contables_sp SET estado = ? WHERE id = ?
+parameters: aprobado, ...
+
+01:39 +144 ~1 -3: .../flujo_efectivo_service_test.dart:
+genera NICSP 2 directo con movimientos conocidos del periodo [E]
+SqfliteFfiException(sqlite_error: 1811): Un asiento debe crearse en borrador
+antes de cerrarse.
+Causing statement: INSERT INTO asientos_contables_sp (... estado ...)
+parameters: ..., registrado, 50000, 0, ...
+
+02:42 +165 ~3 -3: .../presupuesto_publico_page_test.dart:
+Presupuesto Publico Page Tests Crear apropiacion y verificar en base de datos
+```
+
+No aparecio el resumen final porque la corrida quedo bloqueada en ese ultimo
+test. La lectura parcial confirma 165 tests exitosos, 3 omitidos y 3 errores
+nuevos antes del bloqueo. Estos tres errores son regresiones de compatibilidad
+introducidas por la proteccion SQL v76: los tests/productores que insertan
+directamente asientos publicos deben migrar al protocolo borrador -> lineas ->
+cierre, y el job de depreciacion debe revisar su balance antes del cierre.
+No se modifico codigo en esta interrupcion.
+
+La suite completa no coincide aun con la expectativa de 16/17 correcciones:
+ademas de la #14 pendiente, hay estas 3 fallas nuevas que deben resolverse
+antes de cerrar la Fase 4. No se ejecuto un nuevo build despues de detectar
+estas regresiones.
+
 ## Verificacion solicitada posterior a la Parte B - 2026-08-08
 
 Se ejecuto la limpieza indicada: terminacion de `flutter_tester.exe` y
