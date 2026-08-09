@@ -240,3 +240,26 @@ retención deja de estar Pendiente y pasa a Parcial por las deducciones
 laborales aún no modeladas; las demás filas conservan estados honestos.
 
 Commit: `2e336b6`.
+
+## Bloque 6 - Marco NIIF configurable por empresa
+
+### Decision normativa previa
+
+Se revisaron los articulos 1.1.1.1, 1.1.2.1 y 1.1.3.1 del Decreto 2420 de
+2015 y los Anexos 1, 2 y 3. Grupo 1 depende de emision/interes publico o de
+los umbrales de mas de 200 trabajadores o 30.000 SMMLV junto con una
+relacion societaria o comercio exterior relevante; Grupo 2 cubre a quien no
+esta en Grupo 1 ni Grupo 3 y permite opcion voluntaria desde Grupo 3; Grupo 3
+exige todas las condiciones de microempresa. Los marcos tecnicos y sus
+revelaciones son diferentes.
+
+La decision conservadora es configurar el grupo por empresa. No se puede
+clasificar automaticamente con los datos actuales porque faltan promedios
+anuales y relaciones societarias. La implementacion inicial sera la
+configuracion declarada y una politica consultable, no una afirmacion de
+cumplimiento completo. Grupo 2/3 reciben el alcance prioritario; Grupo 1
+queda disponible con revelaciones completas pendientes.
+
+El detalle normativo y las fuentes oficiales quedan en
+`docs/MARCO_NIIF_CONFIGURABLE_BLOQUE_6_DISENO.md`. No se implementan DIAN/PTA
+real ni multiempresa/consolidacion/transferencias en este bloque.
