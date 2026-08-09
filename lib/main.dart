@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -33,6 +32,8 @@ import 'sync/domain/sync_models.dart';
 import 'services/sync_service.dart';
 import 'services/hybrid_sync_service.dart';
 import 'core/logging/logging_service.dart';
+import 'core/commands/command_registry.dart';
+import 'core/commands/default_contextual_commands.dart';
 import 'core/features/feature_flag.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/theme/theme_service.dart';
@@ -121,7 +122,21 @@ Future<void> main() async {
     debugPrint('Bootstrap warnings: ${bootstrap.errors.join(', ')}');
   }
 
+  CommandRegistry.instance.setAuthorization(_authorizeGlobalCommand);
+  CommandRegistry.instance.registerAll(defaultContextualCommands());
   runApp(const MiApp());
+}
+
+bool _authorizeGlobalCommand(
+  CommandDefinition command,
+  CommandContext context,
+) {
+  final action = command.requiredAction;
+  if (action == null) return true;
+  return AppSession.puedeEjecutarAccion(
+    command.permissionModuleId ?? command.moduleId,
+    action,
+  );
 }
 
 final ValueNotifier<ThemeMode> merkaThemeMode = ValueNotifier(ThemeMode.system);
@@ -164,6 +179,8 @@ class MiApp extends StatelessWidget {
             highContrast: true,
           ),
           themeMode: mode,
+          builder: (context, child) =>
+              CommandPaletteHost(child: child ?? const SizedBox.shrink()),
           home: const LicenseCheckWrapper(),
         );
       },
@@ -323,7 +340,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     BuildContext context,
     List<ModuleDefinition> modules,
   ) {
-    _showCommandPaletteDialog(this, context, modules);
+    showCommandPalette(context);
   }
 
   Future<void> _showNotificationCenter(

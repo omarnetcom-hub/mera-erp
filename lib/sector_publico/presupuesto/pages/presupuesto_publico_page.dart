@@ -12,6 +12,7 @@ import '../models/rp.dart';
 import '../models/obligacion.dart';
 import '../models/pago.dart';
 import '../services/presupuesto_service.dart';
+import '../../../core/commands/command_registry.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/currency/public_sector_money.dart';
@@ -52,10 +53,12 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
   bool _loading = true;
 
   late PresupuestoService _presupuestoService;
+  late final String _commandOwner;
 
   @override
   void initState() {
     super.initState();
+    _commandOwner = 'presupuesto.publico:${identityHashCode(this)}';
     final ready = _inicializarServicio();
     widget.onReady?.call(ready);
   }
@@ -68,6 +71,24 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       auditoriaService: auditoriaService,
     );
     await _cargarDatos();
+    if (mounted) _activateCommandContext();
+  }
+
+  void _activateCommandContext() {
+    CommandRegistry.instance.setContext(
+      CommandContext(
+        moduleId: 'presupuesto_publico',
+        recordType: 'presupuesto_publico',
+        recordId: widget.entidadId,
+        label: 'Presupuesto publico',
+        ownerId: _commandOwner,
+        actions: {
+          'create_appropriation': (commandContext, _) => _crearApropiacion(),
+          'create_cdp': (commandContext, _) => _expedirCDP(),
+          'create_rp': (commandContext, _) => _expedirRP(),
+        },
+      ),
+    );
   }
 
   Future<void> _cargarDatos() async {
@@ -666,6 +687,12 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    CommandRegistry.instance.clearContext(_commandOwner);
+    super.dispose();
   }
 }
 

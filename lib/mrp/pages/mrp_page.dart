@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/currency/money_value.dart';
+import '../../core/commands/command_registry.dart';
 import '../application/mrp_services.dart';
 import '../domain/mrp_bom.dart';
 import '../domain/mrp_bom_item.dart';
@@ -19,10 +20,12 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 2, vsync: this);
   late Future<List<MrpBom>> _boms;
   late Future<List<MrpWorkOrder>> _orders;
+  late final String _commandOwner;
 
   @override
   void initState() {
     super.initState();
+    _commandOwner = 'mrp.orders:${identityHashCode(this)}';
     _reload();
   }
 
@@ -33,6 +36,7 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    CommandRegistry.instance.clearContext(_commandOwner);
     _tabs.dispose();
     super.dispose();
   }
@@ -159,6 +163,7 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
           order.status == MrpWorkOrderStatus.noIniciada;
       final blocked = canBeBlocked && !stockOk;
       return ListTile(
+        onTap: () => _activateOrderContext(context, order),
         leading: Icon(
           blocked ? Icons.lock : Icons.precision_manufacturing,
           color: blocked ? Colors.orange : null,
@@ -175,6 +180,45 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
       );
     },
   );
+
+  void _activateOrderContext(BuildContext context, MrpWorkOrder order) {
+    final orderId = order.id;
+    if (orderId == null) return;
+    final actions = <String, CommandHandler>{
+      'start': (commandContext, _) async {
+        await _orderService.transition(orderId, MrpWorkOrderStatus.enProceso);
+        if (mounted) setState(_reload);
+      },
+      'complete': (commandContext, _) async {
+        await _orderService.transition(orderId, MrpWorkOrderStatus.completada);
+        if (mounted) setState(_reload);
+      },
+      'bom': (commandContext, _) async {
+        final boms = await _bomService.list();
+        MrpBom? matchingBom;
+        for (final bom in boms) {
+          if (bom.id == order.bomId) {
+            matchingBom = bom;
+            break;
+          }
+        }
+        if (matchingBom != null && mounted) {
+          _tabs.index = 0;
+          await _showBomStructure(matchingBom);
+        }
+      },
+    };
+    CommandRegistry.instance.setContext(
+      CommandContext(
+        moduleId: 'mrp',
+        recordType: 'mrp_work_order',
+        recordId: '$orderId',
+        label: 'Orden #$orderId',
+        ownerId: _commandOwner,
+        actions: actions,
+      ),
+    );
+  }
 
   Future<void> _showBomEditor() async {
     final product = TextEditingController();

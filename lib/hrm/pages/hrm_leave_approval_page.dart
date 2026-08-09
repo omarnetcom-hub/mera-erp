@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app_session.dart';
+import '../../core/commands/command_registry.dart';
 import '../application/hrm_leave_service.dart';
 
 class HrmLeaveApprovalPage extends StatefulWidget {
@@ -15,11 +16,19 @@ class HrmLeaveApprovalPage extends StatefulWidget {
 class _HrmLeaveApprovalPageState extends State<HrmLeaveApprovalPage> {
   final _service = HrmLeaveService();
   late Future<List<Map<String, dynamic>>> _pending;
+  late final String _commandOwner;
 
   @override
   void initState() {
     super.initState();
+    _commandOwner = 'hrm.leave.approval:${identityHashCode(this)}';
     _reload();
+  }
+
+  @override
+  void dispose() {
+    CommandRegistry.instance.clearContext(_commandOwner);
+    super.dispose();
   }
 
   void _reload() {
@@ -65,6 +74,7 @@ class _HrmLeaveApprovalPageState extends State<HrmLeaveApprovalPage> {
     final days = row['length_days']?.toString() ?? '';
     final leaveId = (row['id'] as num).toInt();
     return ListTile(
+      onTap: () => _activateCommandContext(context, row),
       leading: const Icon(Icons.pending_actions, color: Colors.orange),
       title: Text('$employee - $leaveName'),
       subtitle: Text('$date - $days dia(s)'),
@@ -82,6 +92,25 @@ class _HrmLeaveApprovalPageState extends State<HrmLeaveApprovalPage> {
             onPressed: () => _reject(context, leaveId),
           ),
         ],
+      ),
+    );
+  }
+
+  void _activateCommandContext(BuildContext context, Map<String, dynamic> row) {
+    final leaveId = (row['id'] as num).toInt();
+    final employee = row['employee_name']?.toString() ?? 'Empleado';
+    final leaveName = row['leave_name']?.toString() ?? 'Ausencia';
+    CommandRegistry.instance.setContext(
+      CommandContext(
+        moduleId: 'hrm',
+        recordType: 'hrm_leave',
+        recordId: '$leaveId',
+        label: '$employee - $leaveName',
+        ownerId: _commandOwner,
+        actions: {
+          'approve': (commandContext, _) => _approve(commandContext, leaveId),
+          'reject': (commandContext, _) => _reject(commandContext, leaveId),
+        },
       ),
     );
   }

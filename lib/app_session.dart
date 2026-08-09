@@ -131,6 +131,26 @@ class AppSession {
     return CompanyConfigurationService.instance.featureEnabledSync(featureKey);
   }
 
+  /// Authorization entry point for commands that only have a module id.
+  ///
+  /// It intentionally reuses the same commercial/public RBAC path as the
+  /// workspace instead of maintaining a second permission map for commands.
+  static bool puedeAbrirModuloId(String moduloId) {
+    if (_esModuloSectorPublico(moduloId)) {
+      return _puedeAbrirModuloSectorPublico(moduloId);
+    }
+    return puedeAbrir(moduloId) &&
+        puedeEjecutarAccion(moduloId, AppAction.view);
+  }
+
+  static bool puedeEjecutarPermiso(Permiso permiso) {
+    final userRol = rol;
+    if (userRol == 'administrador' || userRol == 'sistema') return true;
+    final rolPublico = _rolSectorPublico;
+    return rolPublico != null &&
+        RolesPermisosService.tienePermiso(rolPublico, permiso);
+  }
+
   static bool puedeEjecutarAccion(String moduloId, AppAction accion) {
     final userRol = rol;
     if (userRol == null || userRol.isEmpty) return false;
@@ -184,10 +204,7 @@ class AppSession {
         Permiso.configurarEntidad,
       );
     }
-    if (RolesPermisosService.tienePermiso(
-      rolPublico,
-      Permiso.consultarTodo,
-    )) {
+    if (RolesPermisosService.tienePermiso(rolPublico, Permiso.consultarTodo)) {
       return true;
     }
 
@@ -206,11 +223,7 @@ class AppSession {
       Permiso.expedirRP,
       Permiso.registrarObligacion,
     },
-    'pac': {
-      Permiso.modificarPAC,
-      Permiso.ejecutarPago,
-      Permiso.aprobarPago,
-    },
+    'pac': {Permiso.modificarPAC, Permiso.ejecutarPago, Permiso.aprobarPago},
     'contabilidad_nicsp': {
       Permiso.crearAsientoContable,
       Permiso.consultarEstadosFinancieros,

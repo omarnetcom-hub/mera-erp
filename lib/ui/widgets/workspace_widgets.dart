@@ -161,196 +161,192 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
       void notifications() =>
           state._showNotificationCenter(context, allModules);
 
-      return CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-              commandPalette,
-          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-              commandPalette,
-        },
-        child: Focus(
-          autofocus: true,
-          child: DefaultTabController(
-            length: sections.length,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final viewport = EnterpriseBreakpoints.fromWidth(
-                  constraints.maxWidth,
-                );
-                final mobile = viewport.isMobile;
+      CommandRegistry.instance.registerModuleCommands(
+        allModules,
+        authorize: AppSession.puedeAbrirModulo,
+        onOpen: (commandContext, module) =>
+            state._openModule(commandContext, module),
+      );
 
-                return Scaffold(
-                  drawer: mobile
-                      ? _MobileModuleDrawer(
-                          sections: baseSections,
-                          favoriteIds: state._favoriteModuleIds,
-                          onToggleFavorite: state._toggleFavorite,
-                          onOpen: (module) =>
-                              state._openModule(context, module),
-                          onLogout: () {
-                            AppSession.cerrar();
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LoginPage(),
-                              ),
-                            );
-                          },
-                        )
-                      : null,
-                  appBar: AppBar(
-                    title: mobile
-                        ? const Text(AppBrand.name)
-                        : const MerkaBrandHeader(compact: true),
-                    actions: [
-                      IconButton(
-                        tooltip: 'Busqueda global',
-                        onPressed: commandPalette,
-                        icon: const Icon(Icons.search),
-                      ),
-                      IconButton(
-                        tooltip: 'ERP Copilot',
-                        onPressed: copilot,
-                        icon: const Icon(Icons.auto_awesome),
-                      ),
-                      IconButton(
-                        tooltip: 'Notificaciones',
-                        onPressed: notifications,
-                        icon: const Icon(Icons.notifications_none),
-                      ),
-                      IconButton(
-                        tooltip: 'Modo oscuro',
-                        onPressed: state._toggleTheme,
-                        icon: Icon(
-                          merkaThemeMode.value == ThemeMode.dark
-                              ? PhosphorIcons.sun()
-                              : PhosphorIcons.moon(),
-                        ),
-                      ),
-                      FutureBuilder<bool>(
-                        future: () async {
-                          final uid = AppSession.usuarioId;
-                          if (uid == null) return false;
-                          final db = await DatabaseHelper.instance.database;
-                          return SelectorModoService.tieneAutoridadReconfiguracion(
-                            db: db,
-                            entidadId: AppSession.entidadId,
-                            usuarioId: uid,
-                          );
-                        }(),
-                        builder: (context, snapshot) {
-                          final tieneAutoridad = snapshot.data ?? false;
-                          if (!tieneAutoridad) {
-                            return const SizedBox.shrink();
-                          }
-                          return IconButton(
-                            tooltip:
-                                'Perfil del ERP (Comercial / Sector Público)',
-                            onPressed: () async {
-                              final uid = AppSession.usuarioId ?? 'sin_sesion';
-                              final modoActual =
-                                  await SelectorModoService.obtenerModoActual();
-                              if (!context.mounted) return;
-                              final nuevoModo =
-                                  await Navigator.push<ModoOperacion>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => SelectorModoScreen(
-                                        entidadId: AppSession.entidadId,
-                                        usuarioId: uid,
-                                        modoInicial: modoActual,
-                                      ),
-                                    ),
-                                  );
-                              if (nuevoModo != null) {
-                                state.setState(() {});
-                              }
-                            },
-                            icon: const Icon(Icons.swap_horiz),
+      return Focus(
+        autofocus: true,
+        child: DefaultTabController(
+          length: sections.length,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewport = EnterpriseBreakpoints.fromWidth(
+                constraints.maxWidth,
+              );
+              final mobile = viewport.isMobile;
+
+              return Scaffold(
+                drawer: mobile
+                    ? _MobileModuleDrawer(
+                        sections: baseSections,
+                        favoriteIds: state._favoriteModuleIds,
+                        onToggleFavorite: state._toggleFavorite,
+                        onOpen: (module) => state._openModule(context, module),
+                        onLogout: () {
+                          AppSession.cerrar();
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginPage(),
+                            ),
                           );
                         },
+                      )
+                    : null,
+                appBar: AppBar(
+                  title: mobile
+                      ? const Text(AppBrand.name)
+                      : const MerkaBrandHeader(compact: true),
+                  actions: [
+                    IconButton(
+                      tooltip: 'Busqueda global',
+                      onPressed: commandPalette,
+                      icon: const Icon(Icons.search),
+                    ),
+                    IconButton(
+                      tooltip: 'ERP Copilot',
+                      onPressed: copilot,
+                      icon: const Icon(Icons.auto_awesome),
+                    ),
+                    IconButton(
+                      tooltip: 'Notificaciones',
+                      onPressed: notifications,
+                      icon: const Icon(Icons.notifications_none),
+                    ),
+                    IconButton(
+                      tooltip: 'Modo oscuro',
+                      onPressed: state._toggleTheme,
+                      icon: Icon(
+                        merkaThemeMode.value == ThemeMode.dark
+                            ? PhosphorIcons.sun()
+                            : PhosphorIcons.moon(),
                       ),
-                      if (!mobile)
-                        IconButton.filledTonal(
-                          tooltip: 'Exportar XLS',
-                          onPressed: () => ExportarExcel.exportar(context),
-                          icon: const Icon(Icons.table_chart),
+                    ),
+                    FutureBuilder<bool>(
+                      future: () async {
+                        final uid = AppSession.usuarioId;
+                        if (uid == null) return false;
+                        final db = await DatabaseHelper.instance.database;
+                        return SelectorModoService.tieneAutoridadReconfiguracion(
+                          db: db,
+                          entidadId: AppSession.entidadId,
+                          usuarioId: uid,
+                        );
+                      }(),
+                      builder: (context, snapshot) {
+                        final tieneAutoridad = snapshot.data ?? false;
+                        if (!tieneAutoridad) {
+                          return const SizedBox.shrink();
+                        }
+                        return IconButton(
+                          tooltip:
+                              'Perfil del ERP (Comercial / Sector Público)',
+                          onPressed: () async {
+                            final uid = AppSession.usuarioId ?? 'sin_sesion';
+                            final modoActual =
+                                await SelectorModoService.obtenerModoActual();
+                            if (!context.mounted) return;
+                            final nuevoModo =
+                                await Navigator.push<ModoOperacion>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SelectorModoScreen(
+                                      entidadId: AppSession.entidadId,
+                                      usuarioId: uid,
+                                      modoInicial: modoActual,
+                                    ),
+                                  ),
+                                );
+                            if (nuevoModo != null) {
+                              state.setState(() {});
+                            }
+                          },
+                          icon: const Icon(Icons.swap_horiz),
+                        );
+                      },
+                    ),
+                    if (!mobile)
+                      IconButton.filledTonal(
+                        tooltip: 'Exportar XLS',
+                        onPressed: () => ExportarExcel.exportar(context),
+                        icon: const Icon(Icons.table_chart),
+                      ),
+                    const SizedBox(width: 6),
+                    if (!mobile)
+                      IconButton(
+                        tooltip: 'Cerrar sesion',
+                        onPressed: () {
+                          AppSession.cerrar();
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginPage(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.logout),
+                      ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+                floatingActionButton: mobile
+                    ? FloatingActionButton.extended(
+                        tooltip: 'Accion rapida',
+                        onPressed: () =>
+                            state._showMobileQuickActions(context, allModules),
+                        icon: const Icon(Icons.bolt),
+                        label: const Text('Acciones'),
+                      )
+                    : null,
+                body: SafeArea(
+                  child: Row(
+                    children: [
+                      if (viewport.isDesktop)
+                        _EnterpriseSidebar(
+                          sections: baseSections,
+                          collapsed: state._sidebarCollapsed,
+                          onToggleCollapsed: () {
+                            state._updateState(() {
+                              state._sidebarCollapsed =
+                                  !state._sidebarCollapsed;
+                            });
+                          },
+                          onOpen: (module) =>
+                              state._openModule(context, module),
                         ),
-                      const SizedBox(width: 6),
-                      if (!mobile)
-                        IconButton(
-                          tooltip: 'Cerrar sesion',
-                          onPressed: () {
-                            AppSession.cerrar();
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LoginPage(),
-                              ),
+                      Expanded(
+                        child: _WorkspaceBody(
+                          sections: sections,
+                          favoriteModules: favoriteModules,
+                          recentModules: recentModules,
+                          tipoEntidad: tipoEntidad,
+                          viewport: viewport,
+                          mode: state._workspaceMode,
+                          onModeChanged: (mode) {
+                            state._updateState(
+                              () => state._workspaceMode = mode,
                             );
                           },
-                          icon: const Icon(Icons.logout),
+                          searchController: state._globalSearchController,
+                          onSearchChanged: (_) => state._updateState(() {}),
+                          onOpen: (module) =>
+                              state._openModule(context, module),
+                          onToggleFavorite: state._toggleFavorite,
+                          favoriteIds: state._favoriteModuleIds,
+                          onCommandPalette: commandPalette,
+                          onCopilot: copilot,
+                          onNotifications: notifications,
                         ),
-                      const SizedBox(width: 8),
+                      ),
                     ],
                   ),
-                  floatingActionButton: mobile
-                      ? FloatingActionButton.extended(
-                          tooltip: 'Accion rapida',
-                          onPressed: () => state._showMobileQuickActions(
-                            context,
-                            allModules,
-                          ),
-                          icon: const Icon(Icons.bolt),
-                          label: const Text('Acciones'),
-                        )
-                      : null,
-                  body: SafeArea(
-                    child: Row(
-                      children: [
-                        if (viewport.isDesktop)
-                          _EnterpriseSidebar(
-                            sections: baseSections,
-                            collapsed: state._sidebarCollapsed,
-                            onToggleCollapsed: () {
-                              state._updateState(() {
-                                state._sidebarCollapsed =
-                                    !state._sidebarCollapsed;
-                              });
-                            },
-                            onOpen: (module) =>
-                                state._openModule(context, module),
-                          ),
-                        Expanded(
-                          child: _WorkspaceBody(
-                            sections: sections,
-                            favoriteModules: favoriteModules,
-                            recentModules: recentModules,
-                            tipoEntidad: tipoEntidad,
-                            viewport: viewport,
-                            mode: state._workspaceMode,
-                            onModeChanged: (mode) {
-                              state._updateState(
-                                () => state._workspaceMode = mode,
-                              );
-                            },
-                            searchController: state._globalSearchController,
-                            onSearchChanged: (_) => state._updateState(() {}),
-                            onOpen: (module) =>
-                                state._openModule(context, module),
-                            onToggleFavorite: state._toggleFavorite,
-                            favoriteIds: state._favoriteModuleIds,
-                            onCommandPalette: commandPalette,
-                            onCopilot: copilot,
-                            onNotifications: notifications,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -2699,121 +2695,6 @@ class _ShellEmptyState extends StatelessWidget {
   }
 }
 
-void _showCommandPaletteDialog(
-  _MenuPrincipalState state,
-  BuildContext context,
-  List<ModuleDefinition> modules,
-) {
-  var query = state._globalSearchController.text;
-  showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return StatefulBuilder(
-        builder: (context, setDialogState) {
-          final commands = _filteredCommandsHelper(modules, query);
-          return AlertDialog(
-            title: const Text('Command Palette'),
-            content: SizedBox(
-              width: 720,
-              height: 520,
-              child: Column(
-                children: [
-                  TextField(
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.manage_search),
-                      hintText: 'Buscar modulo, accion, reporte o registro',
-                    ),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        query = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: EnterpriseSpacing.md),
-                  Expanded(
-                    child: commands.isEmpty
-                        ? const _ShellEmptyState(
-                            icon: Icons.search_off,
-                            title: 'Sin resultados',
-                            detail:
-                                'Prueba con ventas, cartera, compras, caja, CRM o reportes.',
-                          )
-                        : ListView.separated(
-                            itemCount: commands.length,
-                            separatorBuilder: (context, index) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final command = commands[index];
-                              return ListTile(
-                                leading: Icon(
-                                  command.icon,
-                                  color: command.color,
-                                ),
-                                title: Text(
-                                  command.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Text(
-                                  command.description,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: const Icon(Icons.keyboard_return),
-                                onTap: () {
-                                  Navigator.pop(dialogContext);
-                                  state._openModule(context, command.module);
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-List<_WorkspaceCommand> _filteredCommandsHelper(
-  List<ModuleDefinition> modules,
-  String query,
-) {
-  final normalized = query.toLowerCase().trim();
-  final commands = [
-    for (final module in modules)
-      _WorkspaceCommand(
-        title: module.title,
-        description: _moduleSubtitle(module.id),
-        icon: module.icon,
-        color: module.color,
-        module: module,
-      ),
-  ];
-  if (normalized.isEmpty) return commands;
-  return commands.where((command) {
-    final haystack =
-        '${command.title} ${command.description} ${command.module.id}'
-            .toLowerCase();
-    return haystack.contains(normalized) ||
-        _fuzzyMatchHelper(haystack, normalized);
-  }).toList();
-}
-
-bool _fuzzyMatchHelper(String source, String query) {
-  var index = 0;
-  for (final codeUnit in query.codeUnits) {
-    index = source.indexOf(String.fromCharCode(codeUnit), index);
-    if (index == -1) return false;
-    index++;
-  }
-  return true;
-}
-
 Future<void> _showNotificationCenterSheet(
   _MenuPrincipalState state,
   BuildContext context,
@@ -3083,22 +2964,6 @@ void _showMobileQuickActionsSheet(
       );
     },
   );
-}
-
-class _WorkspaceCommand {
-  const _WorkspaceCommand({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.color,
-    required this.module,
-  });
-
-  final String title;
-  final String description;
-  final IconData icon;
-  final Color color;
-  final ModuleDefinition module;
 }
 
 class _NotificationItem {
