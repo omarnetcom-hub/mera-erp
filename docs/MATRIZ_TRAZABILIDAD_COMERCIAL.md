@@ -114,13 +114,25 @@ saldo 48.000.
 
 | Requisito / criterio | Norma o referencia | Archivo(s) que lo implementan | Test que lo cubre | Evidencia | Estado |
 |---|---|---|---|---|---|
-| Seleccionar y aplicar coherentemente Grupo 1 (NIIF plenas), Grupo 2 (NIIF para PYMES) o Grupo 3. | Decreto 2420/2015 y anexos 1, 2 y 3 [N11][N12][N13]. | Catálogo genérico `MasterCatalog.niifAccounts`; PUC semilla en `db_helper.dart`. | Sin prueba de clasificación o política NIIF. | No se encontró campo de grupo NIIF, política por empresa, revelaciones ni reglas diferenciadas. El texto UI “NIIF” no determina marco técnico. | **Pendiente:** no puede afirmarse Grupo 2 ni NIIF plena. |
+| Seleccionar y aplicar coherentemente Grupo 1 (NIIF plenas), Grupo 2 (NIIF para PYMES) o Grupo 3. | Decreto 2420/2015 y anexos 1, 2 y 3 [N11][N12][N13]. | `companies.niif_group`; `financial_framework.dart`; `financial_framework_schema_migration.dart`; `DatabaseHelper.configurarGrupoNiif()` y `obtenerPoliticaMarcoContable()`. | `commercial_niif_block6_test.dart`. | EV-09 verifica migración v91, fallback defensivo a Grupo 2 para instalaciones antiguas y políticas visibles distintas para Grupo 1 y Grupo 3. La selección es declarada por empresa; faltan clasificación automática por umbrales/relaciones y revelaciones completas. | **Parcial:** configuración y política por marco disponibles; cumplimiento automático y reportes completos pendientes. |
 | Garantizar partida doble en todos los caminos de escritura. | Principio de doble partida e integridad del libro. | `JournalEntry.post()`; `DatabaseHelper.registrarAsientoContable()`; `_registrarAsientoConCodigos()`. | `architectural_consolidation_test.dart`; `accounting_report_test.dart`. | EV-02 pasa controles de servicio. EV-05 demuestra que SQL directo persiste débito 100/crédito 0; no hay trigger/constraint SQL que valide el conjunto del asiento. | **Parcial:** control de aplicación, sin garantía de base de datos. |
 | Cerrar periodos por empresa e impedir contabilización posterior. | Control contable de corte y trazabilidad; marco NIIF aplicable [N11][N12]. | `_crearTablasPeriodos()`; `cerrarPeriodoContable()`; `_validarPeriodoAbierto()`; `periodos_contables_page.dart`; `AccountingPeriodSchemaMigration`. | `commercial_accounting_close_block4_test.dart`. | EV-07 confirma que dos empresas pueden abrir el mismo periodo y que la consulta de la empresa activa queda aislada. El test aún no cubre todos los caminos UI de escritura posterior al cierre. | **Parcial:** esquema tenant-correcto y aislamiento probados; falta cobertura completa de bloqueo mensual en todos los consumidores. |
 | Cerrar el ejercicio y trasladar ingresos/gastos a resultado y ganancias acumuladas. | Presentación de resultados y patrimonio bajo el marco seleccionado [N11][N12]. | `DatabaseHelper.cerrarEjercicioContable()`; `AccountingPeriodSchemaMigration`; cuentas `3605`, `3610`, `3705`. | `commercial_accounting_close_block4_test.dart`. | EV-07 crea ingreso de 100.000 y gasto de 30.000 centavos, ejecuta el cierre en una transacción, verifica utilidad de 70.000, dos asientos registrados y `3705` con crédito exacto de 70.000; los tests contables también pasan con el trigger v76 activo. | **Completo.** |
 | Presentar saldos de naturaleza acreedora con signo correcto y cuadrar Activo = Pasivo + Patrimonio + resultado. | Decreto 2420, estado de situación financiera y estado de resultados [N11][N12]. | `accounting_report_repository.dart`; `db_helper.dart:8071-8097`; `obtenerEstadosFinancieros():7198-7244`; `estados_financieros_page.dart`. | `accounting_report_test.dart` prueba saldo por naturaleza y balance simple; no prueba estados completos. | La consulta invierte correctamente crédito-débito para naturaleza acreedora y `cuadre` incorpora utilidad. No se reprodujo el bug de signo de NICSP 1, pero falta prueba integrada con clases 1-6 y cierre. | **Parcial:** lógica inspeccionada coherente, cobertura insuficiente. |
 
-**Resumen D3:** 1 Completo / 3 Parciales / 1 Pendiente.
+**Resumen D3:** 1 Completo / 4 Parciales / 0 Pendientes.
+
+### Actualización del Bloque 6 (2026-08-09)
+
+La migración v91 agrega `companies.niif_group` con fallback defensivo
+`grupo_2` para filas existentes y permite seleccionar explícitamente `grupo_1`,
+`grupo_2` o `grupo_3` por empresa. `FinancialFrameworkPolicy` expone el marco,
+el perfil de revelación y la política de deterioro de inventarios asociada.
+`commercial_niif_block6_test.dart` verifica que las políticas de Grupo 1 y
+Grupo 3 difieren materialmente. Esto no certifica una clasificación legal
+automática ni todas las revelaciones: ambos quedan como trabajo posterior.
+Evidencia: `flutter test test/commercial_niif_block6_test.dart ...` — 21
+pruebas pasaron; EV-09 en `docs/evidencias/auditoria_comercial_bloque_6/`.
 
 ### Actualización del Bloque 4 (2026-08-09)
 
@@ -200,7 +212,7 @@ una brecha explícita.
 | 4. Inventario | 0 | 3 | 0 | Tres representaciones y métodos desconectados; no hay Kardex único. |
 | 5. Multiempresa | 0 | 2 | 1 | Aislamiento parcial; consolidación y transferencias huérfanas. |
 | 6. Nómina privada | 1 | 5 | 1 | Reporte fiscal alineado; bases, provisiones y transacción siguen incorrectas o sin prueba. |
-| **Total** | **3** | **20** | **5** | **Cierre anual y retención/nómina transaccional tienen evidencia adicional; el resto de brechas de dominio permanece abierto.** |
+| **Total** | **3** | **21** | **4** | **La configuración NIIF por empresa tiene evidencia de política visible; clasificación automática, revelaciones completas y demás brechas de dominio permanecen abiertas.** |
 
 ## Brechas críticas priorizadas
 

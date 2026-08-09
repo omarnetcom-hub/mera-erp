@@ -14,6 +14,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'accounting/application/accounting_engine.dart';
 import 'accounting/accounting_period_schema_migration.dart';
+import 'accounting/financial_framework.dart';
+import 'accounting/financial_framework_schema_migration.dart';
 import 'catalog/domain/master_catalog.dart';
 import 'core/branch/branch_context.dart';
 import 'core/currency/currency.dart';
@@ -81,7 +83,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 90;
+  static const int schemaVersion = 91;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1023,6 +1025,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 90) {
       await PayrollSchemaMigration.migrateV90(db);
+    }
+    if (oldVersion < 91) {
+      await FinancialFrameworkSchemaMigration.migrateV91(db);
     }
   }
 
@@ -2283,6 +2288,7 @@ class DatabaseHelper {
         country TEXT DEFAULT 'Colombia',
         currency TEXT DEFAULT 'COP',
         timezone TEXT DEFAULT 'America/Bogota',
+        niif_group TEXT NOT NULL DEFAULT 'grupo_2',
         active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT
@@ -7711,6 +7717,61 @@ class DatabaseHelper {
       return {'id': 1, 'nombre': 'MerkaERP', 'moneda': 'COP'};
     }
     return res.first;
+  }
+
+  /// Devuelve el marco NIIF declarado para la empresa activa.
+  Future<FinancialFrameworkGroup> obtenerGrupoNiif([
+    DatabaseExecutor? executor,
+  ]) async {
+    final db = executor ?? await instance.database;
+    final companyId = await obtenerEmpresaActivaId(executor);
+    final rows = await db.query(
+      'companies',
+      columns: ['niif_group'],
+      where: 'id = ?',
+      whereArgs: [companyId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      throw StateError(
+        'No se encontro la empresa activa para leer el marco NIIF.',
+      );
+    }
+    return FinancialFrameworkGroup.fromDbValue(
+      rows.first['niif_group']?.toString(),
+    );
+  }
+
+  /// Guarda el marco declarado sin cambiar saldos historicos ni consolidacion.
+  Future<void> configurarGrupoNiif(FinancialFrameworkGroup group) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final changed = await db.update(
+      'companies',
+      {
+        'niif_group': group.dbValue,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [companyId],
+    );
+    if (changed != 1) {
+      throw StateError(
+        'No se pudo guardar el marco NIIF de la empresa activa.',
+      );
+    }
+    await registrarEventoAuditoria(
+      accion: 'CONFIGURAR_MARCO_NIIF',
+      entidad: 'companies',
+      entidadId: companyId,
+      detalle: 'Marco declarado: ${group.dbValue}',
+    );
+  }
+
+  /// Expone el comportamiento de presentacion esperado por el marco.
+  Future<Map<String, dynamic>> obtenerPoliticaMarcoContable() async {
+    final group = await obtenerGrupoNiif();
+    return FinancialFrameworkPolicy.forGroup(group).toMap();
   }
 
   Future<void> guardarEmpresaConfig(Map<String, dynamic> datos) async {

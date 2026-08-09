@@ -243,6 +243,79 @@ Commit: `2e336b6`.
 
 ## Bloque 6 - Marco NIIF configurable por empresa
 
+### Implementacion
+
+Se implemento la migracion v91 con `companies.niif_group`, usando
+`grupo_2` como fallback tecnico defensivo para empresas existentes y sin
+fabricar una clasificacion legal. Se agregaron `FinancialFrameworkGroup` y
+`FinancialFrameworkPolicy`, mas los metodos de `DatabaseHelper` para guardar
+el grupo declarado y consultar el marco, el perfil de revelacion y la
+politica de deterioro de inventarios. Grupo 1, 2 y 3 quedan diferenciados en
+esa politica visible. No se modificaron saldos, consolidacion, transferencias,
+revelaciones completas de Grupo 1 ni DIAN/PTA real.
+
+Archivos principales:
+
+- `lib/accounting/financial_framework.dart`
+- `lib/accounting/financial_framework_schema_migration.dart`
+- `lib/db_helper.dart`
+- `lib/core/database/database_initializer.dart`
+- `lib/taxes/retention_schema_migration.dart`
+- `lib/taxes/tax_report_schema_migration.dart`
+- `lib/taxes/payroll_schema_migration.dart`
+- `lib/accounting/accounting_period_schema_migration.dart`
+- `test/commercial_niif_block6_test.dart`
+- `docs/MARCO_NIIF_CONFIGURABLE_BLOQUE_6_DISENO.md`
+- `docs/MATRIZ_TRAZABILIDAD_COMERCIAL.md`
+
+### Evidencia cruda
+
+- Tests dirigidos de los seis bloques: `docs/evidencias/auditoria_comercial_bloque_6/block6_tests.txt`.
+  Resultado final literal: `00:30 +21: All tests passed!`.
+- Analisis Dart completo: `docs/evidencias/auditoria_comercial_bloque_6/block6_analyze.txt`.
+  Resultado literal: `240 issues found.` y `[exit_code=2]`; son warnings/info
+  existentes, sin errores de compilacion reportados por el analizador.
+- `flutter analyze`: `docs/evidencias/auditoria_comercial_bloque_6/block6_flutter_analyze.txt`.
+  Resultado literal: `240 issues found. (ran in 6.5s)`; no hay errores de
+  analisis en el codigo del bloque.
+- Build Windows: `docs/evidencias/auditoria_comercial_bloque_6/block6_build.txt`.
+  Resultado literal: `Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe`
+  y `[exit_code=0]`.
+
+### Verificacion global y correcciones defensivas
+
+La primera suite completa de esta ronda llego a `309` pruebas pasadas, `3`
+omitidas y `3` fallas. Las tres fallas compartian la misma causa: pruebas de
+migraciones parciales creaban solo parte del esquema y v87/v88/v89/v90
+intentaban alterar tablas ausentes. Se agregaron guardas de existencia, sin
+cambiar el esquema cuando la tabla no existe. La regresion dirigida posterior
+paso las `8` pruebas de CRM, capacidad MRP y partida doble SQL:
+`block6_migration_regressions.txt`.
+
+La repeticion de la suite global no alcanzo un resumen final porque volvio a
+quedar bloqueada en `presupuesto_publico_page_test.dart`, al iniciar `Crear
+apropiacion y verificar en base de datos`, el bloqueo Fase 3B ya conocido y
+ajeno a este bloque comercial. La salida parcial completa esta en
+`block6_full_suite_final.txt`; no se presenta como suite limpia. La regresion
+comercial aislada si termino con `23` pruebas pasadas en
+`block6_commercial_suite_final.txt`.
+
+La evidencia final de analisis y build esta en
+`block6_flutter_analyze_final.txt` y `block6_build_final.txt`.
+
+### Cierre de la subtarea 6
+
+Bloque 6 implementado y verificado. La matriz cambia el requisito de marco
+NIIF de Pendiente a Parcial y queda en **3 Completos / 21 Parciales / 4
+Pendientes**. El estado Parcial es intencional: MerkaERP puede declarar un
+marco por empresa y expone politicas distintas, pero aun no clasifica
+automaticamente por activos/ingresos/empleados/relaciones ni genera el
+conjunto completo de revelaciones de cada grupo.
+
+Commit de implementacion: pendiente de crear despues de esta evidencia.
+
+## Bloque 6 - Marco NIIF configurable por empresa
+
 ### Decision normativa previa
 
 Se revisaron los articulos 1.1.1.1, 1.1.2.1 y 1.1.3.1 del Decreto 2420 de

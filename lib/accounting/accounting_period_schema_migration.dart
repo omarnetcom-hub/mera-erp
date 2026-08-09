@@ -94,6 +94,12 @@ class AccountingPeriodSchemaMigration {
   }
 
   static Future<void> _ensureRetainedEarningsAccounts(Database db) async {
+    final table = await db.rawQuery(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+      ['cuentas_contables'],
+    );
+    if (table.isEmpty) return;
+
     final accounts = [
       {
         'codigo': '37',

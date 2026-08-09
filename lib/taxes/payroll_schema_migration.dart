@@ -4,18 +4,22 @@ class PayrollSchemaMigration {
   const PayrollSchemaMigration._();
 
   static Future<void> migrateV90(Database db) async {
-    await _addColumnIfMissing(
-      db,
-      'nomina_liquidaciones',
-      'movimiento_caja_id',
-      'INTEGER',
-    );
-    await _addColumnIfMissing(
-      db,
-      'nomina_liquidaciones',
-      'asiento_id',
-      'INTEGER',
-    );
+    if (await _tableExists(db, 'nomina_liquidaciones')) {
+      await _addColumnIfMissing(
+        db,
+        'nomina_liquidaciones',
+        'movimiento_caja_id',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        db,
+        'nomina_liquidaciones',
+        'asiento_id',
+        'INTEGER',
+      );
+    }
+
+    if (!await _tableExists(db, 'cuentas_contables')) return;
 
     final accounts = [
       ('510506', 'Sueldos', 'gasto', 'debito'),
@@ -55,5 +59,13 @@ class PayrollSchemaMigration {
     final columns = await db.rawQuery('PRAGMA table_info($table)');
     if (columns.any((row) => row['name'] == column)) return;
     await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+  }
+
+  static Future<bool> _tableExists(DatabaseExecutor db, String table) async {
+    final rows = await db.rawQuery(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+      [table],
+    );
+    return rows.isNotEmpty;
   }
 }
