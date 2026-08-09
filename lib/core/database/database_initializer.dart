@@ -186,6 +186,7 @@ extension DatabaseInitializer on DatabaseHelper {
     await _crearTablasFinalEnterprise(db);
     await _crearTablasInteligenciaOperativa(db);
     await _crearTablasExtensionesEmpresariales(db);
+    await SchemaCrm.crearTablas(db);
     await _agregarScopeDistribuidoATablas(db);
     await _sembrarPlanCuentas(db);
     await _sembrarSecuencias(db);
@@ -598,33 +599,33 @@ extension DatabaseInitializer on DatabaseHelper {
     // Migración para Control Center Robusto
     // La información de licencias se almacena en app_config
     // Los comandos remotos se procesan en tiempo real con CCCommandsProcessor
-    
+
     // Agregar configuración para control center si no existe
     await db.execute('''
       INSERT OR IGNORE INTO app_config (clave, valor) 
       VALUES ('control_center_hmac_secret', '')
     ''');
-    
+
     await db.execute('''
       INSERT OR IGNORE INTO app_config (clave, valor) 
       VALUES ('instalacion_bloqueada', '0')
     ''');
-    
+
     await db.execute('''
       INSERT OR IGNORE INTO app_config (clave, valor) 
       VALUES ('update_canal', 'stable')
     ''');
-    
+
     await db.execute('''
       INSERT OR IGNORE INTO app_config (clave, valor) 
       VALUES ('update_ultima_revision', '')
     ''');
-    
+
     await db.execute('''
       INSERT OR IGNORE INTO app_config (clave, valor) 
       VALUES ('update_version_ignorada', '')
     ''');
-    
+
     // Registrar la migración en auditoría
     await registrarEventoAuditoria(
       accion: 'MIGRACION_DB_V45',
@@ -635,7 +636,7 @@ extension DatabaseInitializer on DatabaseHelper {
 
   Future<void> _migrarAVersion46(Database db) async {
     // Migración para API REST Pública y Pasarelas de Pago
-    
+
     // Tabla para API Keys
     await db.execute('''
       CREATE TABLE IF NOT EXISTS api_keys(
@@ -651,7 +652,7 @@ extension DatabaseInitializer on DatabaseHelper {
         rate_window_minutes INTEGER NOT NULL DEFAULT 1
       )
     ''');
-    
+
     // Tabla para logs de acceso a la API
     await db.execute('''
       CREATE TABLE IF NOT EXISTS api_access_logs(
@@ -663,7 +664,7 @@ extension DatabaseInitializer on DatabaseHelper {
         FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
       )
     ''');
-    
+
     // Tabla para integraciones (WooCommerce, Shopify, PSE, Nequi)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS integraciones(
@@ -676,7 +677,7 @@ extension DatabaseInitializer on DatabaseHelper {
         creado_en TEXT NOT NULL
       )
     ''');
-    
+
     // Tabla para transacciones PSE
     await db.execute('''
       CREATE TABLE IF NOT EXISTS pse_transacciones(
@@ -693,7 +694,7 @@ extension DatabaseInitializer on DatabaseHelper {
         processed_at TEXT
       )
     ''');
-    
+
     // Tabla para transacciones Nequi
     await db.execute('''
       CREATE TABLE IF NOT EXISTS nequi_transacciones(
@@ -709,7 +710,7 @@ extension DatabaseInitializer on DatabaseHelper {
         processed_at TEXT
       )
     ''');
-    
+
     // Tabla para webhooks recibidos
     await db.execute('''
       CREATE TABLE IF NOT EXISTS webhooks_recibidos(
@@ -726,18 +727,18 @@ extension DatabaseInitializer on DatabaseHelper {
         retry_count INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    
+
     // Configuración inicial para API Server
     await db.execute('''
       INSERT OR IGNORE INTO app_config (clave, valor) 
       VALUES ('api_server_enabled', '0')
     ''');
-    
+
     await db.execute('''
       INSERT OR IGNORE INTO app_config (clave, valor) 
       VALUES ('api_server_port', '8080')
     ''');
-    
+
     // Registrar la migración en auditoría
     await registrarEventoAuditoria(
       accion: 'MIGRACION_DB_V46',
@@ -748,7 +749,7 @@ extension DatabaseInitializer on DatabaseHelper {
 
   Future<void> _migrarAVersion47(Database db) async {
     // Migración para CRM Real
-    
+
     // Tabla para oportunidades de venta
     await db.execute('''
       CREATE TABLE IF NOT EXISTS crm_oportunidades(
@@ -771,7 +772,7 @@ extension DatabaseInitializer on DatabaseHelper {
         actualizado_en TEXT
       )
     ''');
-    
+
     // Tabla para actividades de CRM
     await db.execute('''
       CREATE TABLE IF NOT EXISTS crm_actividades(
@@ -787,7 +788,7 @@ extension DatabaseInitializer on DatabaseHelper {
         FOREIGN KEY (oportunidad_id) REFERENCES crm_oportunidades(id)
       )
     ''');
-    
+
     // Tabla para campañas de cobranza
     await db.execute('''
       CREATE TABLE IF NOT EXISTS cobranza_campanas(
@@ -800,7 +801,7 @@ extension DatabaseInitializer on DatabaseHelper {
         creada_en TEXT NOT NULL
       )
     ''');
-    
+
     // Tabla para acciones de cobranza
     await db.execute('''
       CREATE TABLE IF NOT EXISTS cobranza_acciones(
@@ -816,7 +817,7 @@ extension DatabaseInitializer on DatabaseHelper {
         FOREIGN KEY (campana_id) REFERENCES cobranza_campanas(id)
       )
     ''');
-    
+
     // Registrar la migración en auditoría
     await registrarEventoAuditoria(
       accion: 'MIGRACION_DB_V47',
@@ -827,7 +828,7 @@ extension DatabaseInitializer on DatabaseHelper {
 
   Future<void> _migrarAVersion48(Database db) async {
     // Migración para Operaciones Avanzadas
-    
+
     // Tabla para recetas/BOM
     await db.execute('''
       CREATE TABLE IF NOT EXISTS recetas(
@@ -844,7 +845,7 @@ extension DatabaseInitializer on DatabaseHelper {
         creado_en TEXT NOT NULL
       )
     ''');
-    
+
     // Tabla para órdenes de producción
     await db.execute('''
       CREATE TABLE IF NOT EXISTS ordenes_produccion(
@@ -862,7 +863,7 @@ extension DatabaseInitializer on DatabaseHelper {
         asignado_a TEXT
       )
     ''');
-    
+
     // Tabla para rutas de entrega
     await db.execute('''
       CREATE TABLE IF NOT EXISTS rutas_entrega(
@@ -880,7 +881,7 @@ extension DatabaseInitializer on DatabaseHelper {
         creado_en TEXT NOT NULL
       )
     ''');
-    
+
     // Tabla para usuarios del portal
     await db.execute('''
       CREATE TABLE IF NOT EXISTS portal_usuarios(
@@ -896,7 +897,7 @@ extension DatabaseInitializer on DatabaseHelper {
         ultimo_acceso TEXT
       )
     ''');
-    
+
     // Tabla para tokens de acceso al portal
     await db.execute('''
       CREATE TABLE IF NOT EXISTS portal_tokens(
@@ -907,7 +908,7 @@ extension DatabaseInitializer on DatabaseHelper {
         FOREIGN KEY (usuario_id) REFERENCES portal_usuarios(id)
       )
     ''');
-    
+
     // Registrar la migración en auditoría
     await registrarEventoAuditoria(
       accion: 'MIGRACION_DB_V48',
@@ -982,4 +983,3 @@ extension DatabaseInitializer on DatabaseHelper {
     await _agregarColumnaSiNoExiste(db, 'compras', 'reteica', 'REAL DEFAULT 0');
   }
 }
-

@@ -38,6 +38,7 @@ import '../../webhooks_page.dart';
 import '../../templates_page.dart';
 import '../../commissions_page.dart';
 import '../../warranties_page.dart';
+import '../../crm/pages/crm_pipeline_page.dart';
 
 List<ModuleDefinition> operacion() => [
   ModuleDefinition(
@@ -83,6 +84,15 @@ List<ModuleDefinition> operacion() => [
     icon: Icons.people,
     builder: (_) => const ClientesPage(),
     color: const Color(0xFF8D5A97),
+    category: ModuleCategory.operation,
+    featureKey: FeatureKey.crm,
+  ),
+  ModuleDefinition(
+    id: 'crm_pipeline',
+    title: 'CRM Pipeline',
+    icon: Icons.view_kanban,
+    builder: (_) => const CrmPipelinePage(),
+    color: const Color(0xFF264653),
     category: ModuleCategory.operation,
     featureKey: FeatureKey.crm,
   ),
