@@ -60,10 +60,7 @@ class SelectorEntidadService {
   final AuditoriaService auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  SelectorEntidadService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  SelectorEntidadService({required this.db, required this.auditoriaService});
 
   /// Registra la configuración de tipo de entidad
   Future<Map<String, dynamic>> configurarTipoEntidad({
@@ -236,9 +233,13 @@ class SelectorEntidadService {
   List<String> obtenerSubtiposValidos(TipoEntidad tipo) {
     switch (tipo) {
       case TipoEntidad.municipio:
-        return SubtipoMunicipio.values.map((e) => e.toString().split('.').last).toList();
+        return SubtipoMunicipio.values
+            .map((e) => e.toString().split('.').last)
+            .toList();
       case TipoEntidad.distrito:
-        return SubtipoDistrito.values.map((e) => e.toString().split('.').last).toList();
+        return SubtipoDistrito.values
+            .map((e) => e.toString().split('.').last)
+            .toList();
       case TipoEntidad.departamento:
       case TipoEntidad.regionMetropolitana:
       case TipoEntidad.hospitalEse:
@@ -249,12 +250,16 @@ class SelectorEntidadService {
 
   /// Valida si un subtipo es válido para municipio
   bool _esSubtipoMunicipioValido(String subtipo) {
-    return SubtipoMunicipio.values.any((e) => e.toString().split('.').last == subtipo);
+    return SubtipoMunicipio.values.any(
+      (e) => e.toString().split('.').last == subtipo,
+    );
   }
 
   /// Valida si un subtipo es válido para distrito
   bool _esSubtipoDistritoValido(String subtipo) {
-    return SubtipoDistrito.values.any((e) => e.toString().split('.').last == subtipo);
+    return SubtipoDistrito.values.any(
+      (e) => e.toString().split('.').last == subtipo,
+    );
   }
 
   /// Obtiene todos los tipos de entidad disponibles
@@ -296,14 +301,15 @@ class SelectorEntidadService {
     // Por tipo
     final porTipo = <String, int>{};
     for (final c in configuraciones) {
-      final tipo = c['tipo'] as String;
+      final tipo = c['tipo']?.toString();
+      if (tipo == null || tipo.isEmpty) continue;
       porTipo[tipo] = (porTipo[tipo] ?? 0) + 1;
     }
 
     // Por subtipo
     final porSubtipo = <String, int>{};
     for (final c in configuraciones) {
-      final subtipo = c['subtipo'] as String?;
+      final subtipo = c['subtipo']?.toString();
       if (subtipo != null) {
         porSubtipo[subtipo] = (porSubtipo[subtipo] ?? 0) + 1;
       }

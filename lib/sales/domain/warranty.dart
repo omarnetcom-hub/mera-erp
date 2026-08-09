@@ -102,6 +102,13 @@ class Warranty {
       'company_id': companyId,
       'sale_id': saleId,
       'sale_number': saleNumber,
+      // Aliases del esquema legacy v51, que conserva columnas NOT NULL.
+      'venta_id': saleId,
+      'producto_id': productId,
+      'numero_serie': null,
+      'descripcion_problema': notes ?? 'Garantía registrada',
+      'fecha_recepcion': startDate.toIso8601String(),
+      'dias_garantia': durationMonths * 30,
       'product_id': productId,
       'product_name': productName,
       'customer_id': customerId,

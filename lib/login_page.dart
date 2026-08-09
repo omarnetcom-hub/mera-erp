@@ -28,20 +28,22 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _entrar() async {
     setState(() => cargando = true);
-    
+
     try {
       final usuario = await DatabaseHelper.instance.validarUsuarioLocal(
         usuario: usuarioCtrl.text,
         pin: pinCtrl.text,
       );
-      
+
       if (!mounted) return;
       setState(() => cargando = false);
 
       if (usuario == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Usuario o PIN incorrecto. Usuario inicial: admin (PIN vacío)'),
+            content: Text(
+              'Usuario o PIN incorrecto. Usuario inicial: admin (PIN vacío)',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -49,6 +51,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       AppSession.iniciar(usuario);
+      await AppSession.resolverEntidadActiva();
 
       // Conectar automáticamente a la nube con las mismas credenciales (silencioso)
       try {
@@ -59,9 +62,9 @@ class _LoginPageState extends State<LoginPage> {
 
       // Verificar si el modo de operación está configurado
       final modoActual = await SelectorModoService.obtenerModoActual();
-      
+
       if (!mounted) return;
-      
+
       if (modoActual == null) {
         // No hay modo configurado, redirigir a selector
         Navigator.pushReplacement(

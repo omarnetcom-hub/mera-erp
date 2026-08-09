@@ -12,10 +12,15 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  testWidgets('ActivosEstadoPage renders Activos and FUT tabs and TODO banner', (WidgetTester tester) async {
-    await tester.runAsync(() async {
-      final db = await openDatabase(inMemoryDatabasePath, version: 1, onCreate: (db, version) async {
-        await db.execute('''
+  testWidgets(
+    'ActivosEstadoPage renders Activos and FUT tabs and TODO banner',
+    (WidgetTester tester) async {
+      await tester.runAsync(() async {
+        final db = await openDatabase(
+          inMemoryDatabasePath,
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute('''
           CREATE TABLE IF NOT EXISTS entidades_territoriales (
             id TEXT PRIMARY KEY,
             nit TEXT NOT NULL,
@@ -26,33 +31,43 @@ void main() {
             configuracion_normativa TEXT NOT NULL
           )
         ''');
-        await SchemaActivos.crearTablas(db);
+            await SchemaActivos.crearTablas(db);
+          },
+        );
+        DatabaseHelper.setTestDatabase(db);
       });
-      DatabaseHelper.setTestDatabase(db);
-    });
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: ActivosEstadoPage(
-          entidadId: 'ENT-TEST-ACTIVOS',
-          usuarioId: 'USR-TEST-03',
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ActivosEstadoPage(
+            entidadId: 'ENT-TEST-ACTIVOS',
+            usuarioId: 'USR-TEST-03',
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.runAsync(() async {
-      await Future.delayed(const Duration(milliseconds: 200));
-    });
-    await tester.pump();
+      await tester.runAsync(() async {
+        await Future.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pump();
 
-    // Verify AppBar
-    expect(find.text('Propiedad, Planta y Equipo (NICSP 17)'), findsOneWidget);
+      // Verify AppBar
+      expect(
+        find.text('Propiedad, Planta y Equipo (NICSP 17)'),
+        findsOneWidget,
+      );
 
-    // Verify BottomNavigationBar Tabs
-    expect(find.text('Activos NICSP 17'), findsWidgets);
-    expect(find.text('FUT'), findsWidgets);
+      // Verify BottomNavigationBar Tabs
+      expect(find.text('Activos NICSP 17'), findsWidgets);
+      expect(find.text('FUT'), findsWidgets);
 
-    // Verify TODO Banner
-    expect(find.textContaining('Asignación de Actas de Responsabilidad'), findsOneWidget);
-  });
+      // Verify TODO Banner
+      expect(
+        find.textContaining(
+          'Pendiente: asignacion de Actas de Responsabilidad',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 }

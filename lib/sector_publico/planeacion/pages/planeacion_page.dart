@@ -153,8 +153,8 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
     );
   }
 
-  /// TODO: Macro-sistema 1.3 - Motor de trazabilidad Plan-Presupuesto (Fase 4)
-  /// Pendiente la vinculación automática de programas del PDT con rubros de inversión del presupuesto (CDP/RP).
+  /// Brecha documentada: la vinculacion automatica PDT/MGA con rubros de
+  /// inversion y su cadena CDP/RP aun requiere un frente propio.
   Widget _buildTraceabilityBanner() {
     return Container(
       color: Colors.amber.shade100,
@@ -165,8 +165,8 @@ class _PlaneacionPageState extends State<PlaneacionPage> {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Motor de trazabilidad Plan-Presupuesto (Macro-sistema 1.3) pendiente para Fase 4. '
-              'La vinculación automática de Metas PDT vs Rubros de Inversión se activará en la siguiente fase.',
+              'Pendiente: vincular automaticamente metas PDT/MGA con rubros de inversion y su cadena CDP/RP. '
+              'La planeacion y el presupuesto siguen operativos por separado.',
               style: TextStyle(fontSize: 12, color: Colors.black87),
             ),
           ),

@@ -20,7 +20,8 @@ class ConfiguracionGeneralPage extends StatefulWidget {
   });
 
   @override
-  State<ConfiguracionGeneralPage> createState() => _ConfiguracionGeneralPageState();
+  State<ConfiguracionGeneralPage> createState() =>
+      _ConfiguracionGeneralPageState();
 }
 
 class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
@@ -62,7 +63,7 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al inicializar configuraciÃ³n: $e')),
+        SnackBar(content: Text('Error al inicializar configuración: $e')),
       );
     }
   }
@@ -74,12 +75,10 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
     });
 
     try {
-      final config = await _configuracionGeneralService.obtenerConfiguracionCompleta(
-        entidadId: widget.entidadId,
-      );
-      final validacion = await _configuracionGeneralService.validarConfiguracion(
-        entidadId: widget.entidadId,
-      );
+      final config = await _configuracionGeneralService
+          .obtenerConfiguracionCompleta(entidadId: widget.entidadId);
+      final validacion = await _configuracionGeneralService
+          .validarConfiguracion(entidadId: widget.entidadId);
 
       if (!mounted) return;
       setState(() {
@@ -92,9 +91,9 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -107,15 +106,17 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Configuración marcada como completada')),
+          const SnackBar(
+            content: Text('Configuración marcada como completada'),
+          ),
         );
         _cargarConfiguracion();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -125,7 +126,9 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Restaurar Configuración'),
-        content: const Text('¿Está seguro de restaurar todas las configuraciones a valores por defecto?'),
+        content: const Text(
+          '¿Está seguro de restaurar todas las configuraciones a valores por defecto?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -148,15 +151,17 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Configuración restaurada a valores por defecto')),
+            const SnackBar(
+              content: Text('Configuración restaurada a valores por defecto'),
+            ),
           );
           _cargarConfiguracion();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
@@ -177,172 +182,205 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _configuracionCompleta == null
-              ? const Center(child: Text('No hay configuración disponible'))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Estado de configuración
-                      Card(
-                        color: _isValida ? Colors.green.shade50 : Colors.orange.shade50,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            children: [
-                              Icon(
-                                _isValida ? Icons.check_circle : Icons.warning,
-                                color: _isValida ? Colors.green : Colors.orange,
-                                size: 32,
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _isValida ? 'Configuración Completa' : 'Configuración Incompleta',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      _isValida
-                                          ? 'La entidad está correctamente configurada'
-                                          : 'Complete la configuración de la entidad',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Tipo de entidad
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Tipo de Entidad',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 16),
-                              if (_configuracionCompleta!['configuracion_tipo'] != null)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildInfoRow('Tipo', _configuracionCompleta!['configuracion_tipo']['tipo']),
-                                    _buildInfoRow('Subtipo', _configuracionCompleta!['configuracion_tipo']['subtipo'] ?? 'N/A'),
-                                    _buildInfoRow('Nombre', _configuracionCompleta!['configuracion_tipo']['nombre_entidad']),
-                                    _buildInfoRow('Código DANE', _configuracionCompleta!['configuracion_tipo']['codigo_dane']),
-                                  ],
-                                )
-                              else
-                                const Text('No configurado'),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Módulos visibles
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Módulos Visibles',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 16),
-                              Text('Total: ${_configuracionCompleta!['total_modulos']} módulos'),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: (_configuracionCompleta!['modulos_visibles'] as List)
-                                    .map((modulo) => Chip(
-                                          label: Text(modulo),
-                                        ))
-                                    .toList(),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Visibilidad personalizada
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Visibilidad de Módulos',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Icon(
-                                    _configuracionCompleta!['configuracion_visibilidad'] != null
-                                        ? Icons.check_circle
-                                        : Icons.info,
-                                    color: _configuracionCompleta!['configuracion_visibilidad'] != null
-                                        ? Colors.green
-                                        : Colors.blue,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    _configuracionCompleta!['configuracion_visibilidad'] != null
-                                        ? 'Visibilidad personalizada activa'
-                                        : 'Usando matriz por defecto',
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Acciones
-                      Row(
+          ? const Center(child: Text('No hay configuración disponible'))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Estado de configuración
+                  Card(
+                    color: _isValida
+                        ? Colors.green.shade50
+                        : Colors.orange.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
                         children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _marcarCompletada,
-                              icon: const Icon(Icons.check),
-                              label: const Text('Marcar como Completada'),
-                            ),
+                          Icon(
+                            _isValida ? Icons.check_circle : Icons.warning,
+                            color: _isValida ? Colors.green : Colors.orange,
+                            size: 32,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _restaurarDefecto,
-                              icon: const Icon(Icons.restore),
-                              label: const Text('Restaurar Defecto'),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _isValida
+                                      ? 'Configuración Completa'
+                                      : 'Configuración Incompleta',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  _isValida
+                                      ? 'La entidad está correctamente configurada'
+                                      : 'Complete la configuración de la entidad',
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Tipo de entidad
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Tipo de Entidad',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (_configuracionCompleta!['configuracion_tipo'] !=
+                              null)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildInfoRow(
+                                  'Tipo',
+                                  _configuracionCompleta!['configuracion_tipo']['tipo'],
+                                ),
+                                _buildInfoRow(
+                                  'Subtipo',
+                                  _configuracionCompleta!['configuracion_tipo']['subtipo'] ??
+                                      'N/A',
+                                ),
+                                _buildInfoRow(
+                                  'Nombre',
+                                  _configuracionCompleta!['configuracion_tipo']['nombre_entidad'],
+                                ),
+                                _buildInfoRow(
+                                  'Código DANE',
+                                  _configuracionCompleta!['configuracion_tipo']['codigo_dane'],
+                                ),
+                              ],
+                            )
+                          else
+                            const Text('No configurado'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Módulos visibles
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Módulos Visibles',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Total: ${_configuracionCompleta!['total_modulos']} módulos',
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children:
+                                (_configuracionCompleta!['modulos_visibles']
+                                        as List)
+                                    .map((modulo) => Chip(label: Text(modulo)))
+                                    .toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Visibilidad personalizada
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Visibilidad de Módulos',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Icon(
+                                _configuracionCompleta!['configuracion_visibilidad'] !=
+                                        null
+                                    ? Icons.check_circle
+                                    : Icons.info,
+                                color:
+                                    _configuracionCompleta!['configuracion_visibilidad'] !=
+                                        null
+                                    ? Colors.green
+                                    : Colors.blue,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _configuracionCompleta!['configuracion_visibilidad'] !=
+                                        null
+                                    ? 'Visibilidad personalizada activa'
+                                    : 'Usando matriz por defecto',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Acciones
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _marcarCompletada,
+                          icon: const Icon(Icons.check),
+                          label: const Text('Marcar como Completada'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _restaurarDefecto,
+                          icon: const Icon(Icons.restore),
+                          label: const Text('Restaurar Defecto'),
+                        ),
+                      ),
                     ],
                   ),
-                ),
+                ],
+              ),
+            ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, Object? value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -355,7 +393,7 @@ class _ConfiguracionGeneralPageState extends State<ConfiguracionGeneralPage> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(child: Text(value?.toString() ?? 'No configurado')),
         ],
       ),
     );

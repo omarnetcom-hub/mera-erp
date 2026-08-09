@@ -35,6 +35,26 @@ class AppSession {
     _entidadIdActiva = id;
   }
 
+  static Future<void> resolverEntidadActiva() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId(
+        db,
+      );
+      final rows = await db.query(
+        'entidades_territoriales',
+        where: 'company_id = ? AND activo = 1',
+        whereArgs: [companyId],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        _entidadIdActiva = rows.first['id']?.toString();
+      }
+    } catch (_) {
+      // La sesión comercial no depende de una entidad territorial.
+    }
+  }
+
   static Future<RolSectorPublico?> cargarRolSectorPublico() async {
     final db = await DatabaseHelper.instance.database;
     _rolSectorPublico = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
@@ -52,6 +72,7 @@ class AppSession {
   static void cerrar() {
     usuarioActual = null;
     _rolSectorPublico = null;
+    _entidadIdActiva = null;
   }
 
   static bool puedeAbrir(String modulo) {

@@ -24,7 +24,7 @@ void main() {
 
   setUpAll(() async {
     sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    databaseFactory = databaseFactoryFfiNoIsolate;
     await DatabaseHelper.resetForTests();
     CompanyConfigurationService.instance.resetForTests();
     dbDir = await Directory.systemTemp.createTemp('merkaerp_tax_block1_');

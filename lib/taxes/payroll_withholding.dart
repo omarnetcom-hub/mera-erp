@@ -1,4 +1,4 @@
-import 'package:merka_erp/core/currency/money_value.dart';
+import '../core/currency/money_value.dart';
 
 /// Retencion laboral mensual basada en la tabla progresiva del articulo 383
 /// del Estatuto Tributario.

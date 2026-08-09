@@ -186,10 +186,7 @@ class MatrizVisibilidadService {
     },
   };
 
-  MatrizVisibilidadService({
-    required this.db,
-    required this.auditoriaService,
-  });
+  MatrizVisibilidadService({required this.db, required this.auditoriaService});
 
   static Future<void> poblarMatrizInicial(DatabaseExecutor db) async {
     final existente = Sqflite.firstIntValue(
@@ -200,8 +197,12 @@ class MatrizVisibilidadService {
     final batch = db.batch();
     for (final entrada in _matrizDefinitiva.entries) {
       final separador = entrada.key.indexOf('_');
-      final tipo = separador == -1 ? entrada.key : entrada.key.substring(0, separador);
-      final subtipo = separador == -1 ? '' : entrada.key.substring(separador + 1);
+      final tipo = separador == -1
+          ? entrada.key
+          : entrada.key.substring(0, separador);
+      final subtipo = separador == -1
+          ? ''
+          : entrada.key.substring(separador + 1);
       for (final modulo in entrada.value) {
         batch.insert('modulos_por_tipo_entidad', {
           'tipo': tipo,
@@ -230,8 +231,13 @@ class MatrizVisibilidadService {
         whereArgs: [tipo, ''],
       );
     }
-    final nombres = resultado.map((fila) => fila['modulo'] as String).toSet();
-    return Modulo.values.where((modulo) => nombres.contains(modulo.name)).toSet();
+    final nombres = resultado
+        .map((fila) => fila['modulo']?.toString())
+        .whereType<String>()
+        .toSet();
+    return Modulo.values
+        .where((modulo) => nombres.contains(modulo.name))
+        .toSet();
   }
 
   /// Verifica si un módulo es visible para un tipo/subtipo
@@ -240,7 +246,10 @@ class MatrizVisibilidadService {
     String? subtipo,
     required Modulo modulo,
   }) async {
-    final modulosVisibles = await obtenerModulosVisibles(tipo: tipo, subtipo: subtipo);
+    final modulosVisibles = await obtenerModulosVisibles(
+      tipo: tipo,
+      subtipo: subtipo,
+    );
     return modulosVisibles.contains(modulo);
   }
 
@@ -260,7 +269,9 @@ class MatrizVisibilidadService {
       'entidad_id': entidadId,
       'tipo': tipo,
       'subtipo': subtipo,
-      'modulos_habilitados': modulosHabilitados.map((e) => e.toString().split('.').last).join(','),
+      'modulos_habilitados': modulosHabilitados
+          .map((e) => e.toString().split('.').last)
+          .join(','),
       'motivo': motivo,
       'fecha_configuracion': DateTime.now().toIso8601String(),
       'configurado_por': usuarioId,
@@ -311,13 +322,21 @@ class MatrizVisibilidadService {
     required String entidadId,
   }) async {
     // Primero verificar si hay configuración personalizada
-    final configPersonalizada = await consultarConfiguracionVisibilidad(entidadId: entidadId);
+    final configPersonalizada = await consultarConfiguracionVisibilidad(
+      entidadId: entidadId,
+    );
 
     if (configPersonalizada != null) {
-      final modulosStr = configPersonalizada['modulos_habilitados'] as String;
+      final modulosStr =
+          configPersonalizada['modulos_habilitados']?.toString() ?? '';
+      if (modulosStr.trim().isEmpty) return {};
       final modulosLista = modulosStr.split(',');
       return modulosLista
-          .map((m) => Modulo.values.firstWhere((e) => e.toString().split('.').last == m.trim()))
+          .map(
+            (m) => Modulo.values.firstWhere(
+              (e) => e.toString().split('.').last == m.trim(),
+            ),
+          )
           .toSet();
     }
 
@@ -332,8 +351,11 @@ class MatrizVisibilidadService {
       return {}; // Sin configuración, sin módulos
     }
 
-    final tipo = configEntidad.first['tipo'] as String;
-    final subtipo = configEntidad.first['subtipo'] as String?;
+    final tipo =
+        configEntidad.first['tipo']?.toString() ??
+        configEntidad.first['valor']?.toString();
+    if (tipo == null || tipo.isEmpty) return {};
+    final subtipo = configEntidad.first['subtipo']?.toString();
 
     return obtenerModulosVisibles(tipo: tipo, subtipo: subtipo);
   }
@@ -343,7 +365,9 @@ class MatrizVisibilidadService {
     required String entidadId,
     required String usuarioId,
   }) async {
-    final configPersonalizada = await consultarConfiguracionVisibilidad(entidadId: entidadId);
+    final configPersonalizada = await consultarConfiguracionVisibilidad(
+      entidadId: entidadId,
+    );
 
     if (configPersonalizada != null) {
       await db.update(
@@ -359,12 +383,8 @@ class MatrizVisibilidadService {
         tipoEvento: TipoEventoAuditoria.modificacionRegistro,
         modulo: 'configuracion',
         accion: 'restauracion_configuracion_defecto',
-        valorAnterior: {
-          'configuracion_anterior': configPersonalizada['id'],
-        },
-        valorNuevo: {
-          'configuracion_nueva': 'matriz_definitiva',
-        },
+        valorAnterior: {'configuracion_anterior': configPersonalizada['id']},
+        valorNuevo: {'configuracion_nueva': 'matriz_definitiva'},
         referenciaId: configPersonalizada['id'],
       );
     }
@@ -390,7 +410,9 @@ class MatrizVisibilidadService {
       'tipo': tipo,
       'subtipo': subtipo,
       'total_modulos': modulosVisibles.length,
-      'modulos_visibles': modulosVisibles.map((e) => e.toString().split('.').last).toList(),
+      'modulos_visibles': modulosVisibles
+          .map((e) => e.toString().split('.').last)
+          .toList(),
     };
   }
 

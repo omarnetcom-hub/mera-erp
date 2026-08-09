@@ -158,7 +158,8 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
     );
   }
 
-  /// TODO: Actas de responsabilidad de activos (Fase 4 - Servicio de actas de cuentadantes en desarrollo)
+  /// Brecha documentada: falta el servicio de actas de responsabilidad de
+  /// cuentadantes y su ciclo de firma/entrega.
   Widget _buildResponsibilityBanner() {
     return Container(
       color: Colors.amber.shade100,
@@ -169,8 +170,8 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Asignación de Actas de Responsabilidad a cuentadantes pendiente para Fase 4. '
-              'Clasificación, depreciación lineal/unidades y revalorizaciones están 100% activas en SQLite.',
+              'Pendiente: asignacion de Actas de Responsabilidad a cuentadantes y su ciclo de firma/entrega. '
+              'Clasificacion, depreciacion lineal/unidades y revalorizaciones estan activas en SQLite.',
               style: TextStyle(fontSize: 12, color: Colors.black87),
             ),
           ),

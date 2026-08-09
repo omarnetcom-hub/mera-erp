@@ -12,6 +12,7 @@ class SchemaMultiTenant {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS entidades_territoriales (
         id TEXT PRIMARY KEY,
+        company_id INTEGER,
         nit TEXT NOT NULL UNIQUE,
         razon_social TEXT NOT NULL,
         tipo_entidad TEXT NOT NULL,
@@ -360,6 +361,140 @@ class SchemaMultiTenant {
         'ALTER TABLE configuracion_visibilidad ADD COLUMN vigente INTEGER NOT NULL DEFAULT 1',
       );
     }
+  }
+
+  /// Vincula el contexto legado de onboarding con el tenant público real.
+  ///
+  /// Las instalaciones anteriores guardaban `tipo_entidad=publica` en
+  /// `company_settings`, pero no creaban una entidad territorial. La
+  /// reparación solo actúa cuando ese valor explícito existe y es idempotente;
+  /// no inventa entidades para empresas comerciales.
+  static Future<void> migrarContextoPublicoDesdeCompanySettings(
+    DatabaseExecutor db,
+  ) async {
+    final tablas = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      ['entidades_territoriales'],
+    );
+    if (tablas.isEmpty) return;
+
+    final columnas = await db.rawQuery(
+      'PRAGMA table_info(entidades_territoriales)',
+    );
+    final nombres = columnas.map((fila) => fila['name'] as String).toSet();
+    if (!nombres.contains('company_id')) {
+      try {
+        await db.execute(
+          'ALTER TABLE entidades_territoriales ADD COLUMN company_id INTEGER',
+        );
+      } on DatabaseException catch (error) {
+        if (!error.toString().toLowerCase().contains('duplicate column')) {
+          rethrow;
+        }
+      }
+    }
+
+    final publicCompanies = await db.rawQuery('''
+      SELECT c.id, c.name, c.tax_id, s.setting_value AS subtipo
+      FROM companies c
+      INNER JOIN company_settings mode
+        ON mode.company_id = c.id
+       AND mode.setting_key = 'tipo_entidad'
+       AND mode.setting_value = 'publica'
+      LEFT JOIN company_settings s
+        ON s.company_id = c.id
+       AND s.setting_key = 'subtipo_entidad_publica'
+    ''');
+
+    for (final company in publicCompanies) {
+      await crearEntidadPublicaDesdeConfiguracion(
+        db,
+        companyId: company['id'] as int,
+        nombreEmpresa: company['name']?.toString() ?? 'Entidad pública',
+        nit: company['tax_id']?.toString(),
+        subtipoLegado: company['subtipo']?.toString(),
+      );
+    }
+  }
+
+  /// Crea el tenant público asociado a un onboarding nuevo o legado.
+  /// Devuelve el identificador estable que usan los servicios públicos.
+  static Future<String> crearEntidadPublicaDesdeConfiguracion(
+    DatabaseExecutor db, {
+    required int companyId,
+    required String nombreEmpresa,
+    String? nit,
+    String? subtipoLegado,
+  }) async {
+    final entidadId = 'ENT-${companyId.toString().padLeft(3, '0')}';
+    final tipo = switch (subtipoLegado) {
+      'municipio' => 'municipio',
+      'gobernacion' => 'departamento',
+      'hospital' => 'hospitalEse',
+      'otro' => 'otroEnte',
+      _ => 'otroEnte',
+    };
+    final subtipo = subtipoLegado == 'municipio' ? 'municipio' : null;
+    final now = DateTime.now().toIso8601String();
+    final existing = await db.query(
+      'entidades_territoriales',
+      where: 'id = ?',
+      whereArgs: [entidadId],
+      limit: 1,
+    );
+
+    if (existing.isEmpty) {
+      await db.insert('entidades_territoriales', {
+        'id': entidadId,
+        'company_id': companyId,
+        'nit': (nit == null || nit.trim().isEmpty)
+            ? 'PENDIENTE-$companyId'
+            : nit.trim(),
+        'razon_social': nombreEmpresa,
+        'tipo_entidad': tipo,
+        'fecha_creacion': now,
+        'plan_cuentas_cgc': '{}',
+        'configuracion_normativa':
+            '{"origen":"onboarding","requiere_completar":true}',
+      });
+    } else if (existing.first['company_id'] == null) {
+      await db.update(
+        'entidades_territoriales',
+        {'company_id': companyId},
+        where: 'id = ?',
+        whereArgs: [entidadId],
+      );
+    } else if (existing.first['company_id'] != companyId) {
+      throw StateError(
+        'La entidad $entidadId ya pertenece a otra empresa; no se puede '
+        'reasignar silenciosamente el contexto público.',
+      );
+    }
+
+    final config = await db.query(
+      'configuracion_entidad',
+      where: 'entidad_id = ? AND parametro = ? AND vigente = 1',
+      whereArgs: [entidadId, 'tipo_entidad'],
+      limit: 1,
+    );
+    if (config.isEmpty) {
+      await db.insert('configuracion_entidad', {
+        'id': 'onboarding-$companyId-tipo-entidad',
+        'entidad_id': entidadId,
+        'parametro': 'tipo_entidad',
+        'valor': tipo,
+        'fecha_actualizacion': now,
+        'actualizado_por': 'onboarding',
+        'tipo': tipo,
+        'subtipo': subtipo,
+        'nombre_entidad': nombreEmpresa,
+        'fecha_configuracion': now,
+        'configurado_por': 'onboarding',
+        'estado': 'activo',
+        'vigente': 1,
+      });
+    }
+    return entidadId;
   }
 
   static Future<void> migrarConfiguracionEntidadParaHistorial(

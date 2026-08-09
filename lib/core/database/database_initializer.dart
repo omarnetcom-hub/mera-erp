@@ -250,6 +250,23 @@ extension DatabaseInitializer on DatabaseHelper {
     if (version >= 91) {
       await FinancialFrameworkSchemaMigration.migrateV91(db);
     }
+    if (version >= 92) {
+      await SchemaMultiTenant.migrarContextoPublicoDesdeCompanySettings(db);
+    }
+    if (version >= 93) {
+      await SchemaMultiTenant.migrarConfiguracionVisibilidad(db);
+    }
+    if (version >= 94) {
+      // Aplica la compatibilidad de v94 tambien a bases nuevas, porque
+      // algunas tablas legacy se crean antes que los servicios modernos.
+      await _migrarDB(db, 93, version);
+    }
+    if (version >= 95) {
+      await _migrarDB(db, 94, version);
+    }
+    if (version >= 96) {
+      await _migrarDB(db, 95, version);
+    }
   }
 
   /// Migraciones incrementales entre versiones de la base de datos.

@@ -30,6 +30,7 @@ void main() {
         company_id INTEGER NOT NULL,
         setting_key TEXT NOT NULL,
         setting_value TEXT,
+        updated_at TEXT NOT NULL,
         PRIMARY KEY (company_id, setting_key)
       )
     ''');
@@ -132,41 +133,67 @@ void main() {
       expect(AppSession.usuarioId, isNull);
     });
 
-    test('2. Sin usuarioId (null), tieneAutoridadReconfiguracion retorna FALSE (Fail-Closed)', () async {
-      final auth = await SelectorModoService.tieneAutoridadReconfiguracion(
-        db: db,
+    test(
+      '2. Sin usuarioId (null), tieneAutoridadReconfiguracion retorna FALSE (Fail-Closed)',
+      () async {
+        final auth = await SelectorModoService.tieneAutoridadReconfiguracion(
+          db: db,
+          entidadId: 'ENT-999',
+          usuarioId: null,
+        );
+        expect(auth, isFalse);
+      },
+    );
+
+    test(
+      '3. Sin usuarioId (null), obtenerRolUsuarioEnEntidad retorna NULL (Fail-Closed)',
+      () async {
+        final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
+          db: db,
+          entidadId: 'ENT-999',
+          usuarioId: null,
+        );
+        expect(rol, isNull);
+      },
+    );
+
+    test(
+      '4. Con sesión activa explícita, resuelve id/usuario sin ambigüedad ni fallbacks fijos',
+      () async {
+        AppSession.iniciar({
+          'id': 'USR-ALCALDE',
+          'usuario': 'alcalde_muni',
+          'nombre': 'Dr. Alcalde',
+          'rol': 'alcaldeRepresentanteLegal',
+        });
+        AppSession.establecerEntidadActiva('ENT-999');
+
+        expect(AppSession.usuarioId, equals('USR-ALCALDE'));
+
+        final auth = await SelectorModoService.tieneAutoridadReconfiguracion(
+          db: db,
+          entidadId: AppSession.entidadId,
+          usuarioId: AppSession.usuarioId,
+        );
+        expect(auth, isTrue);
+      },
+    );
+
+    test('5. Guardar modo cumple el contrato updated_at del esquema', () async {
+      await SelectorModoService.guardarModo(
+        database: db,
         entidadId: 'ENT-999',
-        usuarioId: null,
+        usuarioId: 100,
+        modo: ModoOperacion.privada,
       );
-      expect(auth, isFalse);
-    });
 
-    test('3. Sin usuarioId (null), obtenerRolUsuarioEnEntidad retorna NULL (Fail-Closed)', () async {
-      final rol = await RolesPermisosService.obtenerRolUsuarioEnEntidad(
-        db: db,
-        entidadId: 'ENT-999',
-        usuarioId: null,
+      final rows = await db.query(
+        'company_settings',
+        where: 'company_id = ? AND setting_key = ?',
+        whereArgs: [1, 'tipo_entidad'],
       );
-      expect(rol, isNull);
-    });
-
-    test('4. Con sesión activa explícita, resuelve id/usuario sin ambigüedad ni fallbacks fijos', () async {
-      AppSession.iniciar({
-        'id': 'USR-ALCALDE',
-        'usuario': 'alcalde_muni',
-        'nombre': 'Dr. Alcalde',
-        'rol': 'alcaldeRepresentanteLegal',
-      });
-      AppSession.establecerEntidadActiva('ENT-999');
-
-      expect(AppSession.usuarioId, equals('USR-ALCALDE'));
-
-      final auth = await SelectorModoService.tieneAutoridadReconfiguracion(
-        db: db,
-        entidadId: AppSession.entidadId,
-        usuarioId: AppSession.usuarioId,
-      );
-      expect(auth, isTrue);
+      expect(rows.single['setting_value'], 'privada');
+      expect(rows.single['updated_at'], isNotEmpty);
     });
   });
 }

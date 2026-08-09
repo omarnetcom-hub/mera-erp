@@ -3,10 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../db_helper.dart';
 import '../../sector_publico/security/roles_permisos_service.dart';
 
-enum ModoOperacion {
-  privada,
-  publica,
-}
+enum ModoOperacion { privada, publica }
 
 class SelectorModoService {
   /// Obtiene el modo de operación guardado para la empresa activa.
@@ -20,7 +17,9 @@ class SelectorModoService {
         whereArgs: ['company_active_id'],
         limit: 1,
       );
-      final companyIdStr = companyRows.isNotEmpty ? companyRows.first['valor']?.toString() : '1';
+      final companyIdStr = companyRows.isNotEmpty
+          ? companyRows.first['valor']?.toString()
+          : '1';
       final companyId = int.tryParse(companyIdStr ?? '1') ?? 1;
 
       final rows = await db.query(
@@ -52,7 +51,9 @@ class SelectorModoService {
   }) async {
     if (usuarioId == null) return false;
     final usuarioIdStr = usuarioId.toString().trim();
-    if (usuarioIdStr.isEmpty || usuarioIdStr == 'null' || usuarioIdStr == 'sin_sesion') {
+    if (usuarioIdStr.isEmpty ||
+        usuarioIdStr == 'null' ||
+        usuarioIdStr == 'sin_sesion') {
       return false;
     }
 
@@ -106,7 +107,7 @@ class SelectorModoService {
     if (!autorizado) {
       throw Exception(
         'Acceso denegado: El usuario $usuarioId no tiene autoridad (Alcalde/Representante Legal o Administrador) '
-        'para reconfigurar el marco normativo del ERP en la entidad $entidadId.'
+        'para reconfigurar el marco normativo del ERP en la entidad $entidadId.',
       );
     }
 
@@ -116,20 +117,19 @@ class SelectorModoService {
       whereArgs: ['company_active_id'],
       limit: 1,
     );
-    final companyIdStr = companyRows.isNotEmpty ? companyRows.first['valor']?.toString() : '1';
+    final companyIdStr = companyRows.isNotEmpty
+        ? companyRows.first['valor']?.toString()
+        : '1';
     final companyId = int.tryParse(companyIdStr ?? '1') ?? 1;
 
     final val = modo == ModoOperacion.publica ? 'publica' : 'privada';
 
-    await db.insert(
-      'company_settings',
-      {
-        'company_id': companyId,
-        'setting_key': 'tipo_entidad',
-        'setting_value': val,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('company_settings', {
+      'company_id': companyId,
+      'setting_key': 'tipo_entidad',
+      'setting_value': val,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }
 
@@ -296,7 +296,9 @@ class _SelectorModoScreenState extends State<SelectorModoScreen> {
             width: seleccionado ? 2.5 : 1.0,
           ),
           color: seleccionado
-              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2)
+              ? Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: 0.2)
               : Theme.of(context).cardColor,
           boxShadow: [
             BoxShadow(

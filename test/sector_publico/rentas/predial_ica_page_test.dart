@@ -67,7 +67,7 @@ void main() {
 
     // Verify ICA elements and TODO banner
     expect(
-      find.textContaining('Exportación oficial de Declaración ICA (PDF/XML'),
+      find.textContaining('Pendiente: exportacion oficial de Declaracion ICA'),
       findsOneWidget,
     );
     expect(find.text('Censo de Contribuyentes ICA'), findsOneWidget);

@@ -547,7 +547,8 @@ class _PredialICAPageState extends State<PredialICAPage>
     );
   }
 
-  /// TODO: Exportar declaración ICA (Fase 4 - Servicio de generación PDF/XML de declaración no expuesto en el servicio)
+  /// Brecha documentada: falta exponer el formato oficial de exportacion ICA
+  /// y su servicio de generacion PDF/XML.
   Widget _buildExportDeclarationBanner() {
     return Container(
       color: Colors.amber.shade100,
@@ -558,8 +559,8 @@ class _PredialICAPageState extends State<PredialICAPage>
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Exportación oficial de Declaración ICA (PDF/XML DIAN/DNP) en desarrollo para Fase 4. '
-              'El cálculo, censo, reteica y liquidación de tributos están 100% operativos en SQLite.',
+              'Pendiente: exportacion oficial de Declaracion ICA en PDF/XML segun el formato externo aplicable. '
+              'El calculo, censo, reteICA y liquidacion tributaria estan operativos en SQLite.',
               style: TextStyle(fontSize: 12, color: Colors.black87),
             ),
           ),

@@ -88,6 +88,12 @@ class InventoryLot {
     'id': id,
     'company_id': companyId,
     'product_id': productId,
+    // Aliases del esquema legacy v1, conservados para instalaciones
+    // existentes que todavía crean lotes desde db_helper.dart.
+    'quantity': currentQuantity,
+    'batch_number': lotNumber,
+    'serial_number': null,
+    'received_at': createdAt.toIso8601String(),
     'lot_number': lotNumber,
     'manufacturing_date': manufacturingDate.toIso8601String(),
     'expiration_date': expirationDate.toIso8601String(),

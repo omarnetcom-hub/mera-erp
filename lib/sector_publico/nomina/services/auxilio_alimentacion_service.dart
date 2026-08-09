@@ -143,8 +143,8 @@ class AuxilioAlimentacionService {
     // Obtener todos los empleados activos
     final empleados = await db.query(
       'empleados_sp',
-      where: 'entidad_id = ? AND estado = ?',
-      whereArgs: [entidadId, 'activo'],
+      where: 'entidad_id = ? AND activo = ?',
+      whereArgs: [entidadId, 1],
     );
 
     var totalAuxilio = publicMoneyZero();

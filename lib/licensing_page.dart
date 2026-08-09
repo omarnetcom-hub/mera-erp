@@ -18,13 +18,14 @@ class LicensingPage extends StatefulWidget {
   State<LicensingPage> createState() => _LicensingPageState();
 }
 
-class _LicensingPageState extends State<LicensingPage> with SingleTickerProviderStateMixin {
+class _LicensingPageState extends State<LicensingPage>
+    with SingleTickerProviderStateMixin {
   final _keyController = TextEditingController();
   final _offlineTokenController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   String? _licenseType = 'SUSCRIPCION';
-  
+
   bool _loading = true;
   String _hardwareId = '';
   String _hardwareFingerprint = '';
@@ -35,9 +36,10 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
   static const int _maxCompanies = 5;
   static const int _maxBranches = 20;
   static const int _maxDevices = 50;
-  
+
   late TabController _tabController;
-  final HardwareFingerprintService _fingerprintService = HardwareFingerprintService();
+  final HardwareFingerprintService _fingerprintService =
+      HardwareFingerprintService();
   final LicenciaService _licenciaService = LicenciaService.instance;
 
   @override
@@ -75,22 +77,38 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
     setState(() => _loading = true);
     try {
       final db = await DatabaseHelper.instance.database;
-      
+
       // Hardware ID
-      _hardwareId = 'MERKA-${Platform.localHostname.toUpperCase()}-${Platform.operatingSystem.toUpperCase()}';
-      
+      _hardwareId =
+          'MERKA-${Platform.localHostname.toUpperCase()}-${Platform.operatingSystem.toUpperCase()}';
+
       // Fetch stored config
-      final keyRows = await db.query('app_config', where: 'clave = ?', whereArgs: ['license_key'], limit: 1);
+      final keyRows = await db.query(
+        'app_config',
+        where: 'clave = ?',
+        whereArgs: ['license_key'],
+        limit: 1,
+      );
       if (keyRows.isNotEmpty) {
         _currentKey = keyRows.first['valor']?.toString() ?? '';
       }
 
-      final planRows = await db.query('app_config', where: 'clave = ?', whereArgs: ['license_plan'], limit: 1);
+      final planRows = await db.query(
+        'app_config',
+        where: 'clave = ?',
+        whereArgs: ['license_plan'],
+        limit: 1,
+      );
       if (planRows.isNotEmpty) {
         _planName = planRows.first['valor']?.toString() ?? 'Enterprise Local';
       }
 
-      final statusRows = await db.query('app_config', where: 'clave = ?', whereArgs: ['license_status'], limit: 1);
+      final statusRows = await db.query(
+        'app_config',
+        where: 'clave = ?',
+        whereArgs: ['license_status'],
+        limit: 1,
+      );
       if (statusRows.isNotEmpty) {
         final st = statusRows.first['valor']?.toString();
         if (st == 'active') _status = LicenseStatus.active;
@@ -98,9 +116,16 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
         if (st == 'suspended') _status = LicenseStatus.suspended;
       }
 
-      final expireRows = await db.query('app_config', where: 'clave = ?', whereArgs: ['license_expires_at'], limit: 1);
+      final expireRows = await db.query(
+        'app_config',
+        where: 'clave = ?',
+        whereArgs: ['license_expires_at'],
+        limit: 1,
+      );
       if (expireRows.isNotEmpty) {
-        final dt = DateTime.tryParse(expireRows.first['valor']?.toString() ?? '');
+        final dt = DateTime.tryParse(
+          expireRows.first['valor']?.toString() ?? '',
+        );
         if (dt != null) _expiresAt = dt;
       }
     } catch (e) {
@@ -116,7 +141,7 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final licenseType = _licenseType ?? 'SUSCRIPCION';
-    
+
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -130,10 +155,10 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
     setState(() => _loading = true);
     try {
       final db = await DatabaseHelper.instance.database;
-      
+
       // Obtener hardware fingerprint
       final fingerprint = await _fingerprintService.generateFingerprint();
-      
+
       // Obtener endpoint del Control Center
       final endpointConfig = await db.query(
         'app_config',
@@ -141,11 +166,11 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
         whereArgs: ['control_center_endpoint'],
         limit: 1,
       );
-      final configuredEndpoint = endpointConfig.isNotEmpty 
+      final configuredEndpoint = endpointConfig.isNotEmpty
           ? endpointConfig.first['valor']?.toString().trim()
           : null;
       final endpoint = ControlCenterEndpoint.normalize(configuredEndpoint);
-      
+
       // Hacer petición HTTP al servidor online para activación
       final response = await http.post(
         Uri.parse(ControlCenterEndpoint.activationUrl(endpoint)),
@@ -160,46 +185,84 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         if (data['success'] == true) {
           final licenseData = data['license'];
           final token = data['token'];
           final userData = data['user'];
           final postgresCredentials = data['postgres_credentials'];
-          
+
           // Guardar datos de licencia en base de datos
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_email', '$email')");
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_status', '${licenseData['status']}')");
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_type', '${licenseData['license_type']}')");
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_expires_at', '${licenseData['expires_at']}')");
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_token', '$token')");
-          
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_email', '$email')",
+          );
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_status', '${licenseData['status']}')",
+          );
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_type', '${licenseData['license_type']}')",
+          );
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_expires_at', '${licenseData['expires_at']}')",
+          );
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_token', '$token')",
+          );
+
           // Guardar límites de licencia
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_max_users', '${licenseData['max_users']}')");
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_max_devices', '${licenseData['max_devices']}')");
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_max_branches', '${licenseData['max_branches']}')");
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_modules', '${licenseData['modules']}')");
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_max_users', '${licenseData['max_users']}')",
+          );
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_max_devices', '${licenseData['max_devices']}')",
+          );
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_max_branches', '${licenseData['max_branches']}')",
+          );
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('license_modules', '${licenseData['modules']}')",
+          );
 
           // Guardar hardware fingerprint
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('hardware_fingerprint', '$fingerprint')");
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('hardware_fingerprint', '$fingerprint')",
+          );
 
           // Guardar credenciales PostgreSQL si están disponibles
           if (postgresCredentials != null) {
-            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_host', '${postgresCredentials['host']}')");
-            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_port', '${postgresCredentials['port']}')");
-            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_database', '${postgresCredentials['database']}')");
-            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_schema', '${postgresCredentials['schema']}')");
-            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_username', '${postgresCredentials['username']}')");
-            await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_password', '${postgresCredentials['password']}')");
-            
+            await db.execute(
+              "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_host', '${postgresCredentials['host']}')",
+            );
+            await db.execute(
+              "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_port', '${postgresCredentials['port']}')",
+            );
+            await db.execute(
+              "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_database', '${postgresCredentials['database']}')",
+            );
+            await db.execute(
+              "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_schema', '${postgresCredentials['schema']}')",
+            );
+            await db.execute(
+              "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_username', '${postgresCredentials['username']}')",
+            );
+            await db.execute(
+              "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_password', '${postgresCredentials['password']}')",
+            );
+
             if (postgresCredentials['connection_string'] != null) {
-              await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_connection_string', '${postgresCredentials['connection_string']}')");
+              await db.execute(
+                "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('postgres_connection_string', '${postgresCredentials['connection_string']}')",
+              );
             }
           }
 
           // Guardar datos del usuario
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('client_id', '${userData['client_id']}')");
-          await db.execute("INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('client_name', '${userData['client_name']}')");
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('client_id', '${userData['client_id']}')",
+          );
+          await db.execute(
+            "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('client_name', '${userData['client_name']}')",
+          );
 
           await ControlCenterAgent.reportEvent(
             event: 'license.activated',
@@ -211,7 +274,9 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('¡Licencia activada con éxito! Tipo: ${licenseData['type']}'),
+                content: Text(
+                  '¡Licencia activada con éxito! Tipo: ${licenseData['type']}',
+                ),
                 backgroundColor: Color(0xFF10B981),
               ),
             );
@@ -257,7 +322,7 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
     setState(() => _loading = true);
     try {
       final success = await _licenciaService.activarDesdeTokenOffline(token);
-      
+
       if (success) {
         SystemSound.play(SystemSoundType.click);
 
@@ -307,7 +372,9 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+        ),
       );
     }
 
@@ -321,7 +388,7 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
             tooltip: 'Actualizar estado',
             icon: const Icon(Icons.refresh),
             onPressed: _loadLicenseData,
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -347,13 +414,15 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
                         color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
-                      )
+                      ),
                     ],
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        isExpired ? PhosphorIcons.warningCircle() : PhosphorIcons.shieldCheck(),
+                        isExpired
+                            ? PhosphorIcons.warningCircle()
+                            : PhosphorIcons.shieldCheck(),
                         color: Colors.white,
                         size: 48,
                       ),
@@ -364,20 +433,30 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
                           children: [
                             Text(
                               'Plan Actual: $_planName',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               isExpired
                                   ? 'Su licencia ha expirado. Por favor active una nueva clave para continuar operando sin restricciones.'
                                   : 'Licencia activa y sincronizada localmente con Merka Control Center.',
-                              style: const TextStyle(color: Colors.white70, fontSize: 13),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
@@ -387,12 +466,22 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
                           children: [
                             Text(
                               '$_daysRemaining',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                              ),
                             ),
-                            const Text('Días Restantes', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                            const Text(
+                              'Días Restantes',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                              ),
+                            ),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -407,30 +496,42 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
                       runSpacing: 16,
                       children: [
                         SizedBox(
-                          width: compact ? constraints.maxWidth : (constraints.maxWidth - 16) / 2,
+                          width: compact
+                              ? constraints.maxWidth
+                              : (constraints.maxWidth - 16) / 2,
                           child: _InfoCard(
                             title: 'Identificador de Dispositivo (HWID)',
                             value: _hardwareId,
                             icon: PhosphorIcons.desktop(),
                             copyable: true,
-                            detail: 'Único para esta computadora local. Requerido para licencias offline.',
+                            detail:
+                                'Único para esta computadora local. Requerido para licencias offline.',
                           ),
                         ),
                         SizedBox(
-                          width: compact ? constraints.maxWidth : (constraints.maxWidth - 16) / 2,
+                          width: compact
+                              ? constraints.maxWidth
+                              : (constraints.maxWidth - 16) / 2,
                           child: _InfoCard(
                             title: 'Hardware Fingerprint',
-                            value: _hardwareFingerprint.isEmpty ? 'Cargando...' : _hardwareFingerprint,
+                            value: _hardwareFingerprint.isEmpty
+                                ? 'Cargando...'
+                                : _hardwareFingerprint,
                             icon: PhosphorIcons.fingerprint(),
                             copyable: true,
-                            detail: 'Fingerprint para activación offline. Copie y envíe a soporte.',
+                            detail:
+                                'Fingerprint para activación offline. Copie y envíe a soporte.',
                           ),
                         ),
                         SizedBox(
-                          width: compact ? constraints.maxWidth : (constraints.maxWidth - 16) / 2,
+                          width: compact
+                              ? constraints.maxWidth
+                              : (constraints.maxWidth - 16) / 2,
                           child: _InfoCard(
                             title: 'Clave Registrada',
-                            value: _currentKey.isEmpty ? 'MKERP-TRIAL-LOCAL-30D' : _currentKey,
+                            value: _currentKey.isEmpty
+                                ? 'MKERP-TRIAL-LOCAL-30D'
+                                : _currentKey,
                             icon: PhosphorIcons.key(),
                             copyable: true,
                             detail: 'Estado: ${_status.name.toUpperCase()}',
@@ -455,9 +556,20 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
                     children: [
                       Row(
                         children: [
-                          Icon(PhosphorIcons.lockKey(), color: const Color(0xFF2563EB), size: 24),
+                          Icon(
+                            PhosphorIcons.lockKey(),
+                            color: const Color(0xFF2563EB),
+                            size: 24,
+                          ),
                           const SizedBox(width: 12),
-                          const Text('Activar o Renovar Licencia', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1F2937))),
+                          const Text(
+                            'Activar o Renovar Licencia',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(0xFF1F2937),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -495,20 +607,44 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Capacidades e Inclusiones del Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text(
+                        'Capacidades e Inclusiones del Plan',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       const Divider(height: 24),
                       Wrap(
                         spacing: 24,
                         runSpacing: 16,
                         children: [
-                          _FeatureMetric(label: 'Empresas Máximas', value: '$_maxCompanies'),
-                          _FeatureMetric(label: 'Sucursales Permitidas', value: '$_maxBranches'),
-                          _FeatureMetric(label: 'Dispositivos POS', value: '$_maxDevices'),
-                          const _FeatureMetric(label: 'Facturación Electrónica DIAN', value: 'Incluido'),
-                          const _FeatureMetric(label: 'Copilot IA Ilimitado', value: 'Incluido'),
-                          const _FeatureMetric(label: 'Sincronización Cloud', value: 'Activa'),
+                          _FeatureMetric(
+                            label: 'Empresas Máximas',
+                            value: '$_maxCompanies',
+                          ),
+                          _FeatureMetric(
+                            label: 'Sucursales Permitidas',
+                            value: '$_maxBranches',
+                          ),
+                          _FeatureMetric(
+                            label: 'Dispositivos POS',
+                            value: '$_maxDevices',
+                          ),
+                          const _FeatureMetric(
+                            label: 'Facturación Electrónica DIAN',
+                            value: 'Incluido',
+                          ),
+                          const _FeatureMetric(
+                            label: 'Copilot IA Ilimitado',
+                            value: 'Incluido',
+                          ),
+                          const _FeatureMetric(
+                            label: 'Sincronización Cloud',
+                            value: 'Activa',
+                          ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -534,7 +670,9 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
           decoration: const InputDecoration(
             hintText: 'Correo electrónico',
             prefixIcon: Icon(Icons.email_outlined),
-            border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -544,7 +682,9 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
           decoration: const InputDecoration(
             hintText: 'Contraseña',
             prefixIcon: Icon(Icons.lock_outlined),
-            border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -554,7 +694,10 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
             DropdownButton<String>(
               value: _licenseType,
               items: const [
-                DropdownMenuItem(value: 'SUSCRIPCION', child: Text('Suscripción')),
+                DropdownMenuItem(
+                  value: 'SUSCRIPCION',
+                  child: Text('Suscripción'),
+                ),
                 DropdownMenuItem(value: 'PERPETUA', child: Text('Perpetua')),
               ],
               onChanged: (value) {
@@ -570,11 +713,16 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
           child: FilledButton.icon(
             onPressed: _activateOnline,
             icon: const Icon(Icons.check_circle_outline),
-            label: const Text('ACTIVAR EN LÍNEA', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text(
+              'ACTIVAR EN LÍNEA',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ),
@@ -600,7 +748,9 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
                 decoration: const InputDecoration(
                   hintText: 'Pegue el token aquí...',
                   prefixIcon: Icon(Icons.key),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
                 ),
               ),
             ),
@@ -610,14 +760,19 @@ class _LicensingPageState extends State<LicensingPage> with SingleTickerProvider
               child: FilledButton.icon(
                 onPressed: _activateOffline,
                 icon: const Icon(Icons.offline_pin),
-                label: const Text('ACTIVAR OFFLINE', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'ACTIVAR OFFLINE',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF10B981),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ],
@@ -656,7 +811,18 @@ class _InfoCard extends StatelessWidget {
             children: [
               Icon(icon, size: 20, color: const Color(0xFF4B5563)),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4B5563),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -665,24 +831,39 @@ class _InfoCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   value,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'monospace', color: Color(0xFF1F2937)),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'monospace',
+                    color: Color(0xFF1F2937),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (copyable)
                 IconButton(
-                  icon: const Icon(Icons.copy, size: 16, color: Color(0xFF2563EB)),
+                  icon: const Icon(
+                    Icons.copy,
+                    size: 16,
+                    color: Color(0xFF2563EB),
+                  ),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: value));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Copiado al portapapeles'), duration: Duration(seconds: 1)),
+                      const SnackBar(
+                        content: Text('Copiado al portapapeles'),
+                        duration: Duration(seconds: 1),
+                      ),
                     );
                   },
-                )
+                ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(detail, style: const TextStyle(fontSize: 11, color: Color(0xFF4B5563))),
+          Text(
+            detail,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF4B5563)),
+          ),
         ],
       ),
     );
@@ -702,13 +883,32 @@ class _FeatureMetric extends StatelessWidget {
         children: [
           const Icon(Icons.check_circle, size: 16, color: Color(0xFF10B981)),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1F2937))),
-              Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF4B5563))),
-            ],
-          )
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF4B5563),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

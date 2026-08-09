@@ -127,7 +127,7 @@ class CommandRegistry extends ChangeNotifier {
       _commands[commandId] = CommandDefinition(
         id: commandId,
         label: 'Abrir ${module.title}',
-        description: 'Navegar al mÃ³dulo ${module.title}.',
+        description: 'Navegar al módulo ${module.title}.',
         icon: module.icon,
         color: module.color,
         moduleId: module.id,

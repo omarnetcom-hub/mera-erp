@@ -25,6 +25,9 @@ import 'package:merka_erp/estados_financieros_page.dart';
 import 'package:merka_erp/extractos_bancarios_page.dart';
 import 'package:merka_erp/facturacion_electronica_page.dart';
 import 'package:merka_erp/features/company_configuration_service.dart';
+import 'package:merka_erp/features/module_definition.dart';
+import 'package:merka_erp/core/workspace/public_sector_config.dart';
+import 'package:merka_erp/core/workspace/workspace_config.dart';
 import 'package:merka_erp/inventario_page.dart';
 import 'package:merka_erp/manual_page.dart';
 import 'package:merka_erp/nomina_page.dart';
@@ -38,13 +41,14 @@ import 'package:merka_erp/respaldos_page.dart';
 import 'package:merka_erp/ui/enterprise_design_system.dart';
 import 'package:merka_erp/usuarios_page.dart';
 import 'package:merka_erp/ventas_page.dart';
+import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
 
 void main() {
   late final Directory dbDir;
 
   setUpAll(() async {
     sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    databaseFactory = databaseFactoryFfiNoIsolate;
     await DatabaseHelper.resetForTests();
     CompanyConfigurationService.instance.resetForTests();
     dbDir = await Directory.systemTemp.createTemp('merkaerp_smoke_db_');
@@ -56,6 +60,13 @@ void main() {
       'currency': 'COP',
       'timezone': 'America/Bogota',
     });
+    await SchemaMultiTenant.crearEntidadPublicaDesdeConfiguracion(
+      await DatabaseHelper.instance.database,
+      companyId: companyId,
+      nombreEmpresa: 'Entidad pública de humo',
+      nit: 'SMOKE-$companyId',
+      subtipoLegado: 'municipio',
+    );
   });
 
   tearDownAll(() async {
@@ -111,6 +122,34 @@ void main() {
       _SmokeModule('Respaldos', () => const RespaldosPage()),
       _SmokeModule('Configuracion', () => const ConfiguracionPage()),
     ];
+    final registered = <ModuleDefinition>[
+      ...operacion(),
+      ...finanzas(),
+      ...control(),
+      ...gestion(),
+      ...modulosPresupuestoPublico(),
+      ...modulosContabilidadNICSP(),
+      ...modulosContratacionPublica(),
+      ...modulosNominaPublica(),
+      ...modulosRentas(),
+      ...modulosPlaneacion(),
+      ...modulosActivosEstado(),
+      ...modulosAuditoriaTransparencia(),
+      ...modulosConfiguracionEntidad(),
+    ];
+    final knownTitles = modules.map((module) => module.name).toSet();
+    modules.addAll(
+      registered
+          .where((module) => !knownTitles.contains(module.title))
+          .map(
+            (module) => _SmokeModule(
+              module.title,
+              () => Builder(builder: module.builder),
+            ),
+          ),
+    );
+
+    final failures = <String>[];
 
     for (final module in modules) {
       await tester.pumpWidget(
@@ -120,14 +159,37 @@ void main() {
           home: module.builder(),
         ),
       );
-      await tester.pump();
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: '${module.name} lanzo una excepcion al abrir',
-      );
+      try {
+        await tester.pump();
+        for (var tick = 0; tick < 30; tick++) {
+          await tester.pump(const Duration(milliseconds: 100));
+          if (!tester.binding.hasScheduledFrame) break;
+        }
+      } catch (error) {
+        failures.add('${module.name}: timeout/error durante settle: $error');
+      }
+      final exception = tester.takeException();
+      if (exception != null) {
+        failures.add('${module.name}: $exception');
+      }
+      final visibleErrors = find.byWidgetPredicate((widget) {
+        if (widget is! Text) return false;
+        final text = widget.data ?? '';
+        return text.contains('SqliteException') ||
+            text.contains('DatabaseException') ||
+            text.startsWith('Error:');
+      });
+      if (visibleErrors.evaluate().isNotEmpty) {
+        final messages = visibleErrors
+            .evaluate()
+            .map((element) => (element.widget as Text).data ?? '')
+            .toSet()
+            .join(' | ');
+        failures.add('${module.name}: widget de error visible: $messages');
+      }
       await tester.pumpWidget(const SizedBox.shrink());
     }
+    expect(failures, isEmpty, reason: failures.join('\n'));
   });
 }
 

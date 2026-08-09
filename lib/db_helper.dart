@@ -83,7 +83,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 91;
+  static const int schemaVersion = 96;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1028,6 +1028,170 @@ class DatabaseHelper {
     }
     if (oldVersion < 91) {
       await FinancialFrameworkSchemaMigration.migrateV91(db);
+    }
+    if (oldVersion < 92) {
+      await SchemaMultiTenant.migrarConfiguracionVisibilidad(db);
+      await SchemaMultiTenant.migrarContextoPublicoDesdeCompanySettings(db);
+    }
+    if (oldVersion < 94) {
+      // Reaplica ambas correcciones de forma idempotente para instalaciones
+      // que ya habian abierto la base con v92 antes de completar la migracion.
+      await SchemaMultiTenant.migrarConfiguracionVisibilidad(db);
+      await SchemaMultiTenant.migrarContextoPublicoDesdeCompanySettings(db);
+      // La tabla de garantias nacio con nombres legacy y el servicio moderno
+      // la consulta con nombres de dominio. Se agregan aliases nullable sin
+      // reescribir datos existentes; los nuevos registros escriben ambos.
+      Future<bool> tableExists(String tableName) async {
+        final rows = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [tableName],
+        );
+        return rows.isNotEmpty;
+      }
+
+      const warrantyColumns = <String, String>{
+        'sale_id': 'INTEGER',
+        'sale_number': 'TEXT',
+        'product_id': 'INTEGER',
+        'product_name': 'TEXT',
+        'customer_id': 'INTEGER',
+        'customer_name': 'TEXT',
+        'start_date': 'TEXT',
+        'end_date': 'TEXT',
+        'duration_months': 'INTEGER',
+        'warranty_type': 'TEXT',
+        'notes': 'TEXT',
+        'created_at': 'TEXT',
+        'updated_at': 'TEXT',
+      };
+      if (await tableExists('warranties')) {
+        for (final entry in warrantyColumns.entries) {
+          await _agregarColumnaSiNoExiste(
+            db,
+            'warranties',
+            entry.key,
+            entry.value,
+          );
+        }
+      }
+      if (await tableExists('warranty_claims')) {
+        await _agregarColumnaSiNoExiste(
+          db,
+          'warranty_claims',
+          'issue_description',
+          'TEXT',
+        );
+        await _agregarColumnaSiNoExiste(
+          db,
+          'warranty_claims',
+          'resolved_date',
+          'TEXT',
+        );
+      }
+      // GDPR consulta el autor de la venta. Nullable preserva filas legacy
+      // y evita atribuir retrospectivamente un usuario que no fue guardado.
+      if (await tableExists('ventas')) {
+        await _agregarColumnaSiNoExiste(db, 'ventas', 'created_by', 'TEXT');
+      }
+      const lotColumns = <String, String>{
+        'lot_number': 'TEXT',
+        'manufacturing_date': 'TEXT',
+        'expiration_date': 'TEXT',
+        'initial_quantity': 'REAL',
+        'current_quantity': 'REAL',
+        'supplier_id': 'TEXT',
+        'purchase_document_id': 'TEXT',
+        'status': "TEXT DEFAULT 'active'",
+        'created_at': 'TEXT',
+        'updated_at': 'TEXT',
+      };
+      if (await tableExists('inventory_lots')) {
+        for (final entry in lotColumns.entries) {
+          await _agregarColumnaSiNoExiste(
+            db,
+            'inventory_lots',
+            entry.key,
+            entry.value,
+          );
+        }
+      }
+      const syncOutboxColumns = <String, String>{
+        'event_id': 'TEXT',
+        'user_id': 'TEXT',
+        'table_name': 'TEXT',
+        'operation': 'TEXT',
+        'data': 'TEXT',
+        'timestamp': 'TEXT',
+        'processed': 'INTEGER DEFAULT 0',
+        'error': 'TEXT',
+      };
+      if (await tableExists('sync_outbox')) {
+        for (final entry in syncOutboxColumns.entries) {
+          await _agregarColumnaSiNoExiste(
+            db,
+            'sync_outbox',
+            entry.key,
+            entry.value,
+          );
+        }
+      }
+      const syncInboxColumns = <String, String>{
+        'event_id': 'TEXT',
+        'user_id': 'TEXT',
+        'table_name': 'TEXT',
+        'operation': 'TEXT',
+        'data': 'TEXT',
+        'timestamp': 'TEXT',
+        'processed': 'INTEGER DEFAULT 0',
+        'error': 'TEXT',
+      };
+      if (await tableExists('sync_inbox')) {
+        for (final entry in syncInboxColumns.entries) {
+          await _agregarColumnaSiNoExiste(
+            db,
+            'sync_inbox',
+            entry.key,
+            entry.value,
+          );
+        }
+      }
+      const syncConflictColumns = <String, String>{
+        'table_name': 'TEXT',
+        'record_id': 'TEXT',
+        'local_data': 'TEXT',
+        'remote_data': 'TEXT',
+        'resolved': 'INTEGER DEFAULT 0',
+        'resolved_data': 'TEXT',
+      };
+      if (await tableExists('sync_conflicts')) {
+        for (final entry in syncConflictColumns.entries) {
+          await _agregarColumnaSiNoExiste(
+            db,
+            'sync_conflicts',
+            entry.key,
+            entry.value,
+          );
+        }
+      }
+    }
+    if (oldVersion < 95) {
+      // Campo nullable: protege filas legacy sin inventar el creador.
+      final ventasExiste = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        ['ventas'],
+      );
+      if (ventasExiste.isNotEmpty) {
+        await _agregarColumnaSiNoExiste(db, 'ventas', 'created_by', 'TEXT');
+      }
+    }
+    if (oldVersion < 96) {
+      final warrantiesExiste = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        ['warranties'],
+      );
+      if (warrantiesExiste.isNotEmpty) {
+        await _agregarColumnaSiNoExiste(db, 'warranties', 'updated_at', 'TEXT');
+      }
     }
   }
 
@@ -7924,6 +8088,16 @@ class DatabaseHelper {
         ...settings,
         'onboarding_completed': '1',
       });
+
+      if (settings['tipo_entidad'] == 'publica') {
+        await SchemaMultiTenant.crearEntidadPublicaDesdeConfiguracion(
+          txn,
+          companyId: companyId,
+          nombreEmpresa: company.name,
+          nit: company.taxId,
+          subtipoLegado: settings['subtipo_entidad_publica'],
+        );
+      }
 
       await txn.insert('app_config', {
         'clave': 'company_active_id',

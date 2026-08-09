@@ -449,7 +449,7 @@ class _AuditoriaForensePageState extends State<AuditoriaForensePage> {
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Integraciones Regulatorias Activas (Fase 4):',
+              'Integraciones regulatorias disponibles:',
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
             ),
           ),

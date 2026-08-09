@@ -42,6 +42,7 @@ import 'core/theme/theme_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/dashboard/dashboard_service.dart';
 import 'core/accessibility/accessibility_service.dart';
+import 'core/startup/startup_flow.dart';
 import 'pages/license_activation_page.dart';
 import 'sector_publico/presupuesto/pages/presupuesto_publico_page.dart';
 
@@ -199,14 +200,24 @@ class LicenseCheckWrapper extends StatefulWidget {
 }
 
 class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
+  late Future<StartupRoute> _startupFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _startupFuture = _checkStartup();
+  }
+
   void _reload() {
-    setState(() {});
+    setState(() {
+      _startupFuture = _checkStartup();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_StartupState>(
-      future: _checkStartup(),
+    return FutureBuilder<StartupRoute>(
+      future: _startupFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -214,43 +225,36 @@ class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
           );
         }
 
-        final state = snapshot.data ?? _StartupState.needsOnboarding;
+        final state = snapshot.data ?? StartupRoute.needsOnboarding;
 
         switch (state) {
-          case _StartupState.needsOnboarding:
+          case StartupRoute.needsOnboarding:
             return OnboardingPage(onFinished: _reload);
-          case _StartupState.needsLicense:
+          case StartupRoute.needsLicense:
             return LicenseActivationPage(onActivated: _reload);
-          case _StartupState.ready:
+          case StartupRoute.login:
             return const LoginPage();
         }
       },
     );
   }
 
-  Future<_StartupState> _checkStartup() async {
+  Future<StartupRoute> _checkStartup() async {
     try {
-      // 1. Onboarding primero: sin empresa configurada no tiene sentido activar licencia
-      final needsOnboarding = await CompanyConfigurationService.instance
-          .needsOnboarding();
-      if (needsOnboarding) return _StartupState.needsOnboarding;
-
-      // 2. Verificar licencia
-      final license = await LicenciaService.instance.obtenerLicencia();
-      if (license == null || license.estado != EstadoLicencia.activa) {
-        return _StartupState.needsLicense;
-      }
-
-      return _StartupState.ready;
+      return await StartupFlow.resolve(
+        licenseIsValid: () async {
+          final license = await LicenciaService.instance.obtenerLicencia();
+          return license?.esValida == true;
+        },
+        needsOnboarding: CompanyConfigurationService.instance.needsOnboarding,
+      );
     } catch (e) {
       // En caso de error en la DB, mostrar onboarding para que el usuario
       // pueda configurar la empresa desde cero
-      return _StartupState.needsOnboarding;
+      return StartupRoute.needsOnboarding;
     }
   }
 }
-
-enum _StartupState { needsOnboarding, needsLicense, ready }
 
 ThemeData _merkaTheme({
   Brightness brightness = Brightness.light,
