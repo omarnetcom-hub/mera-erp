@@ -40,6 +40,7 @@ import '../../commissions_page.dart';
 import '../../warranties_page.dart';
 import '../../crm/pages/crm_pipeline_page.dart';
 import '../../hrm/pages/hrm_employee_page.dart';
+import '../../mrp/pages/mrp_page.dart';
 
 List<ModuleDefinition> operacion() => [
   ModuleDefinition(
@@ -259,6 +260,15 @@ List<ModuleDefinition> gestion() => [
     color: const Color(0xFF7B2CBF),
     category: ModuleCategory.management,
     featureKey: FeatureKey.payroll,
+  ),
+  ModuleDefinition(
+    id: 'mrp',
+    title: 'Produccion MRP',
+    icon: Icons.precision_manufacturing,
+    builder: (_) => const MrpPage(),
+    color: const Color(0xFFBC6C25),
+    category: ModuleCategory.operation,
+    featureKey: FeatureKey.production,
   ),
   ModuleDefinition(
     id: 'fixed_assets',

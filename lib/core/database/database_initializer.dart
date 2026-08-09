@@ -188,6 +188,7 @@ extension DatabaseInitializer on DatabaseHelper {
     await _crearTablasExtensionesEmpresariales(db);
     await SchemaCrm.crearTablas(db);
     await SchemaHrm.crearTablas(db);
+    await SchemaMrp.crearTablas(db);
     await _agregarScopeDistribuidoATablas(db);
     await _sembrarPlanCuentas(db);
     await _sembrarSecuencias(db);
@@ -631,7 +632,8 @@ extension DatabaseInitializer on DatabaseHelper {
     await registrarEventoAuditoria(
       accion: 'MIGRACION_DB_V45',
       entidad: 'base_datos',
-      detalle: 'Control Center Robusto - Licencias, Actualizaciones, Health Reporter',
+      detalle:
+          'Control Center Robusto - Licencias, Actualizaciones, Health Reporter',
     );
   }
 
@@ -744,7 +746,8 @@ extension DatabaseInitializer on DatabaseHelper {
     await registrarEventoAuditoria(
       accion: 'MIGRACION_DB_V46',
       entidad: 'base_datos',
-      detalle: 'API REST Pública - API Keys, Integraciones, Pasarelas Pago, Webhooks',
+      detalle:
+          'API REST Pública - API Keys, Integraciones, Pasarelas Pago, Webhooks',
     );
   }
 
@@ -914,7 +917,8 @@ extension DatabaseInitializer on DatabaseHelper {
     await registrarEventoAuditoria(
       accion: 'MIGRACION_DB_V48',
       entidad: 'base_datos',
-      detalle: 'Operaciones Avanzadas - Recetas, Producción, Rutas, Portal Clientes',
+      detalle:
+          'Operaciones Avanzadas - Recetas, Producción, Rutas, Portal Clientes',
     );
   }
 
@@ -955,31 +959,96 @@ extension DatabaseInitializer on DatabaseHelper {
     await _agregarColumnaSiNoExiste(db, 'empleados', 'numero_cuenta', 'TEXT');
 
     // 4. Agregar columnas a nomina_liquidaciones
-    await _agregarColumnaSiNoExiste(db, 'nomina_liquidaciones', 'metodo_pago', 'TEXT');
-    await _agregarColumnaSiNoExiste(db, 'nomina_liquidaciones', 'banco', 'TEXT');
-    await _agregarColumnaSiNoExiste(db, 'nomina_liquidaciones', 'numero_cuenta', 'TEXT');
-    await _agregarColumnaSiNoExiste(db, 'nomina_liquidaciones', 'asiento_id', 'INTEGER');
-    await _agregarColumnaSiNoExiste(db, 'nomina_liquidaciones', 'movimiento_caja_id', 'INTEGER');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'nomina_liquidaciones',
+      'metodo_pago',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'nomina_liquidaciones',
+      'banco',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'nomina_liquidaciones',
+      'numero_cuenta',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'nomina_liquidaciones',
+      'asiento_id',
+      'INTEGER',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'nomina_liquidaciones',
+      'movimiento_caja_id',
+      'INTEGER',
+    );
 
     // 5. Agregar columnas a activos_fijos
-    await _agregarColumnaSiNoExiste(db, 'activos_fijos', 'fecha_depreciacion', 'TEXT');
-    await _agregarColumnaSiNoExiste(db, 'activos_fijos', 'tipo_depreciacion', 'TEXT');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'activos_fijos',
+      'fecha_depreciacion',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'activos_fijos',
+      'tipo_depreciacion',
+      'TEXT',
+    );
     await _agregarColumnaSiNoExiste(db, 'activos_fijos', 'codigo_puc', 'TEXT');
-    await _agregarColumnaSiNoExiste(db, 'activos_fijos', 'codigo_puc_depreciacion', 'TEXT');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'activos_fijos',
+      'codigo_puc_depreciacion',
+      'TEXT',
+    );
 
     // 6. Agregar columnas a movimientos_caja
-    await _agregarColumnaSiNoExiste(db, 'movimientos_caja', 'activo', 'INTEGER DEFAULT 1');
-    await _agregarColumnaSiNoExiste(db, 'movimientos_caja', 'banco_id', 'INTEGER');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'movimientos_caja',
+      'activo',
+      'INTEGER DEFAULT 1',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'movimientos_caja',
+      'banco_id',
+      'INTEGER',
+    );
 
     // 7. Agregar columnas a ventas y compras para mixed payment e impuestos/retenciones
     await _agregarColumnaSiNoExiste(db, 'ventas', 'efectivo', 'REAL DEFAULT 0');
-    await _agregarColumnaSiNoExiste(db, 'ventas', 'transferencia', 'REAL DEFAULT 0');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'ventas',
+      'transferencia',
+      'REAL DEFAULT 0',
+    );
     await _agregarColumnaSiNoExiste(db, 'ventas', 'credito', 'REAL DEFAULT 0');
-    await _agregarColumnaSiNoExiste(db, 'ventas', 'retefuente', 'REAL DEFAULT 0');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'ventas',
+      'retefuente',
+      'REAL DEFAULT 0',
+    );
     await _agregarColumnaSiNoExiste(db, 'ventas', 'reteiva', 'REAL DEFAULT 0');
     await _agregarColumnaSiNoExiste(db, 'ventas', 'reteica', 'REAL DEFAULT 0');
 
-    await _agregarColumnaSiNoExiste(db, 'compras', 'retefuente', 'REAL DEFAULT 0');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'compras',
+      'retefuente',
+      'REAL DEFAULT 0',
+    );
     await _agregarColumnaSiNoExiste(db, 'compras', 'reteiva', 'REAL DEFAULT 0');
     await _agregarColumnaSiNoExiste(db, 'compras', 'reteica', 'REAL DEFAULT 0');
   }

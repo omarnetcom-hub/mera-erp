@@ -36,6 +36,7 @@ import 'core/templates/template_service.dart';
 import 'core/privacy/gdpr_service.dart';
 import 'crm/database/schema_crm.dart';
 import 'hrm/database/schema_hrm.dart';
+import 'mrp/database/schema_mrp.dart';
 
 import 'sector_publico/database/schema_multi_tenant.dart';
 import 'sector_publico/presupuesto/database/schema_presupuesto.dart';
@@ -336,7 +337,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 78,
+      version: 79,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -362,6 +363,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 78) {
       await SchemaHrm.crearTablas(db);
+    }
+    if (oldVersion < 79) {
+      await SchemaMrp.crearTablas(db);
     }
 
     if (oldVersion < 49) {
@@ -9368,14 +9372,16 @@ class DatabaseHelper {
         where: 'id = ?',
         whereArgs: [trasladoId],
       );
-
-      await registrarEventoAuditoria(
-        accion: 'PROCESAR_TRASLADO_BODEGA',
-        entidad: 'traslados_bodega',
-        entidadId: trasladoId,
-        detalle: 'Traslado #$trasladoId procesado por $usuario',
-      );
     });
+
+    // La auditoria usa la conexion principal; debe ejecutarse despues de
+    // cerrar la transaccion para no bloquear SQLite mientras se mueve stock.
+    await registrarEventoAuditoria(
+      accion: 'PROCESAR_TRASLADO_BODEGA',
+      entidad: 'traslados_bodega',
+      entidadId: trasladoId,
+      detalle: 'Traslado #$trasladoId procesado por $usuario',
+    );
 
     return trasladoId;
   }
