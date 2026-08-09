@@ -39,6 +39,7 @@ import '../../templates_page.dart';
 import '../../commissions_page.dart';
 import '../../warranties_page.dart';
 import '../../crm/pages/crm_pipeline_page.dart';
+import '../../crm/pages/crm_account_page.dart';
 import '../../hrm/pages/hrm_employee_page.dart';
 import '../../mrp/pages/mrp_page.dart';
 
@@ -95,6 +96,15 @@ List<ModuleDefinition> operacion() => [
     icon: Icons.view_kanban,
     builder: (_) => const CrmPipelinePage(),
     color: const Color(0xFF264653),
+    category: ModuleCategory.operation,
+    featureKey: FeatureKey.crm,
+  ),
+  ModuleDefinition(
+    id: 'crm_accounts',
+    title: 'Cuentas CRM',
+    icon: Icons.business_center,
+    builder: (_) => const CrmAccountsPage(),
+    color: const Color(0xFF2A6F97),
     category: ModuleCategory.operation,
     featureKey: FeatureKey.crm,
   ),

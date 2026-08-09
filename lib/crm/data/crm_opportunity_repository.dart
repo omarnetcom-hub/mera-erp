@@ -10,6 +10,7 @@ import '../domain/crm_opportunity.dart';
 
 abstract class CrmOpportunityRepository {
   Future<List<CrmOpportunity>> findAll();
+  Future<List<CrmOpportunity>> findByAccount(int accountId);
   Future<CrmOpportunity?> findById(String id);
   Future<String> save(CrmOpportunity opportunity);
   Future<void> update(CrmOpportunity opportunity);
@@ -45,6 +46,22 @@ class SqliteCrmOpportunityRepository implements CrmOpportunityRepository {
     final rows = await _tenant.query(
       'crm_opportunities',
       query: const TenantQuery(orderBy: 'next_follow_up_at ASC'),
+    );
+    final currency = await _currency();
+    return rows
+        .map((row) => CrmOpportunity.fromMap(row, currency: currency))
+        .toList();
+  }
+
+  @override
+  Future<List<CrmOpportunity>> findByAccount(int accountId) async {
+    final rows = await _tenant.query(
+      'crm_opportunities',
+      query: TenantQuery(
+        where: 'account_id = ?',
+        whereArgs: [accountId],
+        orderBy: 'created_at DESC',
+      ),
     );
     final currency = await _currency();
     return rows

@@ -35,6 +35,12 @@ class CrmLeadService {
 
   Future<int> create(CrmLead lead) async {
     await DatabaseHelper.instance.validarFeatureHabilitada(FeatureKey.crm);
+    if ((lead.accountName ?? '').trim().isEmpty) {
+      throw ArgumentError('El lead requiere nombre de cuenta.');
+    }
+    if (lead.opportunityAmount.minorUnits < 0) {
+      throw ArgumentError('El monto estimado del lead no puede ser negativo.');
+    }
     return _repository.save(lead);
   }
 
@@ -55,6 +61,18 @@ class CrmLeadService {
         'La conversion crea una cuenta y un contacto nuevos.',
       );
     }
+    if (account.name.trim().isEmpty) {
+      throw ArgumentError('La cuenta resultante requiere un nombre.');
+    }
+    if (contact.firstName.trim().isEmpty) {
+      throw ArgumentError('El contacto resultante requiere nombre.');
+    }
+    if (opportunity.name.trim().isEmpty) {
+      throw ArgumentError('La oportunidad resultante requiere un nombre.');
+    }
+    if (opportunity.amount.minorUnits < 0) {
+      throw ArgumentError('El monto de la oportunidad no puede ser negativo.');
+    }
 
     return _gateway.transaction((txn) async {
       final leadRows = await txn.query(
@@ -68,6 +86,14 @@ class CrmLeadService {
       }
       if ((leadRows.first['converted'] as num?)?.toInt() == 1) {
         throw StateError('El lead ya fue convertido.');
+      }
+      final status = leadRows.first['status']?.toString().toLowerCase();
+      if (const {
+        'no_convertible',
+        'descartado',
+        'rechazado',
+      }.contains(status)) {
+        throw StateError('El lead esta marcado como no convertible.');
       }
 
       final accountId = await txn.insert(

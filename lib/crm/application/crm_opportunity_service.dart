@@ -1,6 +1,7 @@
 import '../../core/company/company_context.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
+import 'crm_account_service.dart';
 import '../data/crm_opportunity_repository.dart';
 import '../domain/crm_opportunity.dart';
 
@@ -16,8 +17,17 @@ class CrmOpportunityService {
 
   Future<String> create(CrmOpportunity opportunity) async {
     await DatabaseHelper.instance.validarFeatureHabilitada(FeatureKey.crm);
-    if (opportunity.accountId == 0) {
+    if (opportunity.accountId <= 0) {
       throw ArgumentError('La oportunidad requiere una cuenta CRM.');
+    }
+    if (opportunity.name.trim().isEmpty) {
+      throw ArgumentError('La oportunidad requiere un nombre.');
+    }
+    if (opportunity.amount.minorUnits < 0) {
+      throw ArgumentError('El monto de la oportunidad no puede ser negativo.');
+    }
+    if (await CrmAccountService().findById(opportunity.accountId) == null) {
+      throw StateError('La cuenta CRM no existe en la empresa activa.');
     }
     return _repository.save(
       opportunity.copyWith(probability: opportunity.salesStage.probability),
@@ -25,6 +35,13 @@ class CrmOpportunityService {
   }
 
   Future<List<CrmOpportunity>> list() => _repository.findAll();
+
+  Future<List<CrmOpportunity>> listForAccount(int accountId) {
+    if (accountId <= 0) {
+      throw ArgumentError('La cuenta CRM debe tener un identificador valido.');
+    }
+    return _repository.findByAccount(accountId);
+  }
 
   Future<CrmOpportunity?> findById(String id) => _repository.findById(id);
 
@@ -38,7 +55,8 @@ class CrmOpportunityService {
         current.salesStage == CrmSalesStage.closedLost) {
       throw StateError('Una oportunidad cerrada no puede cambiar de etapa.');
     }
-    if (next.index < current.salesStage.index) {
+    if (next != CrmSalesStage.closedLost &&
+        next.index < current.salesStage.index) {
       throw StateError('La etapa de oportunidad no puede retroceder.');
     }
     await _repository.update(

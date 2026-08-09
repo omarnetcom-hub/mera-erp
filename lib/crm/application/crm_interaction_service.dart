@@ -11,6 +11,15 @@ class CrmInteractionService {
 
   Future<int> create(CustomerInteraction interaction) async {
     await DatabaseHelper.instance.validarFeatureHabilitada(FeatureKey.crm);
+    if (interaction.customerId <= 0) {
+      throw ArgumentError('La interaccion requiere una cuenta CRM valida.');
+    }
+    if (interaction.subject.trim().isEmpty) {
+      throw ArgumentError('La interaccion requiere un asunto.');
+    }
+    if (interaction.interactionType.trim().isEmpty) {
+      throw ArgumentError('La interaccion requiere un tipo.');
+    }
     return _repository.save(interaction);
   }
 

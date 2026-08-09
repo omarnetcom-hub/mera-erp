@@ -94,6 +94,84 @@ void main() {
     expect(contacts.single.accountId, accountId);
   });
 
+  test('CRM valida cuentas padre, nombres y montos cero', () async {
+    final parentId = await CrmAccountService().create(
+      CrmAccount(companyId: companyId, name: 'Cuenta padre'),
+    );
+    final childId = await CrmAccountService().create(
+      CrmAccount(companyId: companyId, name: 'Cuenta hija', parentId: parentId),
+    );
+    expect(childId, greaterThan(parentId));
+    await expectLater(
+      () => CrmAccountService().create(
+        CrmAccount(companyId: companyId, name: ''),
+      ),
+      throwsArgumentError,
+    );
+    await expectLater(
+      () => CrmAccountService().create(
+        CrmAccount(
+          companyId: companyId,
+          name: 'Cuenta huerfana',
+          parentId: 999999,
+        ),
+      ),
+      throwsStateError,
+    );
+
+    final opportunityId = await CrmOpportunityService().create(
+      CrmOpportunity(
+        id: 'crm-zero-${DateTime.now().microsecondsSinceEpoch}',
+        companyId: companyId,
+        accountId: childId,
+        accountName: 'Cuenta hija',
+        name: 'Oportunidad sin monto',
+        amount: MoneyValue(minorUnits: 0, currency: cop),
+        salesStage: CrmSalesStage.prospecting,
+        nextFollowUpAt: DateTime(2026, 8, 25),
+      ),
+    );
+    expect(opportunityId, isNotEmpty);
+  });
+
+  test(
+    'CRM rechaza supervisor de otra cuenta y conserva contacto sin supervisor',
+    () async {
+      final firstAccount = await CrmAccountService().create(
+        CrmAccount(companyId: companyId, name: 'Cuenta uno'),
+      );
+      final secondAccount = await CrmAccountService().create(
+        CrmAccount(companyId: companyId, name: 'Cuenta dos'),
+      );
+      final managerId = await CrmContactService().create(
+        CrmContact(
+          companyId: companyId,
+          accountId: firstAccount,
+          firstName: 'Supervisora',
+        ),
+      );
+      final contactId = await CrmContactService().create(
+        CrmContact(
+          companyId: companyId,
+          accountId: secondAccount,
+          firstName: 'Contacto independiente',
+        ),
+      );
+      expect(contactId, greaterThan(0));
+      await expectLater(
+        () => CrmContactService().create(
+          CrmContact(
+            companyId: companyId,
+            accountId: secondAccount,
+            firstName: 'Contacto invalido',
+            reportsToId: managerId,
+          ),
+        ),
+        throwsStateError,
+      );
+    },
+  );
+
   test('Lead se convierte atomica y unicamente una vez', () async {
     final leadId = await CrmLeadService().create(
       CrmLead(
@@ -169,6 +247,152 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('La conversion de lead hace rollback si falla la oportunidad', () async {
+    final conflictId = 'crm-conflict-${DateTime.now().microsecondsSinceEpoch}';
+    final accountId = await CrmAccountService().create(
+      CrmAccount(companyId: companyId, name: 'Cuenta conflicto existente'),
+    );
+    await CrmOpportunityService().create(
+      CrmOpportunity(
+        id: conflictId,
+        companyId: companyId,
+        accountId: accountId,
+        accountName: 'Cuenta conflicto existente',
+        name: 'Oportunidad que ocupa el id',
+        amount: MoneyValue(minorUnits: 0, currency: cop),
+        salesStage: CrmSalesStage.prospecting,
+        nextFollowUpAt: DateTime(2026, 8, 20),
+      ),
+    );
+    final leadId = await CrmLeadService().create(
+      CrmLead(
+        companyId: companyId,
+        accountName: 'Cuenta rollback',
+        opportunityAmount: MoneyValue(minorUnits: 0, currency: cop),
+      ),
+    );
+
+    await expectLater(
+      () => CrmLeadService().convert(
+        leadId: leadId,
+        account: CrmAccount(companyId: companyId, name: 'Cuenta rollback'),
+        contact: CrmContact(
+          companyId: companyId,
+          accountId: 0,
+          firstName: 'Contacto rollback',
+        ),
+        opportunity: CrmOpportunity(
+          id: conflictId,
+          companyId: companyId,
+          accountId: 0,
+          accountName: 'Cuenta rollback',
+          name: 'Oportunidad rollback',
+          amount: MoneyValue(minorUnits: 0, currency: cop),
+          salesStage: CrmSalesStage.prospecting,
+          nextFollowUpAt: DateTime(2026, 8, 20),
+        ),
+      ),
+      throwsA(isA<Exception>()),
+    );
+    expect(
+      await db.query(
+        'clientes',
+        where: 'nombre = ?',
+        whereArgs: ['Cuenta rollback'],
+      ),
+      isEmpty,
+    );
+    expect(
+      await db.query(
+        'crm_contacts',
+        where: 'first_name = ?',
+        whereArgs: ['Contacto rollback'],
+      ),
+      isEmpty,
+    );
+    expect((await CrmLeadService().findById(leadId))?.converted, isFalse);
+  });
+
+  test('Lead marcado no convertible no crea entidades', () async {
+    final leadId = await CrmLeadService().create(
+      CrmLead(
+        companyId: companyId,
+        accountName: 'Lead rechazado',
+        status: 'no_convertible',
+        opportunityAmount: MoneyValue(minorUnits: 0, currency: cop),
+      ),
+    );
+    await expectLater(
+      () => CrmLeadService().convert(
+        leadId: leadId,
+        account: CrmAccount(companyId: companyId, name: 'No debe crear'),
+        contact: CrmContact(
+          companyId: companyId,
+          accountId: 0,
+          firstName: 'No',
+        ),
+        opportunity: CrmOpportunity(
+          id: '',
+          companyId: companyId,
+          accountId: 0,
+          accountName: 'No debe crear',
+          name: 'No debe crear',
+          amount: MoneyValue(minorUnits: 0, currency: cop),
+          salesStage: CrmSalesStage.prospecting,
+          nextFollowUpAt: DateTime(2026, 8, 20),
+        ),
+      ),
+      throwsStateError,
+    );
+  });
+
+  test(
+    'Las siete etapas tienen probabilidad automatica y no se puede retroceder',
+    () async {
+      expect(CrmSalesStage.values.map((stage) => stage.probability).toList(), [
+        10,
+        25,
+        40,
+        55,
+        75,
+        100,
+        0,
+      ]);
+      final accountId = await CrmAccountService().create(
+        CrmAccount(companyId: companyId, name: 'Cuenta etapas'),
+      );
+      final opportunityId = await CrmOpportunityService().create(
+        CrmOpportunity(
+          id: 'crm-stages-${DateTime.now().microsecondsSinceEpoch}',
+          companyId: companyId,
+          accountId: accountId,
+          accountName: 'Cuenta etapas',
+          name: 'Oportunidad etapas',
+          amount: MoneyValue(minorUnits: 0, currency: cop),
+          salesStage: CrmSalesStage.prospecting,
+          nextFollowUpAt: DateTime(2026, 8, 20),
+        ),
+      );
+      await CrmOpportunityService().moveToStage(
+        opportunityId,
+        CrmSalesStage.closedLost,
+      );
+      expect(
+        (await CrmOpportunityService().findById(
+          opportunityId,
+        ))?.effectiveProbability,
+        0,
+      );
+      await expectLater(
+        () => CrmOpportunityService().moveToStage(
+          opportunityId,
+          CrmSalesStage.prospecting,
+        ),
+        throwsStateError,
+      );
+    },
+  );
 
   test(
     'Opportunity aplica probabilidad y enlaza Closed Won con ventas',
@@ -251,5 +475,19 @@ void main() {
     final rows = await CrmInteractionService().listForCustomer(accountId);
     expect(interactionId, greaterThan(0));
     expect(rows.single.subject, 'Llamada de seguimiento');
+    await expectLater(
+      () => CrmInteractionService().create(
+        CustomerInteraction(
+          companyId: companyId,
+          customerId: accountId,
+          customerName: 'Cuenta interaccion',
+          interactionType: 'call',
+          subject: '',
+          interactionDate: DateTime(2026, 8, 8),
+          createdAt: DateTime(2026, 8, 8),
+        ),
+      ),
+      throwsArgumentError,
+    );
   });
 }

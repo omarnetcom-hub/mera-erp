@@ -24,7 +24,7 @@ Este archivo registra el avance del proceso de adaptación y extensión de funci
 - quality: pendiente
 - fleet: pendiente
 - maintenance: pendiente
-- crm: parcial; entidades CRM y tablero Kanban implementados, ficha CRUD completa pendiente
+- crm: parcial; entidades CRM, Kanban interactivo y ficha con historial implementados; CRUD completo de cuentas y mantenimiento avanzado del pipeline pendientes
 - point_of_sale: pendiente
 - website / studio: pendiente
 
@@ -33,6 +33,7 @@ Este archivo registra el avance del proceso de adaptación y extensión de funci
 - CRM / CrmLead / 2026-08-08: completado; tabla `crm_leads` y conversion atomica a cuenta, contacto y oportunidad. Archivos: `lib/crm/domain/crm_lead.dart`, `lib/crm/data/crm_lead_repository.dart`, `lib/crm/application/crm_lead_service.dart`, `lib/crm/database/schema_crm.dart`, `test/crm/crm_module_test.dart`.
 - CRM / CrmOpportunity / 2026-08-08: completado; extiende `crm_opportunities`, con etapas y probabilidad automatica. Archivos: `lib/crm/domain/crm_opportunity.dart`, `lib/crm/data/crm_opportunity_repository.dart`, `lib/crm/application/crm_opportunity_service.dart`, `lib/crm/database/schema_crm.dart`, `lib/crm/pages/crm_pipeline_page.dart`, `lib/core/workspace/workspace_config.dart`, `test/crm/crm_module_test.dart`.
 - CRM / CustomerInteraction / 2026-08-08: completado; deja de ser modelo huerfano y persiste en `crm_interactions`. Archivos: `lib/crm/domain/customer_interaction.dart`, `lib/crm/data/crm_interaction_repository.dart`, `lib/crm/application/crm_interaction_service.dart`, `lib/crm/database/schema_crm.dart`, `test/crm/crm_module_test.dart`.
+- CRM / Robustez y UI / 2026-08-09: parcial; validaciones de entrada, rollback probado, siete probabilidades de etapa verificadas, Kanban con drag-and-drop/filtro por vendedor e indicadores, ficha de cuenta con historial de contactos/oportunidades/interacciones. Archivos creados/modificados: `lib/crm/application/`, `lib/crm/data/crm_opportunity_repository.dart`, `lib/crm/pages/crm_pipeline_page.dart`, `lib/crm/pages/crm_account_page.dart`, `lib/core/workspace/workspace_config.dart`, `test/crm/crm_module_test.dart`, `test/crm/crm_pipeline_page_test.dart`.
 - HRM / HrmJobTitle / 2026-08-08: completado; catalogo de cargos en `hrm_job_titles`. Archivos: `lib/hrm/domain/hrm_job_title.dart`, `lib/hrm/data/hrm_job_title_repository.dart`, `lib/hrm/application/hrm_job_title_service.dart`, `lib/hrm/database/schema_hrm.dart`, `test/hrm/hrm_module_test.dart`.
 - HRM / HrmEmployee / 2026-08-08: completado; reutiliza `empleados` y agrega solo columnas HRM faltantes de forma idempotente. Archivos: `lib/hrm/domain/hrm_employee.dart`, `lib/hrm/data/hrm_employee_repository.dart`, `lib/hrm/application/hrm_employee_service.dart`, `lib/hrm/database/schema_hrm.dart`, `test/hrm/hrm_schema_compatibility_test.dart`.
 - HRM / HrmLeaveType / 2026-08-08: completado; seed idempotente de ocho tipos colombianos. Archivos: `lib/hrm/domain/hrm_leave_type.dart`, `lib/hrm/data/hrm_leave_type_repository.dart`, `lib/hrm/application/hrm_leave_type_service.dart`, `lib/hrm/database/schema_hrm.dart`, `test/hrm/hrm_module_test.dart`.
