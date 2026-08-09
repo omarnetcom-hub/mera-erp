@@ -148,4 +148,4 @@ en `240 issues found` y build en `Built build\\windows\\x64\\runner\\Release\\Me
 
 Bloque 3 implementado y verificado con 14 pruebas. La regresión de la corrida
 conjunta por teardown de fixtures fue corregida antes de esta evidencia final.
-Commit: pendiente de crear en esta entrega.
+Commit: `1bc6901`.
