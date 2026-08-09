@@ -60,7 +60,19 @@ void main() {
         company_id INTEGER NOT NULL,
         cargo TEXT,
         salario_base INTEGER,
+        job_title_id INTEGER,
         activo INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE hrm_job_titles (
+        id INTEGER PRIMARY KEY,
+        company_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        contractual_hours_per_day REAL,
+        mrp_workstation_id INTEGER,
+        is_deleted INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -174,6 +186,8 @@ void main() {
     expect(snapshot.closedWonValue.minorUnits, 100000);
     expect(snapshot.closedWonCount, 1);
     expect(snapshot.activeHeadcount, 1);
+    expect(snapshot.productiveEmployeeCount, 0);
+    expect(snapshot.productiveEmployeeHoursPerDay, 0);
     expect(snapshot.activeBasePayroll.minorUnits, 200000);
     expect(snapshot.workstationCount, 1);
     expect(snapshot.configuredWorkstationCount, 1);
@@ -188,6 +202,46 @@ void main() {
     expect(snapshot.demandLines[1].weightedQuantity, 1);
     expect(result.projectedDemandLines[0].weightedQuantity, 12);
     expect(result.projectedDemandLines[1].weightedQuantity, 1.2);
+  });
+
+  test('usa horas contractuales del personal vinculado a produccion', () async {
+    await db.insert('hrm_job_titles', {
+      'id': 1,
+      'company_id': companyId,
+      'title': 'Operario',
+      'contractual_hours_per_day': 6,
+      'mrp_workstation_id': 1,
+    });
+    await db.update(
+      'empleados',
+      {'job_title_id': 1},
+      where: 'id = ?',
+      whereArgs: [1],
+    );
+    await db.insert('mrp_boms', {
+      'id': 1,
+      'company_id': companyId,
+      'item_id': 10,
+      'quantity': 1,
+      'routing_id': 1,
+      'is_active': 1,
+      'is_default': 1,
+    });
+    await db.insert('mrp_operations', {
+      'id': 1,
+      'routing_id': 1,
+      'time_minutes': 60,
+    });
+
+    final snapshot = await service.snapshot();
+    expect(snapshot.productiveEmployeeCount, 1);
+    expect(snapshot.productiveEmployeeHoursPerDay, 6);
+    expect(snapshot.personnelCapacityConfigured, isTrue);
+    expect(snapshot.personnelCapacityNote, contains('6.00'));
+
+    final result = service.calculate(snapshot: snapshot, upliftPercent: 20);
+    expect(result.projectedProductionHours, 13.2);
+    expect(result.capacityStatus, 'capacidad_insuficiente');
   });
 
   test('guardar escenario no modifica tablas operativas', () async {

@@ -18,6 +18,10 @@ class ImpactSnapshot {
     required this.availableHoursPerDay,
     required this.capacityConfigured,
     required this.capacityNote,
+    this.productiveEmployeeCount = 0,
+    this.productiveEmployeeHoursPerDay = 0,
+    this.personnelCapacityConfigured = false,
+    this.personnelCapacityNote = 'No hay empleados vinculados a produccion.',
     this.demandLines = const [],
   });
 
@@ -32,6 +36,10 @@ class ImpactSnapshot {
   final double availableHoursPerDay;
   final bool capacityConfigured;
   final String capacityNote;
+  final int productiveEmployeeCount;
+  final double productiveEmployeeHoursPerDay;
+  final bool personnelCapacityConfigured;
+  final String personnelCapacityNote;
   final List<ImpactDemandLine> demandLines;
 
   Map<String, dynamic> toJson() => {
@@ -46,6 +54,10 @@ class ImpactSnapshot {
     'available_hours_per_day': availableHoursPerDay,
     'capacity_configured': capacityConfigured,
     'capacity_note': capacityNote,
+    'productive_employee_count': productiveEmployeeCount,
+    'productive_employee_hours_per_day': productiveEmployeeHoursPerDay,
+    'personnel_capacity_configured': personnelCapacityConfigured,
+    'personnel_capacity_note': personnelCapacityNote,
     'demand_lines': demandLines.map((line) => line.toJson()).toList(),
   };
 }
@@ -185,13 +197,23 @@ class ImpactCalculator {
     final hasCapacityHours = snapshot.demandLines.any(
       (line) => line.estimatedHoursPerUnit > 0,
     );
+    final personnelIsRelevant = snapshot.productiveEmployeeCount > 0;
+    final effectiveCapacityHours =
+        personnelIsRelevant && snapshot.personnelCapacityConfigured
+        ? _minimum(
+            snapshot.availableHoursPerDay,
+            snapshot.productiveEmployeeHoursPerDay,
+          )
+        : snapshot.availableHoursPerDay;
     final status = !hasDemand
         ? 'sin_demanda_de_productos'
         : !hasCapacityHours
         ? 'demanda_sin_bom'
         : !snapshot.capacityConfigured
         ? 'capacidad_no_configurada'
-        : projectedHours > snapshot.availableHoursPerDay
+        : personnelIsRelevant && !snapshot.personnelCapacityConfigured
+        ? 'capacidad_personal_no_configurada'
+        : projectedHours > effectiveCapacityHours
         ? 'capacidad_insuficiente'
         : 'capacidad_suficiente';
     return ImpactResult(
@@ -205,7 +227,9 @@ class ImpactCalculator {
           '(1 + uplift_percent / 100); demanda_ponderada_producto = suma(cantidad_linea * '
           'probabilidad / 100); demanda_escenario = demanda_ponderada_producto '
           '* (1 + uplift_percent / 100); horas_MRP = suma(demanda_escenario '
-          '* horas_BOM_por_unidad).',
+          '* horas_BOM_por_unidad); capacidad_efectiva_diaria = min('
+          'horas_workstations, horas_contractuales_personal_vinculado) '
+          'cuando existen vinculos productivos.',
       warnings: [
         if (!snapshot.capacityConfigured &&
             snapshot.configuredWorkstationCount > 0)
@@ -217,6 +241,8 @@ class ImpactCalculator {
           'Capacidad no configurada: production_capacity no representa horas disponibles.',
         if (hasDemand && !hasCapacityHours)
           'Hay productos CRM sin BOM/ruta con tiempo: se informa demanda en unidades, sin convertirla a horas.',
+        if (personnelIsRelevant && !snapshot.personnelCapacityConfigured)
+          snapshot.personnelCapacityNote,
       ],
       baselineDemandLines: snapshot.demandLines,
       projectedDemandLines: projectedDemandLines,
@@ -224,6 +250,9 @@ class ImpactCalculator {
       projectedProductionHours: projectedHours,
     );
   }
+
+  static double _minimum(double first, double second) =>
+      first < second ? first : second;
 }
 
 class ImpactScenario {
@@ -329,6 +358,14 @@ ImpactSnapshot _snapshotFromJson(
       (json['available_hours_per_day'] as num?)?.toDouble() ?? 0,
   capacityConfigured: json['capacity_configured'] == true,
   capacityNote: json['capacity_note'].toString(),
+  productiveEmployeeCount:
+      (json['productive_employee_count'] as num?)?.toInt() ?? 0,
+  productiveEmployeeHoursPerDay:
+      (json['productive_employee_hours_per_day'] as num?)?.toDouble() ?? 0,
+  personnelCapacityConfigured: json['personnel_capacity_configured'] == true,
+  personnelCapacityNote:
+      json['personnel_capacity_note']?.toString() ??
+      'No hay empleados vinculados a produccion.',
   demandLines: ((json['demand_lines'] as List?) ?? const [])
       .map((item) => ImpactDemandLine.fromJson(item as Map<String, dynamic>))
       .toList(),

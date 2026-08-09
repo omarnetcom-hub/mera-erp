@@ -6,6 +6,7 @@ import '../application/hrm_employee_service.dart';
 import '../domain/hrm_employee.dart';
 import 'hrm_leave_approval_page.dart';
 import 'hrm_leave_calendar_page.dart';
+import 'hrm_job_title_page.dart';
 
 class HrmEmployeePage extends StatefulWidget {
   const HrmEmployeePage({super.key});
@@ -21,7 +22,7 @@ class _HrmEmployeePageState extends State<HrmEmployeePage>
     'hrm',
     AppAction.approve,
   );
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 4, vsync: this);
   Future<List<HrmEmployee>>? _employees;
 
   @override
@@ -46,6 +47,7 @@ class _HrmEmployeePageState extends State<HrmEmployeePage>
           Tab(text: 'Empleados'),
           Tab(text: 'Calendario'),
           Tab(text: 'Aprobaciones'),
+          Tab(text: 'Cargos'),
         ],
       ),
     ),
@@ -55,6 +57,7 @@ class _HrmEmployeePageState extends State<HrmEmployeePage>
         _employeeList(),
         const HrmLeaveCalendarPage(),
         HrmLeaveApprovalPage(canApprove: _canApprove),
+        const HrmJobTitlePage(),
       ],
     ),
   );

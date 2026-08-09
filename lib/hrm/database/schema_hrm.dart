@@ -45,6 +45,8 @@ class SchemaHrm {
         company_id INTEGER NOT NULL,
         title TEXT NOT NULL,
         description TEXT,
+        contractual_hours_per_day REAL,
+        mrp_workstation_id INTEGER,
         is_deleted INTEGER NOT NULL DEFAULT 0,
         UNIQUE(company_id, title)
       )
@@ -119,6 +121,8 @@ class SchemaHrm {
       'exclude_in_reports_if_no_entitlement',
       'INTEGER NOT NULL DEFAULT 0',
     );
+    await _addColumn(db, 'hrm_job_titles', 'contractual_hours_per_day', 'REAL');
+    await _addColumn(db, 'hrm_job_titles', 'mrp_workstation_id', 'INTEGER');
     await db.execute('''
       CREATE TABLE IF NOT EXISTS hrm_attendance_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,6 +140,9 @@ class SchemaHrm {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_hrm_attendance_employee ON hrm_attendance_records(company_id, employee_id, punch_in)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_hrm_job_title_workstation ON hrm_job_titles(company_id, mrp_workstation_id)',
     );
     await _seedLeaveTypes(db);
     await db.update(

@@ -115,12 +115,34 @@ class ImpactSimulatorService {
     }
     final employees = await db.rawQuery(
       '''
-      SELECT id, cargo, salario_base
-      FROM empleados
-      WHERE company_id = ? AND activo = 1
+      SELECT e.id, e.cargo, e.salario_base,
+             jt.mrp_workstation_id, jt.contractual_hours_per_day
+      FROM empleados e
+      LEFT JOIN hrm_job_titles jt
+        ON jt.id = e.job_title_id
+       AND jt.company_id = e.company_id
+       AND jt.is_deleted = 0
+      WHERE e.company_id = ? AND e.activo = 1
     ''',
       [companyId],
     );
+    final linkedEmployees = employees
+        .where((row) => row['mrp_workstation_id'] != null)
+        .toList();
+    final configuredLinkedEmployees = linkedEmployees.where((row) {
+      final hours = (row['contractual_hours_per_day'] as num?)?.toDouble();
+      return hours != null && hours > 0;
+    }).toList();
+    final productiveEmployeeHoursPerDay = configuredLinkedEmployees
+        .fold<double>(
+          0,
+          (sum, row) =>
+              sum +
+              ((row['contractual_hours_per_day'] as num?)?.toDouble() ?? 0),
+        );
+    final personnelCapacityConfigured =
+        linkedEmployees.isNotEmpty &&
+        linkedEmployees.length == configuredLinkedEmployees.length;
     final workstations = await db.query(
       'mrp_workstations',
       columns: [
@@ -175,6 +197,14 @@ class ImpactSimulatorService {
           ? 'Capacidad temporal no configurada. production_capacity no representa horas disponibles.'
           : 'Capacidad parcial: ${availableHoursPerDay.toStringAsFixed(2)} horas por dia '
                 'en ${configuredWorkstations.length} de ${productionWorkstations.length} workstations de produccion.',
+      productiveEmployeeCount: linkedEmployees.length,
+      productiveEmployeeHoursPerDay: productiveEmployeeHoursPerDay,
+      personnelCapacityConfigured: personnelCapacityConfigured,
+      personnelCapacityNote: linkedEmployees.isEmpty
+          ? 'No hay empleados vinculados a una workstation; se conserva el headcount general.'
+          : personnelCapacityConfigured
+          ? 'Capacidad contractual: ${productiveEmployeeHoursPerDay.toStringAsFixed(2)} horas por dia en ${linkedEmployees.length} empleados vinculados.'
+          : 'Hay empleados vinculados a produccion sin horas contractuales configuradas.',
       demandLines: demandLines,
     );
   }

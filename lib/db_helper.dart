@@ -74,7 +74,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 85;
+  static const int schemaVersion = 86;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -410,6 +410,9 @@ class DatabaseHelper {
       await SchemaCrm.crearOpportunityItems(db);
     }
     if (oldVersion < 85) {
+      await SchemaHrm.crearTablas(db);
+    }
+    if (oldVersion < 86) {
       await SchemaHrm.crearTablas(db);
     }
 

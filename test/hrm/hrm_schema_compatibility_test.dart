@@ -69,7 +69,7 @@ void main() {
       );
       expect(employee.name, 'Empleado compatibilidad');
       expect(payroll.single['neto_pagar'], 100000);
-      await DatabaseHelper.instance.migrarDBForTesting(db, 84, 85);
+      await DatabaseHelper.instance.migrarDBForTesting(db, 85, 86);
       final employeeColumns = await db.rawQuery('PRAGMA table_info(empleados)');
       expect(
         employeeColumns.map((row) => row['name']),
@@ -81,6 +81,13 @@ void main() {
       expect(
         leaveTypeColumns.map((row) => row['name']),
         contains('exclude_in_reports_if_no_entitlement'),
+      );
+      final jobTitleColumns = await db.rawQuery(
+        'PRAGMA table_info(hrm_job_titles)',
+      );
+      expect(
+        jobTitleColumns.map((row) => row['name']),
+        containsAll(['contractual_hours_per_day', 'mrp_workstation_id']),
       );
     },
   );

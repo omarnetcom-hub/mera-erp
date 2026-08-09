@@ -37,7 +37,11 @@ void main() {
     db = await DatabaseHelper.instance.database;
     companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
     final jobId = await HrmJobTitleService().create(
-      HrmJobTitle(companyId: companyId, title: 'Analista HRM'),
+      HrmJobTitle(
+        companyId: companyId,
+        title: 'Analista HRM',
+        contractualHoursPerDay: 8,
+      ),
     );
     employeeId = await HrmEmployeeService().create(
       HrmEmployee(
@@ -71,6 +75,8 @@ void main() {
       await db.query('empleados', where: 'id = ?', whereArgs: [employeeId]),
       isNotEmpty,
     );
+    final job = (await HrmJobTitleService().list()).single;
+    expect(job.contractualHoursPerDay, 8);
   });
 
   tearDownAll(() async {
@@ -173,6 +179,19 @@ void main() {
     );
     expect(stored.requiresEntitlement, isFalse);
     expect(stored.excludeInReportsIfNoEntitlement, isTrue);
+  });
+
+  test('un cargo productivo exige jornada contractual', () async {
+    await expectLater(
+      () => HrmJobTitleService().create(
+        HrmJobTitle(
+          companyId: companyId,
+          title: 'Cargo productivo sin jornada',
+          mrpWorkstationId: 1,
+        ),
+      ),
+      throwsArgumentError,
+    );
   });
 
   test(

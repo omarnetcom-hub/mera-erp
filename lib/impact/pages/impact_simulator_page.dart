@@ -127,6 +127,13 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
             '${snapshot.availableHoursPerDay.toStringAsFixed(2)} h',
           ),
           _metric(
+            'Capacidad personal productiva',
+            snapshot.productiveEmployeeCount == 0
+                ? 'Sin vínculo'
+                : '${snapshot.productiveEmployeeHoursPerDay.toStringAsFixed(2)} h '
+                      '(${snapshot.productiveEmployeeCount} empleados)',
+          ),
+          _metric(
             'Demanda ponderada',
             '${snapshot.demandLines.length} lineas CRM',
           ),
@@ -159,6 +166,7 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           Text(snapshot.capacityNote),
+          Text(snapshot.personnelCapacityNote),
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: () => _saveScenario(snapshot, result),
@@ -175,6 +183,7 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
     final unknown =
         result.capacityStatus == 'demanda_sin_bom' ||
         result.capacityStatus == 'capacidad_no_configurada' ||
+        result.capacityStatus == 'capacidad_personal_no_configurada' ||
         result.capacityStatus == 'sin_demanda_de_productos';
     final color = sufficient
         ? MerkaThemeTokens.success
@@ -199,6 +208,9 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
                 Text(
                   result.capacityStatus == 'capacidad_no_configurada'
                       ? 'Capacidad: no configurada'
+                      : result.capacityStatus ==
+                            'capacidad_personal_no_configurada'
+                      ? 'Capacidad personal: no configurada'
                       : result.capacityStatus == 'capacidad_insuficiente'
                       ? 'Capacidad: insuficiente'
                       : result.capacityStatus == 'demanda_sin_bom'
