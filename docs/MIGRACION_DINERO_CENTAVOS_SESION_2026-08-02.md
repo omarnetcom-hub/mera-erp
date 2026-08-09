@@ -2667,3 +2667,88 @@ flutter analyze
 flutter test --reporter expanded --concurrency=1
 flutter build windows
 ```
+
+## Continuacion HRM - nomina comercial y publica (2026-08-09)
+
+### Decision y alcance
+
+Se implemento la migracion v81 con `empleados_sp.hrm_employee_id` nullable y
+referencia a `empleados(id)`. El valor NULL es un estado transicional valido:
+la nomina publica liquida con cero ausencias HRM y no intenta emparejar por
+documento. `approvedForPeriod` ahora acepta `employeeId` opcional y devuelve
+dias agregados por `leave_code`, reutilizando el mismo agregador en ambos
+motores de nomina.
+
+El mapeo aplicado es deliberadamente conservador: `vacaciones` y
+`permiso_remunerado` no reducen automaticamente el salario; únicamente
+`permiso_no_remunerado` reduce dias pagados y las bases calculadas. Las
+incapacidades EPS/ARL, maternidad, paternidad y luto no se procesan
+automaticamente. En su lugar se conserva el calculo original y se muestra la
+advertencia `N dias de [tipo] sin procesar automaticamente en este periodo -
+requiere revision manual` en observaciones de nomina publica y en el historial
+comercial. Quedan como pendiente normativo separado las reglas exactas de
+IBC/porcentaje para EPS, ARL, maternidad y paternidad.
+
+### Archivos y migracion
+
+- `lib/hrm/application/hrm_leave_service.dart`: filtro por empleado y
+  agregacion por tipo.
+- `lib/hrm/application/hrm_payroll_absence_service.dart`: mapeo compartido y
+  generacion de advertencias.
+- `lib/db_helper.dart`: version 81, consulta HRM desde `liquidarNomina`, bases
+  y asiento ajustados a dias no remunerados, columna `novedades_hrm`.
+- `lib/sector_publico/nomina/database/schema_nomina.dart`: columna nullable,
+  indice y migracion defensiva para el vinculo; `novedades_hrm` publico.
+- `lib/sector_publico/nomina/models/empleado.dart` y
+  `lib/sector_publico/nomina/services/nomina_service.dart`: lectura del
+  vinculo, descuento de dias no remunerados y advertencia visible.
+- `lib/nomina_page.dart`: muestra la advertencia HRM en el historial comercial.
+- `test/hrm/hrm_payroll_integration_test.dart`: cobertura de ambos flujos.
+
+La migracion no fabrica vinculos existentes: deja NULL cualquier fila previa.
+La columna de advertencias tambien se agrega solo si la tabla ya existe; la
+creacion de bases nuevas incluye ambas columnas desde el esquema inicial.
+
+### Evidencia cruda
+
+Comando: `flutter test test/hrm/hrm_payroll_integration_test.dart
+test/hrm/hrm_module_test.dart test/sector_publico/nomina/nomina_service_test.dart
+test/reporte_fiscal_nomina_integration_test.dart --reporter expanded`
+
+```text
+00:00 +0: loading test/hrm/hrm_payroll_integration_test.dart
+00:00 +1: nomina publica ... vacaciones y permisos aplican el mapeo aprobado
+00:00 +2: nomina publica ... incapacidad no altera la nomina y deja alerta visible
+00:00 +3: nomina publica ... sin ausencias conserva el calculo anterior
+00:00 +4: nomina publica ... hrm_employee_id nulo liquida con cero ausencias
+00:00 +5: nomina comercial ... permiso no remunerado reduce solo el periodo vinculado
+00:07 +12: hrm_module_test.dart: no permite terminar empleado con ausencias pendientes
+00:08 +15: nomina_service_test.dart: conserva tratamiento trazable para los seis regimenes publicos
+00:12 +16: reporte_fiscal_nomina_integration_test.dart: reporte fiscal usa neto_pagar e intereses de cesantias al 12% anual
+00:12 +16: All tests passed!
+```
+
+Comando: `flutter analyze`
+
+```text
+Analyzing Caja_simple...
+246 issues found. (ran 129.9s)
+```
+
+No hubo errores de nivel error; son avisos/info existentes del repositorio.
+
+Comando: `flutter build windows`
+
+```text
+Building Windows application...
+Nuget.exe not found, trying to download or use cached version.
+Building Windows application... 92.5s
+√ Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe
+```
+
+### Cierre de la subtarea HRM-nomina
+
+La conexion comercial y publica queda implementada y verificada. Se cubrieron
+vacaciones/permisos, alerta de tipos fuera de alcance, ausencia de novedades
+y empleado publico sin vinculo HRM. No se inventaron reglas para EPS, ARL,
+maternidad o paternidad; esas reglas requieren investigacion normativa futura.

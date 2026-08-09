@@ -29,6 +29,7 @@ class SchemaNomina {
         fondo_pension TEXT,
         fondo_cesantias TEXT,
         observaciones TEXT,
+        hrm_employee_id INTEGER,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
       )
     ''');
@@ -64,6 +65,7 @@ class SchemaNomina {
         fecha_pago TEXT,
         pila_id TEXT,
         observaciones TEXT,
+        novedades_hrm TEXT,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
         FOREIGN KEY (empleado_id) REFERENCES empleados_sp(id)
       )
@@ -144,6 +146,15 @@ class SchemaNomina {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_empleados_identificacion ON empleados_sp(numero_identificacion)',
     );
+    final employeeTables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      ['empleados_sp'],
+    );
+    if (employeeTables.isNotEmpty) {
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_empleados_hrm_employee ON empleados_sp(hrm_employee_id)',
+      );
+    }
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_liquidaciones_entidad ON liquidaciones_nomina(entidad_id)',
     );
@@ -188,12 +199,41 @@ class SchemaNomina {
     );
   }
 
+  static Future<void> migrarHrmEmployeeLink(Database db) async {
+    await _agregarColumnaSiNoExiste(
+      db,
+      'empleados_sp',
+      'hrm_employee_id',
+      'INTEGER REFERENCES empleados(id)',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'liquidaciones_nomina',
+      'novedades_hrm',
+      'TEXT',
+    );
+    final employeeTables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      ['empleados_sp'],
+    );
+    if (employeeTables.isNotEmpty) {
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_empleados_hrm_employee ON empleados_sp(hrm_employee_id)',
+      );
+    }
+  }
+
   static Future<void> _agregarColumnaSiNoExiste(
     Database db,
     String tabla,
     String columna,
     String definicion,
   ) async {
+    final tablas = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [tabla],
+    );
+    if (tablas.isEmpty) return;
     final columnas = await db.rawQuery('PRAGMA table_info($tabla)');
     if (columnas.any((fila) => fila['name'] == columna)) return;
     await db.execute('ALTER TABLE $tabla ADD COLUMN $columna $definicion');

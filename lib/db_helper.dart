@@ -36,6 +36,7 @@ import 'core/templates/template_service.dart';
 import 'core/privacy/gdpr_service.dart';
 import 'crm/database/schema_crm.dart';
 import 'hrm/database/schema_hrm.dart';
+import 'hrm/application/hrm_payroll_absence_service.dart';
 import 'mrp/database/schema_mrp.dart';
 
 import 'sector_publico/database/schema_multi_tenant.dart';
@@ -337,7 +338,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 80,
+      version: 81,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -369,6 +370,21 @@ class DatabaseHelper {
     }
     if (oldVersion < 80) {
       await SchemaHrm.crearTablas(db);
+    }
+    if (oldVersion < 81) {
+      final payrollTables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        ['nomina_liquidaciones'],
+      );
+      if (payrollTables.isNotEmpty) {
+        await _agregarColumnaSiNoExiste(
+          db,
+          'nomina_liquidaciones',
+          'novedades_hrm',
+          'TEXT',
+        );
+      }
+      await SchemaNomina.migrarHrmEmployeeLink(db);
     }
 
     if (oldVersion < 49) {
@@ -2046,6 +2062,7 @@ class DatabaseHelper {
         estado TEXT NOT NULL DEFAULT 'liquidada',
         calculo_json TEXT,
         nomina_electronica_json TEXT,
+        novedades_hrm TEXT,
         fecha TEXT NOT NULL
       )
     ''');
@@ -6336,27 +6353,48 @@ class DatabaseHelper {
       empleado['salario_base'],
       currency: currency,
     );
+    final periodStart = DateTime(anio, mes, 1);
+    final periodEnd = DateTime(anio, mes + 1, 1);
+    final absenceSummary = await HrmPayrollAbsenceService.forPeriod(
+      db: db,
+      companyId: companyId,
+      from: periodStart,
+      to: periodEnd,
+      employeeId: empleadoId,
+    );
+    final unpaidDays = absenceSummary.unpaidDays.clamp(0, 30).toDouble();
+    final paidDays = (30.0 - unpaidDays).clamp(0, 30).toDouble();
+    final salarioDevengado = salario.multiplyRatio(
+      numerator: (paidDays * 1000).round(),
+      denominator: 30000,
+    );
     final auxilioFlag = (empleado['auxilio_transporte'] as int) == 1;
     final nivelArl = empleado['nivel_arl']?.toString() ?? 'I';
 
     // Calcular auxilio de transporte si aplica
-    final auxilio = auxilioFlag && salario < (smmlv * 2)
+    var auxilio = auxilioFlag && salario < (smmlv * 2)
         ? MoneyValue.fromSql(
             param['transportation_allowance'],
             currency: currency,
           )
         : zero;
+    if (unpaidDays > 0 && auxilio.minorUnits > 0) {
+      auxilio = auxilio.multiplyRatio(
+        numerator: (paidDays * 1000).round(),
+        denominator: 30000,
+      );
+    }
 
     // Cálculos de aportes del empleado
-    final saludEmpleado = salario.multiplyDecimal(
+    final saludEmpleado = salarioDevengado.multiplyDecimal(
       healthEmployeeRate.toString(),
     );
-    final pensionEmpleado = salario.multiplyDecimal(
+    final pensionEmpleado = salarioDevengado.multiplyDecimal(
       pensionEmployeeRate.toString(),
     );
 
     // Cálculo de FSP (Fondo de Solidaridad Pensional)
-    final baseFsp = salario + horasExtraValue + bonificacionesValue;
+    final baseFsp = salarioDevengado + horasExtraValue + bonificacionesValue;
     var fsp = zero;
     if (baseFsp > smmlv.multiplyDecimal(fspTrigger.toString())) {
       if (baseFsp > smmlv * 4 && baseFsp <= smmlv * 6) {
@@ -6375,10 +6413,10 @@ class DatabaseHelper {
     }
 
     // Cálculos de aportes del empleador
-    final saludEmpleador = salario.multiplyDecimal(
+    final saludEmpleador = salarioDevengado.multiplyDecimal(
       healthEmployerRate.toString(),
     );
-    final pensionEmpleador = salario.multiplyDecimal(
+    final pensionEmpleador = salarioDevengado.multiplyDecimal(
       pensionEmployerRate.toString(),
     );
 
@@ -6386,34 +6424,46 @@ class DatabaseHelper {
     var arl = zero;
     switch (nivelArl.toUpperCase()) {
       case 'I':
-        arl = salario.multiplyDecimal(arlLevel1.toString());
+        arl = salarioDevengado.multiplyDecimal(arlLevel1.toString());
         break;
       case 'II':
-        arl = salario.multiplyDecimal(arlLevel2.toString());
+        arl = salarioDevengado.multiplyDecimal(arlLevel2.toString());
         break;
       case 'III':
-        arl = salario.multiplyDecimal(arlLevel3.toString());
+        arl = salarioDevengado.multiplyDecimal(arlLevel3.toString());
         break;
       case 'IV':
-        arl = salario.multiplyDecimal(arlLevel4.toString());
+        arl = salarioDevengado.multiplyDecimal(arlLevel4.toString());
         break;
       case 'V':
-        arl = salario.multiplyDecimal(arlLevel5.toString());
+        arl = salarioDevengado.multiplyDecimal(arlLevel5.toString());
         break;
     }
 
     // Parafiscales
-    final parafiscalSena = salario.multiplyDecimal(senaRate.toString());
-    final parafiscalIcbf = salario.multiplyDecimal(icbfRate.toString());
-    final parafiscalCaja = salario.multiplyDecimal(cajaRate.toString());
+    final parafiscalSena = salarioDevengado.multiplyDecimal(
+      senaRate.toString(),
+    );
+    final parafiscalIcbf = salarioDevengado.multiplyDecimal(
+      icbfRate.toString(),
+    );
+    final parafiscalCaja = salarioDevengado.multiplyDecimal(
+      cajaRate.toString(),
+    );
 
     // Provisiones mensuales
-    final cesantias = salario.multiplyDecimal(severanceRate.toString());
-    final primaServicios = salario.multiplyDecimal(serviceBonusRate.toString());
+    final cesantias = salarioDevengado.multiplyDecimal(
+      severanceRate.toString(),
+    );
+    final primaServicios = salarioDevengado.multiplyDecimal(
+      serviceBonusRate.toString(),
+    );
     // Ley 52 de 1975: 12 % anual sobre el saldo de cesantias. El valor
     // historico 0.01 era mensual y aqui se aplicaba una sola vez.
     final interesesCesantias = cesantias.percent('12');
-    final vacaciones = salario.multiplyDecimal(vacationRate.toString());
+    final vacaciones = salarioDevengado.multiplyDecimal(
+      vacationRate.toString(),
+    );
 
     // Total aportes empleador
     final parafiscales = parafiscalSena + parafiscalIcbf + parafiscalCaja;
@@ -6424,7 +6474,7 @@ class DatabaseHelper {
 
     // Totales
     final totalDevengado =
-        salario + auxilio + horasExtraValue + bonificacionesValue;
+        salarioDevengado + auxilio + horasExtraValue + bonificacionesValue;
     final totalDeducciones =
         saludEmpleado + pensionEmpleado + fsp + otrasDeduccionesValue;
     final netoPagar = totalDevengado - totalDeducciones;
@@ -6454,7 +6504,7 @@ class DatabaseHelper {
       lineas: [
         {
           'codigo': '510506',
-          'debito': salario.toSql(),
+          'debito': salarioDevengado.toSql(),
           'credito': 0,
           'descripcion': 'Gasto Sueldo: ${empleado['nombre']}',
         },
@@ -6519,6 +6569,7 @@ class DatabaseHelper {
     final periodo = '$anio-${mes.toString().padLeft(2, '0')}';
     final calculoJson = {
       'salario_base': salario.toWireMap(),
+      'salario_devengado': salarioDevengado.toWireMap(),
       'auxilio_transporte': auxilio.toWireMap(),
       'horas_extra': horasExtraValue.toWireMap(),
       'bonificaciones': bonificacionesValue.toWireMap(),
@@ -6537,6 +6588,7 @@ class DatabaseHelper {
       'intereses_cesantias': interesesCesantias.toWireMap(),
       'vacaciones': vacaciones.toWireMap(),
       'retefuente': retefuente,
+      'hrm_ausencias': absenceSummary.toMap(),
     };
 
     final id = await db.insert('nomina_liquidaciones', {
@@ -6565,6 +6617,7 @@ class DatabaseHelper {
       'retefuente': retefuente,
       'estado': 'liquidada',
       'calculo_json': calculoJson.toString(),
+      'novedades_hrm': absenceSummary.warning,
       'fecha': DateTime.now().toIso8601String(),
     });
 
@@ -6572,7 +6625,9 @@ class DatabaseHelper {
       accion: 'LIQUIDAR_NOMINA',
       entidad: 'nomina_liquidaciones',
       entidadId: id,
-      detalle: '${empleado['nombre']} $periodo neto $netoPagar',
+      detalle:
+          '${empleado['nombre']} $periodo neto $netoPagar'
+          '${absenceSummary.warning == null ? '' : ' - ${absenceSummary.warning}'}',
     );
     return id;
   }

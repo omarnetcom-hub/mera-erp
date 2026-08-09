@@ -802,7 +802,7 @@ class _NominaPageState extends State<NominaPage>
                               ),
                             ),
                             subtitle: Text(
-                              'Devengado: ${_fmt(n['total_devengado'])} | Deducciones: ${_fmt(n['total_deducciones'])}\nEstado: ${n['estado']?.toUpperCase()}',
+                              'Devengado: ${_fmt(n['total_devengado'])} | Deducciones: ${_fmt(n['total_deducciones'])}\nEstado: ${n['estado']?.toUpperCase()}${n['novedades_hrm'] == null || n['novedades_hrm'].toString().isEmpty ? '' : '\n${n['novedades_hrm']}'}',
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,

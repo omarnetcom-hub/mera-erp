@@ -50,6 +50,7 @@ class Empleado {
   final String? fondoPension;
   final String? fondoCesantias;
   final String? observaciones;
+  final int? hrmEmployeeId;
 
   Empleado({
     required this.id,
@@ -73,6 +74,7 @@ class Empleado {
     this.fondoPension,
     this.fondoCesantias,
     this.observaciones,
+    this.hrmEmployeeId,
   });
 
   factory Empleado.fromJson(Map<String, dynamic> json) {
@@ -108,6 +110,7 @@ class Empleado {
       fondoPension: json['fondo_pension'] as String?,
       fondoCesantias: json['fondo_cesantias'] as String?,
       observaciones: json['observaciones'] as String?,
+      hrmEmployeeId: (json['hrm_employee_id'] as num?)?.toInt(),
     );
   }
 
@@ -134,6 +137,7 @@ class Empleado {
       'fondo_pension': fondoPension,
       'fondo_cesantias': fondoCesantias,
       'observaciones': observaciones,
+      'hrm_employee_id': hrmEmployeeId,
     };
   }
 
@@ -172,6 +176,7 @@ class Empleado {
     String? fondoPension,
     String? fondoCesantias,
     String? observaciones,
+    int? hrmEmployeeId,
   }) {
     return Empleado(
       id: id ?? this.id,
@@ -195,6 +200,7 @@ class Empleado {
       fondoPension: fondoPension ?? this.fondoPension,
       fondoCesantias: fondoCesantias ?? this.fondoCesantias,
       observaciones: observaciones ?? this.observaciones,
+      hrmEmployeeId: hrmEmployeeId ?? this.hrmEmployeeId,
     );
   }
 

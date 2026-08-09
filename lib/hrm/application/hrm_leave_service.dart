@@ -1,6 +1,7 @@
 import '../../db_helper.dart';
 import '../data/hrm_leave_repository.dart';
 import '../domain/hrm_leave.dart';
+import 'package:sqflite/sqflite.dart';
 
 class HrmLeaveService {
   HrmLeaveService({HrmLeaveRepository? repository})
@@ -119,21 +120,39 @@ class HrmLeaveService {
   Future<List<Map<String, dynamic>>> approvedForPeriod({
     required DateTime from,
     required DateTime to,
+    int? employeeId,
+    DatabaseExecutor? executor,
+    int? companyId,
   }) async {
-    final db = await DatabaseHelper.instance.database;
-    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
-    return db.rawQuery(
-      '''
-      SELECT l.*, e.nombre AS employee_name, t.code AS leave_code, t.name AS leave_name,
+    final db = executor ?? await DatabaseHelper.instance.database;
+    final activeCompanyId =
+        companyId ?? await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final employeeFilter = employeeId == null ? '' : ' AND l.employee_id = ?';
+    final employeeArgs = employeeId == null
+        ? const <dynamic>[]
+        : <dynamic>[employeeId];
+    final args = <dynamic>[
+      activeCompanyId,
+      from.toIso8601String(),
+      to.toIso8601String(),
+      ...employeeArgs,
+    ];
+    return db.rawQuery('''
+      SELECT l.employee_id, MIN(l.date) AS date,
+             SUM(l.length_days) AS length_days,
+             COUNT(l.id) AS leave_count,
+             e.nombre AS employee_name, e.documento AS employee_document,
+             t.code AS leave_code, t.name AS leave_name,
              t.requires_entitlement
       FROM hrm_leaves l
       JOIN empleados e ON e.id = l.employee_id AND e.company_id = l.company_id
       JOIN hrm_leave_types t ON t.id = l.leave_type_id AND t.company_id = l.company_id
-      WHERE l.company_id = ? AND l.status = 'aprobado' AND l.date >= ? AND l.date < ?
-      ORDER BY l.date, e.nombre
-    ''',
-      [companyId, from.toIso8601String(), to.toIso8601String()],
-    );
+      WHERE l.company_id = ? AND l.status = 'aprobado'
+        AND l.date >= ? AND l.date < ?$employeeFilter
+      GROUP BY l.employee_id, e.nombre, e.documento,
+               t.code, t.name, t.requires_entitlement
+      ORDER BY MIN(l.date), e.nombre
+    ''', args);
   }
 
   Future<List<Map<String, dynamic>>> pendingForApproval() async {

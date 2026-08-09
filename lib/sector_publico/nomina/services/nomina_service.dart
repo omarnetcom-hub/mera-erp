@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/core/currency/public_sector_money.dart';
+import 'package:merka_erp/hrm/application/hrm_payroll_absence_service.dart';
 import '../models/empleado.dart';
 import '../models/liquidacion_nomina.dart';
 import '../../models/registro_auditoria.dart';
@@ -59,6 +60,17 @@ class NominaService {
     }
 
     final empleado = Empleado.fromJson(empleadoResult.first);
+    final periodBounds = _periodBounds(periodo);
+    final absenceSummary = await HrmPayrollAbsenceService.forPublicEmployee(
+      db: db,
+      hrmEmployeeId: empleado.hrmEmployeeId?.toString(),
+      from: periodBounds.$1,
+      to: periodBounds.$2,
+    );
+    final unpaidDays = absenceSummary.unpaidDays.clamp(0, 30).round();
+    final effectiveDays = unpaidDays == 0
+        ? diasTrabajados
+        : (diasTrabajados - unpaidDays).clamp(0, diasTrabajados).toInt();
 
     // Recuperar configuración de la entidad (SMMLV y Auxilio de Transporte) para evitar hardcoding
     final configResult = await db.query(
@@ -96,14 +108,20 @@ class NominaService {
     }
 
     final salarioDevengado = empleado.salarioBasico.multiplyRatio(
-      numerator: diasTrabajados,
+      numerator: effectiveDays,
       denominator: 30,
     );
-    final auxilioTransporte = _calcularAuxilioTransporte(
+    var auxilioTransporte = _calcularAuxilioTransporte(
       salarioBasico: empleado.salarioBasico,
       smmlv: smmlv,
       auxilioTransporte: auxilioTransporteConfig,
     );
+    if (unpaidDays > 0 && auxilioTransporte.minorUnits > 0) {
+      auxilioTransporte = auxilioTransporte.multiplyRatio(
+        numerator: effectiveDays,
+        denominator: diasTrabajados.clamp(1, 30).toInt(),
+      );
+    }
     final auxilioAlimentacion =
         publicMoneyZero(); // Implementar según política (Gap F3)
 
@@ -164,6 +182,9 @@ class NominaService {
       'ARL clase ${empleado.claseRiesgoArl}: ${(tarifaArl * 100).toStringAsFixed(3)}% (Decreto 1772/1994).',
     );
     warnings.add(_descripcionRegimen(empleado.regimenNomina));
+    if (absenceSummary.warning != null) {
+      warnings.add(absenceSummary.warning!);
+    }
     if (configPorDefecto) {
       warnings.add(
         'Advertencia: SMMLV/auxilio de transporte por defecto. Falta configuración real de la entidad.',
@@ -179,7 +200,7 @@ class NominaService {
       empleadoId: empleadoId,
       empleadoNombre: empleado.nombreCompleto,
       empleadoIdentificacion: empleado.numeroIdentificacion,
-      diasTrabajados: diasTrabajados,
+      diasTrabajados: effectiveDays,
       salarioBasico: empleado.salarioBasico,
       salarioDevengado: salarioDevengado,
       auxilioTransporte: auxilioTransporte,
@@ -219,6 +240,19 @@ class NominaService {
     );
 
     return liquidacion;
+  }
+
+  (DateTime, DateTime) _periodBounds(String periodo) {
+    final parts = periodo.split('-');
+    if (parts.length != 2) {
+      throw FormatException('El periodo debe tener formato YYYY-MM.');
+    }
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    if (year == null || month == null || month < 1 || month > 12) {
+      throw FormatException('El periodo debe tener formato YYYY-MM.');
+    }
+    return (DateTime(year, month, 1), DateTime(year, month + 1, 1));
   }
 
   MoneyValue _calcularTotalDevengado({
