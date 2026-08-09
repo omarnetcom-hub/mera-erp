@@ -53,29 +53,84 @@ void main() {
         await SchemaPresupuesto.crearTablas(db);
         await SchemaNomina.crearTablas(db);
         await SchemaAuditoria.crearTablas(db);
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS auditoria_registros (
+            id TEXT PRIMARY KEY,
+            entidad_id TEXT NOT NULL,
+            usuario_id TEXT NOT NULL,
+            usuario_nombre TEXT,
+            ip_direccion TEXT,
+            fecha_hora TEXT NOT NULL,
+            tipo_evento TEXT NOT NULL,
+            modulo TEXT NOT NULL,
+            accion TEXT NOT NULL,
+            valor_anterior TEXT NOT NULL,
+            valor_nuevo TEXT NOT NULL,
+            hash_anterior TEXT,
+            hash_actual TEXT NOT NULL,
+            referencia_id TEXT,
+            observaciones TEXT,
+            archivado INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS funcionarios_entidad (
+            id TEXT PRIMARY KEY,
+            entidad_id TEXT NOT NULL,
+            usuario_id TEXT,
+            cargo_clave TEXT NOT NULL,
+            nombre_completo TEXT NOT NULL,
+            identificacion TEXT NOT NULL,
+            tarjeta_profesional TEXT,
+            telefono TEXT NOT NULL,
+            email TEXT NOT NULL,
+            direccion TEXT NOT NULL,
+            UNIQUE(entidad_id, cargo_clave)
+          )
+        ''');
+        await db.insert('funcionarios_entidad', {
+          'id': 'FUNC-SIA-01',
+          'entidad_id': 'ENT-SIA-TEST',
+          'usuario_id': 'USR-SIA-01',
+          'cargo_clave': 'jefeControlInterno',
+          'nombre_completo': 'Jefe de Control Interno SIA',
+          'identificacion': '1002',
+          'telefono': '',
+          'email': '',
+          'direccion': '',
+        });
       },
     );
     auditoriaService = AuditoriaService(db);
-    siaObservaService = SIAObservaService(db: db, auditoriaService: auditoriaService);
+    siaObservaService = SIAObservaService(
+      db: db,
+      auditoriaService: auditoriaService,
+    );
   });
 
   tearDown(() async {
     await db.close();
   });
 
-  test('SIAObservaService genera reporte de Plan de Mejoramiento y exporta a plano CGR', () async {
-    final rep = await siaObservaService.generarReportePlanMejoramiento(
-      entidadId: 'ENT-SIA-TEST',
-      usuarioId: 'USR-SIA-01',
-      vigencia: '2026',
-      hallazgosAtendidos: 10,
-      accionesImplementadas: 8,
-    );
+  test(
+    'SIAObservaService genera reporte de Plan de Mejoramiento y exporta a plano CGR',
+    () async {
+      final rep = await siaObservaService.generarReportePlanMejoramiento(
+        entidadId: 'ENT-SIA-TEST',
+        usuarioId: 'USR-SIA-01',
+        vigencia: '2026',
+        hallazgosAtendidos: 10,
+        accionesImplementadas: 8,
+      );
 
-    expect(rep.id, isNotEmpty);
-    expect(rep.vigencia, equals('2026'));
+      expect(rep.id, isNotEmpty);
+      expect(rep.vigencia, equals('2026'));
 
-    final plano = await siaObservaService.exportarAPlano(rep.id);
-    expect(plano, contains('SIA_OBSERVA_HEADER|ENT-SIA-TEST|2026|planMejoramiento'));
-  });
+      final plano = await siaObservaService.exportarAPlano(rep.id);
+      expect(
+        plano,
+        contains('SIA_OBSERVA_HEADER|ENT-SIA-TEST|2026|planMejoramiento'),
+      );
+    },
+  );
 }

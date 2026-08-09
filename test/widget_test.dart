@@ -61,7 +61,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     AppSession.iniciar({
       'nombre': 'Administrador',
-      'usuario': 'admin',
+      'usuario': null,
       'rol': 'administrador',
     });
     addUiCleanup(tester);
@@ -131,7 +131,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     AppSession.iniciar({
       'nombre': 'Administrador',
-      'usuario': 'admin',
+      'usuario': null,
       'rol': 'administrador',
     });
     addUiCleanup(tester);
@@ -168,7 +168,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     AppSession.iniciar({
       'nombre': 'Administrador',
-      'usuario': 'admin',
+      'usuario': null,
       'rol': 'administrador',
     });
     addUiCleanup(tester);
@@ -217,7 +217,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     AppSession.iniciar({
       'nombre': 'Administrador',
-      'usuario': 'admin',
+      'usuario': null,
       'rol': 'administrador',
     });
     addUiCleanup(tester);

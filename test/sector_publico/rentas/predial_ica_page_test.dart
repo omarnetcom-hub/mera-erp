@@ -12,10 +12,15 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  testWidgets('PredialICAPage renders Predial and ICA tabs and TODO banner', (WidgetTester tester) async {
+  testWidgets('PredialICAPage renders Predial and ICA tabs and TODO banner', (
+    WidgetTester tester,
+  ) async {
     await tester.runAsync(() async {
-      final db = await openDatabase(inMemoryDatabasePath, version: 1, onCreate: (db, version) async {
-        await db.execute('''
+      final db = await openDatabase(
+        inMemoryDatabasePath,
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
           CREATE TABLE IF NOT EXISTS entidades_territoriales (
             id TEXT PRIMARY KEY,
             nit TEXT NOT NULL,
@@ -26,8 +31,9 @@ void main() {
             configuracion_normativa TEXT NOT NULL
           )
         ''');
-        await SchemaRentas.crearTablas(db);
-      });
+          await SchemaRentas.crearTablas(db);
+        },
+      );
       DatabaseHelper.setTestDatabase(db);
     });
 
@@ -46,7 +52,10 @@ void main() {
     await tester.pump();
 
     // Verify AppBar
-    expect(find.text('Rentas - Predial e Industria y Comercio (ICA)'), findsOneWidget);
+    expect(
+      find.text('Rentas - Predial e Industria y Comercio (ICA)'),
+      findsOneWidget,
+    );
 
     // Verify Main Tabs
     expect(find.text('Impuesto Predial'), findsWidgets);
@@ -54,13 +63,13 @@ void main() {
 
     // Switch to ICA tab
     await tester.tap(find.text('Industria y Comercio (ICA)'));
-    await tester.runAsync(() async {
-      await Future.delayed(const Duration(milliseconds: 100));
-    });
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     // Verify ICA elements and TODO banner
-    expect(find.textContaining('Exportación oficial de Declaración ICA'), findsOneWidget);
+    expect(
+      find.textContaining('Exportación oficial de Declaración ICA (PDF/XML'),
+      findsOneWidget,
+    );
     expect(find.text('Censo de Contribuyentes ICA'), findsOneWidget);
   });
 }

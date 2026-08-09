@@ -82,7 +82,7 @@ class FUTTerritorialService {
     final totalTributario = tributarioPredial + tributarioICA;
 
     final resRegalias = await db.rawQuery(
-      'SELECT SUM(monto_aprobado) as total FROM regalias WHERE entidad_id = ? AND bienalidad LIKE ?',
+      'SELECT SUM(monto_aprobado) as total FROM proyectos_ocad WHERE entidad_id = ? AND bienalidad LIKE ?',
       [entidadId, '%$vigencia%'],
     );
     final totalRegalias = publicMoneyFromSql(

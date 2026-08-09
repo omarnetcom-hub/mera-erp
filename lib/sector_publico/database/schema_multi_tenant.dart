@@ -125,6 +125,8 @@ class SchemaMultiTenant {
       CREATE TABLE IF NOT EXISTS configuracion_visibilidad (
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
+        parametro TEXT NOT NULL DEFAULT 'tipo_entidad',
+        valor TEXT NOT NULL DEFAULT '',
         tipo TEXT NOT NULL,
         subtipo TEXT,
         modulos_habilitados TEXT NOT NULL,
@@ -132,9 +134,12 @@ class SchemaMultiTenant {
         fecha_configuracion TEXT NOT NULL,
         configurado_por TEXT NOT NULL,
         estado TEXT NOT NULL DEFAULT 'activo',
+        vigente INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id)
       )
     ''');
+
+    await migrarConfiguracionVisibilidad(db);
 
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_configuracion_visibilidad_entidad
@@ -277,8 +282,12 @@ class SchemaMultiTenant {
       )
     ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_funcionarios_usuario ON funcionarios_entidad(usuario_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_funcionarios_entidad_usuario ON funcionarios_entidad(entidad_id, usuario_id)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_funcionarios_usuario ON funcionarios_entidad(usuario_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_funcionarios_entidad_usuario ON funcionarios_entidad(entidad_id, usuario_id)',
+    );
   }
 
   /// Inserta datos semilla del Catálogo General de Cuentas (CGC)
@@ -321,23 +330,75 @@ class SchemaMultiTenant {
     ''');
   }
 
-  static Future<void> migrarConfiguracionEntidadParaHistorial(Database db) async {
+  /// Completa columnas introducidas despues de la primera version del
+  /// esquema, sin reescribir configuraciones de visibilidad existentes.
+  static Future<void> migrarConfiguracionVisibilidad(
+    DatabaseExecutor db,
+  ) async {
+    final tablas = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      ['configuracion_visibilidad'],
+    );
+    if (tablas.isEmpty) return;
+
+    final columnas = await db.rawQuery(
+      'PRAGMA table_info(configuracion_visibilidad)',
+    );
+    final existentes = columnas.map((fila) => fila['name'] as String).toSet();
+    if (!existentes.contains('parametro')) {
+      await db.execute(
+        "ALTER TABLE configuracion_visibilidad ADD COLUMN parametro TEXT NOT NULL DEFAULT 'tipo_entidad'",
+      );
+    }
+    if (!existentes.contains('valor')) {
+      await db.execute(
+        "ALTER TABLE configuracion_visibilidad ADD COLUMN valor TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    if (!existentes.contains('vigente')) {
+      await db.execute(
+        'ALTER TABLE configuracion_visibilidad ADD COLUMN vigente INTEGER NOT NULL DEFAULT 1',
+      );
+    }
+  }
+
+  static Future<void> migrarConfiguracionEntidadParaHistorial(
+    Database db,
+  ) async {
     final tablas = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'configuracion_entidad'",
     );
     if (tablas.isEmpty) return;
 
-    final columnas = await db.rawQuery('PRAGMA table_info(configuracion_entidad)');
-    final nombres = columnas.map((columna) => columna['name'] as String).toSet();
+    final columnas = await db.rawQuery(
+      'PRAGMA table_info(configuracion_entidad)',
+    );
+    final nombres = columnas
+        .map((columna) => columna['name'] as String)
+        .toSet();
     if (nombres.contains('vigente') && nombres.contains('fecha_fin')) return;
 
     const columnasPreservadas = [
-      'id', 'entidad_id', 'parametro', 'valor', 'fecha_actualizacion',
-      'actualizado_por', 'tipo', 'subtipo', 'nombre_entidad', 'codigo_dane',
-      'departamento', 'municipio', 'fecha_configuracion', 'configurado_por',
-      'motivo_cambio', 'estado',
+      'id',
+      'entidad_id',
+      'parametro',
+      'valor',
+      'fecha_actualizacion',
+      'actualizado_por',
+      'tipo',
+      'subtipo',
+      'nombre_entidad',
+      'codigo_dane',
+      'departamento',
+      'municipio',
+      'fecha_configuracion',
+      'configurado_por',
+      'motivo_cambio',
+      'estado',
     ];
-    final columnasExistentes = columnasPreservadas.where(nombres.contains).toList();
+    final columnasExistentes = columnasPreservadas
+        .where(nombres.contains)
+        .toList();
     final listaColumnas = columnasExistentes.join(', ');
 
     await db.transaction((txn) async {
@@ -381,7 +442,9 @@ class SchemaMultiTenant {
     });
   }
 
-  static Future<void> crearTablaModulosPorTipoEntidad(DatabaseExecutor db) async {
+  static Future<void> crearTablaModulosPorTipoEntidad(
+    DatabaseExecutor db,
+  ) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS modulos_por_tipo_entidad (
         tipo TEXT NOT NULL,
@@ -478,37 +541,130 @@ class SchemaMultiTenant {
     }
   }
 
-  static Future<void> insertarDatosSemillaCGC(Database db, String entidadId) async {
+  static Future<void> insertarDatosSemillaCGC(
+    Database db,
+    String entidadId,
+  ) async {
     // Clase 1 - Activo
     final cuentasClase1 = [
-      ['1110', 'Efectivo y equivalentes de efectivo', '1', '11', '110', '1110', '', 'Deudora'],
+      [
+        '1110',
+        'Efectivo y equivalentes de efectivo',
+        '1',
+        '11',
+        '110',
+        '1110',
+        '',
+        'Deudora',
+      ],
       ['1111', 'Caja General', '1', '11', '110', '1110', '1111', 'Deudora'],
       ['1112', 'Cajas Menores', '1', '11', '110', '1110', '1112', 'Deudora'],
       ['1120', 'Bancos', '1', '11', '110', '1120', '', 'Deudora'],
-      ['1121', 'Cuentas Corrientes', '1', '11', '110', '1120', '1121', 'Deudora'],
-      ['1415', 'Deudores por impuestos', '1', '14', '140', '1415', '', 'Deudora'],
-      ['1640', 'Propiedades, planta y equipo', '1', '16', '160', '1640', '', 'Deudora'],
+      [
+        '1121',
+        'Cuentas Corrientes',
+        '1',
+        '11',
+        '110',
+        '1120',
+        '1121',
+        'Deudora',
+      ],
+      [
+        '1415',
+        'Deudores por impuestos',
+        '1',
+        '14',
+        '140',
+        '1415',
+        '',
+        'Deudora',
+      ],
+      [
+        '1640',
+        'Propiedades, planta y equipo',
+        '1',
+        '16',
+        '160',
+        '1640',
+        '',
+        'Deudora',
+      ],
       ['1920', 'Activos intangibles', '1', '19', '190', '1920', '', 'Deudora'],
     ];
 
     // Clase 2 - Pasivo
     final cuentasClase2 = [
-      ['2401', 'Cuentas por pagar a contratistas', '2', '24', '240', '2401', '', 'Acreedora'],
-      ['2410', 'Obligaciones fiscales', '2', '24', '240', '2410', '', 'Acreedora'],
-      ['2510', 'Beneficios a empleados', '2', '25', '250', '2510', '', 'Acreedora'],
+      [
+        '2401',
+        'Cuentas por pagar a contratistas',
+        '2',
+        '24',
+        '240',
+        '2401',
+        '',
+        'Acreedora',
+      ],
+      [
+        '2410',
+        'Obligaciones fiscales',
+        '2',
+        '24',
+        '240',
+        '2410',
+        '',
+        'Acreedora',
+      ],
+      [
+        '2510',
+        'Beneficios a empleados',
+        '2',
+        '25',
+        '250',
+        '2510',
+        '',
+        'Acreedora',
+      ],
     ];
 
     // Clase 3 - Patrimonio
     final cuentasClase3 = [
       ['3105', 'Capital fiscal', '3', '31', '310', '3105', '', 'Acreedora'],
-      ['3115', 'Resultado del ejercicio', '3', '31', '310', '3115', '', 'Acreedora'],
-      ['3120', 'Impacto acumulado de reexpresión', '3', '31', '310', '3120', '', 'Acreedora'],
+      [
+        '3115',
+        'Resultado del ejercicio',
+        '3',
+        '31',
+        '310',
+        '3115',
+        '',
+        'Acreedora',
+      ],
+      [
+        '3120',
+        'Impacto acumulado de reexpresión',
+        '3',
+        '31',
+        '310',
+        '3120',
+        '',
+        'Acreedora',
+      ],
     ];
 
     // Clase 4 - Ingresos
     final cuentasClase4 = [
       ['4111', 'Impuesto predial', '4', '41', '410', '4111', '', 'Acreedora'],
-      ['4115', 'Impuesto de industria y comercio', '4', '41', '410', '4115', '', 'Acreedora'],
+      [
+        '4115',
+        'Impuesto de industria y comercio',
+        '4',
+        '41',
+        '410',
+        '4115',
+        '',
+        'Acreedora',
+      ],
       ['4401', 'Transferencias SGP', '4', '44', '440', '4401', '', 'Acreedora'],
       ['4802', 'Otros ingresos', '4', '48', '480', '4802', '', 'Acreedora'],
     ];
@@ -517,26 +673,89 @@ class SchemaMultiTenant {
     final cuentasClase5 = [
       ['5101', 'Servicios personales', '5', '51', '510', '5101', '', 'Deudora'],
       ['5111', 'Gastos generales', '5', '51', '510', '5111', '', 'Deudora'],
-      ['5120', 'Transferencias pagadas', '5', '51', '510', '5120', '', 'Deudora'],
+      [
+        '5120',
+        'Transferencias pagadas',
+        '5',
+        '51',
+        '510',
+        '5120',
+        '',
+        'Deudora',
+      ],
       ['5310', 'Depreciación', '5', '53', '530', '5310', '', 'Deudora'],
     ];
 
     // Clase 6 - Costo de ventas/servicios
     final cuentasClase6 = [
-      ['6101', 'Costo de producción de bienes', '6', '61', '610', '6101', '', 'Deudora'],
-      ['6310', 'Costo de la transformación', '6', '63', '630', '6310', '', 'Deudora'],
+      [
+        '6101',
+        'Costo de producción de bienes',
+        '6',
+        '61',
+        '610',
+        '6101',
+        '',
+        'Deudora',
+      ],
+      [
+        '6310',
+        'Costo de la transformación',
+        '6',
+        '63',
+        '630',
+        '6310',
+        '',
+        'Deudora',
+      ],
     ];
 
     // Clase 8 - Cuentas de orden deudoras
     final cuentasClase8 = [
-      ['8110', 'Derechos contingentes', '8', '81', '810', '8110', '', 'Deudora'],
-      ['8390', 'Bienes y valores entregados en custodia', '8', '83', '830', '8390', '', 'Deudora'],
+      [
+        '8110',
+        'Derechos contingentes',
+        '8',
+        '81',
+        '810',
+        '8110',
+        '',
+        'Deudora',
+      ],
+      [
+        '8390',
+        'Bienes y valores entregados en custodia',
+        '8',
+        '83',
+        '830',
+        '8390',
+        '',
+        'Deudora',
+      ],
     ];
 
     // Clase 9 - Cuentas de orden acreedoras
     final cuentasClase9 = [
-      ['9110', 'Responsabilidades contingentes', '9', '91', '910', '9110', '', 'Acreedora'],
-      ['9390', 'Bienes y valores recibidos en custodia', '9', '93', '930', '9390', '', 'Acreedora'],
+      [
+        '9110',
+        'Responsabilidades contingentes',
+        '9',
+        '91',
+        '910',
+        '9110',
+        '',
+        'Acreedora',
+      ],
+      [
+        '9390',
+        'Bienes y valores recibidos en custodia',
+        '9',
+        '93',
+        '930',
+        '9390',
+        '',
+        'Acreedora',
+      ],
     ];
 
     final todasLasCuentas = [

@@ -12,10 +12,15 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  testWidgets('SaludPublicaPage renders RIPS and Glosas tabs and TODO banner', (WidgetTester tester) async {
+  testWidgets('SaludPublicaPage renders RIPS and Glosas tabs and TODO banner', (
+    WidgetTester tester,
+  ) async {
     await tester.runAsync(() async {
-      final db = await openDatabase(inMemoryDatabasePath, version: 1, onCreate: (db, version) async {
-        await db.execute('''
+      final db = await openDatabase(
+        inMemoryDatabasePath,
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
           CREATE TABLE IF NOT EXISTS entidades_territoriales (
             id TEXT PRIMARY KEY,
             nit TEXT NOT NULL,
@@ -26,8 +31,9 @@ void main() {
             configuracion_normativa TEXT NOT NULL
           )
         ''');
-        await SchemaSalud.crearTablas(db);
-      });
+          await SchemaSalud.crearTablas(db);
+        },
+      );
       DatabaseHelper.setTestDatabase(db);
     });
 
@@ -46,13 +52,16 @@ void main() {
     await tester.pump();
 
     // Verify AppBar
-    expect(find.text('Salud Pública'), findsOneWidget);
+    expect(find.text('Salud Pública (RIPS / EPS / ADRES)'), findsOneWidget);
 
     // Verify BottomNavigationBar Tabs
     expect(find.text('RIPS'), findsWidgets);
     expect(find.text('Glosas'), findsWidgets);
 
     // Verify TODO Banner
-    expect(find.textContaining('Facturación electrónica directa a EPS'), findsOneWidget);
+    expect(
+      find.textContaining('Gestión integral ESE / Salud:'),
+      findsOneWidget,
+    );
   });
 }

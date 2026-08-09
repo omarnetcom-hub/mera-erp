@@ -6,6 +6,7 @@ import 'package:merka_erp/sector_publico/presupuesto/models/pago.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/pac_service.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
+import 'package:merka_erp/sector_publico/contratacion/database/schema_contratacion.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/core/currency/public_sector_money.dart';
@@ -31,6 +32,7 @@ void main() {
   setUp(() async {
     db = await databaseFactory.openDatabase(inMemoryDatabasePath);
     await SchemaMultiTenant.crearTablas(db);
+    await SchemaContratacion.crearTablas(db);
     await SchemaPresupuesto.crearTablas(db);
     await SchemaContabilidad.crearTablas(db);
 
@@ -72,7 +74,10 @@ void main() {
   test(
     'flujo completo descuenta PAC, actualiza saldos y genera asiento NICSP',
     () async {
-      final flujo = await _crearFlujo(pacProgramado: _m(300), valorPago: _m(200));
+      final flujo = await _crearFlujo(
+        pacProgramado: _m(300),
+        valorPago: _m(200),
+      );
 
       final pagoAprobado = await presupuestoService.aprobarPago(
         entidadId: entidadId,
@@ -167,7 +172,10 @@ void main() {
         throwsException,
       );
 
-      final excedido = await _crearFlujo(pacProgramado: _m(100), valorPago: _m(200));
+      final excedido = await _crearFlujo(
+        pacProgramado: _m(100),
+        valorPago: _m(200),
+      );
       final pagoExcedido = await presupuestoService.aprobarPago(
         entidadId: entidadId,
         usuarioId: usuarioAlcalde,
@@ -248,11 +256,60 @@ Future<_FlujoCreado> _crearFlujo({
     objetoGasto: 'Servicios',
     contratoNumero: null,
   );
+  final procesoId = 'PROCESO-$sufijo';
+  final contratoId = 'CONTRATO-$sufijo';
+  final numeroCdp =
+      (await db.query(
+            'cdps',
+            columns: ['numero_cdp'],
+            where: 'id = ?',
+            whereArgs: [cdp.id],
+          )).single['numero_cdp']
+          as String;
+  await db.insert('procesos_contratacion', {
+    'id': procesoId,
+    'entidad_id': entidadId,
+    'numero_proceso': 'PROC-$sufijo',
+    'objeto_contrato': 'Servicios generales',
+    'modalidad': 'contratacionDirecta',
+    'valor_estimado': 50000,
+    'tipo_contrato': 'prestacionServicios',
+    'dependencia_solicitante': 'Administracion',
+    'responsable_proceso': 'Responsable de prueba',
+    'fecha_inicio': '2026-01-01T00:00:00.000',
+    'fecha_publicacion': '2026-01-01T00:00:00.000',
+    'fecha_cierre': '2026-01-02T00:00:00.000',
+    'estado': 'adjudicado',
+    'cdp_id': cdp.id,
+    'numero_cdp': numeroCdp,
+  });
+  await db.insert('contratos', {
+    'id': contratoId,
+    'entidad_id': entidadId,
+    'numero_contrato': 'CT-$sufijo',
+    'proceso_id': procesoId,
+    'numero_proceso': 'PROC-$sufijo',
+    'objeto_contrato': 'Servicios generales',
+    'tipo_contrato': 'prestacionServicios',
+    'valor_contrato': 50000,
+    'contratista_id': 'CONTRATISTA-001',
+    'contratista_nombre': 'Proveedor de Prueba S.A.S.',
+    'contratista_identificacion': '900000001-1',
+    'cdp_id': cdp.id,
+    'numero_cdp': numeroCdp,
+    'rp_id': null,
+    'numero_rp': null,
+    'fecha_firma': '2026-01-03T00:00:00.000',
+    'fecha_inicio_ejecucion': '2026-01-04T00:00:00.000',
+    'fecha_fin_ejecucion': '2026-12-31T00:00:00.000',
+    'duracion_dias': 362,
+    'estado': 'firmado',
+  });
   final rp = await presupuestoService.expedirRP(
     entidadId: entidadId,
     usuarioId: usuarioPresupuesto,
     cdpId: cdp.id,
-    contratoId: 'CONTRATO-$sufijo',
+    contratoId: contratoId,
     contratoNumero: 'CT-$sufijo',
     valorRP: _m(500),
     funcionarioExpedidor: 'Jefe de Presupuesto',

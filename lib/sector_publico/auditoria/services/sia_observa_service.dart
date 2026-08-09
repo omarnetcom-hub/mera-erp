@@ -64,7 +64,7 @@ class SIAObservaService {
 
     // 1. Consultar Contratación Estatal
     final resContratos = await db.rawQuery(
-      'SELECT COUNT(*) as total_count, SUM(valor_total) as valor_total FROM contratos WHERE entidad_id = ? AND vigencia = ?',
+      "SELECT COUNT(*) as total_count, SUM(valor_contrato) as valor_total FROM contratos WHERE entidad_id = ? AND strftime('%Y', fecha_firma) = ?",
       [entidadId, vigencia],
     );
     final rowContratos = resContratos.first;
@@ -77,7 +77,7 @@ class SIAObservaService {
 
     // 2. Consultar Ejecución Presupuestal de Gastos (Pagos)
     final resPagos = await db.rawQuery(
-      'SELECT SUM(monto_total) as total_pagos FROM pagos WHERE entidad_id = ? AND vigencia = ?',
+      'SELECT SUM(valor_pago) as total_pagos FROM pagos WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
     final totalPagadoPresupuesto = publicMoneyFromSql(

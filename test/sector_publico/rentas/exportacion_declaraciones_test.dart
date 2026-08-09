@@ -35,15 +35,19 @@ void main() {
         id TEXT PRIMARY KEY,
         entidad_id TEXT NOT NULL,
         usuario_id TEXT NOT NULL,
+        usuario_nombre TEXT,
+        ip_direccion TEXT,
         fecha_hora TEXT NOT NULL,
         tipo_evento TEXT NOT NULL,
         modulo TEXT NOT NULL,
         accion TEXT NOT NULL,
-        datos_anteriores TEXT,
-        datos_nuevos TEXT,
-        ip_origen TEXT,
-        hash_integridad TEXT NOT NULL,
-        referencia_id TEXT
+        valor_anterior TEXT NOT NULL,
+        valor_nuevo TEXT NOT NULL,
+        hash_anterior TEXT,
+        hash_actual TEXT NOT NULL,
+        referencia_id TEXT,
+        observaciones TEXT,
+        archivado INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -72,7 +76,7 @@ void main() {
       'avaluo_catastral': 20000000000,
       'avaluo_anterior': 19000000000,
       'uso_suelo': 'residencial',
-      'estrato': 'estrato3',
+      'estrato': 'tres',
       'zona': 'urbana',
       'propietario_id': 'prop-001',
       'propietario_nombre': 'Ana Gómez',

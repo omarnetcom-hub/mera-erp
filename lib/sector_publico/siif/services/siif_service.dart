@@ -64,27 +64,26 @@ class SIIFService {
 
     // 1. Consultar Apropiaciones
     final resApropiaciones = await db.rawQuery(
-      'SELECT SUM(monto_inicial) as inicial, SUM(adiciones) as adiciones, SUM(reducciones) as reducciones, SUM(monto_definitivo) as definitivo FROM apropiaciones WHERE entidad_id = ? AND vigencia = ?',
+      'SELECT SUM(valor_inicial) as inicial, SUM(valor_apropiado) as definitivo FROM apropiaciones WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
     final rowApr = resApropiaciones.first;
     final inicial = publicMoneyFromSql(rowApr['inicial'], nullableAsZero: true);
-    final adiciones = publicMoneyFromSql(
-      rowApr['adiciones'],
-      nullableAsZero: true,
-    );
-    final reducciones = publicMoneyFromSql(
-      rowApr['reducciones'],
-      nullableAsZero: true,
-    );
     final definitivo = publicMoneyFromSql(
       rowApr['definitivo'],
       nullableAsZero: true,
     );
+    final diferenciaApropiacion = definitivo - inicial;
+    final adiciones = diferenciaApropiacion.minorUnits > 0
+        ? diferenciaApropiacion
+        : publicMoneyZero();
+    final reducciones = diferenciaApropiacion.minorUnits < 0
+        ? diferenciaApropiacion.abs()
+        : publicMoneyZero();
 
     // 2. Consultar CDP
     final resCDP = await db.rawQuery(
-      'SELECT SUM(monto_total) as total FROM cdp WHERE entidad_id = ? AND vigencia = ?',
+      'SELECT SUM(valor_cdp) as total FROM cdps WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
     final totalCDP = publicMoneyFromSql(
@@ -94,7 +93,7 @@ class SIIFService {
 
     // 3. Consultar RP (Registros Presupuestales)
     final resRP = await db.rawQuery(
-      'SELECT SUM(monto_total) as total FROM rp WHERE entidad_id = ? AND vigencia = ?',
+      'SELECT SUM(valor_rp) as total FROM rps WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
     final totalRP = publicMoneyFromSql(
@@ -104,7 +103,7 @@ class SIIFService {
 
     // 4. Consultar Obligaciones
     final resObl = await db.rawQuery(
-      'SELECT SUM(monto_total) as total FROM obligaciones WHERE entidad_id = ? AND vigencia = ?',
+      'SELECT SUM(valor_obligacion) as total FROM obligaciones WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
     final totalObligaciones = publicMoneyFromSql(
@@ -114,7 +113,7 @@ class SIIFService {
 
     // 5. Consultar Pagos
     final resPagos = await db.rawQuery(
-      'SELECT SUM(monto_total) as total FROM pagos WHERE entidad_id = ? AND vigencia = ?',
+      'SELECT SUM(valor_pago) as total FROM pagos WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
     final totalPagos = publicMoneyFromSql(
@@ -181,7 +180,7 @@ class SIIFService {
     final id = _uuid.v4();
 
     final resPagos = await db.rawQuery(
-      'SELECT SUM(monto_total) as total_bruto, SUM(retenciones) as total_retenciones, SUM(monto_neto) as total_neto FROM pagos WHERE entidad_id = ? AND vigencia = ?',
+      'SELECT SUM(valor_pago) as total_bruto, 0 as total_retenciones, SUM(valor_pago) as total_neto FROM pagos WHERE entidad_id = ? AND vigencia = ?',
       [entidadId, vigencia],
     );
 

@@ -2122,3 +2122,158 @@ Parte A queda implementada y verificada por cinco pruebas en
 `partida_doble_sql_test.dart`. La validacion a nivel de servicio sigue siendo
 util, pero SQLite ya no depende de que el consumidor pase por Dart. La
 verificacion global de analyze/build queda para el cierre de Fase 4.
+
+## Fase 4 - Parte B: triaje de las 17 fallas conocidas
+
+### Diagnostico individual y clasificacion
+
+Se comparo la salida de `phase4_baseline_suite.txt` con inspeccion de cada
+stack trace, esquema real y fixture. No se considero que una falla fuera ajena
+solo por el nombre del modulo.
+
+1. `test/login_widget_test.dart:39`, `muestra login de MerkaERP` - **(c)
+   bug de test/UI**. El test montaba el arranque completo, que detiene en la
+   compuerta de licencia antes de llegar al login, y buscaba el texto viejo
+   `MerkaERP`; se corrigio para montar `LoginPage` directamente con una
+   licencia activa y buscar `Iniciar sesión`. Test dirigido: 1/1.
+2. `test/sector_publico/activos/acta_responsabilidad_service_test.dart:102`
+   - **(a) fixture de esquema simple**. El fixture usaba `hash_integridad`,
+   pero `AuditoriaService` y el esquema vigente usan `hash_actual`; se
+   actualizo el fixture a la tabla productiva completa. Test dirigido: 1/1.
+3. `test/sector_publico/auditoria/fut_territorial_service_test.dart:66` -
+   **(a) fixture de esquema simple**. Faltaba `funcionarios_entidad`, tabla
+   necesaria para RBAC de consulta de auditoria; se creo y se agrego un
+   funcionario `jefeControlInterno` para el usuario de prueba. Test dirigido:
+   1/1.
+4. `test/sector_publico/auditoria/sia_observa_service_test.dart:66` - **(a)
+   fixture de esquema simple**. Misma ausencia de `funcionarios_entidad`; se
+   agrego el fixture RBAC. Tambien se corrigieron consultas del servicio a
+   `contratos.valor_contrato`, `fecha_firma` y `pagos.valor_pago`, que eran
+   nombres inexistentes en el esquema real. Test dirigido: 1/1.
+5. `test/sector_publico/configuracion/configuracion_general_service_test.dart:24`
+   - **(a) esquema simple**. `configuracion_visibilidad` no tenia `parametro`
+   ni `valor`; se agrego migracion defensiva con defaults y se verifico el
+   servicio. Test dirigido: 1/1.
+6. `test/sector_publico/configuracion/onboarding_legado_migracion_test.dart:55`
+   - **(a) fixture simple**. La migracion omite correctamente configuraciones
+   sin entidad FK; el test no sembraba la entidad 2 y luego esperaba una fila.
+   Se inserto una entidad territorial valida antes de migrar. Test dirigido:
+   1/1.
+7. `test/sector_publico/presupuesto/presupuesto_pago_integracion_test.dart`,
+   camino feliz - **(a) fixture de esquema simple**. Faltaba la tabla
+   `contratos`, y el flujo actual exige contrato firmado antes del RP. Se
+   creo el esquema de contratacion y se adapto el fixture al flujo
+   contrato-firmado -> RP. Test dirigido: pasa dentro del bloque de 9 servicios.
+8. El bloqueo del mismo archivo para los casos negativos - **(a) fixture de
+   esquema simple**. La misma causa `contratos`; los bloqueos se ejecutan ahora
+   con el esquema real. Test dirigido: pasa dentro del bloque de 9 servicios.
+9. `test/sector_publico/regalias/sicodis_service_test.dart:82` - **(a) fixture
+   de esquema simple**. Faltaba `hash_actual` en `auditoria_registros`; se
+   actualizo el fixture productivo. Test dirigido: 1/1.
+10. `test/sector_publico/rentas/exportacion_declaraciones_test.dart:99` -
+    **(c) fixture desalineado**. El modelo espera el valor enum `tres`, pero
+    el test sembraba `estrato3`; se corrigio el valor del fixture. Test
+    dirigido: 1/1.
+11. `test/sector_publico/salud/facturacion_salud_service_test.dart:70` -
+    **(a) fixture de esquema simple**. Faltaba `hash_actual` en auditoria; se
+    corrigio la tabla sembrada. Test dirigido: 1/1.
+12. `test/sector_publico/rentas/predial_ica_page_test.dart:63` - **(c) test/UI
+    desactualizado**. El test no esperaba el asentamiento de la pestaña ICA y
+    buscaba texto anterior; se agrego el asentamiento y se ajusto al banner
+    real. Test dirigido: 1/1.
+13. `test/sector_publico/salud/salud_publica_page_test.dart:49` - **(c) test/UI
+    desactualizado**. Se actualizaron titulo y banner a los textos actuales de
+    la pagina. Test dirigido: 1/1.
+14. `test/sector_publico/presupuesto/presupuesto_publico_page_test.dart:239`
+    - **(c) test/fixture UI desactualizado**, con dos causas verificadas. El
+    test usaba `pumpAndSettle` frente a un indicador indeterminado y su tabla
+    manual de `apropiaciones` no tenia `vigencia`, que la pagina consulta. Se
+    cambio a espera de tiempo real y se hizo que el fixture cree primero
+    `SchemaPresupuesto`, ademas de ajustar las expectativas a INTEGER en
+    centavos. No se pudo certificar la ejecucion final porque Flutter vuelve a
+    abortar antes de cargar el test por el bloqueo externo de
+    `build/native_assets/windows/sqlite3.dll`; queda como pendiente operativo
+    de rerun, no como fallo funcional confirmado.
+15. `test/sector_publico/siif/siif_service_test.dart:62` - **(a) fixture y
+    consulta de esquema simple**. Faltaba `funcionarios_entidad`; ademas el
+    servicio consultaba columnas inexistentes (`valor_cdp`, `valor_rp`,
+    `monto_total`) y se alineo con el esquema real (`valor_inicial`,
+    `valor_apropiado`, `valor_pago`). Test dirigido: 1/1.
+16. `test/widget_test.dart`, `muestra el centro de trabajo de MerkaERP` -
+    **(c) fixture de sesion/UI**. El test llenaba `AppSession.usuario` con un
+    usuario sin funcion publica, disparando una consulta RBAC pendiente; se
+    dejo `usuario: null` para el escenario de workspace comercial. Test
+    dirigido: pasa.
+17. `test/widget_test.dart`, `workspace renderiza en dark high contrast sin
+    overflow` - **(c) fixture de sesion/UI**, misma causa de consulta RBAC
+    innecesaria. Test dirigido: pasa.
+
+No se encontro una categoria (b) que requiriera inventar un modelo normativo
+para corregir estas 17. Se dejo separado un gap no perteneciente a estas
+fallas: el reporte SIIF no puede desglosar retenciones porque la tabla `pagos`
+actual no captura ese detalle; el servicio devuelve explicitamente cero en
+esas columnas. Requiere una decision de datos si el reporte oficial exige ese
+desglose, y no se invento una columna en esta subtarea.
+
+### Evidencia cruda de los arreglos dirigidos
+
+```text
+CONFIG_EXIT=0
+00:00 +0: carga configuracion sin excepciones en una entidad sin configurar
+00:00 +1: All tests passed!
+LOGIN_EXIT=0
+00:00 +0: muestra login de MerkaERP
+00:03 +1: All tests passed!
+PREDIAL_EXIT=0
+00:00 +0: PredialICAPage renders Predial and ICA tabs and TODO banner
+00:01 +1: All tests passed!
+SALUD_EXIT=0
+00:00 +0: SaludPublicaPage renders RIPS and Glosas tabs and TODO banner
+00:01 +1: All tests passed!
+WIDGET_EXIT=0
+00:00 +0: muestra el centro de trabajo de MerkaERP
+00:06 +1: workspace enterprise soporta command palette y busqueda
+00:09 +2: workspace movil conserva acciones, copilot y notificaciones
+00:12 +3: workspace renderiza en dark high contrast sin overflow
+00:13 +4: All tests passed!
+SERVICES_EXIT=0
+00:00 +0: loading bloque de 9 servicios sector publico
+00:10 +10: All tests passed!
+```
+
+La prueba aislada posterior al ajuste del presupuesto mostro inicialmente la
+causa del fixture:
+
+```text
+Error al cargar datos: SqfliteFfiException(... no such column: vigencia ...
+SELECT * FROM apropiaciones WHERE entidad_id = ? AND activo = 1
+ORDER BY vigencia DESC, codigo_rubro)
+```
+
+Las reejecuciones posteriores no llegaron al Dart test runner: Flutter aborto
+con esta salida cruda de herramienta:
+
+```text
+Oops; flutter has exited unexpectedly: "PathExistsException: Cannot copy file
+to 'C:\\Users\\PC\\Desktop\\Caja_simple\\build\\native_assets\\windows\\sqlite3.dll'
+(OS Error: No se puede crear un archivo que ya existe, errno = 183)".
+No quedaron procesos flutter/flutter_tester/dart visibles despues del aborto;
+se intento cerrar procesos y borrar solo build/native_assets/windows, pero el
+DLL siguio retenido por el entorno.
+```
+
+### Cierre de la subtarea B
+
+Quedaron corregidas y verificadas 16 de las 17 fallas mediante tests dirigidos.
+La numero 14 tiene una correccion de fixture/UI aplicada, pero su rerun final
+esta bloqueado por el crash estructural de Flutter sobre `sqlite3.dll`; por
+eso no se declara cerrada la Parte B ni la Fase 4 al 100%. El submodulo
+`backend` no se modifico. El siguiente paso de Omar es liberar ese DLL o
+reiniciar el entorno y ejecutar:
+
+```text
+flutter test test/sector_publico/presupuesto/presupuesto_publico_page_test.dart --reporter expanded --concurrency=1
+flutter analyze
+flutter test --reporter expanded --concurrency=1
+flutter build windows
+```

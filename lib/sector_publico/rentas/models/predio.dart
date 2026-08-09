@@ -99,11 +99,17 @@ class Predio {
       poseedorNombre: json['poseedor_nombre'] as String?,
       poseedorIdentificacion: json['poseedor_identificacion'] as String?,
       fechaRegistro: DateTime.parse(json['fecha_registro'] as String),
-      activo: json['activo'] as bool,
-      exento: json['exento'] as bool,
+      activo: _asBool(json['activo']),
+      exento: _asBool(json['exento']),
       motivoExencion: json['motivo_exencion'] as String?,
       observaciones: json['observaciones'] as String?,
     );
+  }
+
+  static bool _asBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    return false;
   }
 
   Map<String, dynamic> toJson() {

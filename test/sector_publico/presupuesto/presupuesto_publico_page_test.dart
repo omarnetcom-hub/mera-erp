@@ -3,6 +3,8 @@
 /// con validación de base de datos real y bloqueos normativos
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -13,6 +15,8 @@ import 'package:merka_erp/sector_publico/presupuesto/models/apropiacion.dart';
 import 'package:merka_erp/sector_publico/presupuesto/models/cdp.dart';
 import 'package:merka_erp/sector_publico/presupuesto/models/rp.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
+import 'package:merka_erp/sector_publico/contratacion/database/schema_contratacion.dart';
+import 'package:merka_erp/sector_publico/presupuesto/database/schema_presupuesto.dart';
 
 void main() {
   setUpAll(() {
@@ -25,10 +29,20 @@ void main() {
     late PresupuestoService presupuestoService;
     late String testEntidadId;
     late String testUsuarioId;
+    late String dbPath;
 
     setUp(() async {
-      // Inicializar base de datos real
-      db = await DatabaseHelper.instance.database;
+      // Usar una base aislada y el esquema versionado real evita que el
+      // singleton de la app compita con la inicializacion del widget.
+      dbPath =
+          '${Directory.systemTemp.path}/phase4_presupuesto_ui_${DateTime.now().microsecondsSinceEpoch}.db';
+      db = await databaseFactory.openDatabase(dbPath);
+      DatabaseHelper.setTestDatabase(db);
+      await SchemaContratacion.crearTablas(db);
+      // Usa primero el esquema versionado real. Los CREATE locales de abajo
+      // quedan como compatibilidad histórica, pero no pueden ocultar columnas
+      // obligatorias del contrato de producción.
+      await SchemaPresupuesto.crearTablas(db);
 
       // Crear tablas necesarias para las pruebas
       await db.execute('''
@@ -220,6 +234,8 @@ void main() {
         where: 'entidad_id = ?',
         whereArgs: [testEntidadId],
       );
+      await DatabaseHelper.resetForTests();
+      await File(dbPath).delete();
     });
 
     testWidgets('Crear apropiación y verificar en base de datos', (
@@ -236,7 +252,13 @@ void main() {
       );
 
       // Esperar a que cargue
-      await tester.pumpAndSettle();
+      // La pagina puede mantener un indicador indeterminado mientras carga;
+      // esperar asentamiento infinito no es una condicion valida. La base
+      // SQLite necesita tiempo real, no solo tiempo virtual del tester.
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(seconds: 3));
+      });
+      await tester.pump();
 
       // Verificar que estamos en la pestaña de apropiaciones
       expect(find.text('Apropiaciones Presupuestales'), findsOneWidget);
@@ -318,8 +340,8 @@ void main() {
       final apropiacionData = apropiacionesResult.first;
       expect(apropiacionData['codigo_rubro'], '01-01-01-00-000');
       expect(apropiacionData['nombre_rubro'], 'Gastos Generales');
-      expect(apropiacionData['valor_apropiado'], 1000000.0);
-      expect(apropiacionData['saldo_disponible'], 1000000.0);
+      expect(apropiacionData['valor_apropiado'], 100000000);
+      expect(apropiacionData['saldo_disponible'], 100000000);
       expect(apropiacionData['vigencia'], '2026');
       expect(apropiacionData['activo'], 1);
 
