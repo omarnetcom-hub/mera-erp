@@ -187,6 +187,7 @@ extension DatabaseInitializer on DatabaseHelper {
     await _crearTablasInteligenciaOperativa(db);
     await _crearTablasExtensionesEmpresariales(db);
     await SchemaCrm.crearTablas(db);
+    await SchemaHrm.crearTablas(db);
     await _agregarScopeDistribuidoATablas(db);
     await _sembrarPlanCuentas(db);
     await _sembrarSecuencias(db);

@@ -39,6 +39,7 @@ import '../../templates_page.dart';
 import '../../commissions_page.dart';
 import '../../warranties_page.dart';
 import '../../crm/pages/crm_pipeline_page.dart';
+import '../../hrm/pages/hrm_employee_page.dart';
 
 List<ModuleDefinition> operacion() => [
   ModuleDefinition(
@@ -247,6 +248,15 @@ List<ModuleDefinition> gestion() => [
     icon: Icons.badge,
     builder: (_) => const NominaPage(),
     color: const Color(0xFFF4A261),
+    category: ModuleCategory.management,
+    featureKey: FeatureKey.payroll,
+  ),
+  ModuleDefinition(
+    id: 'hrm',
+    title: 'Recursos humanos',
+    icon: Icons.badge_outlined,
+    builder: (_) => const HrmEmployeePage(),
+    color: const Color(0xFF7B2CBF),
     category: ModuleCategory.management,
     featureKey: FeatureKey.payroll,
   ),

@@ -35,6 +35,7 @@ import 'sales/application/warranty_service.dart';
 import 'core/templates/template_service.dart';
 import 'core/privacy/gdpr_service.dart';
 import 'crm/database/schema_crm.dart';
+import 'hrm/database/schema_hrm.dart';
 
 import 'sector_publico/database/schema_multi_tenant.dart';
 import 'sector_publico/presupuesto/database/schema_presupuesto.dart';
@@ -335,7 +336,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 77,
+      version: 78,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -358,6 +359,9 @@ class DatabaseHelper {
   Future<void> _migrarDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 77) {
       await SchemaCrm.crearTablas(db);
+    }
+    if (oldVersion < 78) {
+      await SchemaHrm.crearTablas(db);
     }
 
     if (oldVersion < 49) {
