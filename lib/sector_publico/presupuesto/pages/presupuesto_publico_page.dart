@@ -19,6 +19,7 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../core/currency/public_sector_money.dart';
 import '../../../ui/merka_theme_tokens.dart';
 import '../../../ui/widgets/expandable_record_card.dart';
+import '../../../core/tracing/traceability_record_action.dart';
 
 class PresupuestoPublicoPage extends StatefulWidget {
   final String entidadId;
@@ -243,6 +244,13 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemBuilder: (context, index) {
         final apropiacion = _apropiaciones[index];
         return ExpandableRecordCard(
+          actions: [
+            traceabilityRecordAction(
+              rootEntityType: 'apropiacion',
+              rootRecordId: apropiacion.id,
+              tenantId: widget.entidadId,
+            ),
+          ],
           evidenceRequest: EvidenceRequest(
             domain: 'presupuesto',
             recordType: 'apropiacion',
@@ -280,7 +288,10 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             ),
           ],
           secondaryFields: [
-            RecordCardField(label: 'Nombre del rubro', value: apropiacion.nombreRubro),
+            RecordCardField(
+              label: 'Nombre del rubro',
+              value: apropiacion.nombreRubro,
+            ),
             RecordCardField(
               label: 'Pagado',
               value: CurrencyFormatter.format(
@@ -299,9 +310,18 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
                 publicMoneyForDisplay(apropiacion.valorRP),
               ),
             ),
-            RecordCardField(label: 'Fuente', value: apropiacion.fuenteFinanciacion),
-            RecordCardField(label: 'Sector / programa', value: '${apropiacion.sector} / ${apropiacion.programa}'),
-            RecordCardField(label: 'Acto administrativo', value: apropiacion.actoAdministrativo),
+            RecordCardField(
+              label: 'Fuente',
+              value: apropiacion.fuenteFinanciacion,
+            ),
+            RecordCardField(
+              label: 'Sector / programa',
+              value: '${apropiacion.sector} / ${apropiacion.programa}',
+            ),
+            RecordCardField(
+              label: 'Acto administrativo',
+              value: apropiacion.actoAdministrativo,
+            ),
           ],
         );
       },
@@ -351,6 +371,13 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemBuilder: (context, index) {
         final cdp = _cdps[index];
         return ExpandableRecordCard(
+          actions: [
+            traceabilityRecordAction(
+              rootEntityType: 'cdp',
+              rootRecordId: cdp.id,
+              tenantId: widget.entidadId,
+            ),
+          ],
           evidenceRequest: EvidenceRequest(
             domain: 'presupuesto',
             recordType: 'cdp',
@@ -358,29 +385,57 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
           ),
           onEvidenceRequested: _exportarEvidencia,
           criticalFields: [
-            RecordCardField(label: 'CDP', value: cdp.numeroCDP, icon: Icons.description, emphasized: true),
-            RecordCardField(label: 'Rubro', value: cdp.codigoRubro, icon: Icons.account_tree),
+            RecordCardField(
+              label: 'CDP',
+              value: cdp.numeroCDP,
+              icon: Icons.description,
+              emphasized: true,
+            ),
+            RecordCardField(
+              label: 'Rubro',
+              value: cdp.codigoRubro,
+              icon: Icons.account_tree,
+            ),
             RecordCardField(
               label: 'Valor',
-              value: CurrencyFormatter.format(publicMoneyForDisplay(cdp.valorCDP)),
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(cdp.valorCDP),
+              ),
               icon: Icons.payments,
               emphasized: true,
             ),
             RecordCardField(
               label: 'Saldo',
-              value: CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible)),
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(cdp.saldoDisponible),
+              ),
               icon: Icons.savings,
               emphasized: true,
             ),
           ],
           secondaryFields: [
             RecordCardField(label: 'Vigencia', value: cdp.vigencia),
-            RecordCardField(label: 'Vence', value: DateFormatter.format(cdp.fechaVigencia)),
-            RecordCardField(label: 'Funcionario expedidor', value: cdp.funcionarioExpedidor),
-            RecordCardField(label: 'Funcionario solicitante', value: cdp.funcionarioSolicitante),
+            RecordCardField(
+              label: 'Vence',
+              value: DateFormatter.format(cdp.fechaVigencia),
+            ),
+            RecordCardField(
+              label: 'Funcionario expedidor',
+              value: cdp.funcionarioExpedidor,
+            ),
+            RecordCardField(
+              label: 'Funcionario solicitante',
+              value: cdp.funcionarioSolicitante,
+            ),
             RecordCardField(label: 'Objeto del gasto', value: cdp.objetoGasto),
-            RecordCardField(label: 'Contrato', value: cdp.contratoNumero ?? 'Sin contrato asociado'),
-            RecordCardField(label: 'Estado', value: cdp.estado.toString().split('.').last.toUpperCase()),
+            RecordCardField(
+              label: 'Contrato',
+              value: cdp.contratoNumero ?? 'Sin contrato asociado',
+            ),
+            RecordCardField(
+              label: 'Estado',
+              value: cdp.estado.toString().split('.').last.toUpperCase(),
+            ),
           ],
         );
       },
@@ -430,6 +485,13 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemBuilder: (context, index) {
         final rp = _rps[index];
         return ExpandableRecordCard(
+          actions: [
+            traceabilityRecordAction(
+              rootEntityType: 'rp',
+              rootRecordId: rp.id,
+              tenantId: widget.entidadId,
+            ),
+          ],
           evidenceRequest: EvidenceRequest(
             domain: 'presupuesto',
             recordType: 'rp',
@@ -437,17 +499,30 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
           ),
           onEvidenceRequested: _exportarEvidencia,
           criticalFields: [
-            RecordCardField(label: 'RP', value: rp.numeroRP, icon: Icons.assignment, emphasized: true),
-            RecordCardField(label: 'Rubro', value: rp.codigoRubro, icon: Icons.account_tree),
+            RecordCardField(
+              label: 'RP',
+              value: rp.numeroRP,
+              icon: Icons.assignment,
+              emphasized: true,
+            ),
+            RecordCardField(
+              label: 'Rubro',
+              value: rp.codigoRubro,
+              icon: Icons.account_tree,
+            ),
             RecordCardField(
               label: 'Valor',
-              value: CurrencyFormatter.format(publicMoneyForDisplay(rp.valorRP)),
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(rp.valorRP),
+              ),
               icon: Icons.payments,
               emphasized: true,
             ),
             RecordCardField(
               label: 'Saldo',
-              value: CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible)),
+              value: CurrencyFormatter.format(
+                publicMoneyForDisplay(rp.saldoDisponible),
+              ),
               icon: Icons.savings,
               emphasized: true,
             ),
@@ -456,10 +531,19 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             RecordCardField(label: 'CDP asociado', value: rp.numeroCDP),
             RecordCardField(label: 'Contrato', value: rp.contratoNumero),
             RecordCardField(label: 'Vigencia', value: rp.vigencia),
-            RecordCardField(label: 'Vence', value: DateFormatter.format(rp.fechaVigencia)),
-            RecordCardField(label: 'Funcionario expedidor', value: rp.funcionarioExpedidor),
+            RecordCardField(
+              label: 'Vence',
+              value: DateFormatter.format(rp.fechaVigencia),
+            ),
+            RecordCardField(
+              label: 'Funcionario expedidor',
+              value: rp.funcionarioExpedidor,
+            ),
             RecordCardField(label: 'Objeto del gasto', value: rp.objetoGasto),
-            RecordCardField(label: 'Estado', value: rp.estado.toString().split('.').last.toUpperCase()),
+            RecordCardField(
+              label: 'Estado',
+              value: rp.estado.toString().split('.').last.toUpperCase(),
+            ),
           ],
         );
       },

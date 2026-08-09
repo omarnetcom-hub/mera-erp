@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'ui/widgets/expandable_record_card.dart';
+import 'core/tracing/traceability_record_action.dart';
 
 import 'core/currency/currency.dart';
 import 'core/currency/money_currency_resolver.dart';
@@ -232,6 +233,25 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
                 final estado = c['estado']?.toString() ?? '';
 
                 return ExpandableRecordCard(
+                  actions: [
+                    if (c['venta_id'] != null)
+                      traceabilityRecordAction(
+                        rootEntityType: 'venta',
+                        rootRecordId: c['venta_id'].toString(),
+                      ),
+                    RecordCardAction(
+                      id: 'abonar',
+                      label: 'Cobrar',
+                      icon: Icons.payments,
+                      onPressed: (_) async => _mostrarDialogoAbono(c),
+                    ),
+                    RecordCardAction(
+                      id: 'historial',
+                      label: 'Ver historial',
+                      icon: Icons.history,
+                      onPressed: (_) async => _mostrarHistorialAbonos(c),
+                    ),
+                  ],
                   criticalFields: [
                     RecordCardField(
                       label: 'Cliente',
@@ -258,23 +278,21 @@ class _CuentasPorCobrarPageState extends State<CuentasPorCobrarPage> {
                     ),
                   ],
                   secondaryFields: [
-                    RecordCardField(label: 'Total', value: _formatSql(c['total'])),
-                    RecordCardField(label: 'Fecha', value: c['fecha']?.toString() ?? ''),
-                    RecordCardField(label: 'Vencimiento', value: c['vencimiento']?.toString() ?? ''),
-                    RecordCardField(label: 'Descripción', value: c['descripcion']?.toString() ?? ''),
-                  ],
-                  actions: [
-                    RecordCardAction(
-                      id: 'abonar',
-                      label: 'Cobrar',
-                      icon: Icons.payments,
-                      onPressed: (_) async => _mostrarDialogoAbono(c),
+                    RecordCardField(
+                      label: 'Total',
+                      value: _formatSql(c['total']),
                     ),
-                    RecordCardAction(
-                      id: 'historial',
-                      label: 'Ver historial',
-                      icon: Icons.history,
-                      onPressed: (_) async => _mostrarHistorialAbonos(c),
+                    RecordCardField(
+                      label: 'Fecha',
+                      value: c['fecha']?.toString() ?? '',
+                    ),
+                    RecordCardField(
+                      label: 'Vencimiento',
+                      value: c['vencimiento']?.toString() ?? '',
+                    ),
+                    RecordCardField(
+                      label: 'Descripción',
+                      value: c['descripcion']?.toString() ?? '',
                     ),
                   ],
                 );
