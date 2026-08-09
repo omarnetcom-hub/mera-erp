@@ -13,6 +13,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'accounting/application/accounting_engine.dart';
+import 'accounting/accounting_period_schema_migration.dart';
 import 'catalog/domain/master_catalog.dart';
 import 'core/branch/branch_context.dart';
 import 'core/currency/currency.dart';
@@ -78,7 +79,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 88;
+  static const int schemaVersion = 89;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1014,6 +1015,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 88) {
       await TaxReportSchemaMigration.migrateV88(db);
+    }
+    if (oldVersion < 89) {
+      await AccountingPeriodSchemaMigration.migrateV89(db);
     }
   }
 
@@ -1967,13 +1971,14 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS periodos_contables(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL,
         anio INTEGER NOT NULL,
         mes INTEGER NOT NULL,
         estado TEXT NOT NULL DEFAULT 'abierto',
         fecha_apertura TEXT NOT NULL,
         fecha_cierre TEXT,
         observacion TEXT,
-        UNIQUE(anio, mes)
+        UNIQUE(company_id, anio, mes)
       )
     ''');
   }
@@ -4502,6 +4507,18 @@ class DatabaseHelper {
         'nombre': 'Perdida del ejercicio',
         'tipo': 'patrimonio',
         'naturaleza': 'debito',
+      },
+      {
+        'codigo': '37',
+        'nombre': 'Resultados acumulados',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
+      },
+      {
+        'codigo': '3705',
+        'nombre': 'Utilidades o perdidas acumuladas',
+        'tipo': 'patrimonio',
+        'naturaleza': 'credito',
       },
 
       // Clase 4: Ingresos
@@ -7949,7 +7966,7 @@ class DatabaseHelper {
       await txn.insert('secuencias_documentos', {
         'tipo': tipo,
         'prefijo': 'DOC',
-        'siguiente': 1,
+        'siguiente': 2,
       });
       return 'DOC-000001';
     }
@@ -8043,7 +8060,13 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> obtenerPeriodosContables() async {
     final db = await instance.database;
-    return await db.query('periodos_contables', orderBy: 'anio DESC, mes DESC');
+    final companyId = await obtenerEmpresaActivaId();
+    return await db.query(
+      'periodos_contables',
+      where: 'company_id = ?',
+      whereArgs: [companyId],
+      orderBy: 'anio DESC, mes DESC',
+    );
   }
 
   Future<void> abrirPeriodoContable({
@@ -8052,7 +8075,9 @@ class DatabaseHelper {
     String observacion = '',
   }) async {
     final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
     await db.insert('periodos_contables', {
+      'company_id': companyId,
       'anio': anio,
       'mes': mes,
       'estado': 'abierto',
@@ -8073,7 +8098,9 @@ class DatabaseHelper {
     String observacion = '',
   }) async {
     final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
     await db.insert('periodos_contables', {
+      'company_id': companyId,
       'anio': anio,
       'mes': mes,
       'estado': 'cerrado',
@@ -8089,8 +8116,8 @@ class DatabaseHelper {
         'fecha_cierre': DateTime.now().toIso8601String(),
         'observacion': observacion,
       },
-      where: 'anio = ? AND mes = ?',
-      whereArgs: [anio, mes],
+      where: 'company_id = ? AND anio = ? AND mes = ?',
+      whereArgs: [companyId, anio, mes],
     );
 
     await registrarEventoAuditoria(
@@ -8105,10 +8132,11 @@ class DatabaseHelper {
     DatabaseExecutor? txn,
   ]) async {
     final executor = txn ?? await instance.database;
+    final companyId = await obtenerEmpresaActivaId(executor);
     final res = await executor.query(
       'periodos_contables',
-      where: 'anio = ? AND mes = ? AND estado = ?',
-      whereArgs: [fecha.year, fecha.month, 'cerrado'],
+      where: 'company_id = ? AND anio = ? AND mes = ? AND estado = ?',
+      whereArgs: [companyId, fecha.year, fecha.month, 'cerrado'],
       limit: 1,
     );
     return res.isNotEmpty;
@@ -8556,6 +8584,155 @@ class DatabaseHelper {
       final db = await instance.database;
       return await db.transaction((t) => performRegistration(t));
     }
+  }
+
+  /// Cierra el ejercicio comercial en dos asientos auditables.
+  ///
+  /// El primer asiento salda las cuentas de ingresos, gastos y costos contra
+  /// 3605/3610. El segundo mueve ese resultado a 3705. Ambos se registran en
+  /// la misma transaccion para que el trigger de partida doble vea solo
+  /// asientos completos y nunca quede un cierre a medias.
+  Future<Map<String, dynamic>> cerrarEjercicioContable({
+    required int anio,
+    DateTime? fechaCierre,
+  }) async {
+    final db = await instance.database;
+    final companyId = await obtenerEmpresaActivaId();
+    final fecha = fechaCierre ?? DateTime(anio, 12, 31);
+    final referenciaBase = 'CIERRE_EJERCICIO:$anio';
+    final cierresPrevios = await db.query(
+      'asientos_contables',
+      columns: ['id', 'referencia'],
+      where: 'company_id = ? AND referencia LIKE ?',
+      whereArgs: [companyId, '$referenciaBase:%'],
+      limit: 1,
+    );
+    if (cierresPrevios.isNotEmpty) {
+      throw StateError('El ejercicio $anio ya tiene un cierre registrado.');
+    }
+
+    await _validarPeriodoAbierto(fecha);
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+
+    return await db.transaction((txn) async {
+      final balances = await txn.rawQuery(
+        '''
+        SELECT c.codigo, c.nombre, c.naturaleza,
+               COALESCE(SUM(l.debito), 0) AS debito,
+               COALESCE(SUM(l.credito), 0) AS credito
+        FROM cuentas_contables c
+        INNER JOIN asiento_lineas l ON l.cuenta_id = c.id
+        INNER JOIN asientos_contables a ON a.id = l.asiento_id
+        WHERE a.company_id = ?
+          AND l.company_id = ?
+          AND a.estado = 'registrado'
+          AND substr(c.codigo, 1, 1) IN ('4', '5', '6', '7')
+          AND substr(a.fecha, 1, 4) = ?
+          AND (a.referencia IS NULL OR a.referencia NOT LIKE ?)
+        GROUP BY c.id, c.codigo, c.nombre, c.naturaleza
+        ORDER BY c.codigo ASC
+        ''',
+        [companyId, companyId, anio.toString(), '$referenciaBase:%'],
+      );
+
+      final lineasCierre = <Map<String, dynamic>>[];
+      var debitoResultado = zero;
+      var creditoResultado = zero;
+
+      for (final balance in balances) {
+        final debito = MoneyValue.fromSql(
+          balance['debito'],
+          currency: currency,
+          nullableAsZero: true,
+        );
+        final credito = MoneyValue.fromSql(
+          balance['credito'],
+          currency: currency,
+          nullableAsZero: true,
+        );
+        final naturaleza = balance['naturaleza']?.toString() ?? 'debito';
+        final saldo = naturaleza == 'credito'
+            ? credito - debito
+            : debito - credito;
+        if (saldo.minorUnits == 0) continue;
+
+        if (naturaleza == 'credito') {
+          lineasCierre.add({
+            'codigo': balance['codigo'],
+            'debito': saldo.toSql(),
+            'credito': 0,
+            'descripcion': 'Cierre de ${balance['nombre']}',
+          });
+          creditoResultado += saldo;
+        } else {
+          lineasCierre.add({
+            'codigo': balance['codigo'],
+            'debito': 0,
+            'credito': saldo.toSql(),
+            'descripcion': 'Cierre de ${balance['nombre']}',
+          });
+          debitoResultado += saldo;
+        }
+      }
+
+      final resultado = creditoResultado - debitoResultado;
+      if (resultado.minorUnits == 0) {
+        throw StateError('No hay resultado contable para cerrar en $anio.');
+      }
+
+      final esUtilidad = resultado.minorUnits > 0;
+      final resultadoAbs = esUtilidad ? resultado : resultado.abs();
+      lineasCierre.add({
+        'codigo': esUtilidad ? '3605' : '3610',
+        'debito': esUtilidad ? 0 : resultadoAbs.toSql(),
+        'credito': esUtilidad ? resultadoAbs.toSql() : 0,
+        'descripcion': 'Resultado del ejercicio $anio',
+      });
+
+      final resultadoId = await _registrarAsientoConCodigos(
+        concepto: 'Cierre de ingresos y gastos del ejercicio $anio',
+        referencia: '$referenciaBase:RESULTADO',
+        origen: 'cierre_ejercicio',
+        fecha: fecha,
+        lineas: lineasCierre,
+        txn: txn,
+      );
+
+      final transferenciaId = await _registrarAsientoConCodigos(
+        concepto: 'Traslado del resultado a ganancias acumuladas $anio',
+        referencia: '$referenciaBase:PATRIMONIO',
+        origen: 'cierre_ejercicio',
+        fecha: fecha,
+        lineas: [
+          {
+            'codigo': esUtilidad ? '3605' : '3705',
+            'debito': resultadoAbs.toSql(),
+            'credito': 0,
+            'descripcion': 'Cierre de resultado del ejercicio',
+          },
+          {
+            'codigo': esUtilidad ? '3705' : '3610',
+            'debito': 0,
+            'credito': resultadoAbs.toSql(),
+            'descripcion': 'Traslado a resultados acumulados',
+          },
+        ],
+        txn: txn,
+      );
+
+      return {
+        'company_id': companyId,
+        'anio': anio,
+        'resultado_id': resultadoId,
+        'transferencia_id': transferenciaId,
+        'resultado_minor_units': resultadoAbs.minorUnits,
+        'tipo_resultado': esUtilidad ? 'utilidad' : 'perdida',
+      };
+    });
   }
 
   String _codigoCuentaDinero(String origen) {
@@ -9212,7 +9389,7 @@ class DatabaseHelper {
         'anio': anio,
         'mes': mes,
         'estado': estado,
-        'fecha': DateTime.now().toIso8601String(),
+        'fecha_apertura': DateTime.now().toIso8601String(),
       });
     } else {
       await db.update(

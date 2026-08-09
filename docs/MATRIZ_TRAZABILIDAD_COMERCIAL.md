@@ -116,11 +116,29 @@ saldo 48.000.
 |---|---|---|---|---|---|
 | Seleccionar y aplicar coherentemente Grupo 1 (NIIF plenas), Grupo 2 (NIIF para PYMES) o Grupo 3. | Decreto 2420/2015 y anexos 1, 2 y 3 [N11][N12][N13]. | Catálogo genérico `MasterCatalog.niifAccounts`; PUC semilla en `db_helper.dart`. | Sin prueba de clasificación o política NIIF. | No se encontró campo de grupo NIIF, política por empresa, revelaciones ni reglas diferenciadas. El texto UI “NIIF” no determina marco técnico. | **Pendiente:** no puede afirmarse Grupo 2 ni NIIF plena. |
 | Garantizar partida doble en todos los caminos de escritura. | Principio de doble partida e integridad del libro. | `JournalEntry.post()`; `DatabaseHelper.registrarAsientoContable()`; `_registrarAsientoConCodigos()`. | `architectural_consolidation_test.dart`; `accounting_report_test.dart`. | EV-02 pasa controles de servicio. EV-05 demuestra que SQL directo persiste débito 100/crédito 0; no hay trigger/constraint SQL que valide el conjunto del asiento. | **Parcial:** control de aplicación, sin garantía de base de datos. |
-| Cerrar periodos por empresa e impedir contabilización posterior. | Control contable de corte y trazabilidad; marco NIIF aplicable [N11][N12]. | `_crearTablasPeriodos()`; `cerrarPeriodoContable()`; `_validarPeriodoAbierto()`; `periodos_contables_page.dart`. | Sin prueba comercial de cierre. | Existe bloqueo mensual por fecha, pero la tabla conserva `UNIQUE(anio, mes)` global y no declara `company_id`; métodos posteriores intentan consultar `company_id`. No hay cierre anual de resultados. | **Parcial:** cierre mensual básico con defecto multiempresa y sin evidencia ejecutada. |
-| Cerrar el ejercicio y trasladar ingresos/gastos a resultado y ganancias acumuladas. | Presentación de resultados y patrimonio bajo el marco seleccionado [N11][N12]. | Cuenta semilla `36 Resultados del Ejercicio`; `obtenerEstadosFinancieros()` solo calcula utilidad en lectura. | Sin prueba. | No se encontró asiento de cierre comercial ni traslado a utilidades/pérdidas acumuladas. | **Pendiente.** |
+| Cerrar periodos por empresa e impedir contabilización posterior. | Control contable de corte y trazabilidad; marco NIIF aplicable [N11][N12]. | `_crearTablasPeriodos()`; `cerrarPeriodoContable()`; `_validarPeriodoAbierto()`; `periodos_contables_page.dart`; `AccountingPeriodSchemaMigration`. | `commercial_accounting_close_block4_test.dart`. | EV-07 confirma que dos empresas pueden abrir el mismo periodo y que la consulta de la empresa activa queda aislada. El test aún no cubre todos los caminos UI de escritura posterior al cierre. | **Parcial:** esquema tenant-correcto y aislamiento probados; falta cobertura completa de bloqueo mensual en todos los consumidores. |
+| Cerrar el ejercicio y trasladar ingresos/gastos a resultado y ganancias acumuladas. | Presentación de resultados y patrimonio bajo el marco seleccionado [N11][N12]. | `DatabaseHelper.cerrarEjercicioContable()`; `AccountingPeriodSchemaMigration`; cuentas `3605`, `3610`, `3705`. | `commercial_accounting_close_block4_test.dart`. | EV-07 crea ingreso de 100.000 y gasto de 30.000 centavos, ejecuta el cierre en una transacción, verifica utilidad de 70.000, dos asientos registrados y `3705` con crédito exacto de 70.000; los tests contables también pasan con el trigger v76 activo. | **Completo.** |
 | Presentar saldos de naturaleza acreedora con signo correcto y cuadrar Activo = Pasivo + Patrimonio + resultado. | Decreto 2420, estado de situación financiera y estado de resultados [N11][N12]. | `accounting_report_repository.dart`; `db_helper.dart:8071-8097`; `obtenerEstadosFinancieros():7198-7244`; `estados_financieros_page.dart`. | `accounting_report_test.dart` prueba saldo por naturaleza y balance simple; no prueba estados completos. | La consulta invierte correctamente crédito-débito para naturaleza acreedora y `cuadre` incorpora utilidad. No se reprodujo el bug de signo de NICSP 1, pero falta prueba integrada con clases 1-6 y cierre. | **Parcial:** lógica inspeccionada coherente, cobertura insuficiente. |
 
-**Resumen D3:** 0 Completos / 3 Parciales / 2 Pendientes.
+**Resumen D3:** 1 Completo / 3 Parciales / 1 Pendiente.
+
+### Actualización del Bloque 4 (2026-08-09)
+
+La migración v89 agrega `company_id` a `periodos_contables` y reemplaza la
+unicidad global por `UNIQUE(company_id, anio, mes)`. Las filas legacy se
+conservan y, cuando no tenían empresa, se atribuyen a la empresa activa. El
+cierre anual comercial registra dos asientos balanceados en una sola
+transacción: ingresos/gastos contra `3605`/`3610`, y traslado a `3705`
+(resultados acumulados). También se corrigió el consecutivo del primer
+comprobante de un tipo nuevo para que dos comprobantes del mismo tipo no
+reutilicen `DOC-000001`.
+
+Evidencia ejecutada: `flutter test
+test/commercial_accounting_close_block4_test.dart test/accounting_report_test.dart
+test/accounting_rules_test.dart test/commercial_security_test.dart
+--reporter compact` — **13 pruebas pasaron**. El test del bloque verifica
+aislamiento por empresa, migración legacy, utilidad exacta de 70.000 centavos,
+dos asientos de cierre y saldo final de `3705` por 70.000 centavos.
 
 ## 4. Inventario y costeo
 
@@ -166,7 +184,7 @@ saldo 48.000.
 | 4. Inventario | 0 | 3 | 0 | Tres representaciones y métodos desconectados; no hay Kardex único. |
 | 5. Multiempresa | 0 | 2 | 1 | Aislamiento parcial; consolidación y transferencias huérfanas. |
 | 6. Nómina privada | 1 | 5 | 1 | Reporte fiscal alineado; bases, provisiones y transacción siguen incorrectas o sin prueba. |
-| **Total** | **2** | **19** | **7** | **Dos requisitos puntuales quedan completos; ningún dominio completo en su conjunto.** |
+| **Total** | **3** | **19** | **6** | **El cierre anual comercial ya tiene evidencia integrada; el resto de brechas de dominio permanece abierto.** |
 
 ## Brechas críticas priorizadas
 
@@ -176,7 +194,7 @@ saldo 48.000.
 4. **Corregir y probar nómina privada:** IBC de novedades, exoneración, prestaciones, retención laboral, asientos patronales y transacción atómica.
 5. **Blindar partida doble en persistencia:** impedir por diseño que SQL directo deje asientos incompletos/desbalanceados; definir estrategia compatible con inserción transaccional por cabecera/líneas.
 6. **Unificar inventario/Kardex y costeo:** retirar LIFO, elegir política por naturaleza de inventario, conectar POS al ledger y reconciliar lotes/stock/costo/contabilidad.
-7. **Implementar cierre contable por empresa y ejercicio:** esquema tenant-correcto, asiento de cierre, resultado y acumulados con pruebas.
+7. **Mantener y ampliar el cierre contable por empresa y ejercicio:** el núcleo v89 ya está implementado y probado; falta cubrir todos los consumidores de bloqueo mensual y el cierre desde UI.
 8. **Decidir multiempresa:** mantener consolidación/transferencias como backlog o convertirlas en flujos contables seguros antes de exponer UI.
 
 ## Fuentes normativas y técnicas

@@ -149,3 +149,48 @@ en `240 issues found` y build en `Built build\\windows\\x64\\runner\\Release\\Me
 Bloque 3 implementado y verificado con 14 pruebas. La regresión de la corrida
 conjunta por teardown de fixtures fue corregida antes de esta evidencia final.
 Commit: `1bc6901`.
+
+## Bloque 4 - Periodos contables y cierre anual
+
+### Hallazgo y decisión
+
+La tabla `periodos_contables` tenía una unicidad global `(anio, mes)` y no
+aislaba por empresa, aunque varios consumidores ya intentaban leer
+`company_id`. Se implementó la migración v89, reconstruyendo la tabla cuando
+era legacy, preservando sus filas y atribuyendo solo las filas sin empresa a
+la empresa activa. El esquema final usa `UNIQUE(company_id, anio, mes)`.
+
+El cierre anual comercial se implementó en `DatabaseHelper.cerrarEjercicioContable`.
+Consulta los saldos reales de clases 4 a 7 del año, crea un asiento balanceado
+contra `3605` (utilidad) o `3610` (pérdida), y crea un segundo asiento que
+traslada el resultado a `3705` (resultados acumulados). Ambos asientos y sus
+comprobantes se registran en una sola transacción, compatible con el trigger
+v76 de partida doble. La migración asegura las cuentas 37/3705 si faltaban.
+
+Durante el test apareció un bug adicional real en `_tomarConsecutivo`: el
+primer comprobante de un tipo nuevo dejaba la secuencia en 1, por lo que el
+segundo reutilizaba `DOC-000001`. Se corrigió para dejar `siguiente=2` después
+de emitir el primero.
+
+### Evidencia cruda
+
+- `docs/evidencias/auditoria_comercial_bloque_4/block4_tests.txt`
+- `docs/evidencias/auditoria_comercial_bloque_4/block4_analyze.txt`
+- `docs/evidencias/auditoria_comercial_bloque_4/block4_build.txt`
+
+Salida de tests dirigidos: `commercial_accounting_close_block4_test.dart`,
+`accounting_report_test.dart`, `accounting_rules_test.dart` y
+`commercial_security_test.dart`; **13 pruebas pasaron, 0 fallas**.
+
+Analyze completo: **240 issues, 0 errores**; el proceso termina con código 1
+por las advertencias/info existentes. Build Windows: **exitoso**, con
+`Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe`.
+
+### Cierre de la subtarea 4
+
+Bloque 4 implementado y verificado. La fila de cierre anual sube a Completo;
+la fila de periodos por empresa permanece Parcial porque aún no existe una
+prueba exhaustiva de todos los consumidores de bloqueo mensual. La
+validación SQL de partida doble continúa intacta.
+
+Commit: se generará después de incorporar este log y la matriz.

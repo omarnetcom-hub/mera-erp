@@ -241,6 +241,9 @@ extension DatabaseInitializer on DatabaseHelper {
     if (version >= 88) {
       await TaxReportSchemaMigration.migrateV88(db);
     }
+    if (version >= 89) {
+      await AccountingPeriodSchemaMigration.migrateV89(db);
+    }
   }
 
   /// Migraciones incrementales entre versiones de la base de datos.
