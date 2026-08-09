@@ -42,6 +42,7 @@ import '../../crm/pages/crm_pipeline_page.dart';
 import '../../crm/pages/crm_account_page.dart';
 import '../../hrm/pages/hrm_employee_page.dart';
 import '../../mrp/pages/mrp_page.dart';
+import '../../impact/pages/impact_simulator_page.dart';
 
 List<ModuleDefinition> operacion() => [
   ModuleDefinition(
@@ -208,6 +209,16 @@ List<ModuleDefinition> control() => [
 ];
 
 List<ModuleDefinition> gestion() => [
+  ModuleDefinition(
+    id: 'impact_simulator',
+    title: 'Simulador de impacto',
+    icon: Icons.insights,
+    builder: (_) => const ImpactSimulatorPage(),
+    color: AppBrand.primary,
+    category: ModuleCategory.management,
+    featureKey: FeatureKey.impactSimulator,
+    permissionLabel: 'Reportes',
+  ),
   ModuleDefinition(
     id: 'erp_readiness',
     title: 'Centro ERP',

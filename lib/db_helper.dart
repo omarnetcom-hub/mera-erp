@@ -52,6 +52,7 @@ import 'sector_publico/salud/database/schema_salud.dart';
 import 'sector_publico/regalias/database/schema_regalias.dart';
 import 'sector_publico/transparencia/database/schema_transparencia.dart';
 import 'sector_publico/siif/database/schema_siif.dart';
+import 'impact/database/schema_impact.dart';
 
 part 'core/database/database_initializer.dart';
 
@@ -73,7 +74,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 81;
+  static const int schemaVersion = 82;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -387,6 +388,9 @@ class DatabaseHelper {
         );
       }
       await SchemaNomina.migrarHrmEmployeeLink(db);
+    }
+    if (oldVersion < 82) {
+      await SchemaImpact.crearTablas(db);
     }
 
     if (oldVersion < 49) {

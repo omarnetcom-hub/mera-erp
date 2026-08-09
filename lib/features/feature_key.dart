@@ -5,6 +5,7 @@ class FeatureKey {
   static const projects = 'projects_enabled';
   static const crm = 'crm_enabled';
   static const production = 'production_enabled';
+  static const impactSimulator = 'impact_simulator_enabled';
   static const multiBranch = 'multi_branch_enabled';
   static const electronicInvoice = 'electronic_invoice_enabled';
   static const multiCurrency = 'multi_currency_enabled';
@@ -40,6 +41,7 @@ class FeatureKey {
     projects,
     crm,
     production,
+    impactSimulator,
     multiBranch,
     electronicInvoice,
     multiCurrency,

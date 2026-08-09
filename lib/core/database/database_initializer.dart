@@ -189,6 +189,7 @@ extension DatabaseInitializer on DatabaseHelper {
     await SchemaCrm.crearTablas(db);
     await SchemaHrm.crearTablas(db);
     await SchemaMrp.crearTablas(db);
+    await SchemaImpact.crearTablas(db);
     await _agregarScopeDistribuidoATablas(db);
     await _sembrarPlanCuentas(db);
     await _sembrarSecuencias(db);

@@ -74,6 +74,12 @@ class FeatureRegistry {
       description: 'Procesos productivos y manufactura.',
     ),
     FeatureDefinition(
+      key: FeatureKey.impactSimulator,
+      name: 'Simulador de impacto',
+      description: 'Escenarios locales con datos de CRM, MRP y HRM.',
+      defaultEnabled: true,
+    ),
+    FeatureDefinition(
       key: FeatureKey.multiBranch,
       name: 'Multiples sucursales',
       description: 'Operacion por sedes o puntos de atencion.',
