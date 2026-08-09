@@ -13,6 +13,7 @@ import '../models/obligacion.dart';
 import '../models/pago.dart';
 import '../services/presupuesto_service.dart';
 import '../../../core/commands/command_registry.dart';
+import '../../../core/evidence/evidence_capsule_service.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/currency/public_sector_money.dart';
@@ -146,6 +147,14 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
     setState(() => _loading = false);
   }
 
+  Future<void> _exportarEvidencia(EvidenceRequest request) async {
+    final path = await EvidenceCapsuleService().exportJson(request);
+    if (!mounted || path == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Cápsula exportada en $path')));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -234,6 +243,12 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemBuilder: (context, index) {
         final apropiacion = _apropiaciones[index];
         return ExpandableRecordCard(
+          evidenceRequest: EvidenceRequest(
+            domain: 'presupuesto',
+            recordType: 'apropiacion',
+            recordId: apropiacion.id,
+          ),
+          onEvidenceRequested: _exportarEvidencia,
           criticalFields: [
             RecordCardField(
               label: 'Vigencia',
@@ -336,6 +351,12 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemBuilder: (context, index) {
         final cdp = _cdps[index];
         return ExpandableRecordCard(
+          evidenceRequest: EvidenceRequest(
+            domain: 'presupuesto',
+            recordType: 'cdp',
+            recordId: cdp.id,
+          ),
+          onEvidenceRequested: _exportarEvidencia,
           criticalFields: [
             RecordCardField(label: 'CDP', value: cdp.numeroCDP, icon: Icons.description, emphasized: true),
             RecordCardField(label: 'Rubro', value: cdp.codigoRubro, icon: Icons.account_tree),
@@ -409,6 +430,12 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
       itemBuilder: (context, index) {
         final rp = _rps[index];
         return ExpandableRecordCard(
+          evidenceRequest: EvidenceRequest(
+            domain: 'presupuesto',
+            recordType: 'rp',
+            recordId: rp.id,
+          ),
+          onEvidenceRequested: _exportarEvidencia,
           criticalFields: [
             RecordCardField(label: 'RP', value: rp.numeroRP, icon: Icons.assignment, emphasized: true),
             RecordCardField(label: 'Rubro', value: rp.codigoRubro, icon: Icons.account_tree),

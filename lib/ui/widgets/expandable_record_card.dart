@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/commands/command_registry.dart';
+import '../../core/evidence/evidence_capsule_service.dart';
 import '../merka_theme_tokens.dart';
 
 /// A field displayed by [ExpandableRecordCard].
@@ -74,6 +75,8 @@ class ExpandableRecordCard extends StatefulWidget {
     required this.criticalFields,
     this.secondaryFields = const <RecordCardField>[],
     this.actions = const <RecordCardAction>[],
+    this.evidenceRequest,
+    this.onEvidenceRequested,
     this.initiallyExpanded = false,
     this.onExpandedChanged,
   });
@@ -81,6 +84,8 @@ class ExpandableRecordCard extends StatefulWidget {
   final List<RecordCardField> criticalFields;
   final List<RecordCardField> secondaryFields;
   final List<RecordCardAction> actions;
+  final EvidenceRequest? evidenceRequest;
+  final Future<void> Function(EvidenceRequest request)? onEvidenceRequested;
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpandedChanged;
 
@@ -99,7 +104,19 @@ class _ExpandableRecordCardState extends State<ExpandableRecordCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final availableActions = widget.actions
+    final configuredActions = [...widget.actions];
+    if (widget.evidenceRequest != null && widget.onEvidenceRequested != null) {
+      configuredActions.add(
+        RecordCardAction(
+          id: 'export_evidence',
+          label: 'Exportar evidencia',
+          icon: Icons.fact_check_outlined,
+          onPressed: (_) =>
+              widget.onEvidenceRequested!(widget.evidenceRequest!),
+        ),
+      );
+    }
+    final availableActions = configuredActions
         .where((action) => action.isVisible())
         .toList();
     return Card(

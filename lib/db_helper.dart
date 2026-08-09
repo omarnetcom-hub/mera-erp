@@ -73,6 +73,8 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
+  static const int schemaVersion = 81;
+
   static final DatabaseHelper instance = DatabaseHelper._init();
 
   static Database? _database;
@@ -338,7 +340,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 81,
+      version: schemaVersion,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
