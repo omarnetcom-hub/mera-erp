@@ -34,6 +34,8 @@ import 'services/hybrid_sync_service.dart';
 import 'core/logging/logging_service.dart';
 import 'core/commands/command_registry.dart';
 import 'core/commands/default_contextual_commands.dart';
+import 'core/signals/signal_aggregator.dart';
+import 'core/signals/signal.dart';
 import 'core/features/feature_flag.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/theme/theme_service.dart';
@@ -47,6 +49,7 @@ import 'core/workspace/workspace_config.dart';
 import 'core/workspace/public_sector_config.dart';
 import 'core/workspace/workspace_helpers.dart';
 import 'core/workspace/selector_modo_screen.dart';
+import 'ui/widgets/expandable_record_card.dart';
 part 'ui/widgets/workspace_widgets.dart';
 
 Future<void> main() async {

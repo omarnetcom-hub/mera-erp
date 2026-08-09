@@ -2700,31 +2700,7 @@ Future<void> _showNotificationCenterSheet(
   BuildContext context,
   List<ModuleDefinition> modules,
 ) async {
-  final alerts = await MerkaIntelligenceService().operationalAlerts();
-  if (!context.mounted) return;
-  final notifications = alerts.isEmpty
-      ? _notificationItems(modules)
-      : [
-          for (final alert in alerts)
-            _NotificationItem(
-              title: alert.title,
-              detail: alert.detail,
-              icon: alert.kind == 'expiring_product'
-                  ? PhosphorIcons.timer()
-                  : alert.kind == 'critical_stock'
-                  ? PhosphorIcons.warningCircle()
-                  : PhosphorIcons.wallet(),
-              color: alert.priority == 'urgent'
-                  ? MerkaThemeTokens.danger
-                  : alert.priority == 'warning'
-                  ? MerkaThemeTokens.warning
-                  : MerkaThemeTokens.success,
-              module: _moduleById(
-                modules,
-                alert.kind == 'receivable' ? 'receivables' : 'inventory',
-              ),
-            ),
-        ];
+  final signalsFuture = SignalAggregator.forCurrentSession().collect();
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -2738,32 +2714,152 @@ Future<void> _showNotificationCenterSheet(
           ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Notification Center',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: EnterpriseSpacing.md),
-                for (final item in notifications)
-                  _NotificationTile(
-                    item: item,
-                    onTap: () {
-                      Navigator.pop(context);
-                      state._openModule(context, item.module);
-                    },
-                  ),
-              ],
+            child: _SignalFeedContent(
+              signalsFuture: signalsFuture,
+              modules: modules,
+              onNavigate: (module) {
+                Navigator.pop(context);
+                state._openModule(context, module);
+              },
             ),
           ),
         ),
       );
     },
   );
+}
+
+class _SignalFeedContent extends StatelessWidget {
+  const _SignalFeedContent({
+    required this.signalsFuture,
+    required this.modules,
+    required this.onNavigate,
+  });
+
+  final Future<List<Signal>> signalsFuture;
+  final List<ModuleDefinition> modules;
+  final ValueChanged<ModuleDefinition> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Signal>>(
+      future: signalsFuture,
+      builder: (context, snapshot) {
+        final signals = snapshot.data ?? const <Signal>[];
+        final showFallback =
+            snapshot.connectionState != ConnectionState.done || signals.isEmpty;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Notification Center',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: EnterpriseSpacing.md),
+            if (showFallback)
+              for (final item in _notificationItems(modules))
+                _NotificationTile(
+                  item: item,
+                  onTap: () => onNavigate(item.module),
+                )
+            else
+              for (final signal in signals)
+                _SignalNotificationCard(
+                  signal: signal,
+                  modules: modules,
+                  onNavigate: onNavigate,
+                ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SignalNotificationCard extends StatelessWidget {
+  const _SignalNotificationCard({
+    required this.signal,
+    required this.modules,
+    required this.onNavigate,
+  });
+
+  final Signal signal;
+  final List<ModuleDefinition> modules;
+  final ValueChanged<ModuleDefinition> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    final module = _findModule(modules, signal.navigationModuleId);
+    final actions = <RecordCardAction>[];
+    if (signal.commandId != null && signal.commandContext != null) {
+      actions.add(
+        RecordCardAction(
+          id: 'signal-command-${signal.id}',
+          label: signal.suggestedAction ?? 'Ejecutar acción',
+          icon: Icons.play_arrow,
+          commandId: signal.commandId,
+          commandContext: signal.commandContext,
+        ),
+      );
+    }
+    if (module != null) {
+      actions.add(
+        RecordCardAction(
+          id: 'signal-open-${signal.id}',
+          label: 'Abrir módulo',
+          icon: Icons.open_in_new,
+          onPressed: (_) async => onNavigate(module),
+        ),
+      );
+    }
+    return ExpandableRecordCard(
+      criticalFields: [
+        RecordCardField(
+          label: 'Prioridad',
+          value: signal.priority.label,
+          icon: signal.priority == SignalPriority.urgent
+              ? Icons.warning
+              : Icons.notifications_active,
+          emphasized: true,
+        ),
+        RecordCardField(label: 'Origen', value: signal.source, icon: Icons.hub),
+        RecordCardField(
+          label: 'Señal',
+          value: signal.title,
+          icon: Icons.insights,
+          emphasized: true,
+        ),
+      ],
+      secondaryFields: [
+        RecordCardField(label: 'Detalle', value: signal.description),
+        if (signal.entityId != null)
+          RecordCardField(
+            label: 'Entidad relacionada',
+            value: '${signal.entityType ?? 'registro'} #${signal.entityId}',
+          ),
+        if (signal.requiredPermission != null)
+          RecordCardField(
+            label: 'Permiso requerido',
+            value: signal.requiredPermission!,
+          ),
+      ],
+      actions: actions,
+    );
+  }
+}
+
+ModuleDefinition? _findModule(
+  List<ModuleDefinition> modules,
+  String? moduleId,
+) {
+  if (moduleId == null) return null;
+  for (final module in modules) {
+    if (module.id == moduleId) return module;
+  }
+  return null;
 }
 
 ModuleDefinition _moduleById(List<ModuleDefinition> modules, String id) {
