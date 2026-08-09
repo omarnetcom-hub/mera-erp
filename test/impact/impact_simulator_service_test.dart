@@ -29,7 +29,29 @@ void main() {
         value INTEGER NOT NULL DEFAULT 0,
         amount INTEGER,
         stage TEXT,
-        sales_stage TEXT
+        sales_stage TEXT,
+        probability INTEGER
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE productos (
+        id INTEGER PRIMARY KEY,
+        company_id INTEGER NOT NULL,
+        nombre TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE crm_opportunity_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL,
+        opportunity_id TEXT NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity REAL NOT NULL,
+        uom TEXT NOT NULL,
+        unit_price INTEGER NOT NULL,
+        amount INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        modified_at TEXT
       )
     ''');
     await db.execute('''
@@ -52,6 +74,24 @@ void main() {
         hour_rate INTEGER NOT NULL
       )
     ''');
+    await db.execute('''
+      CREATE TABLE mrp_boms (
+        id INTEGER PRIMARY KEY,
+        company_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        quantity REAL NOT NULL,
+        routing_id INTEGER,
+        is_active INTEGER NOT NULL,
+        is_default INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE mrp_operations (
+        id INTEGER PRIMARY KEY,
+        routing_id INTEGER NOT NULL,
+        time_minutes REAL NOT NULL
+      )
+    ''');
     await SchemaImpact.crearTablas(db);
     await db.insert('crm_opportunities', {
       'id': 'OP-WON',
@@ -68,6 +108,32 @@ void main() {
       'amount': 50000,
       'stage': 'prospecting',
       'sales_stage': 'prospecting',
+      'probability': 25,
+    });
+    await db.insert('productos', {
+      'id': 10,
+      'company_id': companyId,
+      'nombre': 'Producto CRM-MRP',
+    });
+    await db.insert('crm_opportunity_items', {
+      'company_id': companyId,
+      'opportunity_id': 'OP-WON',
+      'product_id': 10,
+      'quantity': 10,
+      'uom': 'UND',
+      'unit_price': 1000,
+      'amount': 10000,
+      'created_at': DateTime.utc(2026, 8, 9).toIso8601String(),
+    });
+    await db.insert('crm_opportunity_items', {
+      'company_id': companyId,
+      'opportunity_id': 'OP-OPEN',
+      'product_id': 10,
+      'quantity': 4,
+      'uom': 'UND',
+      'unit_price': 1000,
+      'amount': 4000,
+      'created_at': DateTime.utc(2026, 8, 9).toIso8601String(),
     });
     await db.insert('empleados', {
       'id': 1,
@@ -114,15 +180,14 @@ void main() {
     expect(snapshot.availableHoursPerDay, 8);
     expect(result.projectedClosedWonValue.minorUnits, 120000);
     expect(result.incrementalDemandProxy.minorUnits, 20000);
-    expect(
-      result.capacityStatus,
-      'configurada_sin_modelo_de_demanda_por_unidad',
-    );
+    expect(result.capacityStatus, 'demanda_sin_bom');
     expect(result.formula, contains('valor_ganado_actual'));
-    expect(
-      result.warnings,
-      contains(contains('No existe vinculo oportunidad-producto')),
-    );
+    expect(result.warnings, contains(contains('sin BOM/ruta')));
+    expect(snapshot.demandLines, hasLength(2));
+    expect(snapshot.demandLines[0].weightedQuantity, 10);
+    expect(snapshot.demandLines[1].weightedQuantity, 1);
+    expect(result.projectedDemandLines[0].weightedQuantity, 12);
+    expect(result.projectedDemandLines[1].weightedQuantity, 1.2);
   });
 
   test('guardar escenario no modifica tablas operativas', () async {
@@ -135,6 +200,7 @@ void main() {
       'mrp_workstations',
       orderBy: 'id',
     );
+    final beforeItems = await db.query('crm_opportunity_items', orderBy: 'id');
     final snapshot = await service.snapshot();
     final result = service.calculate(snapshot: snapshot, upliftPercent: 20);
 
@@ -154,6 +220,7 @@ void main() {
       await db.query('mrp_workstations', orderBy: 'id'),
       beforeWorkstations,
     );
+    expect(await db.query('crm_opportunity_items', orderBy: 'id'), beforeItems);
     expect((await db.query('impact_scenarios')).length, 1);
   });
 

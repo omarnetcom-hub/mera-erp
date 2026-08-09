@@ -126,6 +126,10 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
             'Capacidad diaria',
             '${snapshot.availableHoursPerDay.toStringAsFixed(2)} h',
           ),
+          _metric(
+            'Demanda ponderada',
+            '${snapshot.demandLines.length} lineas CRM',
+          ),
         ],
       ),
     ),
@@ -167,9 +171,16 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
   );
 
   Widget _buildResult(ImpactResult result) {
+    final sufficient = result.capacityStatus == 'capacidad_suficiente';
     final unknown =
-        result.capacityStatus != 'configurada_sin_modelo_de_demanda_por_unidad';
-    final color = unknown ? MerkaThemeTokens.warning : MerkaThemeTokens.success;
+        result.capacityStatus == 'demanda_sin_bom' ||
+        result.capacityStatus == 'capacidad_no_configurada' ||
+        result.capacityStatus == 'sin_demanda_de_productos';
+    final color = sufficient
+        ? MerkaThemeTokens.success
+        : unknown
+        ? MerkaThemeTokens.warning
+        : MerkaThemeTokens.danger;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -179,16 +190,22 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
             Row(
               children: [
                 Icon(
-                  unknown ? Icons.help_outline : Icons.check_circle_outline,
+                  sufficient
+                      ? Icons.check_circle_outline
+                      : Icons.warning_amber_outlined,
                   color: color,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   result.capacityStatus == 'capacidad_no_configurada'
                       ? 'Capacidad: no configurada'
-                      : result.capacityStatus == 'parcialmente_configurada'
-                      ? 'Capacidad: configuracion parcial'
-                      : 'Capacidad: configurada',
+                      : result.capacityStatus == 'capacidad_insuficiente'
+                      ? 'Capacidad: insuficiente'
+                      : result.capacityStatus == 'demanda_sin_bom'
+                      ? 'Demanda: falta BOM/ruta'
+                      : result.capacityStatus == 'sin_demanda_de_productos'
+                      ? 'Demanda: sin lineas CRM'
+                      : 'Capacidad: suficiente',
                   style: Theme.of(
                     context,
                   ).textTheme.titleMedium?.copyWith(color: color),
@@ -200,8 +217,17 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
               'Proyección ganada: ${result.projectedClosedWonValue.format()}',
             ),
             Text(
-              'Demanda incremental proxy: ${result.incrementalDemandProxy.format()}',
+              'Incremento de ingresos: ${result.incrementalDemandProxy.format()}',
             ),
+            Text(
+              'Horas MRP ponderadas: ${result.projectedProductionHours.toStringAsFixed(2)} h',
+            ),
+            const SizedBox(height: 8),
+            for (final line in result.projectedDemandLines)
+              Text(
+                '${line.productName}: ${line.weightedQuantity.toStringAsFixed(2)} ${line.uom} '
+                '(${line.weightedHours.toStringAsFixed(2)} h)',
+              ),
             const SizedBox(height: 12),
             Text('Fórmula: ${result.formula}'),
             for (final warning in result.warnings) Text('Nota: $warning'),

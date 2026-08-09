@@ -162,6 +162,8 @@ class SchemaCrm {
       )
     ''');
 
+    await crearOpportunityItems(db);
+
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_crm_contacts_account ON crm_contacts(company_id, account_id)',
     );
@@ -173,6 +175,31 @@ class SchemaCrm {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_crm_interactions_customer ON crm_interactions(company_id, customer_id, interaction_date)',
+    );
+  }
+
+  /// Product lines are an extension of the canonical opportunity table. They
+  /// reference the existing inventory catalog instead of duplicating products.
+  static Future<void> crearOpportunityItems(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crm_opportunity_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL,
+        opportunity_id TEXT NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity REAL NOT NULL,
+        uom TEXT NOT NULL DEFAULT 'UND',
+        unit_price INTEGER NOT NULL DEFAULT 0,
+        amount INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        modified_at TEXT,
+        FOREIGN KEY (opportunity_id) REFERENCES crm_opportunities(id),
+        FOREIGN KEY (product_id) REFERENCES productos(id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_crm_opportunity_items_opportunity '
+      'ON crm_opportunity_items(company_id, opportunity_id)',
     );
   }
 

@@ -18,6 +18,7 @@ class ImpactSnapshot {
     required this.availableHoursPerDay,
     required this.capacityConfigured,
     required this.capacityNote,
+    this.demandLines = const [],
   });
 
   final int companyId;
@@ -31,6 +32,7 @@ class ImpactSnapshot {
   final double availableHoursPerDay;
   final bool capacityConfigured;
   final String capacityNote;
+  final List<ImpactDemandLine> demandLines;
 
   Map<String, dynamic> toJson() => {
     'company_id': companyId,
@@ -44,7 +46,68 @@ class ImpactSnapshot {
     'available_hours_per_day': availableHoursPerDay,
     'capacity_configured': capacityConfigured,
     'capacity_note': capacityNote,
+    'demand_lines': demandLines.map((line) => line.toJson()).toList(),
   };
+}
+
+class ImpactDemandLine {
+  const ImpactDemandLine({
+    required this.productId,
+    required this.productName,
+    required this.uom,
+    required this.quantity,
+    required this.probability,
+    required this.weightedQuantity,
+    required this.estimatedHoursPerUnit,
+    required this.weightedHours,
+  });
+
+  final int productId;
+  final String productName;
+  final String uom;
+  final double quantity;
+  final int probability;
+  final double weightedQuantity;
+  final double estimatedHoursPerUnit;
+  final double weightedHours;
+
+  ImpactDemandLine scale(int upliftPercent) {
+    final factor = (100 + upliftPercent) / 100;
+    return ImpactDemandLine(
+      productId: productId,
+      productName: productName,
+      uom: uom,
+      quantity: quantity * factor,
+      probability: probability,
+      weightedQuantity: weightedQuantity * factor,
+      estimatedHoursPerUnit: estimatedHoursPerUnit,
+      weightedHours: weightedHours * factor,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'product_id': productId,
+    'product_name': productName,
+    'uom': uom,
+    'quantity': quantity,
+    'probability': probability,
+    'weighted_quantity': weightedQuantity,
+    'estimated_hours_per_unit': estimatedHoursPerUnit,
+    'weighted_hours': weightedHours,
+  };
+
+  factory ImpactDemandLine.fromJson(Map<String, dynamic> json) =>
+      ImpactDemandLine(
+        productId: (json['product_id'] as num).toInt(),
+        productName: json['product_name']?.toString() ?? 'Producto',
+        uom: json['uom']?.toString() ?? 'UND',
+        quantity: (json['quantity'] as num).toDouble(),
+        probability: (json['probability'] as num).toInt(),
+        weightedQuantity: (json['weighted_quantity'] as num).toDouble(),
+        estimatedHoursPerUnit:
+            (json['estimated_hours_per_unit'] as num?)?.toDouble() ?? 0,
+        weightedHours: (json['weighted_hours'] as num?)?.toDouble() ?? 0,
+      );
 }
 
 class ImpactResult {
@@ -56,6 +119,10 @@ class ImpactResult {
     required this.capacityStatus,
     required this.formula,
     required this.warnings,
+    this.baselineDemandLines = const [],
+    this.projectedDemandLines = const [],
+    this.baselineProductionHours = 0,
+    this.projectedProductionHours = 0,
   });
 
   final int upliftPercent;
@@ -65,6 +132,10 @@ class ImpactResult {
   final String capacityStatus;
   final String formula;
   final List<String> warnings;
+  final List<ImpactDemandLine> baselineDemandLines;
+  final List<ImpactDemandLine> projectedDemandLines;
+  final double baselineProductionHours;
+  final double projectedProductionHours;
 
   Map<String, dynamic> toJson() => {
     'uplift_percent': upliftPercent,
@@ -74,15 +145,20 @@ class ImpactResult {
     'capacity_status': capacityStatus,
     'formula': formula,
     'warnings': warnings,
+    'baseline_demand_lines': baselineDemandLines
+        .map((line) => line.toJson())
+        .toList(),
+    'projected_demand_lines': projectedDemandLines
+        .map((line) => line.toJson())
+        .toList(),
+    'baseline_production_hours': baselineProductionHours,
+    'projected_production_hours': projectedProductionHours,
   };
 }
 
 class ImpactCalculator {
   const ImpactCalculator._();
 
-  /// Uses exact minor-unit arithmetic. It deliberately does not convert
-  /// revenue into production units because no opportunity-to-item/quantity
-  /// relation exists in the current CRM schema.
   static ImpactResult calculate({
     required ImpactSnapshot snapshot,
     required int upliftPercent,
@@ -94,20 +170,42 @@ class ImpactCalculator {
       numerator: 100 + upliftPercent,
       denominator: 100,
     );
+    final projectedDemandLines = snapshot.demandLines
+        .map((line) => line.scale(upliftPercent))
+        .toList();
+    final baselineHours = snapshot.demandLines.fold<double>(
+      0,
+      (sum, line) => sum + line.weightedHours,
+    );
+    final projectedHours = projectedDemandLines.fold<double>(
+      0,
+      (sum, line) => sum + line.weightedHours,
+    );
+    final hasDemand = snapshot.demandLines.isNotEmpty;
+    final hasCapacityHours = snapshot.demandLines.any(
+      (line) => line.estimatedHoursPerUnit > 0,
+    );
+    final status = !hasDemand
+        ? 'sin_demanda_de_productos'
+        : !hasCapacityHours
+        ? 'demanda_sin_bom'
+        : !snapshot.capacityConfigured
+        ? 'capacidad_no_configurada'
+        : projectedHours > snapshot.availableHoursPerDay
+        ? 'capacidad_insuficiente'
+        : 'capacidad_suficiente';
     return ImpactResult(
       upliftPercent: upliftPercent,
       baselineClosedWonValue: snapshot.closedWonValue,
       projectedClosedWonValue: projected,
       incrementalDemandProxy: projected - snapshot.closedWonValue,
-      capacityStatus: snapshot.capacityConfigured
-          ? 'configurada_sin_modelo_de_demanda_por_unidad'
-          : snapshot.configuredWorkstationCount > 0
-          ? 'parcialmente_configurada'
-          : 'capacidad_no_configurada',
+      capacityStatus: status,
       formula:
           'valor_ganado_proyectado = valor_ganado_actual * '
-          '(1 + uplift_percent / 100); demanda MRP = proxy monetaria; '
-          'no se convierten ingresos a unidades sin producto/cantidad.',
+          '(1 + uplift_percent / 100); demanda_ponderada_producto = suma(cantidad_linea * '
+          'probabilidad / 100); demanda_escenario = demanda_ponderada_producto '
+          '* (1 + uplift_percent / 100); horas_MRP = suma(demanda_escenario '
+          '* horas_BOM_por_unidad).',
       warnings: [
         if (!snapshot.capacityConfigured &&
             snapshot.configuredWorkstationCount > 0)
@@ -117,8 +215,13 @@ class ImpactCalculator {
         if (!snapshot.capacityConfigured &&
             snapshot.configuredWorkstationCount == 0)
           'Capacidad no configurada: production_capacity no representa horas disponibles.',
-        'No existe vinculo oportunidad-producto/cantidad para calcular unidades MRP.',
+        if (hasDemand && !hasCapacityHours)
+          'Hay productos CRM sin BOM/ruta con tiempo: se informa demanda en unidades, sin convertirla a horas.',
       ],
+      baselineDemandLines: snapshot.demandLines,
+      projectedDemandLines: projectedDemandLines,
+      baselineProductionHours: baselineHours,
+      projectedProductionHours: projectedHours,
     );
   }
 }
@@ -226,24 +329,39 @@ ImpactSnapshot _snapshotFromJson(
       (json['available_hours_per_day'] as num?)?.toDouble() ?? 0,
   capacityConfigured: json['capacity_configured'] == true,
   capacityNote: json['capacity_note'].toString(),
+  demandLines: ((json['demand_lines'] as List?) ?? const [])
+      .map((item) => ImpactDemandLine.fromJson(item as Map<String, dynamic>))
+      .toList(),
 );
 
-ImpactResult _resultFromJson(Map<String, dynamic> json, Currency currency) =>
-    ImpactResult(
-      upliftPercent: (json['uplift_percent'] as num).toInt(),
-      baselineClosedWonValue: MoneyValue.fromSql(
-        (json['baseline_closed_won_value']['minor_units'] as num).toInt(),
-        currency: currency,
-      ),
-      projectedClosedWonValue: MoneyValue.fromSql(
-        (json['projected_closed_won_value']['minor_units'] as num).toInt(),
-        currency: currency,
-      ),
-      incrementalDemandProxy: MoneyValue.fromSql(
-        (json['incremental_demand_proxy']['minor_units'] as num).toInt(),
-        currency: currency,
-      ),
-      capacityStatus: json['capacity_status'].toString(),
-      formula: json['formula'].toString(),
-      warnings: (json['warnings'] as List).cast<String>(),
-    );
+ImpactResult _resultFromJson(
+  Map<String, dynamic> json,
+  Currency currency,
+) => ImpactResult(
+  upliftPercent: (json['uplift_percent'] as num).toInt(),
+  baselineClosedWonValue: MoneyValue.fromSql(
+    (json['baseline_closed_won_value']['minor_units'] as num).toInt(),
+    currency: currency,
+  ),
+  projectedClosedWonValue: MoneyValue.fromSql(
+    (json['projected_closed_won_value']['minor_units'] as num).toInt(),
+    currency: currency,
+  ),
+  incrementalDemandProxy: MoneyValue.fromSql(
+    (json['incremental_demand_proxy']['minor_units'] as num).toInt(),
+    currency: currency,
+  ),
+  capacityStatus: json['capacity_status'].toString(),
+  formula: json['formula'].toString(),
+  warnings: (json['warnings'] as List).cast<String>(),
+  baselineDemandLines: ((json['baseline_demand_lines'] as List?) ?? const [])
+      .map((item) => ImpactDemandLine.fromJson(item as Map<String, dynamic>))
+      .toList(),
+  projectedDemandLines: ((json['projected_demand_lines'] as List?) ?? const [])
+      .map((item) => ImpactDemandLine.fromJson(item as Map<String, dynamic>))
+      .toList(),
+  baselineProductionHours:
+      (json['baseline_production_hours'] as num?)?.toDouble() ?? 0,
+  projectedProductionHours:
+      (json['projected_production_hours'] as num?)?.toDouble() ?? 0,
+);

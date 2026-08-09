@@ -15,12 +15,11 @@ temporal. Desde el esquema v83 cada workstation puede declarar
 configurada. El simulador suma las horas de las workstations en produccion y
 las muestra como capacidad diaria real.
 
-Ademas, CRM no tiene una relacion oportunidad-producto-cantidad. El simulador
-calcula una demanda monetaria incremental como proxy, pero no la convierte a
-unidades MRP ni afirma que la capacidad alcance. Para cerrar esa parte se
-necesita una relacion entre oportunidad, producto y cantidad para comparar esa
-capacidad horaria con demanda de unidades. Si faltan horas en alguna estacion,
-el estado queda parcial y no se afirma factibilidad completa.
+Ademas, `crm_opportunity_items` relaciona cada oportunidad con producto,
+cantidad, unidad y precio unitario. El simulador pondera las cantidades por la
+probabilidad de la etapa. Si existe una BOM activa y operaciones con tiempos,
+convierte las unidades ponderadas a horas MRP; sin BOM/ruta informa las unidades
+y deja una advertencia, sin inventar capacidad.
 
 ### Headcount
 
@@ -35,12 +34,14 @@ Con `uplift_percent` entre 0 y 100, usando siempre unidades menores enteras:
 
 ```text
 valor_ganado_proyectado = valor_ganado_actual * (100 + uplift_percent) / 100
-demanda_incremental_proxy = valor_ganado_proyectado - valor_ganado_actual
+demanda_ponderada_producto = suma(cantidad_linea * probabilidad / 100)
+demanda_escenario_producto = demanda_ponderada_producto * (100 + uplift_percent) / 100
+horas_MRP = suma(demanda_escenario_producto * horas_BOM_por_unidad)
 ```
 
-La division usa `MoneyValue.multiplyRatio`, no `double`. El resultado deja
-explicito que la demanda es un proxy monetario y que no hay conversion a
-unidades sin producto/cantidad.
+Los ingresos siguen calculandose con `MoneyValue.multiplyRatio`; las cantidades
+son unidades de inventario y no se convierten en dinero. La formula completa
+queda guardada en el libro de escenarios.
 
 ## Libro de escenarios
 
@@ -61,12 +62,13 @@ El test `test/impact/impact_simulator_service_test.dart` verifica:
 
 - calculo exacto de 100000 a 120000 y demanda incremental de 20000;
 - conteo de empleados activos y costo base en unidades menores;
-- estado fail-closed de capacidad no configurada;
+- demanda ponderada exacta por producto y estado sin BOM;
+- estado de capacidad no configurada;
 - ausencia de mutaciones en CRM, HRM y MRP al guardar;
 - persistencia de formula, snapshot y hash del escenario.
 
 ## Pendientes
 
-Vincular oportunidades a productos/cantidades antes de presentar una
-factibilidad productiva numerica. La capacidad diaria ya es un dato real,
-pero la demanda por unidad sigue pendiente.
+La factibilidad horaria requiere que cada producto relevante tenga BOM y ruta
+con tiempos. Campanas, territorios, forecasting historico y conversion de
+embudo requieren entidades y periodos que no forman parte del modelo actual.

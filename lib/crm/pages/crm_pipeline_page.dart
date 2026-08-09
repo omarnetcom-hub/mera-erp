@@ -4,6 +4,7 @@ import '../../core/commands/command_registry.dart';
 import '../application/crm_opportunity_service.dart';
 import '../domain/crm_opportunity.dart';
 import 'crm_account_page.dart';
+import 'crm_opportunity_page.dart';
 
 class CrmPipelinePage extends StatefulWidget {
   const CrmPipelinePage({super.key, this.service});
@@ -118,6 +119,11 @@ class _CrmPipelinePageState extends State<CrmPipelinePage> {
             onMove: _move,
             onSelectOpportunity: (opportunity) =>
                 _activateOpportunityContext(context, opportunity),
+            onOpenOpportunity: (opportunity) => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CrmOpportunityPage(opportunity: opportunity),
+              ),
+            ),
             onOpenAccount: (id) => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => CrmAccountPage(accountId: id)),
             ),
@@ -158,12 +164,14 @@ class _PipelineBoard extends StatelessWidget {
     required this.opportunities,
     required this.onMove,
     required this.onSelectOpportunity,
+    required this.onOpenOpportunity,
     required this.onOpenAccount,
   });
 
   final List<CrmOpportunity> opportunities;
   final Future<void> Function(CrmOpportunity, CrmSalesStage) onMove;
   final ValueChanged<CrmOpportunity> onSelectOpportunity;
+  final ValueChanged<CrmOpportunity> onOpenOpportunity;
   final ValueChanged<int> onOpenAccount;
 
   String _stageTitle(CrmSalesStage stage) {
@@ -210,6 +218,7 @@ class _PipelineBoard extends StatelessWidget {
                     opportunities: items,
                     onMove: onMove,
                     onSelectOpportunity: onSelectOpportunity,
+                    onOpenOpportunity: onOpenOpportunity,
                     onOpenAccount: onOpenAccount,
                   ),
                 ),
@@ -230,6 +239,7 @@ class _StageColumn extends StatelessWidget {
     required this.opportunities,
     required this.onMove,
     required this.onSelectOpportunity,
+    required this.onOpenOpportunity,
     required this.onOpenAccount,
   });
 
@@ -239,6 +249,7 @@ class _StageColumn extends StatelessWidget {
   final List<CrmOpportunity> opportunities;
   final Future<void> Function(CrmOpportunity, CrmSalesStage) onMove;
   final ValueChanged<CrmOpportunity> onSelectOpportunity;
+  final ValueChanged<CrmOpportunity> onOpenOpportunity;
   final ValueChanged<int> onOpenAccount;
 
   @override
@@ -283,12 +294,14 @@ class _StageColumn extends StatelessWidget {
                         child: _OpportunityCard(
                           opportunity: opportunity,
                           onSelectOpportunity: onSelectOpportunity,
+                          onOpenOpportunity: onOpenOpportunity,
                           onOpenAccount: onOpenAccount,
                         ),
                       ),
                       child: _OpportunityCard(
                         opportunity: opportunity,
                         onSelectOpportunity: onSelectOpportunity,
+                        onOpenOpportunity: onOpenOpportunity,
                         onOpenAccount: onOpenAccount,
                       ),
                     ),
@@ -306,11 +319,13 @@ class _OpportunityCard extends StatelessWidget {
   const _OpportunityCard({
     required this.opportunity,
     required this.onSelectOpportunity,
+    required this.onOpenOpportunity,
     required this.onOpenAccount,
   });
 
   final CrmOpportunity opportunity;
   final ValueChanged<CrmOpportunity> onSelectOpportunity;
+  final ValueChanged<CrmOpportunity> onOpenOpportunity;
   final ValueChanged<int> onOpenAccount;
 
   @override
@@ -320,7 +335,7 @@ class _OpportunityCard extends StatelessWidget {
       child: InkWell(
         onTap: () {
           onSelectOpportunity(opportunity);
-          onOpenAccount(opportunity.accountId);
+          onOpenOpportunity(opportunity);
         },
         child: Padding(
           padding: const EdgeInsets.all(10),

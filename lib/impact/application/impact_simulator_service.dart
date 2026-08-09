@@ -43,7 +43,8 @@ class ImpactSimulatorService {
       '''
       SELECT id,
              COALESCE(amount, value, 0) AS amount_minor_units,
-             COALESCE(NULLIF(sales_stage, ''), stage, 'prospecting') AS sales_stage
+             COALESCE(NULLIF(sales_stage, ''), stage, 'prospecting') AS sales_stage,
+             probability
       FROM crm_opportunities
       WHERE company_id = ?
     ''',
@@ -56,6 +57,62 @@ class ImpactSimulatorService {
       0,
       (sum, row) => sum + _integer(row['amount_minor_units']),
     );
+    final itemRows = await db.rawQuery(
+      '''
+      SELECT oi.product_id, oi.quantity, oi.uom,
+             o.id AS opportunity_id, o.sales_stage, o.probability,
+             p.nombre AS product_name
+      FROM crm_opportunity_items oi
+      JOIN crm_opportunities o ON o.id = oi.opportunity_id
+      LEFT JOIN productos p ON p.id = oi.product_id
+      WHERE oi.company_id = ? AND o.company_id = ?
+      ORDER BY oi.id ASC
+      ''',
+      [companyId, companyId],
+    );
+    final demandLines = <ImpactDemandLine>[];
+    for (final row in itemRows) {
+      final stage = row['sales_stage']?.toString() ?? 'prospecting';
+      final probability =
+          (row['probability'] as num?)?.toInt() ?? _stageProbability(stage);
+      final quantity = (row['quantity'] as num).toDouble();
+      final productId = (row['product_id'] as num).toInt();
+      final bom = await db.rawQuery(
+        '''
+        SELECT b.quantity, b.routing_id,
+               COALESCE(SUM(op.time_minutes), 0) AS operation_minutes
+        FROM mrp_boms b
+        LEFT JOIN mrp_operations op ON op.routing_id = b.routing_id
+        WHERE b.company_id = ? AND b.item_id = ? AND b.is_active = 1
+        GROUP BY b.id
+        ORDER BY b.is_default DESC, b.id ASC
+        LIMIT 1
+        ''',
+        [companyId, productId],
+      );
+      final bomQuantity = bom.isEmpty
+          ? 1
+          : (bom.first['quantity'] as num?)?.toDouble() ?? 1;
+      final operationMinutes = bom.isEmpty
+          ? 0
+          : (bom.first['operation_minutes'] as num?)?.toDouble() ?? 0;
+      final hoursPerUnit = bomQuantity > 0
+          ? (operationMinutes / 60 / bomQuantity).toDouble()
+          : 0.0;
+      final weightedQuantity = quantity * probability / 100;
+      demandLines.add(
+        ImpactDemandLine(
+          productId: productId,
+          productName: row['product_name']?.toString() ?? 'Producto $productId',
+          uom: row['uom']?.toString() ?? 'UND',
+          quantity: quantity,
+          probability: probability,
+          weightedQuantity: weightedQuantity,
+          estimatedHoursPerUnit: hoursPerUnit,
+          weightedHours: weightedQuantity * hoursPerUnit,
+        ),
+      );
+    }
     final employees = await db.rawQuery(
       '''
       SELECT id, cargo, salario_base
@@ -118,6 +175,7 @@ class ImpactSimulatorService {
           ? 'Capacidad temporal no configurada. production_capacity no representa horas disponibles.'
           : 'Capacidad parcial: ${availableHoursPerDay.toStringAsFixed(2)} horas por dia '
                 'en ${configuredWorkstations.length} de ${productionWorkstations.length} workstations de produccion.',
+      demandLines: demandLines,
     );
   }
 
@@ -176,4 +234,23 @@ class ImpactSimulatorService {
   }
 
   int _integer(Object? value) => (value as num?)?.toInt() ?? 0;
+
+  int _stageProbability(String stage) {
+    switch (stage) {
+      case 'qualification':
+        return 25;
+      case 'needs_analysis':
+        return 40;
+      case 'value_proposition':
+        return 55;
+      case 'negotiation_review':
+        return 75;
+      case 'closed_won':
+        return 100;
+      case 'closed_lost':
+        return 0;
+      default:
+        return 10;
+    }
+  }
 }

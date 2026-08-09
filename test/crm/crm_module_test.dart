@@ -10,10 +10,12 @@ import 'package:merka_erp/crm/application/crm_contact_service.dart';
 import 'package:merka_erp/crm/application/crm_interaction_service.dart';
 import 'package:merka_erp/crm/application/crm_lead_service.dart';
 import 'package:merka_erp/crm/application/crm_opportunity_service.dart';
+import 'package:merka_erp/crm/application/crm_opportunity_item_service.dart';
 import 'package:merka_erp/crm/domain/crm_account.dart';
 import 'package:merka_erp/crm/domain/crm_contact.dart';
 import 'package:merka_erp/crm/domain/crm_lead.dart';
 import 'package:merka_erp/crm/domain/crm_opportunity.dart';
+import 'package:merka_erp/crm/domain/crm_opportunity_item.dart';
 import 'package:merka_erp/crm/domain/customer_interaction.dart';
 import 'package:merka_erp/db_helper.dart';
 import 'package:merka_erp/features/company_configuration_service.dart';
@@ -133,6 +135,49 @@ void main() {
     );
     expect(opportunityId, isNotEmpty);
   });
+
+  test(
+    'las lineas de oportunidad usan el catalogo y calculan total exacto',
+    () async {
+      final accountId = await CrmAccountService().create(
+        CrmAccount(companyId: companyId, name: 'Cuenta con productos'),
+      );
+      final opportunityId = await CrmOpportunityService().create(
+        CrmOpportunity(
+          id: 'crm-line-${DateTime.now().microsecondsSinceEpoch}',
+          companyId: companyId,
+          accountId: accountId,
+          accountName: 'Cuenta con productos',
+          name: 'Venta de productos',
+          amount: MoneyValue(minorUnits: 25000, currency: cop),
+          salesStage: CrmSalesStage.prospecting,
+          nextFollowUpAt: DateTime(2026, 8, 25),
+        ),
+      );
+      final productId = await db.insert('productos', {
+        'company_id': companyId,
+        'nombre': 'Producto CRM linea',
+        'unidad_base': 'UND',
+        'stock': 10,
+        'costo': 5000,
+        'precio': 10000,
+      });
+      await CrmOpportunityItemService().save(
+        CrmOpportunityItem(
+          companyId: companyId,
+          opportunityId: opportunityId,
+          productId: productId,
+          quantity: 2.5,
+          unitPrice: MoneyValue.fromMajorUnits('100.00', currency: cop),
+        ),
+      );
+      final lines = await CrmOpportunityItemService().listForOpportunity(
+        opportunityId,
+      );
+      expect(lines, hasLength(1));
+      expect(lines.single.amount.minorUnits, 25000);
+    },
+  );
 
   test(
     'CRM rechaza supervisor de otra cuenta y conserva contacto sin supervisor',
