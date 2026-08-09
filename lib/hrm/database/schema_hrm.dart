@@ -23,6 +23,12 @@ class SchemaHrm {
   static Future<void> crearTablas(DatabaseExecutor db) async {
     await _addColumn(db, 'empleados', 'employee_code', 'TEXT');
     await _addColumn(db, 'empleados', 'job_title_id', 'INTEGER');
+    await _addColumn(db, 'empleados', 'fecha_nacimiento', 'TEXT');
+    await _addColumn(db, 'empleados', 'genero', 'TEXT');
+    await _addColumn(db, 'empleados', 'estado_civil', 'TEXT');
+    await _addColumn(db, 'empleados', 'salary_grade', 'TEXT');
+    await _addColumn(db, 'empleados', 'manager_id', 'INTEGER');
+    await _addColumn(db, 'empleados', 'termination_id', 'INTEGER');
     await _addColumn(db, 'empleados', 'email', 'TEXT');
     await _addColumn(db, 'empleados', 'telefono', 'TEXT');
     await _addColumn(db, 'empleados', 'direccion', 'TEXT');
@@ -50,6 +56,7 @@ class SchemaHrm {
         code TEXT NOT NULL,
         name TEXT NOT NULL,
         requires_entitlement INTEGER NOT NULL DEFAULT 1,
+        exclude_in_reports_if_no_entitlement INTEGER NOT NULL DEFAULT 0,
         active INTEGER NOT NULL DEFAULT 1,
         UNIQUE(company_id, code)
       )
@@ -106,6 +113,12 @@ class SchemaHrm {
     await _addColumn(db, 'hrm_leaves', 'reviewed_by', 'INTEGER');
     await _addColumn(db, 'hrm_leaves', 'reviewed_at', 'TEXT');
     await _addColumn(db, 'hrm_leaves', 'rejection_reason', 'TEXT');
+    await _addColumn(
+      db,
+      'hrm_leave_types',
+      'exclude_in_reports_if_no_entitlement',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
     await db.execute('''
       CREATE TABLE IF NOT EXISTS hrm_attendance_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

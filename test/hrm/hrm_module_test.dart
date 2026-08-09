@@ -15,6 +15,7 @@ import 'package:merka_erp/hrm/domain/hrm_job_title.dart';
 import 'package:merka_erp/hrm/domain/hrm_leave.dart';
 import 'package:merka_erp/hrm/domain/hrm_leave_entitlement.dart';
 import 'package:merka_erp/hrm/domain/hrm_leave_request.dart';
+import 'package:merka_erp/hrm/domain/hrm_leave_type.dart';
 
 void main() {
   late Directory dir;
@@ -124,6 +125,54 @@ void main() {
     );
     expect(attendance.single['state'], 'IN_PROGRESS');
     expect(attendance.single['punch_out'], isNull);
+  });
+
+  test(
+    'conserva metadatos OrangeHRM y valida jefe de la misma empresa',
+    () async {
+      final subordinateId = await HrmEmployeeService().create(
+        HrmEmployee(
+          companyId: companyId,
+          name: 'Empleado subordinado',
+          document: 'HRM-002',
+          birthdate: DateTime(1990, 4, 5),
+          gender: 'F',
+          maritalStatus: 'soltero',
+          salaryGrade: 'G-5',
+          managerId: employeeId,
+        ),
+      );
+      final subordinate = await HrmEmployeeService().findById(subordinateId);
+      expect(subordinate?.salaryGrade, 'G-5');
+      expect(subordinate?.managerId, employeeId);
+      expect(subordinate?.birthdate, DateTime(1990, 4, 5));
+      await expectLater(
+        () => HrmEmployeeService().create(
+          HrmEmployee(
+            companyId: companyId,
+            name: 'Jefe invalido',
+            managerId: employeeId + 999999,
+          ),
+        ),
+        throwsStateError,
+      );
+    },
+  );
+
+  test('LeaveType conserva bandera de reporte sin entitlement', () async {
+    final type = HrmLeaveType(
+      companyId: companyId,
+      code: 'tipo_reporte_hrm',
+      name: 'Tipo reporte HRM',
+      requiresEntitlement: false,
+      excludeInReportsIfNoEntitlement: true,
+    );
+    final id = await HrmLeaveTypeService().create(type);
+    final stored = (await HrmLeaveTypeService().list()).singleWhere(
+      (item) => item.id == id,
+    );
+    expect(stored.requiresEntitlement, isFalse);
+    expect(stored.excludeInReportsIfNoEntitlement, isTrue);
   });
 
   test(

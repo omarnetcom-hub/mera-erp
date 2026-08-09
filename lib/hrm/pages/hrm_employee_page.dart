@@ -87,7 +87,17 @@ class _HrmEmployeePageState extends State<HrmEmployeePage>
               ),
               title: Text(employee.name),
               subtitle: Text(
-                [employee.document, employee.jobTitle, employee.status]
+                [
+                      employee.document,
+                      employee.jobTitle,
+                      employee.salaryGrade == null
+                          ? null
+                          : 'Grado ${employee.salaryGrade}',
+                      employee.managerId == null
+                          ? null
+                          : 'Jefe #${employee.managerId}',
+                      employee.status,
+                    ]
                     .whereType<String>()
                     .where((value) => value.isNotEmpty)
                     .join(' - '),
