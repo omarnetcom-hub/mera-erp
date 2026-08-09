@@ -164,15 +164,31 @@ dos asientos de cierre y saldo final de `3705` por 70.000 centavos.
 
 | Requisito / criterio | Norma o referencia | Archivo(s) que lo implementan | Test que lo cubre | Evidencia | Estado |
 |---|---|---|---|---|---|
-| Configurar parámetros anuales y determinar IBC salarial correctamente. | Salud sobre IBC: Ley 1122/2007 art. 10; pensión 16 %; auxilio de transporte no integra IBC [N15][N16][N17]. | `payroll_parameters`; `DatabaseHelper.liquidarNomina()`. | No hay pruebas de nómina comercial; las pruebas bajo `test/sector_publico/nomina/` no aplican. | No se encontró semilla ni UI para crear `payroll_parameters`. Salud/pensión se calculan solo sobre `salario`, mientras horas extra y bonificaciones solo entran en FSP/devengado; no existe clasificación salarial/no salarial de novedades. | **Parcial:** estructura presente, IBC conceptualmente incompleto y configuración no operativa. |
-| Calcular salud 4 % trabajador/8,5 % empleador y pensión 4 %/12 %, respetando exoneraciones. | Ley 1122/2007; Ley 100/1993; ET art. 114-1 [N15][N16][N18]. | Defaults de `payroll_parameters`; `liquidarNomina():6224-6250`. | Sin pruebas. | Las tarifas default coinciden con la regla general, pero `health_exonerated` nunca se lee y la base excluye pagos salariales variables. | **Parcial.** |
+| Configurar parámetros anuales y determinar IBC salarial correctamente. | Salud sobre IBC: Ley 1122/2007 art. 10; pensión 16 %; auxilio de transporte no integra IBC [N15][N16][N17]. | `payroll_parameters`; `payroll_novelties`; `DatabaseHelper.liquidarNomina()`. | `commercial_payroll_block5_test.dart`. | EV-08 suma novedades `horas_extra` y `bonificacion_salarial` al IBC, excluye el auxilio de transporte y verifica salud/pensión sobre la base variable. Sigue pendiente clasificar todas las novedades salariales/no salariales y una UI de parámetros. | **Parcial:** el camino variable probado está conectado, pero la configuración integral aún no está certificada. |
+| Calcular salud 4 % trabajador/8,5 % empleador y pensión 4 %/12 %, respetando exoneraciones. | Ley 1122/2007; Ley 100/1993; ET art. 114-1 [N15][N16][N18]. | Defaults de `payroll_parameters`; `liquidarNomina()`. | `commercial_payroll_block5_test.dart`. | EV-08 verifica IBC variable, el caso exonerado deja salud empleador en 0, SENA/ICBF en 0 y conserva caja 4 %, y el caso no exonerado conserva las tarifas. | **Parcial:** falta probar todas las condiciones documentales del contribuyente previstas por el ET. |
 | Calcular ARL según clase y sobre IBC correcto. | Decreto 1072/2015: tasas iniciales I-V 0,522 %, 1,044 %, 2,436 %, 4,350 %, 6,960 % [N19]. | Defaults `arl_level_1_rate` a `arl_level_5_rate`; switch en `liquidarNomina():6252-6270`. | Sin pruebas comerciales. | Las tasas default coinciden, pero se aplican solo al salario básico, no al IBC completo; no hay validación de actividad económica/clase asignada. | **Parcial.** |
 | Calcular cesantías, prima, intereses y vacaciones sobre bases y tiempo causado correctos. | CST arts. 186, 249 y 306; intereses 12 % anual sobre cesantías [N20][N21]. | `liquidarNomina():6277-6281`; parámetros 8,33 %, 8,33 %, 1 % y 4,17 %. | Sin pruebas. | Cesantías y prima usan solo salario y omiten auxilio de transporte/variables cuando corresponda; no consideran días. `interesesCesantias = cesantias * 0.01` aplica 1 % a la provisión de cesantías, no 12 % anual sobre el saldo, quedando aproximadamente 12 veces por debajo de la provisión mensual usual. | **Parcial:** error material identificado. |
 | Calcular parafiscales 2 % SENA, 3 % ICBF y 4 % caja con exoneración aplicable. | Reglas 2/3/4 y ET art. 114-1 [N18][N22]. | Defaults y `liquidarNomina():6272-6275`. | Sin pruebas. | Tasas default correctas, pero se aplican siempre. No se usa `health_exonerated`, no hay bandera de contribuyente ni regla de menos de 10 SMMLV; tampoco base salarial configurable. | **Parcial.** |
-| Obtener neto correcto, aplicar retención laboral y ejecutar liquidación de forma atómica. | Reglas laborales/tributarias y trazabilidad transaccional. | `liquidarNomina():6290-6441`. | Sin pruebas. | `retefuente=0` está explícitamente pendiente. El movimiento de caja, asiento y liquidación se hacen fuera de una única transacción; un fallo puede dejar operación parcial. El asiento registra devengos/deducciones del trabajador, no todas las cargas/provisiones del empleador. | **Pendiente para certificación.** |
+| Obtener neto correcto, aplicar retención laboral y ejecutar liquidación de forma atómica. | Reglas laborales/tributarias y trazabilidad transaccional. | `liquidarNomina()`; `PayrollWithholding`; migración v90. | `commercial_payroll_block5_test.dart`; `reporte_fiscal_nomina_integration_test.dart`. | EV-08 verifica la tabla progresiva del artículo 383 con UVT exacta, cargas/provisiones patronales en el asiento y rollback de movimiento/liquidación cuando el asiento falla por periodo cerrado. | **Parcial:** falta parametrizar deducciones laborales adicionales y certificar todos los escenarios de retención. |
 | Integrar nómina con reportes fiscales sin romper el esquema real. | Integridad de declaraciones e información contable. | `obtenerReporteFiscal()`; `obtenerNomina()`; esquema `nomina_liquidaciones.neto_pagar`. | `reporte_fiscal_nomina_integration_test.dart`: `obtenerReporteFiscal suma neto_pagar de una liquidacion real`. | EV-06 crea la liquidación mediante `liquidarNomina()`, verifica `neto_pagar=920000`, confirma el mismo total en el reporte fiscal y lee el historial con los nombres reales del esquema. | **Completo:** consulta e historial alineados con el esquema real y flujo integrado probado. |
 
-**Resumen D6:** 1 Completo / 5 Parciales / 1 Pendiente.
+**Resumen D6:** 1 Completo / 6 Parciales / 0 Pendientes.
+
+### Actualización del Bloque 5 (2026-08-09)
+
+`liquidarNomina()` v90 ahora suma novedades salariales de
+`payroll_novelties` al IBC, respeta la exclusión del auxilio de transporte,
+lee `health_exonerated`, calcula la retención laboral con la tabla progresiva
+del artículo 383 usando la UVT configurada, registra cargas/provisiones del
+empleador y persiste los IDs de caja/asiento. El flujo completo está dentro
+de una transacción.
+
+Evidencia: `flutter test test/commercial_payroll_block5_test.dart
+test/reporte_fiscal_nomina_integration_test.dart
+test/hrm/hrm_payroll_integration_test.dart --reporter compact` — **11 pruebas
+pasaron**. La deducción de retención y la base disponible para el sistema
+están probadas; deducciones laborales adicionales no capturadas siguen siendo
+una brecha explícita.
 
 ## Resumen por dominio
 
@@ -184,7 +200,7 @@ dos asientos de cierre y saldo final de `3705` por 70.000 centavos.
 | 4. Inventario | 0 | 3 | 0 | Tres representaciones y métodos desconectados; no hay Kardex único. |
 | 5. Multiempresa | 0 | 2 | 1 | Aislamiento parcial; consolidación y transferencias huérfanas. |
 | 6. Nómina privada | 1 | 5 | 1 | Reporte fiscal alineado; bases, provisiones y transacción siguen incorrectas o sin prueba. |
-| **Total** | **3** | **19** | **6** | **El cierre anual comercial ya tiene evidencia integrada; el resto de brechas de dominio permanece abierto.** |
+| **Total** | **3** | **20** | **5** | **Cierre anual y retención/nómina transaccional tienen evidencia adicional; el resto de brechas de dominio permanece abierto.** |
 
 ## Brechas críticas priorizadas
 
@@ -221,6 +237,7 @@ dos asientos de cierre y saldo final de `3705` por 70.000 centavos.
 - **[N20]** [Código Sustantivo del Trabajo: vacaciones, cesantías y prima de servicios](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=199983).
 - **[N21]** [Decreto 116 de 1976: intereses de cesantías del 12 % anual](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=3285).
 - **[N22]** [Ley 1233 de 2008: distribución parafiscal 3 % ICBF, 2 % SENA y 4 % caja](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=31586).
+- **[N23]** [DIAN, Compilación Jurídica del Decreto 2250 de 2017: tabla del artículo 383 para pagos laborales](https://normograma.dian.gov.co/dian/compilacion/docs/decreto_2250_2017.htm).
 
 ## Regla de mantenimiento
 

@@ -194,3 +194,49 @@ prueba exhaustiva de todos los consumidores de bloqueo mensual. La
 validación SQL de partida doble continúa intacta.
 
 Commit: `53af425`.
+
+## Bloque 5 - Nómina privada completa
+
+### Hallazgo y decisión
+
+El cálculo original ignoraba `payroll_novelties`, leía solo el salario base
+para aportes, no usaba `health_exonerated`, dejaba `retefuente` en cero y
+escribía caja, asiento y liquidación fuera de una transacción. Se corrigió
+para sumar novedades salariales explícitas (`horas_extra` y bonificaciones o
+comisiones salariales) al IBC, manteniendo el auxilio de transporte fuera de
+esa base. Salud, pensión, ARL y parafiscales usan el IBC disponible.
+
+La exoneración configurada deja en cero salud del empleador, SENA e ICBF, y
+conserva caja de compensación. La retención laboral usa la tabla progresiva
+del artículo 383 del Estatuto Tributario con la UVT almacenada en
+`payroll_parameters`, sin pasar por `double`. El sistema todavía no captura
+deducciones laborales adicionales del trabajador, por lo que ese límite queda
+explícito y no se presenta como una certificación tributaria total.
+
+La migración v90 agrega `movimiento_caja_id` y `asiento_id` a
+`nomina_liquidaciones` y siembra las cuentas contables requeridas para cargas
+y provisiones patronales. Todo el flujo de persistencia queda dentro de una
+transacción; el test fuerza el fallo por periodo cerrado después de insertar
+el movimiento y confirma el rollback.
+
+### Evidencia cruda
+
+- `docs/evidencias/auditoria_comercial_bloque_5/block5_tests.txt`
+- `docs/evidencias/auditoria_comercial_bloque_5/block5_analyze.txt`
+- `docs/evidencias/auditoria_comercial_bloque_5/block5_build.txt`
+
+Salida conjunta: **37 pruebas pasaron, 0 fallas** (`All tests passed!`).
+Incluye el test nuevo de variables/exoneración/retención/rollback, nómina
+fiscal, ausencia HRM, Bloques 1-4 y seguridad contable.
+
+Analyze completo: **240 issues, 0 errores**; salida con código 1 por warnings
+e info existentes. Build Windows: **exitoso**, con
+`Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe`.
+
+### Cierre de la subtarea 5
+
+Bloque 5 implementado y verificado. La fila de nómina que exigía atomicidad y
+retención deja de estar Pendiente y pasa a Parcial por las deducciones
+laborales aún no modeladas; las demás filas conservan estados honestos.
+
+Commit: se generará después de incorporar este log y la matriz.

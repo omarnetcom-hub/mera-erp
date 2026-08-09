@@ -244,6 +244,9 @@ extension DatabaseInitializer on DatabaseHelper {
     if (version >= 89) {
       await AccountingPeriodSchemaMigration.migrateV89(db);
     }
+    if (version >= 90) {
+      await PayrollSchemaMigration.migrateV90(db);
+    }
   }
 
   /// Migraciones incrementales entre versiones de la base de datos.

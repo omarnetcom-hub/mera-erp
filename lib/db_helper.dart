@@ -58,6 +58,8 @@ import 'impact/database/schema_impact.dart';
 import 'taxes/retention_schema_migration.dart';
 import 'taxes/retention_policy.dart';
 import 'taxes/tax_report_schema_migration.dart';
+import 'taxes/payroll_schema_migration.dart';
+import 'taxes/payroll_withholding.dart';
 
 part 'core/database/database_initializer.dart';
 
@@ -79,7 +81,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 89;
+  static const int schemaVersion = 90;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1018,6 +1020,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 89) {
       await AccountingPeriodSchemaMigration.migrateV89(db);
+    }
+    if (oldVersion < 90) {
+      await PayrollSchemaMigration.migrateV90(db);
     }
   }
 
@@ -6382,8 +6387,6 @@ class DatabaseHelper {
       companyId: companyId,
     );
     final zero = MoneyValue(minorUnits: 0, currency: currency);
-    final horasExtraValue = horasExtra ?? zero;
-    final bonificacionesValue = bonificaciones ?? zero;
     final otrasDeduccionesValue = otrasDeducciones ?? zero;
 
     // Obtener parámetros de nómina del año
@@ -6444,6 +6447,34 @@ class DatabaseHelper {
       to: periodEnd,
       employeeId: empleadoId,
     );
+    final periodo = '$anio-${mes.toString().padLeft(2, '0')}';
+    final noveltyRows = await db.query(
+      'payroll_novelties',
+      where: 'company_id = ? AND empleado_id = ? AND periodo = ?',
+      whereArgs: [companyId, empleadoId, periodo],
+    );
+    MoneyValue sumNovelties(Set<String> types) {
+      return noveltyRows
+          .where((row) => types.contains(row['tipo_novedad']?.toString()))
+          .map(
+            (row) => MoneyValue.fromSql(
+              row['valor'],
+              currency: currency,
+              nullableAsZero: true,
+            ),
+          )
+          .fold(zero, (sum, value) => sum + value);
+    }
+
+    final noveltyHours = sumNovelties({'horas_extra', 'horas_extra_salarial'});
+    final noveltyBonuses = sumNovelties({
+      'bonificacion',
+      'bonificacion_salarial',
+      'comision',
+      'comision_salarial',
+    });
+    final horasExtraValue = (horasExtra ?? zero) + noveltyHours;
+    final bonificacionesValue = (bonificaciones ?? zero) + noveltyBonuses;
     final unpaidDays = absenceSummary.unpaidDays.clamp(0, 30).toDouble();
     final paidDays = (30.0 - unpaidDays).clamp(0, 30).toDouble();
     final salarioDevengado = salario.multiplyRatio(
@@ -6468,15 +6499,16 @@ class DatabaseHelper {
     }
 
     // Cálculos de aportes del empleado
-    final saludEmpleado = salarioDevengado.multiplyDecimal(
+    final baseIbc = salarioDevengado + horasExtraValue + bonificacionesValue;
+    final saludEmpleado = baseIbc.multiplyDecimal(
       healthEmployeeRate.toString(),
     );
-    final pensionEmpleado = salarioDevengado.multiplyDecimal(
+    final pensionEmpleado = baseIbc.multiplyDecimal(
       pensionEmployeeRate.toString(),
     );
 
     // Cálculo de FSP (Fondo de Solidaridad Pensional)
-    final baseFsp = salarioDevengado + horasExtraValue + bonificacionesValue;
+    final baseFsp = baseIbc;
     var fsp = zero;
     if (baseFsp > smmlv.multiplyDecimal(fspTrigger.toString())) {
       if (baseFsp > smmlv * 4 && baseFsp <= smmlv * 6) {
@@ -6495,10 +6527,11 @@ class DatabaseHelper {
     }
 
     // Cálculos de aportes del empleador
-    final saludEmpleador = salarioDevengado.multiplyDecimal(
-      healthEmployerRate.toString(),
-    );
-    final pensionEmpleador = salarioDevengado.multiplyDecimal(
+    final healthExonerated = (param['health_exonerated'] as num?)?.toInt() == 1;
+    final saludEmpleador = healthExonerated
+        ? zero
+        : baseIbc.multiplyDecimal(healthEmployerRate.toString());
+    final pensionEmpleador = baseIbc.multiplyDecimal(
       pensionEmployerRate.toString(),
     );
 
@@ -6506,32 +6539,30 @@ class DatabaseHelper {
     var arl = zero;
     switch (nivelArl.toUpperCase()) {
       case 'I':
-        arl = salarioDevengado.multiplyDecimal(arlLevel1.toString());
+        arl = baseIbc.multiplyDecimal(arlLevel1.toString());
         break;
       case 'II':
-        arl = salarioDevengado.multiplyDecimal(arlLevel2.toString());
+        arl = baseIbc.multiplyDecimal(arlLevel2.toString());
         break;
       case 'III':
-        arl = salarioDevengado.multiplyDecimal(arlLevel3.toString());
+        arl = baseIbc.multiplyDecimal(arlLevel3.toString());
         break;
       case 'IV':
-        arl = salarioDevengado.multiplyDecimal(arlLevel4.toString());
+        arl = baseIbc.multiplyDecimal(arlLevel4.toString());
         break;
       case 'V':
-        arl = salarioDevengado.multiplyDecimal(arlLevel5.toString());
+        arl = baseIbc.multiplyDecimal(arlLevel5.toString());
         break;
     }
 
     // Parafiscales
-    final parafiscalSena = salarioDevengado.multiplyDecimal(
-      senaRate.toString(),
-    );
-    final parafiscalIcbf = salarioDevengado.multiplyDecimal(
-      icbfRate.toString(),
-    );
-    final parafiscalCaja = salarioDevengado.multiplyDecimal(
-      cajaRate.toString(),
-    );
+    final parafiscalSena = healthExonerated
+        ? zero
+        : baseIbc.multiplyDecimal(senaRate.toString());
+    final parafiscalIcbf = healthExonerated
+        ? zero
+        : baseIbc.multiplyDecimal(icbfRate.toString());
+    final parafiscalCaja = baseIbc.multiplyDecimal(cajaRate.toString());
 
     // Provisiones mensuales
     final cesantias = salarioDevengado.multiplyDecimal(
@@ -6557,12 +6588,19 @@ class DatabaseHelper {
     // Totales
     final totalDevengado =
         salarioDevengado + auxilio + horasExtraValue + bonificacionesValue;
+    final taxableBase = baseIbc - saludEmpleado - pensionEmpleado;
+    final retefuenteValue = PayrollWithholding.calculate(
+      taxableBase: taxableBase,
+      uvt: MoneyValue.fromSql(param['uvt'], currency: currency),
+      zero: zero,
+    );
     final totalDeducciones =
-        saludEmpleado + pensionEmpleado + fsp + otrasDeduccionesValue;
+        saludEmpleado +
+        pensionEmpleado +
+        fsp +
+        retefuenteValue +
+        otrasDeduccionesValue;
     final netoPagar = totalDevengado - totalDeducciones;
-
-    // Retefuente (simplificado - debería usar tabla UVT)
-    final retefuente = 0; // Pendiente implementación con tabla UVT
 
     final metodoPago = empleado['metodo_pago']?.toString() ?? 'Efectivo';
 
@@ -6570,137 +6608,250 @@ class DatabaseHelper {
     final origenCaja = esBanco ? 'banco' : 'caja';
     final cuentaDinero = esBanco ? '111005' : '110505';
 
-    await db.insert('movimientos_caja', {
-      'company_id': companyId,
-      'tipo': 'egreso',
-      'concepto': 'Nómina $mes/$anio - ${empleado['nombre']}',
-      'monto': netoPagar.toSql(),
-      'fecha': DateTime.now().toIso8601String(),
-      'origen': origenCaja,
-    });
-
-    await _registrarAsientoConCodigos(
-      concepto: 'Liquidación Nómina $mes/$anio - ${empleado['nombre']}',
-      referencia: 'NOM-$empleadoId',
-      origen: 'nomina',
-      lineas: [
-        {
-          'codigo': '510506',
-          'debito': salarioDevengado.toSql(),
-          'credito': 0,
-          'descripcion': 'Gasto Sueldo: ${empleado['nombre']}',
-        },
-        if (auxilio.minorUnits > 0)
-          {
-            'codigo': '510527',
-            'debito': auxilio.toSql(),
-            'credito': 0,
-            'descripcion': 'Auxilio transporte: ${empleado['nombre']}',
-          },
-        if (horasExtraValue.minorUnits > 0)
-          {
-            'codigo': '510515',
-            'debito': horasExtraValue.toSql(),
-            'credito': 0,
-            'descripcion': 'Horas extras: ${empleado['nombre']}',
-          },
-        if (bonificacionesValue.minorUnits > 0)
-          {
-            'codigo': '510548',
-            'debito': bonificacionesValue.toSql(),
-            'credito': 0,
-            'descripcion': 'Bonificaciones: ${empleado['nombre']}',
-          },
-        {
-          'codigo': '237005',
-          'debito': 0,
-          'credito': saludEmpleado.toSql(),
-          'descripcion':
-              'Retención Salud ${healthEmployeeRate * 100}%: ${empleado['nombre']}',
-        },
-        {
-          'codigo': '238030',
-          'debito': 0,
-          'credito': pensionEmpleado.toSql(),
-          'descripcion':
-              'Retención Pensión ${pensionEmployeeRate * 100}%: ${empleado['nombre']}',
-        },
-        if (fsp.minorUnits > 0)
-          {
-            'codigo': '238035',
-            'debito': 0,
-            'credito': fsp.toSql(),
-            'descripcion': 'FSP: ${empleado['nombre']}',
-          },
-        if (otrasDeduccionesValue.minorUnits > 0)
-          {
-            'codigo': '237095',
-            'debito': 0,
-            'credito': otrasDeduccionesValue.toSql(),
-            'descripcion': 'Otras deducciones: ${empleado['nombre']}',
-          },
-        {
-          'codigo': cuentaDinero,
-          'debito': 0,
-          'credito': netoPagar.toSql(),
-          'descripcion': 'Pago neto nómina: ${empleado['nombre']}',
-        },
-      ],
+    final fechaLiquidacion = DateTime(
+      anio,
+      mes,
+      DateTime(anio, mes + 1, 0).day,
     );
+    final id = await db.transaction((txn) async {
+      final movimientoCajaId = await txn.insert('movimientos_caja', {
+        'company_id': companyId,
+        'tipo': 'egreso',
+        'concepto': 'Nómina $mes/$anio - ${empleado['nombre']}',
+        'monto': netoPagar.toSql(),
+        'fecha': DateTime.now().toIso8601String(),
+        'origen': origenCaja,
+      });
 
-    final periodo = '$anio-${mes.toString().padLeft(2, '0')}';
-    final calculoJson = {
-      'salario_base': salario.toWireMap(),
-      'salario_devengado': salarioDevengado.toWireMap(),
-      'auxilio_transporte': auxilio.toWireMap(),
-      'horas_extra': horasExtraValue.toWireMap(),
-      'bonificaciones': bonificacionesValue.toWireMap(),
-      'otras_deducciones': otrasDeduccionesValue.toWireMap(),
-      'salud_empleado': saludEmpleado.toWireMap(),
-      'salud_empleador': saludEmpleador.toWireMap(),
-      'pension_empleado': pensionEmpleado.toWireMap(),
-      'pension_empleador': pensionEmpleador.toWireMap(),
-      'fsp': fsp.toWireMap(),
-      'arl': arl.toWireMap(),
-      'parafiscal_sena': parafiscalSena.toWireMap(),
-      'parafiscal_icbf': parafiscalIcbf.toWireMap(),
-      'parafiscal_caja': parafiscalCaja.toWireMap(),
-      'cesantias': cesantias.toWireMap(),
-      'prima_servicios': primaServicios.toWireMap(),
-      'intereses_cesantias': interesesCesantias.toWireMap(),
-      'vacaciones': vacaciones.toWireMap(),
-      'retefuente': retefuente,
-      'hrm_ausencias': absenceSummary.toMap(),
-    };
+      final asientoId = await _registrarAsientoConCodigos(
+        concepto: 'Liquidación Nómina $mes/$anio - ${empleado['nombre']}',
+        referencia: 'NOM-$empleadoId',
+        origen: 'nomina',
+        lineas: [
+          {
+            'codigo': '510506',
+            'debito': salarioDevengado.toSql(),
+            'credito': 0,
+            'descripcion': 'Gasto Sueldo: ${empleado['nombre']}',
+          },
+          if (auxilio.minorUnits > 0)
+            {
+              'codigo': '510527',
+              'debito': auxilio.toSql(),
+              'credito': 0,
+              'descripcion': 'Auxilio transporte: ${empleado['nombre']}',
+            },
+          if (horasExtraValue.minorUnits > 0)
+            {
+              'codigo': '510515',
+              'debito': horasExtraValue.toSql(),
+              'credito': 0,
+              'descripcion': 'Horas extras: ${empleado['nombre']}',
+            },
+          if (bonificacionesValue.minorUnits > 0)
+            {
+              'codigo': '510548',
+              'debito': bonificacionesValue.toSql(),
+              'credito': 0,
+              'descripcion': 'Bonificaciones: ${empleado['nombre']}',
+            },
+          {
+            'codigo': '237005',
+            'debito': 0,
+            'credito': saludEmpleado.toSql(),
+            'descripcion':
+                'Retención Salud ${healthEmployeeRate * 100}%: ${empleado['nombre']}',
+          },
+          {
+            'codigo': '238030',
+            'debito': 0,
+            'credito': pensionEmpleado.toSql(),
+            'descripcion':
+                'Retención Pensión ${pensionEmployeeRate * 100}%: ${empleado['nombre']}',
+          },
+          if (fsp.minorUnits > 0)
+            {
+              'codigo': '238035',
+              'debito': 0,
+              'credito': fsp.toSql(),
+              'descripcion': 'FSP: ${empleado['nombre']}',
+            },
+          if (otrasDeduccionesValue.minorUnits > 0)
+            {
+              'codigo': '237095',
+              'debito': 0,
+              'credito': otrasDeduccionesValue.toSql(),
+              'descripcion': 'Otras deducciones: ${empleado['nombre']}',
+            },
+          if (saludEmpleador.minorUnits > 0)
+            {
+              'codigo': '510570',
+              'debito': saludEmpleador.toSql(),
+              'credito': 0,
+              'descripcion': 'Salud empleador: ${empleado['nombre']}',
+            },
+          if (pensionEmpleador.minorUnits > 0)
+            {
+              'codigo': '510571',
+              'debito': pensionEmpleador.toSql(),
+              'credito': 0,
+              'descripcion': 'Pension empleador: ${empleado['nombre']}',
+            },
+          if (arl.minorUnits > 0)
+            {
+              'codigo': '510572',
+              'debito': arl.toSql(),
+              'credito': 0,
+              'descripcion': 'ARL empleador: ${empleado['nombre']}',
+            },
+          if (parafiscales.minorUnits > 0)
+            {
+              'codigo': '510573',
+              'debito': parafiscales.toSql(),
+              'credito': 0,
+              'descripcion': 'Parafiscales empleador: ${empleado['nombre']}',
+            },
+          if (provisiones.minorUnits > 0)
+            {
+              'codigo': '510574',
+              'debito': provisiones.toSql(),
+              'credito': 0,
+              'descripcion': 'Provisiones laborales: ${empleado['nombre']}',
+            },
+          if (saludEmpleador.minorUnits > 0)
+            {
+              'codigo': '237005',
+              'debito': 0,
+              'credito': saludEmpleador.toSql(),
+              'descripcion': 'Salud empleador por pagar: ${empleado['nombre']}',
+            },
+          if (pensionEmpleador.minorUnits > 0)
+            {
+              'codigo': '238030',
+              'debito': 0,
+              'credito': pensionEmpleador.toSql(),
+              'descripcion':
+                  'Pension empleador por pagar: ${empleado['nombre']}',
+            },
+          if (arl.minorUnits > 0)
+            {
+              'codigo': '237010',
+              'debito': 0,
+              'credito': arl.toSql(),
+              'descripcion': 'ARL por pagar: ${empleado['nombre']}',
+            },
+          if (parafiscales.minorUnits > 0)
+            {
+              'codigo': '237095',
+              'debito': 0,
+              'credito': parafiscales.toSql(),
+              'descripcion': 'Parafiscales por pagar: ${empleado['nombre']}',
+            },
+          if (cesantias.minorUnits > 0)
+            {
+              'codigo': '2510',
+              'debito': 0,
+              'credito': cesantias.toSql(),
+              'descripcion': 'Cesantias por pagar: ${empleado['nombre']}',
+            },
+          if (primaServicios.minorUnits > 0)
+            {
+              'codigo': '2520',
+              'debito': 0,
+              'credito': primaServicios.toSql(),
+              'descripcion': 'Prima por pagar: ${empleado['nombre']}',
+            },
+          if (interesesCesantias.minorUnits > 0)
+            {
+              'codigo': '2515',
+              'debito': 0,
+              'credito': interesesCesantias.toSql(),
+              'descripcion':
+                  'Intereses de cesantias por pagar: ${empleado['nombre']}',
+            },
+          if (vacaciones.minorUnits > 0)
+            {
+              'codigo': '2525',
+              'debito': 0,
+              'credito': vacaciones.toSql(),
+              'descripcion': 'Vacaciones por pagar: ${empleado['nombre']}',
+            },
+          if (retefuenteValue.minorUnits > 0)
+            {
+              'codigo': '236505',
+              'debito': 0,
+              'credito': retefuenteValue.toSql(),
+              'descripcion':
+                  'Retencion laboral por pagar: ${empleado['nombre']}',
+            },
+          {
+            'codigo': cuentaDinero,
+            'debito': 0,
+            'credito': netoPagar.toSql(),
+            'descripcion': 'Pago neto nómina: ${empleado['nombre']}',
+          },
+        ],
+        fecha: fechaLiquidacion,
+        txn: txn,
+      );
 
-    final id = await db.insert('nomina_liquidaciones', {
-      'company_id': companyId,
-      'empleado_id': empleadoId,
-      'empleado': empleado['nombre'],
-      'periodo': periodo,
-      'salario_base': salario.toSql(),
-      'total_devengado': totalDevengado.toSql(),
-      'total_deducciones': totalDeducciones.toSql(),
-      'neto_pagar': netoPagar.toSql(),
-      'aportes_empleador': aportesEmpleador.toSql(),
-      'salud_empleado': saludEmpleado.toSql(),
-      'salud_empleador': saludEmpleador.toSql(),
-      'pension_empleado': pensionEmpleado.toSql(),
-      'pension_empleador': pensionEmpleador.toSql(),
-      'fsp': fsp.toSql(),
-      'arl': arl.toSql(),
-      'parafiscal_sena': parafiscalSena.toSql(),
-      'parafiscal_icbf': parafiscalIcbf.toSql(),
-      'parafiscal_caja': parafiscalCaja.toSql(),
-      'cesantias': cesantias.toSql(),
-      'prima_servicios': primaServicios.toSql(),
-      'intereses_cesantias': interesesCesantias.toSql(),
-      'vacaciones': vacaciones.toSql(),
-      'retefuente': retefuente,
-      'estado': 'liquidada',
-      'calculo_json': calculoJson.toString(),
-      'novedades_hrm': absenceSummary.warning,
-      'fecha': DateTime.now().toIso8601String(),
+      final calculoJson = {
+        'salario_base': salario.toWireMap(),
+        'salario_devengado': salarioDevengado.toWireMap(),
+        'auxilio_transporte': auxilio.toWireMap(),
+        'horas_extra': horasExtraValue.toWireMap(),
+        'bonificaciones': bonificacionesValue.toWireMap(),
+        'otras_deducciones': otrasDeduccionesValue.toWireMap(),
+        'salud_empleado': saludEmpleado.toWireMap(),
+        'salud_empleador': saludEmpleador.toWireMap(),
+        'pension_empleado': pensionEmpleado.toWireMap(),
+        'pension_empleador': pensionEmpleador.toWireMap(),
+        'fsp': fsp.toWireMap(),
+        'arl': arl.toWireMap(),
+        'parafiscal_sena': parafiscalSena.toWireMap(),
+        'parafiscal_icbf': parafiscalIcbf.toWireMap(),
+        'parafiscal_caja': parafiscalCaja.toWireMap(),
+        'cesantias': cesantias.toWireMap(),
+        'prima_servicios': primaServicios.toWireMap(),
+        'intereses_cesantias': interesesCesantias.toWireMap(),
+        'vacaciones': vacaciones.toWireMap(),
+        'retefuente': retefuenteValue.toWireMap(),
+        'hrm_ausencias': absenceSummary.toMap(),
+      };
+
+      final liquidationId = await txn.insert('nomina_liquidaciones', {
+        'company_id': companyId,
+        'empleado_id': empleadoId,
+        'empleado': empleado['nombre'],
+        'periodo': periodo,
+        'salario_base': salario.toSql(),
+        'total_devengado': totalDevengado.toSql(),
+        'total_deducciones': totalDeducciones.toSql(),
+        'neto_pagar': netoPagar.toSql(),
+        'aportes_empleador': aportesEmpleador.toSql(),
+        'salud_empleado': saludEmpleado.toSql(),
+        'salud_empleador': saludEmpleador.toSql(),
+        'pension_empleado': pensionEmpleado.toSql(),
+        'pension_empleador': pensionEmpleador.toSql(),
+        'fsp': fsp.toSql(),
+        'arl': arl.toSql(),
+        'parafiscal_sena': parafiscalSena.toSql(),
+        'parafiscal_icbf': parafiscalIcbf.toSql(),
+        'parafiscal_caja': parafiscalCaja.toSql(),
+        'cesantias': cesantias.toSql(),
+        'prima_servicios': primaServicios.toSql(),
+        'intereses_cesantias': interesesCesantias.toSql(),
+        'vacaciones': vacaciones.toSql(),
+        'retefuente': retefuenteValue.toSql(),
+        'movimiento_caja_id': movimientoCajaId,
+        'asiento_id': asientoId,
+        'estado': 'liquidada',
+        'calculo_json': calculoJson.toString(),
+        'novedades_hrm': absenceSummary.warning,
+        'fecha': DateTime.now().toIso8601String(),
+      });
+
+      return liquidationId;
     });
 
     await registrarEventoAuditoria(
