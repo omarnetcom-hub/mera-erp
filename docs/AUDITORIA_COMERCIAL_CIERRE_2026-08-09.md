@@ -193,4 +193,4 @@ la fila de periodos por empresa permanece Parcial porque aún no existe una
 prueba exhaustiva de todos los consumidores de bloqueo mensual. La
 validación SQL de partida doble continúa intacta.
 
-Commit: se generará después de incorporar este log y la matriz.
+Commit: `53af425`.
