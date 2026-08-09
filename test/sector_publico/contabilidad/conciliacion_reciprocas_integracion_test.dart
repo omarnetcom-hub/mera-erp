@@ -230,7 +230,7 @@ Future<void> _insertarAsiento(
     'fecha_asiento': DateTime(2026, 7, 31).toIso8601String(),
     'descripcion': 'Transferencia intragrupo',
     'tipo_asiento': 'manual',
-    'estado': 'registrado',
+    'estado': 'borrador',
     'total_debito': 10000,
     'total_credito': 10000,
     'usuario_creo': 'USR-CONTADOR',
@@ -245,6 +245,12 @@ Future<void> _insertarAsiento(
       'credito': publicMoneyFromMajor(detalle.credito.toString()).toSql(),
     });
   }
+  await db.update(
+    'asientos_contables_sp',
+    {'estado': 'registrado'},
+    where: 'id = ?',
+    whereArgs: [id],
+  );
 }
 
 Future<void> _insertarSaldo(

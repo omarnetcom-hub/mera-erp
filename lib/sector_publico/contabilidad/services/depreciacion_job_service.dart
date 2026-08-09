@@ -229,13 +229,6 @@ class DepreciacionJobService {
       'referencia_id': asientoId,
     });
 
-    await db.update(
-      'asientos_contables_sp',
-      {'estado': 'aprobado'},
-      where: 'id = ?',
-      whereArgs: [asientoId],
-    );
-
     // Crear detalle de crédito (depreciación acumulada)
     await db.insert('detalles_asientos', {
       'id': _uuid.v4(),
@@ -246,6 +239,13 @@ class DepreciacionJobService {
       'credito': totalDepreciacion.toSql(),
       'referencia_id': asientoId,
     });
+
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': 'aprobado'},
+      where: 'id = ?',
+      whereArgs: [asientoId],
+    );
 
     // Actualizar saldos de cuentas
     await _actualizarSaldosCuentas(

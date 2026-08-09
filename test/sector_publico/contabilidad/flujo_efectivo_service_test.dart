@@ -146,9 +146,13 @@ Future<void> _insertarMovimiento({
     'fecha_asiento': fecha.toIso8601String(),
     'descripcion': 'Movimiento de prueba $id',
     'tipo_asiento': 'manual',
-    'estado': 'registrado',
-    'total_debito': publicMoneyFromMajor(debito.toString()).toSql(),
-    'total_credito': publicMoneyFromMajor(credito.toString()).toSql(),
+    'estado': 'borrador',
+    'total_debito': publicMoneyFromMajor(
+      (debito > 0 ? debito : credito).toString(),
+    ).toSql(),
+    'total_credito': publicMoneyFromMajor(
+      (debito > 0 ? debito : credito).toString(),
+    ).toSql(),
     'usuario_creo': _usuarioId,
   });
   await db.insert('detalles_asientos', {
@@ -159,4 +163,18 @@ Future<void> _insertarMovimiento({
     'debito': publicMoneyFromMajor(debito.toString()).toSql(),
     'credito': publicMoneyFromMajor(credito.toString()).toSql(),
   });
+  await db.insert('detalles_asientos', {
+    'id': 'DET-$id-CONTRA',
+    'asiento_id': id,
+    'cuenta_codigo': '110501',
+    'cuenta_nombre': 'Contrapartida de movimiento de prueba',
+    'debito': publicMoneyFromMajor(credito.toString()).toSql(),
+    'credito': publicMoneyFromMajor(debito.toString()).toSql(),
+  });
+  await db.update(
+    'asientos_contables_sp',
+    {'estado': 'registrado'},
+    where: 'id = ?',
+    whereArgs: [id],
+  );
 }

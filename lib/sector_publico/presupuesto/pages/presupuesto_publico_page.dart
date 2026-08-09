@@ -59,7 +59,10 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
   Future<void> _inicializarServicio() async {
     final db = await DatabaseHelper.instance.database;
     final auditoriaService = AuditoriaService(db);
-    _presupuestoService = PresupuestoService(db: db, auditoriaService: auditoriaService);
+    _presupuestoService = PresupuestoService(
+      db: db,
+      auditoriaService: auditoriaService,
+    );
     await _cargarDatos();
   }
 
@@ -67,14 +70,16 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
     setState(() => _loading = true);
     try {
       final db = await DatabaseHelper.instance.database;
-      
+
       final apropiacionesResult = await db.query(
         'apropiaciones',
         where: 'entidad_id = ? AND activo = 1',
         whereArgs: [widget.entidadId],
         orderBy: 'vigencia DESC, codigo_rubro',
       );
-      _apropiaciones = apropiacionesResult.map((r) => Apropiacion.fromJson(r)).toList();
+      _apropiaciones = apropiacionesResult
+          .map((r) => Apropiacion.fromJson(r))
+          .toList();
 
       final cdpsResult = await db.query(
         'cdps',
@@ -98,7 +103,9 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         whereArgs: [widget.entidadId],
         orderBy: 'fecha_reconocimiento DESC',
       );
-      _obligaciones = obligacionesResult.map((r) => Obligacion.fromJson(r)).toList();
+      _obligaciones = obligacionesResult
+          .map((r) => Obligacion.fromJson(r))
+          .toList();
 
       final pagosResult = await db.query(
         'pagos',
@@ -141,22 +148,13 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
             icon: Icon(Icons.account_balance_wallet),
             label: 'Apropiaciones',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description),
-            label: 'CDPs',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
-            label: 'RPs',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.description), label: 'CDPs'),
+          BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'RPs'),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long),
             label: 'Obligaciones',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.payment),
-            label: 'Pagos',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.payment), label: 'Pagos'),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -208,17 +206,24 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
-            title: Text('${apropiacion.codigoRubro} - ${apropiacion.nombreRubro}'),
+            title: Text(
+              '${apropiacion.codigoRubro} - ${apropiacion.nombreRubro}',
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Vigencia: ${apropiacion.vigencia}'),
-                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.valorApropiado))}'),
-                Text('Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.saldoDisponible))}'),
+                Text(
+                  'Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.valorApropiado))}',
+                ),
+                Text(
+                  'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.saldoDisponible))}',
+                ),
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: apropiacion.valorApropiado > publicMoneyZero()
-                      ? apropiacion.valorPagado.minorUnits / apropiacion.valorApropiado.minorUnits
+                      ? apropiacion.valorPagado.minorUnits /
+                            apropiacion.valorApropiado.minorUnits
                       : 0,
                   backgroundColor: Colors.grey[300],
                 ),
@@ -285,13 +290,21 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Rubro: ${cdp.codigoRubro}'),
-                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.valorCDP))}'),
-                Text('Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible))}'),
+                Text(
+                  'Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.valorCDP))}',
+                ),
+                Text(
+                  'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible))}',
+                ),
                 Text('Vence: ${DateFormatter.format(cdp.fechaVigencia)}'),
                 const SizedBox(height: 4),
                 Chip(
-                  label: Text(cdp.estado.toString().split('.').last.toUpperCase()),
-                  backgroundColor: cdp.estaVigente() ? Colors.green : Colors.orange,
+                  label: Text(
+                    cdp.estado.toString().split('.').last.toUpperCase(),
+                  ),
+                  backgroundColor: cdp.estaVigente()
+                      ? Colors.green
+                      : Colors.orange,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
               ],
@@ -349,12 +362,20 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               children: [
                 Text('CDP: ${rp.numeroCDP}'),
                 Text('Contrato: ${rp.contratoNumero}'),
-                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(rp.valorRP))}'),
-                Text('Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible))}'),
+                Text(
+                  'Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(rp.valorRP))}',
+                ),
+                Text(
+                  'Saldo disponible: ${CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible))}',
+                ),
                 const SizedBox(height: 4),
                 Chip(
-                  label: Text(rp.estado.toString().split('.').last.toUpperCase()),
-                  backgroundColor: rp.estaVigente() ? Colors.green : Colors.orange,
+                  label: Text(
+                    rp.estado.toString().split('.').last.toUpperCase(),
+                  ),
+                  backgroundColor: rp.estaVigente()
+                      ? Colors.green
+                      : Colors.orange,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
               ],
@@ -411,13 +432,20 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Tercero: ${obligacion.terceroNombre}'),
-                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.valorObligacion))}'),
-                Text('Pendiente: ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.saldoPendiente))}'),
+                Text(
+                  'Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.valorObligacion))}',
+                ),
+                Text(
+                  'Pendiente: ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.saldoPendiente))}',
+                ),
                 const SizedBox(height: 4),
                 Chip(
-                  label: Text(obligacion.estado.toString().split('.').last.toUpperCase()),
-                  backgroundColor: obligacion.estado == EstadoObligacion.pendiente 
-                      ? Colors.orange 
+                  label: Text(
+                    obligacion.estado.toString().split('.').last.toUpperCase(),
+                  ),
+                  backgroundColor:
+                      obligacion.estado == EstadoObligacion.pendiente
+                      ? Colors.orange
                       : Colors.green,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
@@ -441,10 +469,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
           children: [
             Icon(Icons.payment, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(
-              'Pagos',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            Text('Pagos', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
             const Text('No hay pagos programados'),
             const SizedBox(height: 24),
@@ -475,12 +500,16 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Tercero: ${pago.terceroNombre}'),
-                Text('Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(pago.valorPago))}'),
+                Text(
+                  'Valor: ${CurrencyFormatter.format(publicMoneyForDisplay(pago.valorPago))}',
+                ),
                 const SizedBox(height: 4),
                 Chip(
-                  label: Text(pago.estado.toString().split('.').last.toUpperCase()),
-                  backgroundColor: pago.estado == EstadoPago.programado 
-                      ? Colors.blue 
+                  label: Text(
+                    pago.estado.toString().split('.').last.toUpperCase(),
+                  ),
+                  backgroundColor: pago.estado == EstadoPago.programado
+                      ? Colors.blue
                       : Colors.green,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
@@ -519,8 +548,12 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
         presupuestoService: _presupuestoService,
-        onGuardar: () {
-          _cargarDatos();
+        onGuardar: (apropiacion) {
+          if (!mounted) return;
+          setState(() {
+            _apropiaciones = [..._apropiaciones, apropiacion];
+            _loading = false;
+          });
           Navigator.pop(context);
         },
       ),
@@ -622,7 +655,7 @@ class _ApropiacionForm extends StatefulWidget {
   final String entidadId;
   final String usuarioId;
   final PresupuestoService presupuestoService;
-  final VoidCallback onGuardar;
+  final void Function(Apropiacion apropiacion) onGuardar;
 
   const _ApropiacionForm({
     required this.entidadId,
@@ -637,7 +670,9 @@ class _ApropiacionForm extends StatefulWidget {
 
 class _ApropiacionFormState extends State<_ApropiacionForm> {
   final _formKey = GlobalKey<FormState>();
-  final _vigenciaController = TextEditingController(text: DateTime.now().year.toString());
+  final _vigenciaController = TextEditingController(
+    text: DateTime.now().year.toString(),
+  );
   final _codigoRubroController = TextEditingController();
   final _nombreRubroController = TextEditingController();
   final _valorController = TextEditingController();
@@ -674,7 +709,7 @@ class _ApropiacionFormState extends State<_ApropiacionForm> {
     }
 
     try {
-      await widget.presupuestoService.crearApropiacion(
+      final apropiacion = await widget.presupuestoService.crearApropiacion(
         entidadId: widget.entidadId,
         usuarioId: widget.usuarioId,
         vigencia: _vigenciaController.text,
@@ -691,11 +726,11 @@ class _ApropiacionFormState extends State<_ApropiacionForm> {
         fechaAprobacionConcejo: _fechaAprobacion ?? DateTime.now(),
         actoAdministrativo: _actoController.text,
       );
-      widget.onGuardar();
+      widget.onGuardar(apropiacion);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -714,17 +749,20 @@ class _ApropiacionFormState extends State<_ApropiacionForm> {
                 decoration: const InputDecoration(labelText: 'Vigencia (año)'),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _codigoRubroController,
                 decoration: const InputDecoration(labelText: 'Código Rubro'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _nombreRubroController,
                 decoration: const InputDecoration(labelText: 'Nombre Rubro'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _valorController,
@@ -738,42 +776,55 @@ class _ApropiacionFormState extends State<_ApropiacionForm> {
               ),
               TextFormField(
                 controller: _fuenteController,
-                decoration: const InputDecoration(labelText: 'Fuente de Financiación'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Fuente de Financiación',
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _sectorController,
                 decoration: const InputDecoration(labelText: 'Sector'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _programaController,
                 decoration: const InputDecoration(labelText: 'Programa'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _subprogramaController,
                 decoration: const InputDecoration(labelText: 'Subprograma'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _proyectoController,
                 decoration: const InputDecoration(labelText: 'Proyecto'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _actividadController,
                 decoration: const InputDecoration(labelText: 'Actividad'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _objetoGastoController,
                 decoration: const InputDecoration(labelText: 'Objeto de Gasto'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               ListTile(
                 title: const Text('Fecha Aprobación Concejo'),
-                subtitle: Text(_fechaAprobacion == null ? 'No seleccionada' : DateFormatter.format(_fechaAprobacion!)),
+                subtitle: Text(
+                  _fechaAprobacion == null
+                      ? 'No seleccionada'
+                      : DateFormatter.format(_fechaAprobacion!),
+                ),
                 trailing: Icon(Icons.calendar_today),
                 onTap: () async {
                   final fecha = await showDatePicker(
@@ -789,8 +840,11 @@ class _ApropiacionFormState extends State<_ApropiacionForm> {
               ),
               TextFormField(
                 controller: _actoController,
-                decoration: const InputDecoration(labelText: 'Acto Administrativo (Acuerdo/Ordenanza)'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Acto Administrativo (Acuerdo/Ordenanza)',
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
             ],
           ),
@@ -801,10 +855,7 @@ class _ApropiacionFormState extends State<_ApropiacionForm> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
-        ElevatedButton(
-          onPressed: _guardar,
-          child: const Text('Crear'),
-        ),
+        ElevatedButton(onPressed: _guardar, child: const Text('Crear')),
       ],
     );
   }
@@ -869,13 +920,15 @@ class _CDPFormState extends State<_CDPForm> {
         funcionarioExpedidor: _funcionarioExpedidorController.text,
         funcionarioSolicitante: _funcionarioSolicitanteController.text,
         objetoGasto: _objetoGastoController.text,
-        contratoNumero: _contratoController.text.isEmpty ? null : _contratoController.text,
+        contratoNumero: _contratoController.text.isEmpty
+            ? null
+            : _contratoController.text,
       );
       widget.onGuardar();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -894,7 +947,9 @@ class _CDPFormState extends State<_CDPForm> {
                 items: widget.apropiaciones.map((apropiacion) {
                   return DropdownMenuItem(
                     value: apropiacion,
-                    child: Text('${apropiacion.codigoRubro} - ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.saldoDisponible))}'),
+                    child: Text(
+                      '${apropiacion.codigoRubro} - ${CurrencyFormatter.format(publicMoneyForDisplay(apropiacion.saldoDisponible))}',
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -928,22 +983,31 @@ class _CDPFormState extends State<_CDPForm> {
               ),
               TextFormField(
                 controller: _funcionarioExpedidorController,
-                decoration: const InputDecoration(labelText: 'Funcionario Expedidor'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Funcionario Expedidor',
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _funcionarioSolicitanteController,
-                decoration: const InputDecoration(labelText: 'Funcionario Solicitante'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Funcionario Solicitante',
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _objetoGastoController,
                 decoration: const InputDecoration(labelText: 'Objeto de Gasto'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _contratoController,
-                decoration: const InputDecoration(labelText: 'Número Contrato (opcional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Número Contrato (opcional)',
+                ),
               ),
             ],
           ),
@@ -954,10 +1018,7 @@ class _CDPFormState extends State<_CDPForm> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
-        ElevatedButton(
-          onPressed: _guardar,
-          child: const Text('Expedir'),
-        ),
+        ElevatedButton(onPressed: _guardar, child: const Text('Expedir')),
       ],
     );
   }
@@ -1009,9 +1070,9 @@ class _RPFormState extends State<_RPForm> {
     }
 
     if (_cdpSeleccionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debe seleccionar un CDP')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Debe seleccionar un CDP')));
       return;
     }
 
@@ -1029,9 +1090,9 @@ class _RPFormState extends State<_RPForm> {
       );
       widget.onGuardar();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -1052,7 +1113,9 @@ class _RPFormState extends State<_RPForm> {
                 items: cdpsVigentes.map((cdp) {
                   return DropdownMenuItem(
                     value: cdp,
-                    child: Text('${cdp.numeroCDP} - ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible))}'),
+                    child: Text(
+                      '${cdp.numeroCDP} - ${CurrencyFormatter.format(publicMoneyForDisplay(cdp.saldoDisponible))}',
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1070,8 +1133,12 @@ class _RPFormState extends State<_RPForm> {
                 ),
               TextFormField(
                 controller: _contratoNumeroController,
-                decoration: const InputDecoration(labelText: 'Número Contrato *'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido (Ley 80/1993 Art. 41)' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Número Contrato *',
+                ),
+                validator: (value) => value?.isEmpty ?? true
+                    ? 'Requerido (Ley 80/1993 Art. 41)'
+                    : null,
               ),
               TextFormField(
                 controller: _contratoIdController,
@@ -1095,18 +1162,25 @@ class _RPFormState extends State<_RPForm> {
               ),
               TextFormField(
                 controller: _funcionarioExpedidorController,
-                decoration: const InputDecoration(labelText: 'Funcionario Expedidor'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Funcionario Expedidor',
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _funcionarioSolicitanteController,
-                decoration: const InputDecoration(labelText: 'Funcionario Solicitante'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Funcionario Solicitante',
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _objetoGastoController,
                 decoration: const InputDecoration(labelText: 'Objeto de Gasto'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
             ],
           ),
@@ -1117,10 +1191,7 @@ class _RPFormState extends State<_RPForm> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
-        ElevatedButton(
-          onPressed: _guardar,
-          child: const Text('Expedir'),
-        ),
+        ElevatedButton(onPressed: _guardar, child: const Text('Expedir')),
       ],
     );
   }
@@ -1180,9 +1251,9 @@ class _ObligacionFormState extends State<_ObligacionForm> {
     }
 
     if (_rpSeleccionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debe seleccionar un RP')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Debe seleccionar un RP')));
       return;
     }
 
@@ -1198,16 +1269,20 @@ class _ObligacionFormState extends State<_ObligacionForm> {
         valorObligacion: publicMoneyFromMajor(_valorController.text),
         funcionarioReconocio: _funcionarioReconocioController.text,
         objetoGasto: _objetoGastoController.text,
-        actaReciboNumero: _actaReciboController.text.isEmpty ? null : _actaReciboController.text,
+        actaReciboNumero: _actaReciboController.text.isEmpty
+            ? null
+            : _actaReciboController.text,
         actaReciboFecha: _actaFecha,
-        facturaNumero: _facturaController.text.isEmpty ? null : _facturaController.text,
+        facturaNumero: _facturaController.text.isEmpty
+            ? null
+            : _facturaController.text,
         facturaFecha: _facturaFecha,
       );
       widget.onGuardar();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -1228,7 +1303,9 @@ class _ObligacionFormState extends State<_ObligacionForm> {
                 items: rpsVigentes.map((rp) {
                   return DropdownMenuItem(
                     value: rp,
-                    child: Text('${rp.numeroRP} - ${CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible))}'),
+                    child: Text(
+                      '${rp.numeroRP} - ${CurrencyFormatter.format(publicMoneyForDisplay(rp.saldoDisponible))}',
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1259,11 +1336,14 @@ class _ObligacionFormState extends State<_ObligacionForm> {
               TextFormField(
                 controller: _terceroNombreController,
                 decoration: const InputDecoration(labelText: 'Nombre Tercero'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _valorController,
-                decoration: const InputDecoration(labelText: 'Valor Obligación'),
+                decoration: const InputDecoration(
+                  labelText: 'Valor Obligación',
+                ),
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
                 validator: (value) {
                   if (value?.isEmpty ?? true) return 'Requerido';
@@ -1279,21 +1359,31 @@ class _ObligacionFormState extends State<_ObligacionForm> {
               ),
               TextFormField(
                 controller: _funcionarioReconocioController,
-                decoration: const InputDecoration(labelText: 'Funcionario Reconoció'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Funcionario Reconoció',
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _objetoGastoController,
                 decoration: const InputDecoration(labelText: 'Objeto de Gasto'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _actaReciboController,
-                decoration: const InputDecoration(labelText: 'Número Acta Recibo'),
+                decoration: const InputDecoration(
+                  labelText: 'Número Acta Recibo',
+                ),
               ),
               ListTile(
                 title: const Text('Fecha Acta Recibo'),
-                subtitle: Text(_actaFecha == null ? 'No seleccionada' : DateFormatter.format(_actaFecha!)),
+                subtitle: Text(
+                  _actaFecha == null
+                      ? 'No seleccionada'
+                      : DateFormatter.format(_actaFecha!),
+                ),
                 trailing: Icon(Icons.calendar_today),
                 onTap: () async {
                   final fecha = await showDatePicker(
@@ -1313,7 +1403,11 @@ class _ObligacionFormState extends State<_ObligacionForm> {
               ),
               ListTile(
                 title: const Text('Fecha Factura'),
-                subtitle: Text(_facturaFecha == null ? 'No seleccionada' : DateFormatter.format(_facturaFecha!)),
+                subtitle: Text(
+                  _facturaFecha == null
+                      ? 'No seleccionada'
+                      : DateFormatter.format(_facturaFecha!),
+                ),
                 trailing: Icon(Icons.calendar_today),
                 onTap: () async {
                   final fecha = await showDatePicker(
@@ -1336,10 +1430,7 @@ class _ObligacionFormState extends State<_ObligacionForm> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
-        ElevatedButton(
-          onPressed: _guardar,
-          child: const Text('Registrar'),
-        ),
+        ElevatedButton(onPressed: _guardar, child: const Text('Registrar')),
       ],
     );
   }
@@ -1372,7 +1463,9 @@ class _PagoFormState extends State<_PagoForm> {
   final _cuentaController = TextEditingController();
   final _tipoCuentaController = TextEditingController();
   final _funcionarioController = TextEditingController();
-  final _mesPACController = TextEditingController(text: DateTime.now().month.toString());
+  final _mesPACController = TextEditingController(
+    text: DateTime.now().month.toString(),
+  );
 
   @override
   void dispose() {
@@ -1414,9 +1507,9 @@ class _PagoFormState extends State<_PagoForm> {
       );
       widget.onGuardar();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -1439,7 +1532,9 @@ class _PagoFormState extends State<_PagoForm> {
                 items: obligacionesPendientes.map((obligacion) {
                   return DropdownMenuItem(
                     value: obligacion,
-                    child: Text('${obligacion.numeroObligacion} - ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.saldoPendiente))}'),
+                    child: Text(
+                      '${obligacion.numeroObligacion} - ${CurrencyFormatter.format(publicMoneyForDisplay(obligacion.saldoPendiente))}',
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1474,17 +1569,20 @@ class _PagoFormState extends State<_PagoForm> {
               TextFormField(
                 controller: _bancoController,
                 decoration: const InputDecoration(labelText: 'Banco Destino'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _cuentaController,
                 decoration: const InputDecoration(labelText: 'Cuenta Destino'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _tipoCuentaController,
                 decoration: const InputDecoration(labelText: 'Tipo Cuenta'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _mesPACController,
@@ -1494,14 +1592,18 @@ class _PagoFormState extends State<_PagoForm> {
                 validator: (value) {
                   if (value?.isEmpty ?? true) return 'Requerido';
                   final mes = int.tryParse(value!);
-                  if (mes == null || mes < 1 || mes > 12) return 'Mes inválido (1-12)';
+                  if (mes == null || mes < 1 || mes > 12)
+                    return 'Mes inválido (1-12)';
                   return null;
                 },
               ),
               TextFormField(
                 controller: _funcionarioController,
-                decoration: const InputDecoration(labelText: 'Funcionario Programó'),
-                validator: (value) => value?.isEmpty ?? true ? 'Requerido' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Funcionario Programó',
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Requerido' : null,
               ),
             ],
           ),
@@ -1512,10 +1614,7 @@ class _PagoFormState extends State<_PagoForm> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
-        ElevatedButton(
-          onPressed: _guardar,
-          child: const Text('Programar'),
-        ),
+        ElevatedButton(onPressed: _guardar, child: const Text('Programar')),
       ],
     );
   }

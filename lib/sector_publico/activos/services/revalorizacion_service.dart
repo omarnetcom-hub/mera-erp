@@ -185,13 +185,6 @@ class RevalorizacionService {
       'referencia_id': revalorizacionId,
     });
 
-    await db.update(
-      'asientos_contables_sp',
-      {'estado': 'aprobado'},
-      where: 'id = ?',
-      whereArgs: [asientoId],
-    );
-
     await db.insert('detalles_asientos', {
       'id': _uuid.v4(),
       'asiento_id': asientoId,
@@ -201,6 +194,13 @@ class RevalorizacionService {
       'credito': incremento.toSql(),
       'referencia_id': revalorizacionId,
     });
+
+    await db.update(
+      'asientos_contables_sp',
+      {'estado': 'aprobado'},
+      where: 'id = ?',
+      whereArgs: [asientoId],
+    );
 
     return asientoId;
   }
