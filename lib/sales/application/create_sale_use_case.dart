@@ -6,6 +6,7 @@ import '../../core/currency/money_currency_resolver.dart';
 import '../../core/currency/money_value.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
+import '../../inventory/application/inventory_movement_service.dart';
 import '../../taxes/retention_policy.dart';
 
 class SaleItemInput {
@@ -383,7 +384,6 @@ class CreateSaleUseCase {
       }
 
       for (final item in request.items) {
-        costOfSale += item.unitCost.multiplyDecimal(item.quantity.toString());
         final productRows = await txn.query(
           'productos',
           where: 'id = ? AND company_id = ?',
@@ -396,6 +396,7 @@ class CreateSaleUseCase {
           currency: currency,
           nullableAsZero: true,
         );
+        costOfSale += currentCost.multiplyDecimal(item.quantity.toString());
         final newStock = currentStock - item.quantity;
 
         // Verificar si el producto tiene lotes
@@ -444,18 +445,24 @@ class CreateSaleUseCase {
           where: 'id = ? AND company_id = ?',
           whereArgs: [item.productId, companyId],
         );
-        await txn.insert('movimientos_inventario', {
-          'company_id': companyId,
-          'producto_id': item.productId,
-          'tipo': 'salida',
-          'cantidad': item.quantity,
-          'stock_anterior': currentStock,
-          'stock_nuevo': newStock,
-          'costo_anterior': currentCost.toSql(),
-          'costo_nuevo': currentCost.toSql(),
-          'motivo': 'FACTURA POS #$saleId',
-          'fecha': saleDate.toIso8601String(),
-        });
+        await InventoryMovementService.record(
+          db: txn,
+          companyId: companyId,
+          productId: item.productId,
+          type: 'salida',
+          quantity: item.quantity,
+          stockBefore: currentStock,
+          stockAfter: newStock,
+          costBeforeMinor: currentCost.toSql(),
+          costAfterMinor: currentCost.toSql(),
+          costTotalMinor: currentCost
+              .multiplyDecimal(item.quantity.toString())
+              .toSql(),
+          reason: 'FACTURA POS #$saleId',
+          date: saleDate.toIso8601String(),
+          documentType: 'venta',
+          documentId: saleId,
+        );
         await txn.insert('ventas_detalle', {
           'company_id': companyId,
           'venta_id': saleId,

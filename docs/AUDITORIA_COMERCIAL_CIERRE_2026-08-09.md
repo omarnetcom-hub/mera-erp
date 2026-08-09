@@ -84,4 +84,42 @@ Bloque 1 implementado y verificado. Tests dirigidos: 6 pasaron. Analyze:
 241 issues, 0 errores de análisis. Build Windows: exitoso. La matriz fue
 actualizada manteniendo ReteFuente en Parcial por la brecha explícita indicada.
 
-Commit: pendiente de crear en esta entrega.
+Commit: `48e7554`.
+
+## Bloque 2 - Inventario y costeo
+
+### Hallazgo y decisión
+
+- El enum `InventoryCostMethod` exponía `fifo`, `lifo` y `average`; LIFO fue
+  retirado por no ser una política seleccionable del sistema. El ledger
+  avanzado conserva FIFO para su superficie técnica, y el dominio operativo
+  usa promedio ponderado.
+- `productos.costo` es la fuente de verdad del costo promedio operativo.
+  `lotes` se conserva para FEFO físico y vencimientos. `inventory_lots` queda
+  como almacenamiento del ledger avanzado por bodega/branch, sin consumidor
+  POS; no se usa para duplicar el saldo operativo.
+- `kardex_inventario` se convirtió en el histórico canónico y se alimenta con
+  `InventoryMovementService` junto con `movimientos_inventario`, dentro de la
+  misma transacción. Se cubrieron compra, venta, anulaciones, ajustes,
+  traslados y movimientos de bodega.
+- El test de compra mediante `CreatePurchaseUseCase` no pudo usar el camino
+  de crédito en una base fresca por una incompatibilidad anterior: la tabla
+  `cuentas_por_pagar` no tiene `proveedor_id`/`compra_id`, aunque el caso de
+  uso los inserta. El test del bloque siembra la compra con el esquema real y
+  valida los escritores de Kardex; esta brecha queda anotada para un frente
+  posterior, no se oculta como éxito de compra.
+
+### Evidencia cruda
+
+- `docs/evidencias/auditoria_comercial_bloque_2/block2_tests.txt`
+- `docs/evidencias/auditoria_comercial_bloque_2/block2_analyze.txt`
+- `docs/evidencias/auditoria_comercial_bloque_2/block2_build.txt`
+
+Resumen crudo de la prueba: `16` pasaron, `All tests passed!`.
+Analyze: `240 issues found`, sin errores; build Windows exitoso.
+
+### Cierre de la subtarea 2
+
+Bloque 2 implementado y verificado con 16 pruebas dirigidas y regresiones de
+ventas/ledger. La lista de archivos temporales permanentes está en la carpeta
+de evidencia indicada. Commit: pendiente de crear en esta entrega.

@@ -73,6 +73,28 @@ test/sales_flow_test.dart --reporter expanded` — **6 pruebas pasaron**. La
 prueba `commercial_tax_block1_test.dart` verifica UVT/base exactas, la semilla,
 la aplicación POS de 2 UVT/4 % y el desglose F350 de tres transacciones.
 
+### Actualización del Bloque 2 (2026-08-09)
+
+La política de inventario comercial queda en **promedio ponderado** como costo
+contable operativo: compras actualiza `productos.costo` y POS toma ese costo
+persistido, no el costo enviado por el carrito. La opción LIFO fue retirada de
+`InventoryCostMethod`; FEFO permanece únicamente como orden físico de lotes
+para productos con vencimiento. `kardex_inventario` ahora recibe, en la misma
+transacción, los movimientos de compra, venta, anulación, ajuste, traslado y
+operaciones por bodega junto con `movimientos_inventario`.
+
+Evidencia ejecutada: `flutter test test/commercial_tax_block1_test.dart
+test/commercial_inventory_block2_test.dart test/sales_flow_test.dart
+test/architectural_consolidation_test.dart test/inventory_legacy_money_test.dart
+--reporter expanded` — **16 pruebas pasaron**. El test de Bloque 2 verifica
+compra → venta → ajuste, saldo de `productos` = suma firmada de Kardex y que
+el costo de venta no proviene del carrito.
+
+Pendiente ajeno a este bloque: el camino completo de `CreatePurchaseUseCase`
+con crédito tropieza en una instalación fresca porque `cuentas_por_pagar` no
+tiene todavía `proveedor_id`/`compra_id`; no se alteró esa tabla al no ser un
+problema de costeo/Kardex.
+
 ## 3. Lógica contable comercial
 
 | Requisito / criterio | Norma o referencia | Archivo(s) que lo implementan | Test que lo cubre | Evidencia | Estado |

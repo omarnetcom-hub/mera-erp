@@ -25,6 +25,7 @@ import 'core/webhooks/webhook_service.dart';
 import 'features/feature_registry.dart';
 import 'features/feature_key.dart';
 import 'inventory/application/advanced_inventory_service.dart';
+import 'inventory/application/inventory_movement_service.dart';
 import 'inventory/application/price_history_service.dart';
 import 'models/company.dart';
 import 'models/company_profile.dart';
@@ -4951,16 +4952,29 @@ class DatabaseHelper {
           where: 'id = ? AND company_id = ?',
           whereArgs: [productoId, companyId],
         );
-        await txn.insert('movimientos_inventario', {
-          'company_id': companyId,
-          'producto_id': productoId,
-          'tipo': 'entrada',
-          'cantidad': cantidad,
-          'stock_anterior': stockActual,
-          'stock_nuevo': stockNuevo,
-          'motivo': 'ANULACION VENTA #$ventaId',
-          'fecha': DateTime.now().toIso8601String(),
-        });
+        final currentCost = MoneyValue.fromSql(
+          productos.first['costo'],
+          currency: currency,
+          nullableAsZero: true,
+        );
+        await InventoryMovementService.record(
+          db: txn,
+          companyId: companyId,
+          productId: productoId,
+          type: 'entrada',
+          quantity: cantidad,
+          stockBefore: stockActual,
+          stockAfter: stockNuevo,
+          costBeforeMinor: currentCost.toSql(),
+          costAfterMinor: currentCost.toSql(),
+          costTotalMinor: currentCost
+              .multiplyDecimal(cantidad.toString())
+              .toSql(),
+          reason: 'ANULACION VENTA #$ventaId',
+          date: DateTime.now().toIso8601String(),
+          documentType: 'anulacion_venta',
+          documentId: ventaId,
+        );
       }
 
       final metodo = await txn.query(
@@ -5139,16 +5153,29 @@ class DatabaseHelper {
             whereArgs: [productoId, companyId],
           );
 
-          await txn.insert('movimientos_inventario', {
-            'company_id': companyId,
-            'producto_id': productoId,
-            'tipo': 'salida',
-            'cantidad': cantidad,
-            'stock_anterior': stockActual,
-            'stock_nuevo': nuevoStock,
-            'motivo': 'ANULACION COMPRA #$compraId',
-            'fecha': DateTime.now().toIso8601String(),
-          });
+          final currentCost = MoneyValue.fromSql(
+            producto['costo'],
+            currency: currency,
+            nullableAsZero: true,
+          );
+          await InventoryMovementService.record(
+            db: txn,
+            companyId: companyId,
+            productId: productoId,
+            type: 'salida',
+            quantity: cantidad,
+            stockBefore: stockActual,
+            stockAfter: nuevoStock,
+            costBeforeMinor: currentCost.toSql(),
+            costAfterMinor: currentCost.toSql(),
+            costTotalMinor: currentCost
+                .multiplyDecimal(cantidad.toString())
+                .toSql(),
+            reason: 'ANULACION COMPRA #$compraId',
+            date: DateTime.now().toIso8601String(),
+            documentType: 'anulacion_compra',
+            documentId: compraId,
+          );
         }
 
         final metodoUpper = nombreMetodo.toString().trim().toUpperCase();
@@ -9415,6 +9442,10 @@ class DatabaseHelper {
   }) async {
     final db = await instance.database;
     final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
 
     await db.transaction((txn) async {
       final traslados = await txn.query(
@@ -9456,7 +9487,11 @@ class DatabaseHelper {
         where: 'id = ? AND company_id = ?',
         whereArgs: [productoId, companyId],
       );
-      final costoActual = (productos.first['costo'] as num?)?.toDouble() ?? 0;
+      final costoActual = MoneyValue.fromSql(
+        productos.first['costo'],
+        currency: currency,
+        nullableAsZero: true,
+      );
 
       // Generar OUT en bodega origen
       final nuevoStockOrigen = stockActualOrigen - cantidad;
@@ -9467,18 +9502,25 @@ class DatabaseHelper {
         whereArgs: [productoId, bodegaOrigenId, companyId],
       );
 
-      await txn.insert('movimientos_inventario', {
-        'company_id': companyId,
-        'producto_id': productoId,
-        'tipo': 'salida',
-        'cantidad': cantidad,
-        'stock_anterior': stockActualOrigen,
-        'stock_nuevo': nuevoStockOrigen,
-        'costo_anterior': costoActual,
-        'costo_nuevo': costoActual,
-        'motivo': 'TRASLADO #$trasladoId (BODEGA ORIGEN)',
-        'fecha': DateTime.now().toIso8601String(),
-      });
+      await InventoryMovementService.record(
+        db: txn,
+        companyId: companyId,
+        productId: productoId,
+        type: 'salida',
+        quantity: cantidad,
+        stockBefore: stockActualOrigen,
+        stockAfter: nuevoStockOrigen,
+        warehouseId: bodegaOrigenId,
+        costBeforeMinor: costoActual.toSql(),
+        costAfterMinor: costoActual.toSql(),
+        costTotalMinor: costoActual
+            .multiplyDecimal(cantidad.toString())
+            .toSql(),
+        reason: 'TRASLADO #$trasladoId (BODEGA ORIGEN)',
+        date: DateTime.now().toIso8601String(),
+        documentType: 'traslado',
+        documentId: trasladoId,
+      );
 
       // Generar IN en bodega destino
       final stockDestino = await txn.query(
@@ -9495,6 +9537,25 @@ class DatabaseHelper {
           'bodega_id': bodegaDestinoId,
           'cantidad': cantidad,
         });
+        await InventoryMovementService.record(
+          db: txn,
+          companyId: companyId,
+          productId: productoId,
+          type: 'entrada',
+          quantity: cantidad,
+          stockBefore: 0,
+          stockAfter: cantidad,
+          warehouseId: bodegaDestinoId,
+          costBeforeMinor: costoActual.toSql(),
+          costAfterMinor: costoActual.toSql(),
+          costTotalMinor: costoActual
+              .multiplyDecimal(cantidad.toString())
+              .toSql(),
+          reason: 'TRASLADO #$trasladoId (BODEGA DESTINO)',
+          date: DateTime.now().toIso8601String(),
+          documentType: 'traslado',
+          documentId: trasladoId,
+        );
       } else {
         final stockActualDestino = (stockDestino.first['cantidad'] as num)
             .toDouble();
@@ -9506,18 +9567,25 @@ class DatabaseHelper {
           whereArgs: [productoId, bodegaDestinoId, companyId],
         );
 
-        await txn.insert('movimientos_inventario', {
-          'company_id': companyId,
-          'producto_id': productoId,
-          'tipo': 'entrada',
-          'cantidad': cantidad,
-          'stock_anterior': stockActualDestino,
-          'stock_nuevo': nuevoStockDestino,
-          'costo_anterior': costoActual,
-          'costo_nuevo': costoActual,
-          'motivo': 'TRASLADO #$trasladoId (BODEGA DESTINO)',
-          'fecha': DateTime.now().toIso8601String(),
-        });
+        await InventoryMovementService.record(
+          db: txn,
+          companyId: companyId,
+          productId: productoId,
+          type: 'entrada',
+          quantity: cantidad,
+          stockBefore: stockActualDestino,
+          stockAfter: nuevoStockDestino,
+          warehouseId: bodegaDestinoId,
+          costBeforeMinor: costoActual.toSql(),
+          costAfterMinor: costoActual.toSql(),
+          costTotalMinor: costoActual
+              .multiplyDecimal(cantidad.toString())
+              .toSql(),
+          reason: 'TRASLADO #$trasladoId (BODEGA DESTINO)',
+          date: DateTime.now().toIso8601String(),
+          documentType: 'traslado',
+          documentId: trasladoId,
+        );
       }
 
       // Actualizar estado del traslado

@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import '../core/currency/currency.dart';
 import '../core/currency/money_currency_resolver.dart';
 import '../core/currency/money_value.dart';
+import '../inventory/application/inventory_movement_service.dart';
 import '../db_helper.dart';
 
 class EnterpriseLineItem {
@@ -39,10 +40,6 @@ class EnterpriseFeatureService {
   }) async {
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
-    final currency = await MoneyCurrencyResolver.resolve(
-      db,
-      companyId: companyId,
-    );
     return db.insert('bodegas', {
       'company_id': companyId,
       'codigo': codigo.trim().toUpperCase(),
@@ -711,16 +708,18 @@ class EnterpriseFeatureService {
         ],
       );
     }
-    await txn.insert('movimientos_inventario', {
-      'company_id': companyId,
-      'producto_id': productoId,
-      'tipo': 'salida',
-      'cantidad': cantidad,
-      'stock_anterior': stockActual,
-      'stock_nuevo': stockActual - cantidad,
-      'motivo': 'FACTURACION PEDIDO',
-      'fecha': DateTime.now().toIso8601String(),
-    });
+    await InventoryMovementService.record(
+      db: txn,
+      companyId: companyId,
+      productId: productoId,
+      type: 'salida',
+      quantity: cantidad,
+      stockBefore: stockActual,
+      stockAfter: stockActual - cantidad,
+      reason: 'FACTURACION PEDIDO',
+      date: DateTime.now().toIso8601String(),
+      documentType: 'pedido',
+    );
   }
 
   Future<void> _sumarStock(
@@ -743,16 +742,18 @@ class EnterpriseFeatureService {
       where: 'id = ? AND company_id = ?',
       whereArgs: [productoId, companyId],
     );
-    await txn.insert('movimientos_inventario', {
-      'company_id': companyId,
-      'producto_id': productoId,
-      'tipo': 'entrada',
-      'cantidad': cantidad,
-      'stock_anterior': stockActual,
-      'stock_nuevo': stockActual + cantidad,
-      'motivo': 'DEVOLUCION VENTA',
-      'fecha': DateTime.now().toIso8601String(),
-    });
+    await InventoryMovementService.record(
+      db: txn,
+      companyId: companyId,
+      productId: productoId,
+      type: 'entrada',
+      quantity: cantidad,
+      stockBefore: stockActual,
+      stockAfter: stockActual + cantidad,
+      reason: 'DEVOLUCION VENTA',
+      date: DateTime.now().toIso8601String(),
+      documentType: 'devolucion_venta',
+    );
   }
 
   Future<MoneyValue> _sum(

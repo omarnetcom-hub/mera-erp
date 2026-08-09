@@ -6,6 +6,7 @@ import '../../core/currency/money_currency_resolver.dart';
 import '../../core/currency/money_value.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
+import '../../inventory/application/inventory_movement_service.dart';
 
 class PurchaseItemInput {
   const PurchaseItemInput({
@@ -228,18 +229,22 @@ class CreatePurchaseUseCase {
           where: 'id = ? AND company_id = ?',
           whereArgs: [item.productId, companyId],
         );
-        await txn.insert('movimientos_inventario', {
-          'company_id': companyId,
-          'producto_id': item.productId,
-          'tipo': 'entrada',
-          'cantidad': item.quantity,
-          'stock_anterior': currentStock,
-          'stock_nuevo': newStock,
-          'costo_anterior': currentCost.toSql(),
-          'costo_nuevo': averageCost.toSql(),
-          'motivo': 'COMPRA #$purchaseId',
-          'fecha': now,
-        });
+        await InventoryMovementService.record(
+          db: txn,
+          companyId: companyId,
+          productId: item.productId,
+          type: 'entrada',
+          quantity: item.quantity,
+          stockBefore: currentStock,
+          stockAfter: newStock,
+          costBeforeMinor: currentCost.toSql(),
+          costAfterMinor: averageCost.toSql(),
+          costTotalMinor: item.subtotal.toSql(),
+          reason: 'COMPRA #$purchaseId',
+          date: now,
+          documentType: 'compra',
+          documentId: purchaseId,
+        );
       }
 
       if (payment.credit.minorUnits > 0) {

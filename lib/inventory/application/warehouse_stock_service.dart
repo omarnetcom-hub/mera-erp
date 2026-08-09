@@ -1,4 +1,5 @@
 import '../../db_helper.dart';
+import 'inventory_movement_service.dart';
 
 /// Operaciones de stock por bodega compartidas por produccion y otros modulos.
 /// MRP solo coordina estas operaciones; no modifica `stock_bodega` directamente.
@@ -89,16 +90,19 @@ class WarehouseStockService {
           whereArgs: [rows.single['id']],
         );
       }
-      await txn.insert('movimientos_inventario', {
-        'company_id': companyId,
-        'producto_id': productId,
-        'tipo': 'entrada',
-        'cantidad': quantity,
-        'stock_anterior': previous,
-        'stock_nuevo': next,
-        'motivo': reason,
-        'fecha': DateTime.now().toIso8601String(),
-      });
+      await InventoryMovementService.record(
+        db: txn,
+        companyId: companyId,
+        productId: productId,
+        type: 'entrada',
+        quantity: quantity,
+        stockBefore: previous,
+        stockAfter: next,
+        warehouseId: warehouseId,
+        reason: reason,
+        date: DateTime.now().toIso8601String(),
+        documentType: 'stock_bodega',
+      );
     });
   }
 
@@ -139,16 +143,19 @@ class WarehouseStockService {
         where: 'id = ?',
         whereArgs: [rows.single['id']],
       );
-      await txn.insert('movimientos_inventario', {
-        'company_id': companyId,
-        'producto_id': productId,
-        'tipo': 'salida',
-        'cantidad': quantity,
-        'stock_anterior': previous,
-        'stock_nuevo': next,
-        'motivo': reason,
-        'fecha': DateTime.now().toIso8601String(),
-      });
+      await InventoryMovementService.record(
+        db: txn,
+        companyId: companyId,
+        productId: productId,
+        type: 'salida',
+        quantity: quantity,
+        stockBefore: previous,
+        stockAfter: next,
+        warehouseId: warehouseId,
+        reason: reason,
+        date: DateTime.now().toIso8601String(),
+        documentType: 'stock_bodega',
+      );
     });
   }
 }

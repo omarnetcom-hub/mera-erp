@@ -1,6 +1,6 @@
 import '../../core/currency/money_value.dart';
 
-enum InventoryCostMethod { fifo, lifo, average }
+enum InventoryCostMethod { fifo, average }
 
 class StockLot {
   const StockLot({
@@ -134,10 +134,7 @@ class StockLedger {
       );
     }
     final ordered = [...lots]
-      ..sort((a, b) {
-        final compare = a.receivedAt.compareTo(b.receivedAt);
-        return method == InventoryCostMethod.fifo ? compare : -compare;
-      });
+      ..sort((a, b) => a.receivedAt.compareTo(b.receivedAt));
     return _consumeWithCost(quantity, ordered);
   }
 
