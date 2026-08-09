@@ -122,4 +122,4 @@ Analyze: `240 issues found`, sin errores; build Windows exitoso.
 
 Bloque 2 implementado y verificado con 16 pruebas dirigidas y regresiones de
 ventas/ledger. La lista de archivos temporales permanentes está en la carpeta
-de evidencia indicada. Commit: pendiente de crear en esta entrega.
+de evidencia indicada. Commit: `451156b`.
