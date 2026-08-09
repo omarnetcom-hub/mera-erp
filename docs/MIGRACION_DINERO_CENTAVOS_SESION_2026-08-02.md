@@ -963,6 +963,47 @@ flutter analyze
 flutter build windows
 ```
 
+### Verificacion global posterior
+
+Se intento la verificacion solicitada despues de publicar la Parte B. Los
+comandos globales no produjeron un resultado valido en este entorno:
+
+```text
+flutter analyze
+Exit code: 124 (mas de 120 s sin salida util; quedaron procesos dart/dartvm
+activos y fueron terminados despues del intento).
+
+flutter test --reporter silent --concurrency=1
+Flutter tool crash: PathExistsException sobre
+build/native_assets/windows/sqlite3.dll, errno=183.
+
+flutter build windows
+No produjo salida util antes de que el entorno liberara el proceso de prueba;
+debe repetirse manualmente despues de liberar el DLL.
+```
+
+La verificacion alternativa si respondio y quedo limpia para los seis archivos
+tocados en el bloque principal:
+
+```text
+dart format --output=none --set-exit-if-changed
+Formatted 6 files (0 changed) in 0.12 seconds.
+FORMAT_EXIT=0
+
+dart analyze lib/sector_publico/database/schema_multi_tenant.dart
+lib/sector_publico/auditoria/services/fut_territorial_service.dart
+lib/sector_publico/auditoria/services/sia_observa_service.dart
+lib/sector_publico/siif/services/siif_service.dart
+lib/sector_publico/rentas/models/predio.dart
+test/sector_publico/presupuesto/presupuesto_publico_page_test.dart
+No issues found!
+```
+
+Se eliminaron tres imports `dart:convert` no usados detectados por ese
+analisis acotado. No se declara la suite global ni el build cerrados hasta que
+Omar ejecute los cuatro comandos anteriores en un entorno sin el bloqueo de
+native assets.
+
 Estos dos comandos quedan pendientes de verificacion global por Omar.
 
 ## Continuacion Fase 3A - verificacion alternativa y bloques restantes - 2026-08-08

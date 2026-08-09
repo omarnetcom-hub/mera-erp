@@ -2,7 +2,6 @@
 /// Lectura de Presupuesto/Tesorería, validaciones contables y exportación a plano mensual
 library;
 
-import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'package:merka_erp/core/currency/public_sector_money.dart';

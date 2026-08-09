@@ -2,7 +2,6 @@
 /// Integración de Contratación, Presupuesto y Nómina para Plan de Mejoramiento Anual
 library;
 
-import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'package:merka_erp/core/currency/public_sector_money.dart';
