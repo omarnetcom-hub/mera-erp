@@ -16,6 +16,7 @@ import 'package:merka_erp/sector_publico/presupuesto/models/cdp.dart';
 import 'package:merka_erp/sector_publico/presupuesto/models/rp.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
 import 'package:merka_erp/sector_publico/contratacion/database/schema_contratacion.dart';
+import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
 import 'package:merka_erp/sector_publico/presupuesto/database/schema_presupuesto.dart';
 
 Future<void> _pumpBudgetUi(WidgetTester tester) async {
@@ -23,7 +24,7 @@ Future<void> _pumpBudgetUi(WidgetTester tester) async {
   await tester.runAsync(() async {
     await Future<void>.delayed(const Duration(seconds: 2));
   });
-  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
 }
 
 void main() {
@@ -32,8 +33,6 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  // Omitido en este runner: las pruebas de widget dejan futures pendientes
-  // antes de sus aserciones. Validar este grupo en el entorno local de Omar.
   group('Presupuesto Público Page Tests', () {
     late Database db;
     late PresupuestoService presupuestoService;
@@ -48,6 +47,7 @@ void main() {
           '${Directory.systemTemp.path}/phase4_presupuesto_ui_${DateTime.now().microsecondsSinceEpoch}.db';
       db = await databaseFactory.openDatabase(dbPath);
       DatabaseHelper.setTestDatabase(db);
+      await SchemaMultiTenant.crearTablas(db);
       await SchemaContratacion.crearTablas(db);
       // Usa primero el esquema versionado real. Los CREATE locales de abajo
       // quedan como compatibilidad histórica, pero no pueden ocultar columnas
@@ -927,5 +927,5 @@ void main() {
         expect(obligacionData['estado'], 'pendiente');
       },
     );
-  }, skip: true);
+  });
 }

@@ -963,6 +963,49 @@ flutter analyze
 flutter build windows
 ```
 
+## Correccion del skip de presupuesto publico
+
+En `f08658a`, el cierre del grupo `Presupuesto Público Page Tests` era
+literalmente `}, skip: true);`. Era un skip incondicional agregado para
+evitar que el runner del sandbox quedara esperando; no detectaba el entorno
+ni una condicion del test. Se elimino ese skip.
+
+La inspeccion del flujo encontro tambien que el fixture solo creaba los
+esquemas de contratacion y presupuesto, aunque `PresupuestoPublicoPage`
+construye `AuditoriaService` y `PresupuestoService` con auditoria activa.
+Se agrego `SchemaMultiTenant.crearTablas(db)` al `setUp`, que define
+`auditoria_registros` y sus triggers. En la corrida instrumentada, la
+apropiacion se inserto y el registro de auditoria termino correctamente.
+
+El helper conserva la espera real para SQLite, pero avanza 500 ms del reloj
+falso del tester despues de cada interaccion. Esto evita acumular animaciones
+de `InputDecorator`, scroll y splash cuando se mezclan operaciones nativas
+con el reloj falso.
+
+La evidencia final de esta sesion no certifica aun los 7 casos: despues de
+quitar el skip, el runner Windows quedo detenido en el primer
+`testWidgets` sin emitir resumen dentro de 60 segundos. Las pruebas de
+diagnostico mostraron callbacks de animacion del propio framework y un
+`PathExistsException` previo sobre `build/native_assets/windows/sqlite3.dll`;
+no se encontro un error de negocio nuevo en el flujo de apropiacion. No se
+declara cerrada la subtarea ni `Fase 4: COMPLETA`.
+
+Comando exacto pendiente para Omar, despues de cerrar procesos
+`flutter_tester.exe` y limpiar solo `build/native_assets`:
+
+```text
+flutter test test/sector_publico/presupuesto/presupuesto_publico_page_test.dart --reporter expanded --concurrency=1
+flutter test --reporter expanded --concurrency=1
+flutter analyze
+flutter build windows
+```
+
+### Cierre de la subtarea presupuesto_publico_page_test.dart
+
+Skip incondicional eliminado; esquema de auditoria agregado al fixture;
+verificacion de los 7 tests pendiente por bloqueo del runner Flutter
+Windows. No se hizo push de una falsa certificacion.
+
 ## Fase 4 - Regresiones del trigger v76 y bloqueo de presupuesto
 
 ### Diagnostico y decisiones
