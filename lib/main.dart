@@ -23,6 +23,7 @@ import 'services/merka_intelligence_service.dart';
 import 'services/task_scheduler_service.dart';
 import 'services/licencia_service.dart';
 import 'ui/enterprise_design_system.dart';
+import 'ui/merka_theme_tokens.dart';
 import 'ui/sales_mode_panel.dart';
 import 'ui/operations_mode_panel.dart';
 import 'ui/finance_mode_panel.dart';
@@ -73,7 +74,7 @@ Future<void> main() async {
       try {
         await PublicApiServer.start();
       } catch (_) {}
-      
+
       // Inicializar nuevos servicios
       try {
         await LoggingService.instance.initialize();
@@ -99,14 +100,18 @@ Future<void> main() async {
       try {
         await HybridSyncService.instance.initialize();
       } catch (_) {}
-      
+
       // Ejecutar tareas programadas al iniciar la aplicación
       try {
         final taskScheduler = TaskSchedulerService();
         final results = await taskScheduler.runPendingTasks();
-        final pendingTasks = results.where((r) => r.status == 'completed').toList();
+        final pendingTasks = results
+            .where((r) => r.status == 'completed')
+            .toList();
         if (pendingTasks.isNotEmpty) {
-          debugPrint('Tareas ejecutadas: ${pendingTasks.map((r) => r.taskName).join(', ')}');
+          debugPrint(
+            'Tareas ejecutadas: ${pendingTasks.map((r) => r.taskName).join(', ')}',
+          );
         }
       } catch (_) {}
     },
@@ -185,9 +190,7 @@ class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -195,9 +198,7 @@ class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
 
         switch (state) {
           case _StartupState.needsOnboarding:
-            return OnboardingPage(
-              onFinished: _reload,
-            );
+            return OnboardingPage(onFinished: _reload);
           case _StartupState.needsLicense:
             return LicenseActivationPage(onActivated: _reload);
           case _StartupState.ready:
@@ -210,8 +211,8 @@ class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
   Future<_StartupState> _checkStartup() async {
     try {
       // 1. Onboarding primero: sin empresa configurada no tiene sentido activar licencia
-      final needsOnboarding =
-          await CompanyConfigurationService.instance.needsOnboarding();
+      final needsOnboarding = await CompanyConfigurationService.instance
+          .needsOnboarding();
       if (needsOnboarding) return _StartupState.needsOnboarding;
 
       // 2. Verificar licencia
@@ -282,19 +283,6 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     setState(fn);
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
   void _toggleFavorite(String moduleId) {
     setState(() {
       if (_favoriteModuleIds.contains(moduleId)) {
@@ -338,15 +326,12 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     _showCommandPaletteDialog(this, context, modules);
   }
 
-
   Future<void> _showNotificationCenter(
     BuildContext context,
     List<ModuleDefinition> modules,
   ) async {
     await _showNotificationCenterSheet(this, context, modules);
   }
-
-
 
   void _showCopilot(BuildContext context, List<ModuleDefinition> modules) {
     _showCopilotDialog(this, context, modules);
@@ -373,13 +358,13 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        
+
         if (snapshot.hasError) {
           // Si hay error en la configuración, mostrar el menú de todos modos
           debugPrint('Error loading configuration: ${snapshot.error}');
           return _buildCentroTrabajo(context);
         }
-        
+
         final config = CompanyConfigurationService.instance.cached;
         if (config?.onboardingCompleted == false) {
           return OnboardingPage(
@@ -396,5 +381,3 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     );
   }
 }
-
-

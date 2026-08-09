@@ -18,6 +18,7 @@ import 'sales/application/create_sale_use_case.dart';
 import 'sales/data/sale_repository.dart';
 import 'services/merka_intelligence_service.dart';
 import 'ui/enterprise_design_system.dart';
+import 'ui/merka_theme_tokens.dart';
 
 class VentasPage extends StatefulWidget {
   const VentasPage({super.key});
@@ -165,7 +166,10 @@ class _VentasPageState extends State<VentasPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: MerkaThemeTokens.danger,
+        ),
       );
     }
   }
@@ -176,7 +180,7 @@ class _VentasPageState extends State<VentasPage> {
       messenger.showSnackBar(
         const SnackBar(
           content: Text('No tienes permiso para crear ventas.'),
-          backgroundColor: Colors.orange,
+          backgroundColor: MerkaThemeTokens.warning,
         ),
       );
       return;
@@ -185,7 +189,7 @@ class _VentasPageState extends State<VentasPage> {
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Operacion bloqueada por cierre de caja.'),
-          backgroundColor: Colors.orange,
+          backgroundColor: MerkaThemeTokens.warning,
         ),
       );
       return;
@@ -209,7 +213,7 @@ class _VentasPageState extends State<VentasPage> {
       messenger.showSnackBar(
         const SnackBar(
           content: Text('No hay productos con stock disponible.'),
-          backgroundColor: Colors.orange,
+          backgroundColor: MerkaThemeTokens.warning,
         ),
       );
       return;
@@ -281,7 +285,7 @@ class _VentasPageState extends State<VentasPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Stock insuficiente para ${producto['nombre']}'),
-            backgroundColor: Colors.red,
+            backgroundColor: MerkaThemeTokens.danger,
           ),
         );
         return;
@@ -430,7 +434,7 @@ class _VentasPageState extends State<VentasPage> {
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           const SnackBar(
                             content: Text('Producto no encontrado por codigo.'),
-                            backgroundColor: Colors.orange,
+                            backgroundColor: MerkaThemeTokens.warning,
                           ),
                         );
                         return;
@@ -716,7 +720,7 @@ class _VentasPageState extends State<VentasPage> {
                       'Total: ${_moneda(totalCarrito())}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700,
+                        color: MerkaThemeTokens.success,
                       ),
                     ),
                   ),
@@ -737,10 +741,14 @@ class _VentasPageState extends State<VentasPage> {
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.green.shade50,
+                              color: MerkaThemeTokens.success.withValues(
+                                alpha: 0.10,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: Colors.green.shade300,
+                                color: MerkaThemeTokens.success.withValues(
+                                  alpha: 0.45,
+                                ),
                                 width: 2,
                               ),
                             ),
@@ -751,7 +759,7 @@ class _VentasPageState extends State<VentasPage> {
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.green,
+                                    color: MerkaThemeTokens.success,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -760,7 +768,7 @@ class _VentasPageState extends State<VentasPage> {
                                   style: const TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.green,
+                                    color: MerkaThemeTokens.success,
                                   ),
                                 ),
                               ],
@@ -811,7 +819,7 @@ class _VentasPageState extends State<VentasPage> {
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           SnackBar(
                             content: Text(e.toString()),
-                            backgroundColor: Colors.red,
+                            backgroundColor: MerkaThemeTokens.danger,
                           ),
                         );
                         return;
@@ -823,7 +831,7 @@ class _VentasPageState extends State<VentasPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Factura emitida correctamente'),
-                          backgroundColor: Colors.green,
+                          backgroundColor: MerkaThemeTokens.success,
                         ),
                       );
                     },
@@ -1805,7 +1813,7 @@ class _CarritoVenta extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
+          color: MerkaThemeTokens.paper100,
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Text('Agrega productos para emitir la factura.'),

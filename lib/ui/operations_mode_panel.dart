@@ -5,6 +5,7 @@ import '../core/currency/money_currency_resolver.dart';
 import '../core/currency/money_value.dart';
 import '../db_helper.dart';
 import '../services/merka_intelligence_service.dart';
+import 'merka_theme_tokens.dart';
 
 class OperationsModePanel extends StatefulWidget {
   const OperationsModePanel({
@@ -105,7 +106,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+        child: CircularProgressIndicator(color: MerkaThemeTokens.navy800),
       );
     }
 
@@ -124,7 +125,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                     title: 'Stock Crítico',
                     subtitle: '${_criticalStock.length} productos críticos',
                     icon: PhosphorIcons.warningCircle(),
-                    iconColor: const Color(0xFFEF4444),
+                    iconColor: MerkaThemeTokens.danger,
                     child: _criticalStock.isEmpty
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
@@ -132,7 +133,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                               'Todo el stock está correcto.',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF4B5563),
+                                color: MerkaThemeTokens.graphite600,
                               ),
                             ),
                           )
@@ -168,7 +169,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                                   minimumSize: Size.zero,
                                   tapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
-                                  foregroundColor: Colors.blue,
+                                  foregroundColor: MerkaThemeTokens.navy600,
                                 ),
                               ),
                             ],
@@ -181,7 +182,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                     title: 'Próximos a Vencer',
                     subtitle: '${_expiringProducts.length} lotes por vencer',
                     icon: PhosphorIcons.timer(),
-                    iconColor: const Color(0xFFF59E0B),
+                    iconColor: MerkaThemeTokens.warning,
                     child: _expiringProducts.isEmpty
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
@@ -189,7 +190,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                               'Sin lotes próximos a vencer.',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF4B5563),
+                                color: MerkaThemeTokens.graphite600,
                               ),
                             ),
                           )
@@ -229,19 +230,19 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                 _ShortcutButton(
                   label: 'Entrada Mercancía',
                   icon: PhosphorIcons.arrowDown(),
-                  color: const Color(0xFF10B981),
+                  color: MerkaThemeTokens.success,
                   onTap: widget.onOpenPurchases,
                 ),
                 _ShortcutButton(
                   label: 'Salida / Despacho',
                   icon: PhosphorIcons.arrowUp(),
-                  color: const Color(0xFFEF4444),
+                  color: MerkaThemeTokens.danger,
                   onTap: widget.onOpenInventory,
                 ),
                 _ShortcutButton(
                   label: 'Traslados Bodega',
                   icon: PhosphorIcons.arrowsLeftRight(),
-                  color: const Color(0xFF2563EB),
+                  color: MerkaThemeTokens.navy800,
                   onTap: widget.onOpenInventory,
                 ),
               ],
@@ -254,7 +255,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: MerkaThemeTokens.paper100),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +272,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                         child: _ChartBar(
                           label: 'Entradas (Compras)',
                           value: _totalEntries,
-                          color: const Color(0xFF2563EB),
+                          color: MerkaThemeTokens.navy800,
                           max: _totalEntries > _totalExits
                               ? _totalEntries
                               : _totalExits,
@@ -282,7 +283,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                         child: _ChartBar(
                           label: 'Salidas (Ventas)',
                           value: _totalExits,
-                          color: const Color(0xFFEF4444),
+                          color: MerkaThemeTokens.danger,
                           max: _totalEntries > _totalExits
                               ? _totalEntries
                               : _totalExits,
@@ -305,7 +306,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: MerkaThemeTokens.paper100),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,7 +324,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                       const Icon(
                         Icons.history_outlined,
                         size: 16,
-                        color: Color(0xFF4B5563),
+                        color: MerkaThemeTokens.graphite600,
                       ),
                     ],
                   ),
@@ -336,7 +337,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                           'No hay órdenes de compra pendientes.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF4B5563),
+                            color: MerkaThemeTokens.graphite600,
                           ),
                         ),
                       ),
@@ -349,7 +350,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(
                           Icons.shopping_bag_outlined,
-                          color: Color(0xFF2563EB),
+                          color: MerkaThemeTokens.navy800,
                         ),
                         title: Text('Orden #${ord['id']}'),
                         subtitle: Text(
@@ -372,7 +373,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: MerkaThemeTokens.paper100),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -400,7 +401,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                                 const Icon(
                                   Icons.business,
                                   size: 16,
-                                  color: Color(0xFF4B5563),
+                                  color: MerkaThemeTokens.graphite600,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -417,7 +418,7 @@ class _OperationsModePanelState extends State<OperationsModePanel> {
                                   sup['nit']?.toString() ?? '',
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFF4B5563),
+                                    color: MerkaThemeTokens.graphite600,
                                   ),
                                 ),
                               ],
@@ -479,7 +480,7 @@ class _WidgetCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: MerkaThemeTokens.paper100),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,7 +501,10 @@ class _WidgetCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 10, color: Color(0xFF4B5563)),
+            style: const TextStyle(
+              fontSize: 10,
+              color: MerkaThemeTokens.graphite600,
+            ),
           ),
           const Divider(height: 16),
           child,
@@ -528,9 +532,12 @@ class _ShortcutButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, color: color, size: 16),
-      label: Text(label, style: const TextStyle(color: Color(0xFF1F2937))),
+      label: Text(
+        label,
+        style: const TextStyle(color: MerkaThemeTokens.graphite900),
+      ),
       style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: MerkaThemeTokens.paper100),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
@@ -574,7 +581,7 @@ class _ChartBar extends StatelessWidget {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF4B5563),
+            color: MerkaThemeTokens.graphite600,
           ),
         ),
       ],

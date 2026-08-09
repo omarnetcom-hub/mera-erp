@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'ui/merka_theme_tokens.dart';
+
+/// Legacy brand API kept for source compatibility.
+///
+/// Use [MerkaThemeTokens] and [EnterpriseThemeEngine] for new UI code.
+@Deprecated('Use MerkaThemeTokens and EnterpriseThemeEngine instead.')
 class AppBrand {
   const AppBrand._();
 
@@ -8,18 +14,18 @@ class AppBrand {
   static const description =
       'Operacion, finanzas, contabilidad y control en un solo sistema.';
 
-  static const primary = Color(0xFF2563EB);
-  static const secondary = Color(0xFF2563EB);
-  static const accent = Color(0xFF1D4ED8);
-  static const success = Color(0xFF10B981);
-  static const warning = Color(0xFFF59E0B);
-  static const error = Color(0xFFEF4444);
-  static const info = Color(0xFF3B82F6);
-  static const ink = Color(0xFF1F2937);
-  static const muted = Color(0xFF4B5563);
-  static const surface = Color(0xFFF3F4F6);
-  static const darkSurface = Color(0xFF374151);
-  static const darkBackground = Color(0xFF1F2937);
+  static const primary = MerkaThemeTokens.navy800;
+  static const secondary = MerkaThemeTokens.gold500;
+  static const accent = MerkaThemeTokens.gold400;
+  static const success = MerkaThemeTokens.success;
+  static const warning = MerkaThemeTokens.warning;
+  static const error = MerkaThemeTokens.danger;
+  static const info = MerkaThemeTokens.info;
+  static const ink = MerkaThemeTokens.graphite900;
+  static const muted = MerkaThemeTokens.graphite600;
+  static const surface = MerkaThemeTokens.paper50;
+  static const darkSurface = MerkaThemeTokens.navy800;
+  static const darkBackground = MerkaThemeTokens.navy900;
 }
 
 class MerkaLogo extends StatelessWidget {

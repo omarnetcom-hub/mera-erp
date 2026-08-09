@@ -68,7 +68,10 @@ List<ModuleDefinition> _allModules(List<_WorkspaceSection> sections) {
 }
 
 // Moved from _MenuPrincipalState in main.dart (Bloque 4d.3).
-List<_WorkspaceSection> _filterSections(_MenuPrincipalState state, List<_WorkspaceSection> sections) {
+List<_WorkspaceSection> _filterSections(
+  _MenuPrincipalState state,
+  List<_WorkspaceSection> sections,
+) {
   final query = state._globalSearchController.text.toLowerCase().trim();
   if (query.isEmpty) return sections;
   return [
@@ -148,11 +151,15 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
 
       final sections = _filterSections(state, baseSections);
       final allModules = _allModules(baseSections);
-      final favoriteModules = modulesByIds(allModules, state._favoriteModuleIds);
+      final favoriteModules = modulesByIds(
+        allModules,
+        state._favoriteModuleIds,
+      );
       final recentModules = modulesByIds(allModules, state._recentModuleIds);
       void commandPalette() => state._showCommandPalette(context, allModules);
       void copilot() => state._showCopilot(context, allModules);
-      void notifications() => state._showNotificationCenter(context, allModules);
+      void notifications() =>
+          state._showNotificationCenter(context, allModules);
 
       return CallbackShortcuts(
         bindings: {
@@ -178,7 +185,8 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
                           sections: baseSections,
                           favoriteIds: state._favoriteModuleIds,
                           onToggleFavorite: state._toggleFavorite,
-                          onOpen: (module) => state._openModule(context, module),
+                          onOpen: (module) =>
+                              state._openModule(context, module),
                           onLogout: () {
                             AppSession.cerrar();
                             Navigator.pushReplacement(
@@ -236,21 +244,24 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
                             return const SizedBox.shrink();
                           }
                           return IconButton(
-                            tooltip: 'Perfil del ERP (Comercial / Sector Público)',
+                            tooltip:
+                                'Perfil del ERP (Comercial / Sector Público)',
                             onPressed: () async {
                               final uid = AppSession.usuarioId ?? 'sin_sesion';
-                              final modoActual = await SelectorModoService.obtenerModoActual();
+                              final modoActual =
+                                  await SelectorModoService.obtenerModoActual();
                               if (!context.mounted) return;
-                              final nuevoModo = await Navigator.push<ModoOperacion>(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => SelectorModoScreen(
-                                    entidadId: AppSession.entidadId,
-                                    usuarioId: uid,
-                                    modoInicial: modoActual,
-                                  ),
-                                ),
-                              );
+                              final nuevoModo =
+                                  await Navigator.push<ModoOperacion>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => SelectorModoScreen(
+                                        entidadId: AppSession.entidadId,
+                                        usuarioId: uid,
+                                        modoInicial: modoActual,
+                                      ),
+                                    ),
+                                  );
                               if (nuevoModo != null) {
                                 state.setState(() {});
                               }
@@ -286,8 +297,10 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
                   floatingActionButton: mobile
                       ? FloatingActionButton.extended(
                           tooltip: 'Accion rapida',
-                          onPressed: () =>
-                              state._showMobileQuickActions(context, allModules),
+                          onPressed: () => state._showMobileQuickActions(
+                            context,
+                            allModules,
+                          ),
                           icon: const Icon(Icons.bolt),
                           label: const Text('Acciones'),
                         )
@@ -301,10 +314,12 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
                             collapsed: state._sidebarCollapsed,
                             onToggleCollapsed: () {
                               state._updateState(() {
-                                state._sidebarCollapsed = !state._sidebarCollapsed;
+                                state._sidebarCollapsed =
+                                    !state._sidebarCollapsed;
                               });
                             },
-                            onOpen: (module) => state._openModule(context, module),
+                            onOpen: (module) =>
+                                state._openModule(context, module),
                           ),
                         Expanded(
                           child: _WorkspaceBody(
@@ -315,11 +330,14 @@ Widget _buildWorkspaceCenter(_MenuPrincipalState state, BuildContext context) {
                             viewport: viewport,
                             mode: state._workspaceMode,
                             onModeChanged: (mode) {
-                              state._updateState(() => state._workspaceMode = mode);
+                              state._updateState(
+                                () => state._workspaceMode = mode,
+                              );
                             },
                             searchController: state._globalSearchController,
                             onSearchChanged: (_) => state._updateState(() {}),
-                            onOpen: (module) => state._openModule(context, module),
+                            onOpen: (module) =>
+                                state._openModule(context, module),
                             onToggleFavorite: state._toggleFavorite,
                             favoriteIds: state._favoriteModuleIds,
                             onCommandPalette: commandPalette,
@@ -1012,7 +1030,7 @@ class _AccountingCommandCenter extends StatelessWidget {
                   title: 'Reportar',
                   detail: 'BI, fiscal y exportes',
                   icon: Icons.bar_chart,
-                  color: const Color(0xFF7B2CBF),
+                  color: MerkaThemeTokens.gold400,
                   module: _find('reports'),
                 ),
               ];
@@ -1357,11 +1375,7 @@ class _WorkspaceModeSelector extends StatelessWidget {
               PhosphorIcons.warning(),
               'Cumplimiento y Alertas',
             ),
-            (
-              _WorkspaceMode.publicTransparency,
-              Icons.public,
-              'Transparencia',
-            ),
+            (_WorkspaceMode.publicTransparency, Icons.public, 'Transparencia'),
           ]
         : [
             (_WorkspaceMode.dashboard, PhosphorIcons.house(), 'Dashboard'),
@@ -1375,9 +1389,9 @@ class _WorkspaceModeSelector extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: MerkaThemeTokens.paper50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: MerkaThemeTokens.paper100),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1391,16 +1405,16 @@ class _WorkspaceModeSelector extends StatelessWidget {
                   size: 16,
                   color: item.$1 == selectedMode
                       ? Colors.white
-                      : const Color(0xFF4B5563),
+                      : MerkaThemeTokens.graphite600,
                 ),
                 label: Text(item.$3),
                 selected: item.$1 == selectedMode,
                 showCheckmark: false,
-                selectedColor: const Color(0xFF2563EB),
+                selectedColor: MerkaThemeTokens.navy800,
                 labelStyle: TextStyle(
                   color: item.$1 == selectedMode
                       ? Colors.white
-                      : const Color(0xFF4B5563),
+                      : MerkaThemeTokens.graphite600,
                   fontWeight: FontWeight.w700,
                 ),
                 onSelected: (_) => onChanged(item.$1),
@@ -1458,9 +1472,7 @@ class _ModeWorkspace extends StatelessWidget {
           ),
         );
       case _WorkspaceMode.sales:
-        return SalesModePanel(
-          onCopilot: onCopilot,
-        );
+        return SalesModePanel(onCopilot: onCopilot);
       case _WorkspaceMode.operations:
         return SingleChildScrollView(
           child: OperationsModePanel(
@@ -1501,9 +1513,7 @@ class _ModeWorkspace extends StatelessWidget {
           ),
         );
       case _WorkspaceMode.publicCompliance:
-        return const SingleChildScrollView(
-          child: _PublicComplianceModePanel(),
-        );
+        return const SingleChildScrollView(child: _PublicComplianceModePanel());
       case _WorkspaceMode.publicTransparency:
         return const SingleChildScrollView(
           child: _PublicTransparencyModePanel(),
@@ -1558,7 +1568,7 @@ class _DashboardModePanelState extends State<_DashboardModePanel> {
       if (companyRows.isEmpty) return;
       final companyId = companyRows.first['valor']?.toString();
       if (companyId == null) return;
-      
+
       final rows = await db.query(
         'company_settings',
         where: 'company_id = ? AND setting_key = ?',
@@ -1617,7 +1627,7 @@ class _DashboardModePanelState extends State<_DashboardModePanel> {
         onCopilot: widget.onCopilot,
       );
     }
-    
+
     return FutureBuilder<DashboardSnapshot>(
       future: MerkaIntelligenceService().dashboardSnapshot(),
       builder: (context, snapshot) {
@@ -1658,28 +1668,28 @@ class _DashboardModePanelState extends State<_DashboardModePanel> {
                         label: 'Ventas hoy',
                         value: _moneyCompact(data.salesToday),
                         icon: PhosphorIcons.shoppingCart(),
-                        color: const Color(0xFF2563EB),
+                        color: MerkaThemeTokens.navy800,
                       ),
                     if (_visibleKpis.contains('stock'))
                       _DashboardKpi(
                         label: 'Stock critico',
                         value: '${data.criticalStock}',
                         icon: PhosphorIcons.warningCircle(),
-                        color: const Color(0xFFEF4444),
+                        color: MerkaThemeTokens.danger,
                       ),
                     if (_visibleKpis.contains('receivables'))
                       _DashboardKpi(
                         label: 'Cartera vencida',
                         value: _moneyCompact(data.overdueReceivables),
                         icon: PhosphorIcons.wallet(),
-                        color: const Color(0xFFF59E0B),
+                        color: MerkaThemeTokens.warning,
                       ),
                     if (_visibleKpis.contains('cash'))
                       _DashboardKpi(
                         label: 'Flujo de caja',
                         value: _moneyCompact(data.cashFlow),
                         icon: PhosphorIcons.coins(),
-                        color: const Color(0xFF10B981),
+                        color: MerkaThemeTokens.success,
                       ),
                   ],
                 ),
@@ -1691,13 +1701,13 @@ class _DashboardModePanelState extends State<_DashboardModePanel> {
                       _MiniChartPanel(
                         title: 'Ventas ultimos 7 dias',
                         values: data.salesLast7Days,
-                        color: const Color(0xFF2563EB),
+                        color: MerkaThemeTokens.navy800,
                       ),
                       _MiniChartPanel(
                         title: 'Ingresos vs gastos del mes',
                         values: [data.incomeMonth, data.expenseMonth],
-                        color: const Color(0xFF10B981),
-                        secondColor: const Color(0xFFEF4444),
+                        color: MerkaThemeTokens.success,
+                        secondColor: MerkaThemeTokens.danger,
                       ),
                     ];
                     return compact
@@ -1728,18 +1738,18 @@ class _DashboardModePanelState extends State<_DashboardModePanel> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                    _ModeAction(
-                      icon: PhosphorIcons.bell(),
-                      label: 'Ver alertas',
-                      color: const Color(0xFFF59E0B),
-                      onTap: widget.onNotifications,
-                    ),
-                    _ModeAction(
-                      icon: PhosphorIcons.brain(),
-                      label: 'Preguntar al Copilot',
-                      color: const Color(0xFF2563EB),
-                      onTap: widget.onCopilot,
-                    ),
+                  _ModeAction(
+                    icon: PhosphorIcons.bell(),
+                    label: 'Ver alertas',
+                    color: MerkaThemeTokens.warning,
+                    onTap: widget.onNotifications,
+                  ),
+                  _ModeAction(
+                    icon: PhosphorIcons.brain(),
+                    label: 'Preguntar al Copilot',
+                    color: MerkaThemeTokens.navy800,
+                    onTap: widget.onCopilot,
+                  ),
                 ],
               ),
             ],
@@ -1765,7 +1775,7 @@ class _ModeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF2563EB), size: 24),
+        Icon(icon, color: MerkaThemeTokens.navy800, size: 24),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1832,7 +1842,7 @@ class _DashboardKpi extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: MerkaThemeTokens.paper100),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -1856,7 +1866,7 @@ class _DashboardKpi extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontSize: 24,
-                      color: const Color(0xFF1F2937),
+                      color: MerkaThemeTokens.graphite900,
                     ),
                   ),
                   Text(
@@ -1864,7 +1874,7 @@ class _DashboardKpi extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF4B5563),
+                      color: MerkaThemeTokens.graphite600,
                     ),
                   ),
                 ],
@@ -1901,7 +1911,7 @@ class _MiniChartPanel extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: MerkaThemeTokens.paper100),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -2099,7 +2109,8 @@ class _SyncIndicator extends StatefulWidget {
   State<_SyncIndicator> createState() => _SyncIndicatorState();
 }
 
-class _SyncIndicatorState extends State<_SyncIndicator> with SingleTickerProviderStateMixin {
+class _SyncIndicatorState extends State<_SyncIndicator>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   final _repository = const SqliteSyncRepository();
   SyncStatusSnapshot? _snapshot;
@@ -2175,19 +2186,19 @@ class _SyncIndicatorState extends State<_SyncIndicator> with SingleTickerProvide
     String text;
 
     if (_isSyncing) {
-      color = Colors.blue;
+      color = MerkaThemeTokens.navy600;
       icon = Icons.sync;
       text = 'Sincronizando...';
     } else if (hasConflicts) {
-      color = Colors.red;
+      color = MerkaThemeTokens.danger;
       icon = Icons.warning;
       text = 'Conflictos (${snap.conflicts})';
     } else if (hasPending) {
-      color = Colors.orange;
+      color = MerkaThemeTokens.warning;
       icon = Icons.cloud_queue;
       text = 'Pendientes (${snap.pendingOutbox})';
     } else {
-      color = Colors.green;
+      color = MerkaThemeTokens.success;
       icon = Icons.cloud_done;
       text = 'Offline-First Activo';
     }
@@ -2200,9 +2211,7 @@ class _SyncIndicatorState extends State<_SyncIndicator> with SingleTickerProvide
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(EnterpriseSpacing.sm),
-          border: Border.all(
-            color: color.withValues(alpha: 0.3),
-          ),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2214,7 +2223,11 @@ class _SyncIndicatorState extends State<_SyncIndicator> with SingleTickerProvide
                       return Icon(
                         icon,
                         size: 16,
-                        color: Color.lerp(color, color.withValues(alpha: 0.3), _controller.value),
+                        color: Color.lerp(
+                          color,
+                          color.withValues(alpha: 0.3),
+                          _controller.value,
+                        ),
                       );
                     },
                   )
@@ -2818,13 +2831,13 @@ Future<void> _showNotificationCenterSheet(
               icon: alert.kind == 'expiring_product'
                   ? PhosphorIcons.timer()
                   : alert.kind == 'critical_stock'
-                      ? PhosphorIcons.warningCircle()
-                      : PhosphorIcons.wallet(),
+                  ? PhosphorIcons.warningCircle()
+                  : PhosphorIcons.wallet(),
               color: alert.priority == 'urgent'
-                  ? const Color(0xFFEF4444)
+                  ? MerkaThemeTokens.danger
                   : alert.priority == 'warning'
-                      ? const Color(0xFFF59E0B)
-                      : const Color(0xFF10B981),
+                  ? MerkaThemeTokens.warning
+                  : MerkaThemeTokens.success,
               module: _moduleById(
                 modules,
                 alert.kind == 'receivable' ? 'receivables' : 'inventory',
@@ -2850,9 +2863,9 @@ Future<void> _showNotificationCenterSheet(
               children: [
                 Text(
                   'Notification Center',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: EnterpriseSpacing.md),
                 for (final item in notifications)
@@ -2948,9 +2961,7 @@ void _showCopilotDialog(
       return Dialog(
         alignment: Alignment.centerRight,
         insetPadding: const EdgeInsets.only(top: 16, bottom: 16, right: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: SizedBox(
           width: 380,
           height: MediaQuery.sizeOf(context).height * 0.85,
@@ -3180,7 +3191,8 @@ class _PublicDashboardModePanel extends StatefulWidget {
   final VoidCallback onCopilot;
 
   @override
-  State<_PublicDashboardModePanel> createState() => _PublicDashboardModePanelState();
+  State<_PublicDashboardModePanel> createState() =>
+      _PublicDashboardModePanelState();
 }
 
 class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
@@ -3196,37 +3208,42 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
   Future<void> _loadDashboardData() async {
     try {
       final db = await DatabaseHelper.instance.database;
-      
+
       // 1. Ejecución presupuestal
       final apropiaciones = await db.query('apropiaciones');
       final totalApropiacion = apropiaciones.fold<double>(
-        0.0, (sum, row) => sum + (row['valor_apropiacion'] as double? ?? 0.0),
+        0.0,
+        (sum, row) => sum + (row['valor_apropiacion'] as double? ?? 0.0),
       );
-      
+
       final cdps = await db.query('cdps');
       final totalCDP = cdps.fold<double>(
-        0.0, (sum, row) => sum + (row['valor_cdp'] as double? ?? 0.0),
+        0.0,
+        (sum, row) => sum + (row['valor_cdp'] as double? ?? 0.0),
       );
-      
+
       final rps = await db.query('rps');
       final totalRP = rps.fold<double>(
-        0.0, (sum, row) => sum + (row['valor_rp'] as double? ?? 0.0),
+        0.0,
+        (sum, row) => sum + (row['valor_rp'] as double? ?? 0.0),
       );
-      
+
       final obligaciones = await db.query('obligaciones');
       final totalObligado = obligaciones.fold<double>(
-        0.0, (sum, row) => sum + (row['valor_obligacion'] as double? ?? 0.0),
+        0.0,
+        (sum, row) => sum + (row['valor_obligacion'] as double? ?? 0.0),
       );
-      
+
       final pagos = await db.query('pagos');
       final totalPagado = pagos.fold<double>(
-        0.0, (sum, row) => sum + (row['valor_pago'] as double? ?? 0.0),
+        0.0,
+        (sum, row) => sum + (row['valor_pago'] as double? ?? 0.0),
       );
-      
-      final ejecucionPorcentaje = totalApropiacion > 0 
-          ? (totalPagado / totalApropiacion) * 100 
+
+      final ejecucionPorcentaje = totalApropiacion > 0
+          ? (totalPagado / totalApropiacion) * 100
           : 0.0;
-      
+
       // 2. Alertas PAC (meses con ejecución por debajo del cupo)
       final pacs = await db.query('pac');
       final mesesCriticos = pacs.where((row) {
@@ -3234,38 +3251,45 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
         final cupo = row['cupo_asignado'] as double? ?? 0.0;
         return cupo > 0 && (ejecutado / cupo) < 0.8;
       }).length;
-      
+
       // 3. Vencimientos CDP/RP próximos 30 días
       final hoy = DateTime.now();
       final en30Dias = hoy.add(const Duration(days: 30));
-      
+
       final cdpsVencen = cdps.where((row) {
-        final fechaVence = DateTime.tryParse(row['fecha_vigencia'] as String? ?? '');
-        return fechaVence != null && 
-               fechaVence.isAfter(hoy) && 
-               fechaVence.isBefore(en30Dias);
+        final fechaVence = DateTime.tryParse(
+          row['fecha_vigencia'] as String? ?? '',
+        );
+        return fechaVence != null &&
+            fechaVence.isAfter(hoy) &&
+            fechaVence.isBefore(en30Dias);
       }).length;
-      
+
       final rpsVencen = rps.where((row) {
-        final fechaVence = DateTime.tryParse(row['fecha_vigencia'] as String? ?? '');
-        return fechaVence != null && 
-               fechaVence.isAfter(hoy) && 
-               fechaVence.isBefore(en30Dias);
+        final fechaVence = DateTime.tryParse(
+          row['fecha_vigencia'] as String? ?? '',
+        );
+        return fechaVence != null &&
+            fechaVence.isAfter(hoy) &&
+            fechaVence.isBefore(en30Dias);
       }).length;
-      
+
       // 4. Obligaciones pendientes de pago
       final obligacionesPendientes = obligaciones.where((row) {
         final estado = row['estado'] as String? ?? '';
         return estado == 'pendiente' || estado == 'reconocida';
       }).length;
-      
-      final totalPendiente = obligaciones.where((row) {
-        final estado = row['estado'] as String? ?? '';
-        return estado == 'pendiente' || estado == 'reconocida';
-      }).fold<double>(
-        0.0, (sum, row) => sum + (row['valor_obligacion'] as double? ?? 0.0),
-      );
-      
+
+      final totalPendiente = obligaciones
+          .where((row) {
+            final estado = row['estado'] as String? ?? '';
+            return estado == 'pendiente' || estado == 'reconocida';
+          })
+          .fold<double>(
+            0.0,
+            (sum, row) => sum + (row['valor_obligacion'] as double? ?? 0.0),
+          );
+
       if (mounted) {
         setState(() {
           _dashboardData = {
@@ -3317,7 +3341,8 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
             _ModeHeader(
               icon: PhosphorIcons.buildings(),
               title: 'Dashboard Sector Público',
-              detail: 'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
+              detail:
+                  'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
             ),
             const SizedBox(height: 16),
             const LinearProgressIndicator(),
@@ -3327,7 +3352,7 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
     }
 
     final tieneDatos = _dashboardData['tiene_datos'] == true;
-    
+
     if (!tieneDatos) {
       return EnterprisePanel(
         child: Column(
@@ -3336,7 +3361,8 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
             _ModeHeader(
               icon: PhosphorIcons.buildings(),
               title: 'Dashboard Sector Público',
-              detail: 'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
+              detail:
+                  'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
             ),
             const SizedBox(height: 24),
             Center(
@@ -3345,7 +3371,9 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                   Icon(
                     PhosphorIcons.folderOpen(),
                     size: 64,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -3356,7 +3384,9 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                   Text(
                     'Comienza registrando apropiaciones presupuestales',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -3383,14 +3413,17 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
       );
     }
 
-    final ejecucionPorcentaje = _dashboardData['ejecucion_porcentaje'] as double? ?? 0.0;
+    final ejecucionPorcentaje =
+        _dashboardData['ejecucion_porcentaje'] as double? ?? 0.0;
     final mesesCriticos = _dashboardData['meses_criticos'] as int? ?? 0;
     final cdpsVencen = _dashboardData['cdps_vencen'] as int? ?? 0;
     final rpsVencen = _dashboardData['rps_vencen'] as int? ?? 0;
     final totalVencen = cdpsVencen + rpsVencen;
-    final obligacionesPendientes = _dashboardData['obligaciones_pendientes'] as int? ?? 0;
+    final obligacionesPendientes =
+        _dashboardData['obligaciones_pendientes'] as int? ?? 0;
     final totalPendiente = _dashboardData['total_pendiente'] as double? ?? 0.0;
-    final totalApropiacion = _dashboardData['total_apropiacion'] as double? ?? 0.0;
+    final totalApropiacion =
+        _dashboardData['total_apropiacion'] as double? ?? 0.0;
     final totalCDP = _dashboardData['total_cdp'] as double? ?? 0.0;
     final totalRP = _dashboardData['total_rp'] as double? ?? 0.0;
     final totalObligado = _dashboardData['total_obligado'] as double? ?? 0.0;
@@ -3403,7 +3436,8 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
           _ModeHeader(
             icon: PhosphorIcons.buildings(),
             title: 'Dashboard Sector Público',
-            detail: 'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
+            detail:
+                'Vista ejecutiva con ejecución presupuestal, PAC y vencimientos.',
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -3422,7 +3456,9 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                 value: '$mesesCriticos meses',
                 icon: PhosphorIcons.warning(),
                 color: mesesCriticos > 0 ? AppTheme.warning : AppTheme.success,
-                detail: mesesCriticos > 0 ? 'Por debajo del cupo' : 'Ejecución normal',
+                detail: mesesCriticos > 0
+                    ? 'Por debajo del cupo'
+                    : 'Ejecución normal',
               ),
               _PublicDashboardKpi(
                 label: 'CDP/RP Vencen',
@@ -3435,7 +3471,9 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                 label: 'Obligaciones Pendientes',
                 value: _formatCurrency(totalPendiente),
                 icon: PhosphorIcons.currencyDollar(),
-                color: obligacionesPendientes > 0 ? AppTheme.warning : AppTheme.success,
+                color: obligacionesPendientes > 0
+                    ? AppTheme.warning
+                    : AppTheme.success,
                 detail: '$obligacionesPendientes obligaciones',
               ),
             ],
@@ -3457,28 +3495,36 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                 const SizedBox(height: 12),
                 _PublicProgressBar(
                   label: 'Comprometido (CDP)',
-                  value: totalApropiacion > 0 ? totalCDP / totalApropiacion : 0.0,
+                  value: totalApropiacion > 0
+                      ? totalCDP / totalApropiacion
+                      : 0.0,
                   color: AppTheme.success,
                   valor: _formatCurrency(totalCDP),
                 ),
                 const SizedBox(height: 12),
                 _PublicProgressBar(
                   label: 'Registrado (RP)',
-                  value: totalApropiacion > 0 ? totalRP / totalApropiacion : 0.0,
+                  value: totalApropiacion > 0
+                      ? totalRP / totalApropiacion
+                      : 0.0,
                   color: AppTheme.warning,
                   valor: _formatCurrency(totalRP),
                 ),
                 const SizedBox(height: 12),
                 _PublicProgressBar(
                   label: 'Obligado',
-                  value: totalApropiacion > 0 ? totalObligado / totalApropiacion : 0.0,
+                  value: totalApropiacion > 0
+                      ? totalObligado / totalApropiacion
+                      : 0.0,
                   color: AppTheme.danger,
                   valor: _formatCurrency(totalObligado),
                 ),
                 const SizedBox(height: 12),
                 _PublicProgressBar(
                   label: 'Pagado',
-                  value: totalApropiacion > 0 ? totalPagado / totalApropiacion : 0.0,
+                  value: totalApropiacion > 0
+                      ? totalPagado / totalApropiacion
+                      : 0.0,
                   color: AppTheme.success,
                   valor: _formatCurrency(totalPagado),
                 ),
@@ -3497,9 +3543,9 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                   )
                 : Text(
                     'Todos los meses están dentro del cupo asignado',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.success,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppTheme.success),
                   ),
           ),
           const SizedBox(height: 16),
@@ -3514,16 +3560,18 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
                   )
                 : Text(
                     'No hay CDPs ni RPs próximos a vencer',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.success,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppTheme.success),
                   ),
           ),
           const SizedBox(height: 16),
           _PublicDashboardCard(
             title: 'Obligaciones Pendientes de Pago',
             icon: PhosphorIcons.currencyDollar(),
-            color: obligacionesPendientes > 0 ? AppTheme.warning : AppTheme.success,
+            color: obligacionesPendientes > 0
+                ? AppTheme.warning
+                : AppTheme.success,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -3563,18 +3611,18 @@ class _PublicDashboardModePanelState extends State<_PublicDashboardModePanel> {
             spacing: 12,
             runSpacing: 12,
             children: [
-                _ModeAction(
-                  icon: PhosphorIcons.bell(),
-                  label: 'Ver alertas',
-                  color: AppTheme.warning,
-                  onTap: widget.onNotifications,
-                ),
-                _ModeAction(
-                  icon: PhosphorIcons.brain(),
-                  label: 'Preguntar al Copilot',
-                  color: AppTheme.info,
-                  onTap: widget.onCopilot,
-                ),
+              _ModeAction(
+                icon: PhosphorIcons.bell(),
+                label: 'Ver alertas',
+                color: AppTheme.warning,
+                onTap: widget.onNotifications,
+              ),
+              _ModeAction(
+                icon: PhosphorIcons.brain(),
+                label: 'Preguntar al Copilot',
+                color: AppTheme.info,
+                onTap: widget.onCopilot,
+              ),
             ],
           ),
         ],
@@ -3591,7 +3639,8 @@ class _PublicComplianceModePanel extends StatefulWidget {
       _PublicComplianceModePanelState();
 }
 
-class _PublicComplianceModePanelState extends State<_PublicComplianceModePanel> {
+class _PublicComplianceModePanelState
+    extends State<_PublicComplianceModePanel> {
   bool _loading = true;
   List<Map<String, Object?>> _vencimientos = const [];
   List<Map<String, Object?>> _obligaciones = const [];
@@ -3623,14 +3672,15 @@ class _PublicComplianceModePanelState extends State<_PublicComplianceModePanel> 
         orderBy: 'fecha_vigencia ASC',
         limit: 4,
       );
-      final vencimientos = <Map<String, Object?>>[
-        for (final row in cdps) {...row, 'tipo_documento': 'CDP'},
-        for (final row in rps) {...row, 'tipo_documento': 'RP'},
-      ]..sort((a, b) {
-          final fechaA = _publicText(a, ['fecha_vigencia']);
-          final fechaB = _publicText(b, ['fecha_vigencia']);
-          return fechaA.compareTo(fechaB);
-        });
+      final vencimientos =
+          <Map<String, Object?>>[
+            for (final row in cdps) {...row, 'tipo_documento': 'CDP'},
+            for (final row in rps) {...row, 'tipo_documento': 'RP'},
+          ]..sort((a, b) {
+            final fechaA = _publicText(a, ['fecha_vigencia']);
+            final fechaB = _publicText(b, ['fecha_vigencia']);
+            return fechaA.compareTo(fechaB);
+          });
 
       final obligaciones = await db.query(
         'obligaciones',
@@ -3686,7 +3736,8 @@ class _PublicComplianceModePanelState extends State<_PublicComplianceModePanel> 
           _ModeHeader(
             icon: PhosphorIcons.warning(),
             title: 'Cumplimiento y Alertas',
-            detail: 'Vencimientos de CDP/RP, cupos PAC y obligaciones pendientes.',
+            detail:
+                'Vencimientos de CDP/RP, cupos PAC y obligaciones pendientes.',
           ),
           const SizedBox(height: 16),
           _PublicDashboardCard(
@@ -3703,11 +3754,11 @@ class _PublicComplianceModePanelState extends State<_PublicComplianceModePanel> 
                       for (final row in _vencimientos) ...[
                         _PublicVencimientoItem(
                           tipo: _publicText(row, ['tipo_documento']),
-                          numero: _publicText(
-                            row,
-                            ['numero_cdp', 'numero_rp', 'numero'],
-                            fallback: 'Sin numero',
-                          ),
+                          numero: _publicText(row, [
+                            'numero_cdp',
+                            'numero_rp',
+                            'numero',
+                          ], fallback: 'Sin numero'),
                           venceEn: _diasRestantes(row),
                           monto: _moneyCompact(
                             _publicNum(row, 'valor_cdp') +
@@ -3733,16 +3784,15 @@ class _PublicComplianceModePanelState extends State<_PublicComplianceModePanel> 
                     children: [
                       for (final row in _obligaciones) ...[
                         _PublicObligacionItem(
-                          numero: _publicText(
-                            row,
-                            ['numero_obligacion', 'numero'],
-                            fallback: 'Obligacion',
-                          ),
-                          proveedor: _publicText(
-                            row,
-                            ['tercero_nombre', 'proveedor', 'beneficiario'],
-                            fallback: 'Tercero sin nombre',
-                          ),
+                          numero: _publicText(row, [
+                            'numero_obligacion',
+                            'numero',
+                          ], fallback: 'Obligacion'),
+                          proveedor: _publicText(row, [
+                            'tercero_nombre',
+                            'proveedor',
+                            'beneficiario',
+                          ], fallback: 'Tercero sin nombre'),
                           monto: _moneyCompact(
                             _publicNum(row, 'valor_obligacion'),
                           ),
@@ -3964,7 +4014,9 @@ class _PublicDashboardKpi extends StatelessWidget {
           Text(
             detail,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -4006,9 +4058,9 @@ class _PublicDashboardCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -4041,10 +4093,7 @@ class _PublicProgressBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
             if (valor != null)
               Text(
                 valor!,
@@ -4079,10 +4128,7 @@ class _PublicProgressBar extends StatelessWidget {
 }
 
 class _PublicMonthChip extends StatelessWidget {
-  const _PublicMonthChip({
-    required this.label,
-    required this.status,
-  });
+  const _PublicMonthChip({required this.label, required this.status});
 
   final String label;
   final String status;
@@ -4100,7 +4146,7 @@ class _PublicMonthChip extends StatelessWidget {
       default:
         color = AppTheme.success;
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -4119,10 +4165,14 @@ class _PublicMonthChip extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            status == 'critical' ? 'Crítico' : status == 'warning' ? 'Alerta' : 'OK',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color,
-            ),
+            status == 'critical'
+                ? 'Crítico'
+                : status == 'warning'
+                ? 'Alerta'
+                : 'OK',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: color),
           ),
         ],
       ),
@@ -4168,14 +4218,16 @@ class _PublicVencimientoItem extends StatelessWidget {
             children: [
               Text(
                 numero,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               Text(
                 'Vence en $venceEn',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -4229,14 +4281,16 @@ class _PublicObligacionItem extends StatelessWidget {
               children: [
                 Text(
                   numero,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Text(
                   proveedor,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
                 Text(

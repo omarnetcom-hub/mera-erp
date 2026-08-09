@@ -8,6 +8,7 @@ import 'logo_widget.dart';
 import 'numeric_input.dart';
 import 'transferencias_page.dart';
 import 'ui/enterprise_design_system.dart';
+import 'ui/merka_theme_tokens.dart';
 
 class CajaPage extends StatefulWidget {
   const CajaPage({super.key});
@@ -124,7 +125,7 @@ class _CajaPageState extends State<CajaPage> {
             content: Text(
               'Caja cerrada. Reabre operacion para registrar movimientos.',
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: MerkaThemeTokens.warning,
           ),
         );
         return;
@@ -140,7 +141,7 @@ class _CajaPageState extends State<CajaPage> {
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Caja cerrada. Reabre operacion para transferir.'),
-          backgroundColor: Colors.orange,
+          backgroundColor: MerkaThemeTokens.warning,
         ),
       );
       return;
@@ -269,7 +270,7 @@ class _CajaPageState extends State<CajaPage> {
                             ? 'Fondos insuficientes'
                             : e.toString(),
                       ),
-                      backgroundColor: Colors.red,
+                      backgroundColor: MerkaThemeTokens.danger,
                     ),
                   );
                   return;
@@ -324,7 +325,7 @@ class _CajaPageState extends State<CajaPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Movimiento anulado correctamente'),
-        backgroundColor: Colors.green,
+        backgroundColor: MerkaThemeTokens.success,
       ),
     );
   }

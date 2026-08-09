@@ -15,6 +15,7 @@ import '../services/presupuesto_service.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/currency/public_sector_money.dart';
+import '../../../ui/merka_theme_tokens.dart';
 
 class PresupuestoPublicoPage extends StatefulWidget {
   final String entidadId;
@@ -178,7 +179,11 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.account_balance_wallet, size: 64, color: Colors.grey),
+            Icon(
+              Icons.account_balance_wallet,
+              size: 64,
+              color: MerkaThemeTokens.graphite600,
+            ),
             const SizedBox(height: 16),
             Text(
               'Apropiaciones Presupuestales',
@@ -228,7 +233,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
                       ? apropiacion.valorPagado.minorUnits /
                             apropiacion.valorApropiado.minorUnits
                       : 0,
-                  backgroundColor: Colors.grey[300],
+                  backgroundColor: MerkaThemeTokens.paper100,
                 ),
               ],
             ),
@@ -257,7 +262,11 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.description, size: 64, color: Colors.grey),
+            Icon(
+              Icons.description,
+              size: 64,
+              color: MerkaThemeTokens.graphite600,
+            ),
             const SizedBox(height: 16),
             Text(
               'Certificados de Disponibilidad Presupuestal',
@@ -306,8 +315,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
                     cdp.estado.toString().split('.').last.toUpperCase(),
                   ),
                   backgroundColor: cdp.estaVigente()
-                      ? Colors.green
-                      : Colors.orange,
+                      ? MerkaThemeTokens.success
+                      : MerkaThemeTokens.warning,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
               ],
@@ -328,7 +337,11 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.assignment, size: 64, color: Colors.grey),
+            Icon(
+              Icons.assignment,
+              size: 64,
+              color: MerkaThemeTokens.graphite600,
+            ),
             const SizedBox(height: 16),
             Text(
               'Registros Presupuestales',
@@ -377,8 +390,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
                     rp.estado.toString().split('.').last.toUpperCase(),
                   ),
                   backgroundColor: rp.estaVigente()
-                      ? Colors.green
-                      : Colors.orange,
+                      ? MerkaThemeTokens.success
+                      : MerkaThemeTokens.warning,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
               ],
@@ -399,7 +412,11 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+            Icon(
+              Icons.receipt_long,
+              size: 64,
+              color: MerkaThemeTokens.graphite600,
+            ),
             const SizedBox(height: 16),
             Text(
               'Obligaciones Presupuestales',
@@ -448,8 +465,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
                   ),
                   backgroundColor:
                       obligacion.estado == EstadoObligacion.pendiente
-                      ? Colors.orange
-                      : Colors.green,
+                      ? MerkaThemeTokens.warning
+                      : MerkaThemeTokens.success,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
               ],
@@ -470,7 +487,7 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.payment, size: 64, color: Colors.grey),
+            Icon(Icons.payment, size: 64, color: MerkaThemeTokens.graphite600),
             const SizedBox(height: 16),
             Text('Pagos', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
@@ -512,8 +529,8 @@ class _PresupuestoPublicoPageState extends State<PresupuestoPublicoPage> {
                     pago.estado.toString().split('.').last.toUpperCase(),
                   ),
                   backgroundColor: pago.estado == EstadoPago.programado
-                      ? Colors.blue
-                      : Colors.green,
+                      ? MerkaThemeTokens.navy600
+                      : MerkaThemeTokens.success,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
               ],

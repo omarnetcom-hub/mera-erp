@@ -9,6 +9,7 @@ import '../models/contrato.dart';
 import '../models/poliza.dart';
 import '../../../core/currency/public_sector_money.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../ui/merka_theme_tokens.dart';
 
 class ContratacionPublicaPage extends StatefulWidget {
   final String entidadId;
@@ -125,14 +126,20 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   void _mostrarError(String mensaje) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: MerkaThemeTokens.danger,
+      ),
     );
   }
 
   void _mostrarExito(String mensaje) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje), backgroundColor: Colors.green),
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: MerkaThemeTokens.success,
+      ),
     );
   }
 
@@ -159,7 +166,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: MerkaThemeTokens.graphite600,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.gavel), label: 'Procesos'),
           BottomNavigationBarItem(
@@ -201,7 +208,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.gavel, size: 64, color: Colors.grey),
+            Icon(Icons.gavel, size: 64, color: MerkaThemeTokens.graphite600),
             const SizedBox(height: 16),
             const Text(
               'No hay procesos de contratación registrados',
@@ -263,7 +270,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                     if (proceso.secopId != null)
                       Text(
                         'ID SECOP II: ${proceso.secopId}',
-                        style: TextStyle(color: Colors.blue),
+                        style: TextStyle(color: MerkaThemeTokens.navy600),
                       ),
                     const SizedBox(height: 12),
                     Row(
@@ -313,7 +320,11 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.description, size: 64, color: Colors.grey),
+            Icon(
+              Icons.description,
+              size: 64,
+              color: MerkaThemeTokens.graphite600,
+            ),
             const SizedBox(height: 16),
             const Text(
               'No hay contratos registrados',
@@ -410,7 +421,7 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.security, size: 64, color: Colors.grey),
+            Icon(Icons.security, size: 64, color: MerkaThemeTokens.graphite600),
             const SizedBox(height: 16),
             const Text(
               'No hay pólizas registradas',
@@ -470,8 +481,8 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
                   style: TextStyle(
                     fontSize: 10,
                     color: poliza.estado == EstadoPoliza.vigente
-                        ? Colors.green
-                        : Colors.red,
+                        ? MerkaThemeTokens.success
+                        : MerkaThemeTokens.danger,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -559,34 +570,34 @@ class _ContratacionPublicaPageState extends State<ContratacionPublicaPage> {
   Color _getEstadoColor(EstadoProceso estado) {
     switch (estado) {
       case EstadoProceso.estudioPrevio:
-        return Colors.grey;
+        return MerkaThemeTokens.graphite600;
       case EstadoProceso.publicado:
-        return Colors.blue;
+        return MerkaThemeTokens.navy600;
       case EstadoProceso.enEvaluacion:
-        return Colors.orange;
+        return MerkaThemeTokens.warning;
       case EstadoProceso.adjudicado:
-        return Colors.green;
+        return MerkaThemeTokens.success;
       case EstadoProceso.terminado:
-        return Colors.teal;
+        return MerkaThemeTokens.info;
       default:
-        return Colors.red;
+        return MerkaThemeTokens.danger;
     }
   }
 
   Color _getEstadoContratoColor(EstadoContrato estado) {
     switch (estado) {
       case EstadoContrato.enFirma:
-        return Colors.orange;
+        return MerkaThemeTokens.warning;
       case EstadoContrato.firmado:
-        return Colors.blue;
+        return MerkaThemeTokens.navy600;
       case EstadoContrato.legalizado:
-        return Colors.green;
+        return MerkaThemeTokens.success;
       case EstadoContrato.enEjecucion:
-        return Colors.indigo;
+        return MerkaThemeTokens.navy700;
       case EstadoContrato.terminado:
-        return Colors.teal;
+        return MerkaThemeTokens.info;
       default:
-        return Colors.red;
+        return MerkaThemeTokens.danger;
     }
   }
 

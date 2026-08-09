@@ -6,14 +6,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../ui/merka_theme_tokens.dart';
+
+/// Legacy theme facade retained for compatibility with older screens.
+///
+/// New screens must use [EnterpriseThemeEngine] through `main.dart`. The
+/// semantic colors below intentionally delegate to the shared token source.
+@Deprecated('Use EnterpriseThemeEngine.theme() instead.')
 class AppTheme {
   // Colores base - Tema Claro
-  static const Color _lightPrimary = Color(0xFF006D77);
-  static const Color _lightPrimaryVariant = Color(0xFF004D55);
-  static const Color _lightSecondary = Color(0xFF83C5BE);
-  static const Color _lightBackground = Color(0xFFF5F5F5);
-  static const Color _lightSurface = Color(0xFFFFFFFF);
-  static const Color _lightError = Color(0xFFD32F2F);
+  static const Color _lightPrimary = MerkaThemeTokens.navy800;
+  static const Color _lightPrimaryVariant = MerkaThemeTokens.navy700;
+  static const Color _lightSecondary = MerkaThemeTokens.gold500;
+  static const Color _lightBackground = MerkaThemeTokens.paper50;
+  static const Color _lightSurface = Colors.white;
+  static const Color _lightError = MerkaThemeTokens.danger;
   static const Color _lightOnPrimary = Color(0xFFFFFFFF);
   static const Color _lightOnSecondary = Color(0xFF000000);
   static const Color _lightOnBackground = Color(0xFF000000);
@@ -21,12 +28,12 @@ class AppTheme {
   static const Color _lightOnError = Color(0xFFFFFFFF);
 
   // Colores base - Tema Oscuro
-  static const Color _darkPrimary = Color(0xFF83C5BE);
-  static const Color _darkPrimaryVariant = Color(0xFF006D77);
-  static const Color _darkSecondary = Color(0xFF006D77);
-  static const Color _darkBackground = Color(0xFF121212);
-  static const Color _darkSurface = Color(0xFF1E1E1E);
-  static const Color _darkError = Color(0xFFCF6679);
+  static const Color _darkPrimary = MerkaThemeTokens.gold400;
+  static const Color _darkPrimaryVariant = MerkaThemeTokens.navy700;
+  static const Color _darkSecondary = MerkaThemeTokens.gold500;
+  static const Color _darkBackground = MerkaThemeTokens.navy900;
+  static const Color _darkSurface = MerkaThemeTokens.navy800;
+  static const Color _darkError = MerkaThemeTokens.danger;
   static const Color _darkOnPrimary = Color(0xFF000000);
   static const Color _darkOnSecondary = Color(0xFFFFFFFF);
   static const Color _darkOnBackground = Color(0xFFE0E0E0);
@@ -34,10 +41,10 @@ class AppTheme {
   static const Color _darkOnError = Color(0xFF000000);
 
   // Colores semánticos
-  static const Color success = Color(0xFF4CAF50);
-  static const Color warning = Color(0xFFFF9800);
-  static const Color info = Color(0xFF2196F3);
-  static const Color danger = Color(0xFFF44336);
+  static const Color success = MerkaThemeTokens.success;
+  static const Color warning = MerkaThemeTokens.warning;
+  static const Color info = MerkaThemeTokens.info;
+  static const Color danger = MerkaThemeTokens.danger;
 
   // Tema Claro
   static ThemeData get lightTheme {
@@ -58,7 +65,7 @@ class AppTheme {
       scaffoldBackgroundColor: _lightBackground,
       cardColor: _lightSurface,
       dividerColor: Colors.grey.shade300,
-      
+
       // Tipografía
       textTheme: GoogleFonts.interTextTheme().copyWith(
         displayLarge: GoogleFonts.inter(
@@ -137,7 +144,7 @@ class AppTheme {
           color: _lightOnBackground,
         ),
       ),
-      
+
       // AppBar
       appBarTheme: const AppBarTheme(
         backgroundColor: _lightPrimary,
@@ -146,16 +153,14 @@ class AppTheme {
         centerTitle: true,
         iconTheme: IconThemeData(color: _lightOnPrimary),
       ),
-      
+
       // Card
       cardTheme: CardThemeData(
         color: _lightSurface,
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      
+
       // Elevated Button
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -163,12 +168,10 @@ class AppTheme {
           foregroundColor: _lightOnPrimary,
           elevation: 2,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
-      
+
       // Text Button
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -176,19 +179,17 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
       ),
-      
+
       // Outlined Button
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: _lightPrimary,
           side: const BorderSide(color: _lightPrimary),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
-      
+
       // Input Decoration
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -209,26 +210,24 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: _lightError),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
       ),
-      
+
       // Floating Action Button
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: _lightPrimary,
         foregroundColor: _lightOnPrimary,
         elevation: 4,
       ),
-      
+
       // Divider
-      dividerTheme: const DividerThemeData(
-        color: Colors.grey,
-        thickness: 1,
-      ),
-      
+      dividerTheme: const DividerThemeData(color: Colors.grey, thickness: 1),
+
       // Icon Theme
-      iconTheme: const IconThemeData(
-        color: _lightOnBackground,
-      ),
+      iconTheme: const IconThemeData(color: _lightOnBackground),
     );
   }
 
@@ -251,7 +250,7 @@ class AppTheme {
       scaffoldBackgroundColor: _darkBackground,
       cardColor: _darkSurface,
       dividerColor: Colors.grey.shade700,
-      
+
       // Tipografía
       textTheme: GoogleFonts.interTextTheme().copyWith(
         displayLarge: GoogleFonts.inter(
@@ -330,7 +329,7 @@ class AppTheme {
           color: _darkOnBackground,
         ),
       ),
-      
+
       // AppBar
       appBarTheme: const AppBarTheme(
         backgroundColor: _darkSurface,
@@ -339,16 +338,14 @@ class AppTheme {
         centerTitle: true,
         iconTheme: IconThemeData(color: _darkOnSurface),
       ),
-      
+
       // Card
       cardTheme: CardThemeData(
         color: _darkSurface,
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      
+
       // Elevated Button
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -356,12 +353,10 @@ class AppTheme {
           foregroundColor: _darkOnPrimary,
           elevation: 2,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
-      
+
       // Text Button
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -369,19 +364,17 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
       ),
-      
+
       // Outlined Button
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: _darkPrimary,
           side: const BorderSide(color: _darkPrimary),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
-      
+
       // Input Decoration
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -402,26 +395,24 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: _darkError),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
       ),
-      
+
       // Floating Action Button
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: _darkPrimary,
         foregroundColor: _darkOnPrimary,
         elevation: 4,
       ),
-      
+
       // Divider
-      dividerTheme: DividerThemeData(
-        color: Colors.grey.shade700,
-        thickness: 1,
-      ),
-      
+      dividerTheme: DividerThemeData(color: Colors.grey.shade700, thickness: 1),
+
       // Icon Theme
-      iconTheme: IconThemeData(
-        color: _darkOnBackground,
-      ),
+      iconTheme: IconThemeData(color: _darkOnBackground),
     );
   }
 

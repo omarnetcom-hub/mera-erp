@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../services/merka_intelligence_service.dart';
+import 'merka_theme_tokens.dart';
 
 class CopilotMessage {
   const CopilotMessage({required this.fromUser, required this.text});
@@ -23,7 +24,7 @@ class CopilotPanel extends StatefulWidget {
   final VoidCallback onClose;
   final List<dynamic> modules;
   final ValueChanged<String> onNavigateToModule; // moduleId
-  final ValueChanged<String> onLoadSaleProduct;  // product search query
+  final ValueChanged<String> onLoadSaleProduct; // product search query
   final VoidCallback onLoadClientPayment;
   final VoidCallback onLoadPurchaseOrder;
 
@@ -36,7 +37,7 @@ class _CopilotPanelState extends State<CopilotPanel> {
   final List<CopilotMessage> _messages = [];
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
-  
+
   bool _loading = false;
 
   @override
@@ -63,12 +64,17 @@ class _CopilotPanelState extends State<CopilotPanel> {
       String welcomeText = '¡Buenos días! Soy tu Copilot MerkaERP.\n\n';
       if (expiring > 0 || critical > 0 || receivables > 0) {
         welcomeText += 'He detectado algunas novedades operativas hoy:\n';
-        if (critical > 0) welcomeText += '• ⚠️ Tienes $critical productos con stock crítico.\n';
-        if (expiring > 0) welcomeText += '• ⏳ Tienes $expiring lotes próximos a vencer.\n';
-        if (receivables > 0) welcomeText += '• 💳 Tienes $receivables cobranzas pendientes.\n';
-        welcomeText += '\n¿Deseas que te ayude a revisarlos o prefieres realizar alguna acción?';
+        if (critical > 0)
+          welcomeText += '• ⚠️ Tienes $critical productos con stock crítico.\n';
+        if (expiring > 0)
+          welcomeText += '• ⏳ Tienes $expiring lotes próximos a vencer.\n';
+        if (receivables > 0)
+          welcomeText += '• 💳 Tienes $receivables cobranzas pendientes.\n';
+        welcomeText +=
+            '\n¿Deseas que te ayude a revisarlos o prefieres realizar alguna acción?';
       } else {
-        welcomeText += 'Todo parece estar en orden hoy. ¿En qué puedo ayudarte? Puedes preguntarme sobre ventas, inventario, finanzas o controlar el sistema.';
+        welcomeText +=
+            'Todo parece estar en orden hoy. ¿En qué puedo ayudarte? Puedes preguntarme sobre ventas, inventario, finanzas o controlar el sistema.';
       }
 
       if (!mounted) return;
@@ -78,10 +84,13 @@ class _CopilotPanelState extends State<CopilotPanel> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _messages.add(const CopilotMessage(
-          fromUser: false,
-          text: 'Hola. Ocurrió un error al cargar las alertas del día. ¿En qué te puedo colaborar hoy?',
-        ));
+        _messages.add(
+          const CopilotMessage(
+            fromUser: false,
+            text:
+                'Hola. Ocurrió un error al cargar las alertas del día. ¿En qué te puedo colaborar hoy?',
+          ),
+        );
       });
     } finally {
       if (mounted) {
@@ -98,14 +107,15 @@ class _CopilotPanelState extends State<CopilotPanel> {
       _messages.add(CopilotMessage(fromUser: true, text: query));
       _inputController.clear();
     });
-    
+
     _scrollToBottom();
 
     // NLP intent mapping & Action execution
     final reply = await _intelligence.answer(query, module: 'workspace');
 
     // Action triggers based on intent
-    if (reply.intent == 'critical_stock' || reply.intent == 'expiring_products') {
+    if (reply.intent == 'critical_stock' ||
+        reply.intent == 'expiring_products') {
       widget.onNavigateToModule('inventory');
     } else if (reply.intent == 'sales_today' || reply.intent == 'sales_month') {
       widget.onNavigateToModule('sales');
@@ -124,7 +134,8 @@ class _CopilotPanelState extends State<CopilotPanel> {
     if (lower.startsWith('vender ') && lower.length > 7) {
       final queryProduct = query.substring(7).trim();
       widget.onLoadSaleProduct(queryProduct);
-    } else if (lower.startsWith('cobrar ') || lower.contains('registrar pago')) {
+    } else if (lower.startsWith('cobrar ') ||
+        lower.contains('registrar pago')) {
       widget.onLoadClientPayment();
     }
 
@@ -157,30 +168,51 @@ class _CopilotPanelState extends State<CopilotPanel> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Icon(PhosphorIcons.brain(), color: const Color(0xFF2563EB), size: 24),
+              Icon(
+                PhosphorIcons.brain(),
+                color: MerkaThemeTokens.navy800,
+                size: 24,
+              ),
               const SizedBox(width: 12),
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Copilot MerkaERP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1F2937))),
-                    Text('Asistente Operativo con IA', style: TextStyle(fontSize: 10, color: Color(0xFF4B5563))),
+                    Text(
+                      'Copilot MerkaERP',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: MerkaThemeTokens.graphite900,
+                      ),
+                    ),
+                    Text(
+                      'Asistente Operativo con IA',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: MerkaThemeTokens.graphite600,
+                      ),
+                    ),
                   ],
                 ),
               ),
               IconButton(
                 icon: Icon(PhosphorIcons.x(), size: 18),
                 onPressed: widget.onClose,
-              )
+              ),
             ],
           ),
         ),
         const Divider(height: 1),
-        
+
         // Chat Area
         Expanded(
           child: _loading && _messages.isEmpty
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: MerkaThemeTokens.navy800,
+                  ),
+                )
               : ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.all(16),
@@ -191,7 +223,7 @@ class _CopilotPanelState extends State<CopilotPanel> {
                   },
                 ),
         ),
-        
+
         // Suggestion chips
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -199,14 +231,26 @@ class _CopilotPanelState extends State<CopilotPanel> {
             spacing: 8,
             runSpacing: 4,
             children: [
-              _SuggestionChip(label: '📊 Ventas de hoy', onTap: () => _submit('Ventas de hoy')),
-              _SuggestionChip(label: '⚠️ Productos críticos', onTap: () => _submit('Productos críticos')),
-              _SuggestionChip(label: '💳 Cobranza pendiente', onTap: () => _submit('Cobranza pendiente')),
-              _SuggestionChip(label: '📦 Crear compra', onTap: () => _submit('Crear compra')),
+              _SuggestionChip(
+                label: '📊 Ventas de hoy',
+                onTap: () => _submit('Ventas de hoy'),
+              ),
+              _SuggestionChip(
+                label: '⚠️ Productos críticos',
+                onTap: () => _submit('Productos críticos'),
+              ),
+              _SuggestionChip(
+                label: '💳 Cobranza pendiente',
+                onTap: () => _submit('Cobranza pendiente'),
+              ),
+              _SuggestionChip(
+                label: '📦 Crear compra',
+                onTap: () => _submit('Crear compra'),
+              ),
             ],
           ),
         ),
-        
+
         // Input text box
         Padding(
           padding: const EdgeInsets.all(12),
@@ -219,8 +263,13 @@ class _CopilotPanelState extends State<CopilotPanel> {
                   decoration: const InputDecoration(
                     hintText: 'Pregunta algo al Copilot...',
                     isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                   ),
                   onSubmitted: _submit,
                 ),
@@ -228,10 +277,12 @@ class _CopilotPanelState extends State<CopilotPanel> {
               const SizedBox(width: 8),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: MerkaThemeTokens.navy800,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.all(12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: () => _submit(_inputController.text),
                 child: Icon(PhosphorIcons.paperPlaneRight(), size: 18),
@@ -257,19 +308,19 @@ class _Bubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isUser ? const Color(0xFF2563EB) : const Color(0xFFF3F4F6),
+          color: isUser ? MerkaThemeTokens.navy800 : MerkaThemeTokens.paper50,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(12),
             topRight: const Radius.circular(12),
             bottomLeft: Radius.circular(isUser ? 12 : 0),
             bottomRight: Radius.circular(isUser ? 0 : 12),
           ),
-          border: isUser ? null : Border.all(color: const Color(0xFFE5E7EB)),
+          border: isUser ? null : Border.all(color: MerkaThemeTokens.paper100),
         ),
         child: Text(
           message.text,
           style: TextStyle(
-            color: isUser ? Colors.white : const Color(0xFF1F2937),
+            color: isUser ? Colors.white : MerkaThemeTokens.graphite900,
             fontSize: 13,
           ),
         ),
@@ -291,13 +342,17 @@ class _SuggestionChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          color: MerkaThemeTokens.paper50,
+          border: Border.all(color: MerkaThemeTokens.paper100),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: MerkaThemeTokens.graphite600,
+          ),
         ),
       ),
     );

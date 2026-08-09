@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../logo_widget.dart';
+import 'merka_theme_tokens.dart';
 
 enum EnterpriseViewport { mobile, tablet, desktop, ultraWide }
 
@@ -56,29 +56,31 @@ class EnterpriseThemeEngine {
     final dark = brightness == Brightness.dark;
     final scheme = ColorScheme(
       brightness: brightness,
-      primary: dark ? AppBrand.info : AppBrand.primary,
+      primary: dark ? MerkaThemeTokens.navy600 : MerkaThemeTokens.navy800,
       onPrimary: Colors.white,
-      secondary: AppBrand.secondary,
-      onSecondary: Colors.white,
-      tertiary: AppBrand.accent,
-      onTertiary: AppBrand.primary,
-      error: AppBrand.error,
+      secondary: MerkaThemeTokens.gold500,
+      onSecondary: MerkaThemeTokens.navy900,
+      tertiary: MerkaThemeTokens.gold400,
+      onTertiary: MerkaThemeTokens.navy900,
+      error: MerkaThemeTokens.danger,
       onError: Colors.white,
-      surface: dark ? AppBrand.darkSurface : AppBrand.surface,
-      onSurface: dark ? Colors.white : AppBrand.ink,
+      surface: dark ? MerkaThemeTokens.navy800 : MerkaThemeTokens.paper50,
+      onSurface: dark ? MerkaThemeTokens.onDark : MerkaThemeTokens.onLight,
       surfaceContainerHighest: dark
-          ? const Color(0xFF1F2937)
-          : const Color(0xFFE2E8F0),
+          ? MerkaThemeTokens.navy700
+          : MerkaThemeTokens.paper100,
       outline: highContrast
-          ? (dark ? Colors.white : AppBrand.primary)
-          : (dark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
+          ? (dark ? Colors.white : MerkaThemeTokens.navy800)
+          : (dark ? MerkaThemeTokens.graphite600 : MerkaThemeTokens.paper100),
     );
 
-    final background = dark ? AppBrand.darkBackground : AppBrand.surface;
-    final panel = dark ? AppBrand.darkSurface : Colors.white;
+    final background = dark
+        ? MerkaThemeTokens.navy900
+        : MerkaThemeTokens.paper50;
+    final panel = dark ? MerkaThemeTokens.navy800 : Colors.white;
     final border = highContrast
         ? scheme.outline
-        : (dark ? const Color(0xFF334155) : const Color(0xFFE2E8F0));
+        : (dark ? MerkaThemeTokens.navy600 : MerkaThemeTokens.paper100);
     final textTheme = _textTheme(dark);
 
     return ThemeData(
@@ -88,7 +90,7 @@ class EnterpriseThemeEngine {
       useMaterial3: true,
       visualDensity: VisualDensity.standard,
       fontFamily: 'Inter',
-      fontFamilyFallback: const ['SF Pro Display', 'Segoe UI', 'Roboto'],
+      fontFamilyFallback: const ['Segoe UI', 'Roboto'],
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -115,8 +117,8 @@ class EnterpriseThemeEngine {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: panel,
-        prefixIconColor: AppBrand.muted,
-        suffixIconColor: AppBrand.muted,
+        prefixIconColor: MerkaThemeTokens.graphite600,
+        suffixIconColor: MerkaThemeTokens.graphite600,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(EnterpriseRadii.md),
         ),
@@ -167,10 +169,14 @@ class EnterpriseThemeEngine {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: dark
-            ? const Color(0xFF1E293B)
-            : const Color(0xFFEFF6FF),
-        selectedColor: dark ? const Color(0xFF1D4ED8) : const Color(0xFFDBEAFE),
-        disabledColor: dark ? const Color(0xFF111827) : const Color(0xFFE2E8F0),
+            ? MerkaThemeTokens.navy700
+            : MerkaThemeTokens.paper100,
+        selectedColor: dark
+            ? MerkaThemeTokens.navy600
+            : MerkaThemeTokens.gold200,
+        disabledColor: dark
+            ? MerkaThemeTokens.navy900
+            : MerkaThemeTokens.paper100,
         labelStyle: TextStyle(fontSize: 12, color: scheme.onSurface),
         secondaryLabelStyle: TextStyle(fontSize: 12, color: scheme.onSurface),
         checkmarkColor: scheme.secondary,
@@ -189,7 +195,9 @@ class EnterpriseThemeEngine {
       ),
       tabBarTheme: TabBarThemeData(
         labelColor: scheme.secondary,
-        unselectedLabelColor: dark ? const Color(0xFFCBD5E1) : AppBrand.muted,
+        unselectedLabelColor: dark
+            ? MerkaThemeTokens.paper100
+            : MerkaThemeTokens.graphite600,
         indicatorColor: scheme.secondary,
         dividerColor: Colors.transparent,
         labelStyle: textTheme.labelLarge,
@@ -200,7 +208,9 @@ class EnterpriseThemeEngine {
         indicatorColor: scheme.secondary.withValues(alpha: 0.14),
         selectedIconTheme: IconThemeData(color: scheme.secondary),
         unselectedIconTheme: IconThemeData(
-          color: dark ? const Color(0xFFCBD5E1) : AppBrand.muted,
+          color: dark
+              ? MerkaThemeTokens.paper100
+              : MerkaThemeTokens.graphite600,
         ),
         selectedLabelTextStyle: textTheme.labelMedium?.copyWith(
           color: scheme.secondary,
@@ -240,7 +250,7 @@ class EnterpriseThemeEngine {
         ),
         dataTextStyle: textTheme.bodySmall?.copyWith(color: scheme.onSurface),
         headingRowColor: WidgetStatePropertyAll(
-          dark ? const Color(0xFF111827) : const Color(0xFFF1F5F9),
+          dark ? MerkaThemeTokens.navy900 : MerkaThemeTokens.paper100,
         ),
         dividerThickness: 1,
       ),
@@ -254,10 +264,12 @@ class EnterpriseThemeEngine {
       ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: dark ? const Color(0xFFE2E8F0) : AppBrand.primary,
+          color: dark ? MerkaThemeTokens.paper100 : MerkaThemeTokens.navy800,
           borderRadius: BorderRadius.circular(EnterpriseRadii.sm),
         ),
-        textStyle: TextStyle(color: dark ? AppBrand.primary : Colors.white),
+        textStyle: TextStyle(
+          color: dark ? MerkaThemeTokens.navy900 : Colors.white,
+        ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.secondary,
@@ -268,9 +280,11 @@ class EnterpriseThemeEngine {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: dark ? const Color(0xFFE2E8F0) : AppBrand.primary,
+        backgroundColor: dark
+            ? MerkaThemeTokens.paper100
+            : MerkaThemeTokens.navy800,
         contentTextStyle: TextStyle(
-          color: dark ? AppBrand.primary : Colors.white,
+          color: dark ? MerkaThemeTokens.navy900 : Colors.white,
           fontWeight: FontWeight.w700,
         ),
         shape: RoundedRectangleBorder(
@@ -284,16 +298,20 @@ class EnterpriseThemeEngine {
   }
 
   static TextTheme _textTheme(bool dark) {
-    final color = dark ? Colors.white : AppBrand.ink;
-    final muted = dark ? const Color(0xFFCBD5E1) : AppBrand.muted;
+    final color = dark ? MerkaThemeTokens.onDark : MerkaThemeTokens.onLight;
+    final muted = dark
+        ? MerkaThemeTokens.paper100
+        : MerkaThemeTokens.graphite600;
     return TextTheme(
       displaySmall: TextStyle(
+        fontFamily: 'Montserrat',
         fontSize: 34,
         height: 1.08,
         fontWeight: FontWeight.w900,
         color: color,
       ),
       headlineSmall: TextStyle(
+        fontFamily: 'Montserrat',
         fontSize: 24,
         height: 1.16,
         fontWeight: FontWeight.w900,
