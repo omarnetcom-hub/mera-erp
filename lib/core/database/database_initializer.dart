@@ -235,6 +235,9 @@ extension DatabaseInitializer on DatabaseHelper {
     if (version >= 75) {
       await MoneySchemaMigration.migrateV75(db);
     }
+    if (version >= 87) {
+      await RetentionSchemaMigration.migrateV87(db);
+    }
   }
 
   /// Migraciones incrementales entre versiones de la base de datos.
@@ -1043,6 +1046,24 @@ extension DatabaseInitializer on DatabaseHelper {
     );
     await _agregarColumnaSiNoExiste(db, 'ventas', 'reteiva', 'REAL DEFAULT 0');
     await _agregarColumnaSiNoExiste(db, 'ventas', 'reteica', 'REAL DEFAULT 0');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'ventas',
+      'retefuente_concepto',
+      "TEXT NOT NULL DEFAULT 'otros_ingresos'",
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'ventas',
+      'retefuente_base',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'ventas',
+      'retefuente_tasa',
+      'REAL NOT NULL DEFAULT 0',
+    );
 
     await _agregarColumnaSiNoExiste(
       db,
@@ -1052,5 +1073,23 @@ extension DatabaseInitializer on DatabaseHelper {
     );
     await _agregarColumnaSiNoExiste(db, 'compras', 'reteiva', 'REAL DEFAULT 0');
     await _agregarColumnaSiNoExiste(db, 'compras', 'reteica', 'REAL DEFAULT 0');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'compras',
+      'retefuente_concepto',
+      "TEXT NOT NULL DEFAULT 'compras'",
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'compras',
+      'retefuente_base',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'compras',
+      'retefuente_tasa',
+      'REAL NOT NULL DEFAULT 0',
+    );
   }
 }

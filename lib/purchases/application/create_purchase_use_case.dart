@@ -53,6 +53,9 @@ class CreatePurchaseRequest {
     required this.retefuente,
     required this.reteiva,
     required this.reteica,
+    this.retefuenteConcepto = 'compras',
+    this.retefuenteBase,
+    this.retefuenteTasa,
   });
 
   final int supplierId;
@@ -70,6 +73,9 @@ class CreatePurchaseRequest {
   final MoneyValue retefuente;
   final MoneyValue reteiva;
   final MoneyValue reteica;
+  final String retefuenteConcepto;
+  final MoneyValue? retefuenteBase;
+  final double? retefuenteTasa;
 }
 
 class CreatePurchaseResult {
@@ -122,6 +128,14 @@ class CreatePurchaseUseCase {
     );
     final tax = subtotal.percent(request.taxRate.toString());
     final total = subtotal + tax;
+    final retefuenteBase =
+        request.retefuenteBase ??
+        (request.retefuente.minorUnits > 0 ? subtotal : zero);
+    final retefuenteTasa =
+        request.retefuenteTasa ??
+        (retefuenteBase.minorUnits <= 0
+            ? 0.0
+            : request.retefuente.minorUnits * 100 / retefuenteBase.minorUnits);
     final payment = PaymentPolicy.allocatePurchase(
       total: total,
       method: request.paymentMethodName,
@@ -166,6 +180,9 @@ class CreatePurchaseUseCase {
         'metodo_pago_id': request.paymentMethodId,
         'estado': status,
         'retefuente': request.retefuente.toSql(),
+        'retefuente_concepto': request.retefuenteConcepto,
+        'retefuente_base': retefuenteBase.toSql(),
+        'retefuente_tasa': retefuenteTasa,
         'reteiva': request.reteiva.toSql(),
         'reteica': request.reteica.toSql(),
       });

@@ -56,6 +56,23 @@
 
 **Resumen D2:** 1 Completo / 4 Parciales / 2 Pendientes.
 
+### Actualización del Bloque 1 (2026-08-09)
+
+La fila de ReteFuente permanece **Parcial** porque la captura de retenciones
+de compras sigue permitiendo ingreso manual y la certificación final depende de
+la responsabilidad tributaria y del concepto real del contribuyente. Se cerró
+la brecha concreta identificada en la auditoría: la UVT 2026 quedó centralizada
+en `RetentionPolicy` (COP 52.374), con bases de 2 UVT para servicios, 10 UVT
+para otros ingresos y sin base mínima para honorarios; la semilla
+`RTFTE_COMPRAS_25` conserva 10 UVT en centavos. Cada venta/compra nueva guarda
+concepto, base y tarifa aplicada, y F350 agrega los importes por esos datos en
+vez de repartir 40/30/20.
+
+Evidencia ejecutada: `flutter test test/commercial_tax_block1_test.dart
+test/sales_flow_test.dart --reporter expanded` — **6 pruebas pasaron**. La
+prueba `commercial_tax_block1_test.dart` verifica UVT/base exactas, la semilla,
+la aplicación POS de 2 UVT/4 % y el desglose F350 de tres transacciones.
+
 ## 3. Lógica contable comercial
 
 | Requisito / criterio | Norma o referencia | Archivo(s) que lo implementan | Test que lo cubre | Evidencia | Estado |

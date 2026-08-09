@@ -270,6 +270,7 @@ class _DeclaracionesTributariasPageState
                       'retefuente_servicios': 'Retención servicios',
                       'retefuente_honorarios': 'Retención honorarios',
                       'retefuente_arrendamientos': 'Retención arrendamientos',
+                      'retefuente_otros_ingresos': 'Retencion otros ingresos',
                       'total_retenciones': 'Total retenciones',
                     }, 'Formulario_350_Retefuente'),
                     _filas(_f110, {

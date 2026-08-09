@@ -6,6 +6,7 @@ import '../../core/currency/money_currency_resolver.dart';
 import '../../core/currency/money_value.dart';
 import '../../db_helper.dart';
 import '../../features/feature_key.dart';
+import '../../taxes/retention_policy.dart';
 
 class SaleItemInput {
   const SaleItemInput({
@@ -59,6 +60,9 @@ class CreateSaleRequest {
     required this.retefuente,
     required this.reteiva,
     required this.reteica,
+    this.retefuenteConcepto = 'otros_ingresos',
+    this.retefuenteBase,
+    this.retefuenteTasa,
   });
 
   final List<SaleItemInput> items;
@@ -73,6 +77,9 @@ class CreateSaleRequest {
   final MoneyValue retefuente;
   final MoneyValue reteiva;
   final MoneyValue reteica;
+  final String retefuenteConcepto;
+  final MoneyValue? retefuenteBase;
+  final double? retefuenteTasa;
 }
 
 class CreateSaleResult {
@@ -128,15 +135,24 @@ class CreateSaleUseCase {
       limit: 1,
     );
 
-    final retefuenteUvt = taxParams.isEmpty
-        ? '1090'
-        : taxParams.first['retefuente_general_uvt'].toString();
     final retefuentePurchasesDeclaring = taxParams.isEmpty
         ? '0.025'
         : taxParams.first['retefuente_purchases_declaring'].toString();
     final retefuentePurchasesNonDeclaring = taxParams.isEmpty
         ? '0.035'
         : taxParams.first['retefuente_purchases_non_declaring'].toString();
+    final retefuenteServicesDeclaring = taxParams.isEmpty
+        ? '0.04'
+        : taxParams.first['retefuente_services_1'].toString();
+    final retefuenteServicesNonDeclaring = taxParams.isEmpty
+        ? '0.06'
+        : taxParams.first['retefuente_services_2'].toString();
+    final retefuenteHonorariesDeclaring = taxParams.isEmpty
+        ? '0.10'
+        : taxParams.first['retefuente_honoraries_1'].toString();
+    final retefuenteHonorariesNonDeclaring = taxParams.isEmpty
+        ? '0.11'
+        : taxParams.first['retefuente_honoraries_2'].toString();
     final reteicaRules = await database.query(
       'reglas_retenciones_empresa',
       columns: ['tasa', 'base_minima'],
@@ -184,16 +200,27 @@ class CreateSaleUseCase {
     if (!isAutoretainer) {
       // Calcular retefuente basado en el subtotal y tipo de cliente
       // (Simplificado - debería usar tabla UVT completa)
-      final retentionThreshold = MoneyValue.fromMajorUnits(
-        '47062',
+      final concept = request.retefuenteConcepto.trim().toLowerCase();
+      final retentionThreshold = RetentionPolicy.baseForConcept(
+        concept: concept,
         currency: currency,
-      ).multiplyDecimal(retefuenteUvt);
+      );
       if (subtotal > retentionThreshold) {
-        calculatedRetefuente = subtotal.multiplyDecimal(
-          isDeclarante
-              ? retefuentePurchasesDeclaring
-              : retefuentePurchasesNonDeclaring,
-        );
+        final rate = switch (concept) {
+          'servicios' =>
+            isDeclarante
+                ? retefuenteServicesDeclaring
+                : retefuenteServicesNonDeclaring,
+          'honorarios' =>
+            isDeclarante
+                ? retefuenteHonorariesDeclaring
+                : retefuenteHonorariesNonDeclaring,
+          _ =>
+            isDeclarante
+                ? retefuentePurchasesDeclaring
+                : retefuentePurchasesNonDeclaring,
+        };
+        calculatedRetefuente = subtotal.multiplyDecimal(rate);
       }
 
       if (subtotal >= reteicaMinimumBase) {
@@ -214,6 +241,16 @@ class CreateSaleUseCase {
     final taxRate = subtotal.minorUnits <= 0
         ? 0.0
         : (tax.minorUnits * 100) / subtotal.minorUnits;
+    final retefuenteBase =
+        request.retefuenteBase ??
+        (calculatedRetefuente.minorUnits > 0 ? subtotal : zero);
+    final retefuenteTasa =
+        request.retefuenteTasa ??
+        (retefuenteBase.minorUnits <= 0
+            ? 0.0
+            : calculatedRetefuente.minorUnits *
+                  100 /
+                  retefuenteBase.minorUnits);
     final paymentMethod = request.paymentMethodName.toUpperCase().trim();
 
     final ef = request.efectivo;
@@ -269,6 +306,9 @@ class CreateSaleUseCase {
         'transferencia': request.transferencia.toSql(),
         'credito': request.credito.toSql(),
         'retefuente': calculatedRetefuente.toSql(),
+        'retefuente_concepto': request.retefuenteConcepto,
+        'retefuente_base': retefuenteBase.toSql(),
+        'retefuente_tasa': retefuenteTasa,
         'reteiva': calculatedReteiva.toSql(),
         'reteica': calculatedReteica.toSql(),
       });

@@ -53,6 +53,8 @@ import 'sector_publico/regalias/database/schema_regalias.dart';
 import 'sector_publico/transparencia/database/schema_transparencia.dart';
 import 'sector_publico/siif/database/schema_siif.dart';
 import 'impact/database/schema_impact.dart';
+import 'taxes/retention_schema_migration.dart';
+import 'taxes/retention_policy.dart';
 
 part 'core/database/database_initializer.dart';
 
@@ -74,7 +76,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 86;
+  static const int schemaVersion = 87;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1004,6 +1006,9 @@ class DatabaseHelper {
 
     if (oldVersion < 76) {
       await SchemaContabilidad.crearTriggersPartidaDoble(db);
+    }
+    if (oldVersion < 87) {
+      await RetentionSchemaMigration.migrateV87(db);
     }
   }
 
@@ -4022,7 +4027,7 @@ class DatabaseHelper {
         'codigo': 'RTFTE_COMPRAS_25',
         'nombre': 'Retencion en compras 2.5%',
         'tasa': 2.5,
-        'base_minima': 0.0,
+        'base_minima': RetentionPolicy.currentUvtMajorUnits * 10 * 100,
         'cuenta_contable': '2365',
       },
       {
@@ -9229,23 +9234,86 @@ class DatabaseHelper {
   }
 
   /// Borrador Formulario 350 (Retención en la Fuente) - DIAN.
+  Future<List<Map<String, dynamic>>> obtenerDetalleFormulario350({
+    required int anio,
+    required int mes,
+  }) async {
+    final db = await database;
+    final companyId = await obtenerEmpresaActivaId();
+    final inicio = DateTime(anio, mes, 1).toIso8601String();
+    final fin = DateTime(anio, mes + 1, 1).toIso8601String();
+    final rows = <Map<String, dynamic>>[];
+    rows.addAll(
+      await db.rawQuery(
+        '''
+      SELECT id AS documento_id, 'venta' AS origen,
+             COALESCE(NULLIF(retefuente_concepto, ''), 'otros_ingresos') AS concepto,
+             CASE WHEN COALESCE(retefuente_base, 0) = 0 THEN subtotal
+                  ELSE retefuente_base END AS base,
+             COALESCE(retefuente_tasa, 0) AS tasa,
+             retefuente AS retencion
+      FROM ventas
+      WHERE company_id = ? AND fecha >= ? AND fecha < ?
+        AND COALESCE(estado, 'emitida') != 'anulada'
+        AND COALESCE(retefuente, 0) != 0
+    ''',
+        [companyId, inicio, fin],
+      ),
+    );
+    rows.addAll(
+      await db.rawQuery(
+        '''
+      SELECT id AS documento_id, 'compra' AS origen,
+             COALESCE(NULLIF(retefuente_concepto, ''), 'compras') AS concepto,
+             CASE WHEN COALESCE(retefuente_base, 0) = 0 THEN subtotal
+                  ELSE retefuente_base END AS base,
+             COALESCE(retefuente_tasa, 0) AS tasa,
+             retefuente AS retencion
+      FROM compras
+      WHERE company_id = ? AND fecha >= ? AND fecha < ?
+        AND COALESCE(estado, 'pagada') != 'anulada'
+        AND COALESCE(retefuente, 0) != 0
+    ''',
+        [companyId, inicio, fin],
+      ),
+    );
+    return rows;
+  }
+
   Future<Map<String, MoneyValue>> obtenerBorradorFormulario350({
     required int anio,
     required int mes,
   }) async {
-    final fiscal = await obtenerReporteFiscal(anio: anio, mes: mes);
-    return {
-      'retefuente_compras': fiscal['retefuente_recibida']!,
-      'retefuente_servicios': fiscal['retefuente_practicada']!.multiplyDecimal(
-        '0.4',
-      ),
-      'retefuente_honorarios': fiscal['retefuente_practicada']!.multiplyDecimal(
-        '0.3',
-      ),
-      'retefuente_arrendamientos': fiscal['retefuente_practicada']!
-          .multiplyDecimal('0.2'),
-      'total_retenciones': fiscal['retefuente_practicada']!,
+    final db = await database;
+    final companyId = await obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final zero = MoneyValue(minorUnits: 0, currency: currency);
+    final result = <String, MoneyValue>{
+      'retefuente_compras': zero,
+      'retefuente_servicios': zero,
+      'retefuente_honorarios': zero,
+      'retefuente_arrendamientos': zero,
+      'retefuente_otros_ingresos': zero,
+      'total_retenciones': zero,
     };
+
+    for (final row in await obtenerDetalleFormulario350(anio: anio, mes: mes)) {
+      final amount = MoneyValue.fromSql(row['retencion'], currency: currency);
+      final concept = row['concepto'].toString().trim().toLowerCase();
+      final key = switch (concept) {
+        'compras' => 'retefuente_compras',
+        'servicios' => 'retefuente_servicios',
+        'honorarios' => 'retefuente_honorarios',
+        'arrendamientos' => 'retefuente_arrendamientos',
+        _ => 'retefuente_otros_ingresos',
+      };
+      result[key] = result[key]! + amount;
+      result['total_retenciones'] = result['total_retenciones']! + amount;
+    }
+    return result;
   }
 
   /// Borrador Formulario 110 (Renta Personas Jurídicas) - resumen anual.
