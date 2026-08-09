@@ -314,6 +314,80 @@ conjunto completo de revelaciones de cada grupo.
 
 Commit de implementacion: `845676f`.
 
+## Verificacion final posterior a los seis bloques
+
+### Presupuesto publico: causa y resultado
+
+`git log --follow` y `git blame` confirman que el fixture de
+`test/sector_publico/presupuesto/presupuesto_publico_page_test.dart` fue
+modificado por `6b3bf5f` y documentado por `0c1c169`; ningun commit de los
+seis bloques de esta sesion toco ese archivo ni su fixture. El archivo sigue
+usando `databaseFactoryFfiNoIsolate` y `tester.runAsync` alrededor de la
+preparacion asincrona.
+
+El test aislado produjo salida cruda en
+`docs/evidencias/presupuesto_publico_aislado_2026-08-09.txt`: los 7 tests
+pasaron en 11 segundos. No hubo `TimeoutException`, `dart:isolate` ni
+`RawReceivePort`. Por tanto no se revirtio el fix ni se cambio el fixture.
+La corrida global con `--concurrency=4` tuvo una falla distinta de
+interferencia entre pruebas: el `tearDownAll` de `commercial_tax_block1_test.dart`
+no pudo borrar una carpeta temporal bloqueada por otra prueba concurrente.
+La corrida definitiva serial con `--concurrency=1` si termino limpia.
+
+### Estado especifico de los Bloques 1-5
+
+1. **UVT y ReteFuente.** `RetentionPolicy.currentUvtMajorUnits` es `52374`
+   y el test `commercial_tax_block1_test.dart` verifica la UVT 2026, 2 UVT
+   para servicios y 10 UVT para la semilla de compras. La busqueda exhaustiva
+   no encontro `47062` en `lib/`; los consumidores usan
+   `RetentionPolicy`, incluyendo `create_sale_use_case.dart`,
+   `purchases/application/create_purchase_use_case.dart`,
+   `declaraciones_tributarias_page.dart` y la configuracion de
+   `payroll_parameters`. Sigue Parcial la captura normativa completa de
+   compras y la responsabilidad tributaria especifica de cada empresa.
+2. **Inventario/LIFO.** `InventoryCostMethod` ya solo expone `fifo` y
+   `average`; LIFO no es seleccionable. El costeo operativo de compras usa
+   promedio ponderado y `productos.costo` sigue siendo el saldo operativo.
+   `InventoryMovementService` ya escribe activamente en
+   `kardex_inventario` junto con `movimientos_inventario`. No se fusionaron
+   fisicamente `inventory_lots`, `lotes` y el stock de `productos`: siguen
+   siendo representaciones con responsabilidades distintas, documentadas
+   como brecha de reconciliacion completa.
+3. **F300.** `obtenerBorradorFormulario300()` lee `impuesto_pct` por linea y
+   separa tarifas 0/5/19, IVA generado y descontable por origen. El test
+   `commercial_f300_block3_test.dart` verifica exactamente IVA generado de
+   10.000 (5 %), 57.000 (19 %), total 67.000 y descontable 19.000. No sigue
+   usando 19 % general para el detalle que tiene tarifa.
+4. **Cierre contable.** v89 reconstruye `periodos_contables` con
+   `company_id` y unicidad `(company_id, anio, mes)`. `cerrarEjercicioContable()`
+   crea el asiento de cierre de ingresos/gastos contra resultado y un segundo
+   asiento a `3705`; `commercial_accounting_close_block4_test.dart` verifica
+   utilidad exacta de 70.000 centavos y el traslado a patrimonio. El bloqueo
+   completo de todos los consumidores despues del cierre mensual permanece
+   Parcial.
+5. **Nomina privada.** `liquidarNomina()` suma novedades salariales de
+   `payroll_novelties` al IBC y excluye auxilio de transporte; lee
+   `health_exonerated`, calcula retencion con `PayrollWithholding` en vez de
+   dejarla en cero, agrega cargas patronales al asiento y ejecuta movimiento,
+   asiento y liquidacion dentro de una transaccion. El test
+   `commercial_payroll_block5_test.dart` verifica variables, exoneracion,
+   tabla progresiva del articulo 383 y rollback cuando el periodo cerrado
+   fuerza un fallo. Sigue Parcial por deducciones laborales adicionales no
+   capturadas y escenarios tributarios que requieren mas parametrizacion.
+
+### Evidencia final
+
+- Suite global serial: `docs/evidencias/suite_global_verificacion_2026-08-09_serial.txt`;
+  `312` pasaron, `3` omitidos, `0` fallas, `All other tests passed!`.
+- `flutter analyze`: `docs/evidencias/flutter_analyze_cierre_6_bloques_2026-08-09.txt`;
+  `240 issues`, sin errores de analisis.
+- `flutter build windows`:
+  `docs/evidencias/flutter_build_windows_cierre_6_bloques_2026-08-09.txt`;
+  `Built build\\windows\\x64\\runner\\Release\\MerkaERP.exe`, codigo 0.
+
+No hubo correccion adicional de codigo en esta verificacion; solo se
+agregaron evidencia y esta documentacion.
+
 ## Bloque 6 - Marco NIIF configurable por empresa
 
 ### Decision normativa previa
