@@ -101,4 +101,54 @@ class WarehouseStockService {
       });
     });
   }
+
+  Future<void> consume({
+    required int productId,
+    required int warehouseId,
+    required double quantity,
+    String reason = 'consumo de produccion',
+  }) async {
+    if (quantity <= 0) {
+      throw ArgumentError('La cantidad consumida debe ser positiva.');
+    }
+    final db = await _database.database;
+    final companyId = await _database.obtenerEmpresaActivaId();
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'stock_bodega',
+        where: 'company_id = ? AND producto_id = ? AND bodega_id = ?',
+        whereArgs: [companyId, productId, warehouseId],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        throw StateError(
+          'No existe stock del producto #$productId en la bodega $warehouseId.',
+        );
+      }
+      final previous = (rows.single['cantidad'] as num).toDouble();
+      if (previous < quantity) {
+        throw StateError(
+          'Stock insuficiente para consumir el producto #$productId: '
+          'requiere $quantity y hay $previous.',
+        );
+      }
+      final next = previous - quantity;
+      await txn.update(
+        'stock_bodega',
+        {'cantidad': next, 'actualizado_en': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [rows.single['id']],
+      );
+      await txn.insert('movimientos_inventario', {
+        'company_id': companyId,
+        'producto_id': productId,
+        'tipo': 'salida',
+        'cantidad': quantity,
+        'stock_anterior': previous,
+        'stock_nuevo': next,
+        'motivo': reason,
+        'fecha': DateTime.now().toIso8601String(),
+      });
+    });
+  }
 }

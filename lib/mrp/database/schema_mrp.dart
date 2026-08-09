@@ -11,6 +11,7 @@ class SchemaMrp {
         name TEXT NOT NULL,
         hour_rate INTEGER NOT NULL DEFAULT 0,
         production_capacity INTEGER NOT NULL DEFAULT 1,
+        available_hours_per_day REAL,
         status TEXT NOT NULL DEFAULT 'produccion',
         warehouse_id INTEGER
       )

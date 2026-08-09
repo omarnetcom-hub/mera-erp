@@ -18,6 +18,8 @@ class MrpWorkstationService {
       throw ArgumentError('La estación de trabajo requiere un nombre.');
     }
     if (value.hourRate.minorUnits < 0 ||
+        (value.availableHoursPerDay != null &&
+            value.availableHoursPerDay! <= 0) ||
         (value.warehouseId != null && value.warehouseId! <= 0)) {
       throw ArgumentError('La estación debe tener tarifa y bodega válidas.');
     }
@@ -287,7 +289,11 @@ class MrpWorkOrderService {
     }
   }
 
-  Future<void> transition(int orderId, MrpWorkOrderStatus target) async {
+  Future<void> transition(
+    int orderId,
+    MrpWorkOrderStatus target, {
+    double? producedQty,
+  }) async {
     final order = await _orders.findById(orderId);
     if (order == null) throw StateError('Orden de produccion no encontrada.');
     if (!_allowed(order.status, target))
@@ -331,18 +337,65 @@ class MrpWorkOrderService {
       }
       await _reverseTransferredMaterial(orderItems, order.wipWarehouseId);
     }
+    final completedQuantity = producedQty ?? order.qtyPlanned;
     if (target == MrpWorkOrderStatus.completada) {
+      if (completedQuantity <= 0 || completedQuantity > order.qtyPlanned) {
+        throw ArgumentError(
+          'La cantidad producida debe ser mayor que cero y no superar la planificada.',
+        );
+      }
+      final orderItems = await _items.listForOrder(orderId);
+      final completionFactor = completedQuantity / order.qtyPlanned;
+      final pendingConsumption = <MrpWorkOrderItem, double>{};
+      for (final item in orderItems) {
+        final targetConsumption = item.requiredQty * completionFactor;
+        final pending = targetConsumption - item.consumedQty;
+        if (pending > 0) {
+          final available = await _stock.availableQuantity(
+            productId: item.itemId,
+            warehouseId: order.wipWarehouseId,
+          );
+          if (available < pending) {
+            throw StateError(
+              'No hay suficiente material en WIP para completar la orden: '
+              'producto #${item.itemId}, requiere $pending y hay $available.',
+            );
+          }
+          pendingConsumption[item] = pending;
+        }
+      }
+      for (final entry in pendingConsumption.entries) {
+        final item = entry.key;
+        await _stock.consume(
+          productId: item.itemId,
+          warehouseId: order.wipWarehouseId,
+          quantity: entry.value,
+          reason: 'MRP WO#$orderId consumo de materia prima',
+        );
+        await _items.save(
+          MrpWorkOrderItem(
+            id: item.id,
+            companyId: item.companyId,
+            workOrderId: item.workOrderId,
+            itemId: item.itemId,
+            requiredQty: item.requiredQty,
+            transferredQty: item.transferredQty,
+            consumedQty: item.consumedQty + entry.value,
+            sourceWarehouseId: item.sourceWarehouseId,
+          ),
+        );
+      }
       await _stock.receiveProduction(
         productId: order.productionItemId,
         warehouseId: order.wipWarehouseId,
-        quantity: order.qtyPlanned,
+        quantity: completedQuantity,
         reason: 'MRP WO#$orderId producto terminado',
       );
       await _stock.transfer(
         productId: order.productionItemId,
         fromWarehouseId: order.wipWarehouseId,
         toWarehouseId: order.fgWarehouseId,
-        quantity: order.qtyPlanned,
+        quantity: completedQuantity,
         reason: 'MRP WO#$orderId producto terminado a FG',
       );
     }
@@ -354,7 +407,7 @@ class MrpWorkOrderService {
         bomId: order.bomId,
         qtyPlanned: order.qtyPlanned,
         qtyProduced: target == MrpWorkOrderStatus.completada
-            ? order.qtyPlanned
+            ? completedQuantity
             : order.qtyProduced,
         status: target,
         wipWarehouseId: order.wipWarehouseId,

@@ -9,17 +9,18 @@ actualiza oportunidades, empleados ni workstations.
 ### Capacidad productiva
 
 La tabla `mrp_workstations` tiene `hour_rate`, que representa costo por hora,
-y `production_capacity`, que no tiene semantica documentada de horas por turno,
-calendario, disponibilidad o capacidad temporal. Por eso el simulador no
-interpreta ninguno de esos campos como horas disponibles y devuelve
-`capacidad_no_configurada`. No se inventa una cifra para hacer parecer que la
-factibilidad esta calculada.
+y `production_capacity`, que sigue siendo una capacidad generica sin semantica
+temporal. Desde el esquema v83 cada workstation puede declarar
+`available_hours_per_day`; NULL significa que esa estacion aun no esta
+configurada. El simulador suma las horas de las workstations en produccion y
+las muestra como capacidad diaria real.
 
 Ademas, CRM no tiene una relacion oportunidad-producto-cantidad. El simulador
 calcula una demanda monetaria incremental como proxy, pero no la convierte a
 unidades MRP ni afirma que la capacidad alcance. Para cerrar esa parte se
-necesita configurar horas por workstation/turno y una relacion entre oportunidad,
-producto y cantidad.
+necesita una relacion entre oportunidad, producto y cantidad para comparar esa
+capacidad horaria con demanda de unidades. Si faltan horas en alguna estacion,
+el estado queda parcial y no se afirma factibilidad completa.
 
 ### Headcount
 
@@ -49,8 +50,8 @@ tabla append-only desde el servicio de simulacion: no se usa como fuente para
 liquidar, vender, producir o modificar datos operativos.
 
 La UI `ImpactSimulatorPage` expone el control de incremento, el snapshot,
-resultado con estado ambar cuando la capacidad no esta configurada y el libro
-local. La entrada de workspace usa `FeatureKey.impactSimulator` y el permiso
+resultado con estado ambar cuando la capacidad esta incompleta o no puede
+compararse con unidades. La entrada de workspace usa `FeatureKey.impactSimulator` y el permiso
 existente de Reportes; la consulta y el guardado siguen el alcance RBAC del
 workspace.
 
@@ -66,5 +67,6 @@ El test `test/impact/impact_simulator_service_test.dart` verifica:
 
 ## Pendientes
 
-Configurar horas disponibles por workstation/turno y vincular oportunidades a
-productos/cantidades antes de presentar una capacidad productiva numerica.
+Vincular oportunidades a productos/cantidades antes de presentar una
+factibilidad productiva numerica. La capacidad diaria ya es un dato real,
+pero la demanda por unidad sigue pendiente.

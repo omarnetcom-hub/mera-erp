@@ -85,6 +85,7 @@ void main() {
         companyId: companyId,
         name: 'Corte',
         hourRate: MoneyValue.fromMajorUnits('10', currency: cop),
+        availableHoursPerDay: 8,
         warehouseId: 2,
       ),
     );
@@ -122,6 +123,8 @@ void main() {
       ),
     );
     final bom = await MrpBomService().recalculate(bomId);
+    final workstation = (await MrpWorkstationService().list()).single;
+    expect(workstation.availableHoursPerDay, 8);
     expect(bom.rawMaterialCost.minorUnits, 2000);
     expect(bom.operatingCost.minorUnits, 1000);
     expect(bom.totalCost.minorUnits, 3000);
@@ -174,10 +177,14 @@ void main() {
     final order = (await MrpWorkOrderService().list()).single;
     expect(rawAtSource.single['cantidad'], 8);
     expect(finishedAtFg.single['cantidad'], 1);
-    expect(movementCount.single['total'], 5);
+    expect(movementCount.single['total'], 6);
     expect(transferCount.single['total'], 2);
     expect(order.status, MrpWorkOrderStatus.completada);
     expect(order.qtyProduced, 1);
+    expect(
+      (await MrpWorkOrderService().items(order.id!)).single.consumedQty,
+      2,
+    );
   });
 
   test('MRP rechaza transiciones de orden no permitidas', () async {
@@ -565,5 +572,76 @@ void main() {
           .status,
       MrpWorkOrderStatus.borrador,
     );
+  });
+
+  test('MRP permite cerrar una orden con produccion parcial', () async {
+    final zero = MoneyValue(minorUnits: 0, currency: cop);
+    final partialProduct = await db.insert('productos', {
+      'company_id': companyId,
+      'nombre': 'Producto parcial',
+      'unidad_base': 'UND',
+      'stock': 0,
+      'costo': 0,
+      'precio': 0,
+      'impuesto_pct': 0,
+    });
+    for (final warehouseId in [1, 2, 3]) {
+      await db.insert('stock_bodega', {
+        'company_id': companyId,
+        'producto_id': partialProduct,
+        'bodega_id': warehouseId,
+        'cantidad': 0,
+        'costo': 0,
+        'actualizado_en': DateTime.now().toIso8601String(),
+      });
+    }
+    final partialBomId = await MrpBomService().create(
+      MrpBom(
+        companyId: companyId,
+        itemId: partialProduct,
+        rawMaterialCost: zero,
+        operatingCost: zero,
+        totalCost: zero,
+      ),
+    );
+    final orderId = await MrpWorkOrderService().create(
+      draft: MrpWorkOrder(
+        companyId: companyId,
+        productionItemId: partialProduct,
+        bomId: partialBomId,
+        qtyPlanned: 10,
+        wipWarehouseId: 2,
+        fgWarehouseId: 3,
+        plannedOperatingCost: zero,
+        actualOperatingCost: zero,
+        rawMaterialCost: zero,
+        totalCost: zero,
+      ),
+    );
+    await MrpWorkOrderService().transition(
+      orderId,
+      MrpWorkOrderStatus.noIniciada,
+    );
+    await MrpWorkOrderService().transition(
+      orderId,
+      MrpWorkOrderStatus.enProceso,
+    );
+    await MrpWorkOrderService().transition(
+      orderId,
+      MrpWorkOrderStatus.completada,
+      producedQty: 6,
+    );
+
+    final order = (await MrpWorkOrderService().list()).singleWhere(
+      (item) => item.id == orderId,
+    );
+    final finished = await db.query(
+      'stock_bodega',
+      where: 'producto_id = ? AND bodega_id = ?',
+      whereArgs: [partialProduct, 3],
+    );
+    expect(order.status, MrpWorkOrderStatus.completada);
+    expect(order.qtyProduced, 6);
+    expect(finished.single['cantidad'], 6);
   });
 }

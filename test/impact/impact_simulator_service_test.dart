@@ -47,6 +47,8 @@ void main() {
         company_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         production_capacity INTEGER NOT NULL,
+        available_hours_per_day REAL,
+        status TEXT NOT NULL DEFAULT 'produccion',
         hour_rate INTEGER NOT NULL
       )
     ''');
@@ -86,6 +88,7 @@ void main() {
       'company_id': companyId,
       'name': 'Linea A',
       'production_capacity': 4,
+      'available_hours_per_day': 8,
       'hour_rate': 5000,
     });
     service = ImpactSimulatorService(
@@ -107,11 +110,19 @@ void main() {
     expect(snapshot.activeHeadcount, 1);
     expect(snapshot.activeBasePayroll.minorUnits, 200000);
     expect(snapshot.workstationCount, 1);
+    expect(snapshot.configuredWorkstationCount, 1);
+    expect(snapshot.availableHoursPerDay, 8);
     expect(result.projectedClosedWonValue.minorUnits, 120000);
     expect(result.incrementalDemandProxy.minorUnits, 20000);
-    expect(result.capacityStatus, 'capacidad_no_configurada');
+    expect(
+      result.capacityStatus,
+      'configurada_sin_modelo_de_demanda_por_unidad',
+    );
     expect(result.formula, contains('valor_ganado_actual'));
-    expect(result.warnings, contains(contains('Capacidad no configurada')));
+    expect(
+      result.warnings,
+      contains(contains('No existe vinculo oportunidad-producto')),
+    );
   });
 
   test('guardar escenario no modifica tablas operativas', () async {
@@ -197,6 +208,8 @@ void main() {
       activeHeadcount: 1,
       activeBasePayroll: MoneyValue(minorUnits: 200000, currency: currency),
       workstationCount: 1,
+      configuredWorkstationCount: 1,
+      availableHoursPerDay: 8,
       capacityConfigured: false,
       capacityNote: 'No configurada',
     );

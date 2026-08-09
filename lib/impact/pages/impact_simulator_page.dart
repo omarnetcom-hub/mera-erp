@@ -122,6 +122,10 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
           _metric('Headcount activo', '${snapshot.activeHeadcount}'),
           _metric('Costo base HRM', snapshot.activeBasePayroll.format()),
           _metric('Workstations', '${snapshot.workstationCount}'),
+          _metric(
+            'Capacidad diaria',
+            '${snapshot.availableHoursPerDay.toStringAsFixed(2)} h',
+          ),
         ],
       ),
     ),
@@ -163,7 +167,8 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
   );
 
   Widget _buildResult(ImpactResult result) {
-    final unknown = result.capacityStatus == 'capacidad_no_configurada';
+    final unknown =
+        result.capacityStatus != 'configurada_sin_modelo_de_demanda_por_unidad';
     final color = unknown ? MerkaThemeTokens.warning : MerkaThemeTokens.success;
     return Card(
       child: Padding(
@@ -179,9 +184,11 @@ class _ImpactSimulatorPageState extends State<ImpactSimulatorPage> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  unknown
-                      ? 'Factibilidad: capacidad no configurada'
-                      : 'Factibilidad calculada',
+                  result.capacityStatus == 'capacidad_no_configurada'
+                      ? 'Capacidad: no configurada'
+                      : result.capacityStatus == 'parcialmente_configurada'
+                      ? 'Capacidad: configuracion parcial'
+                      : 'Capacidad: configurada',
                   style: Theme.of(
                     context,
                   ).textTheme.titleMedium?.copyWith(color: color),

@@ -8,6 +8,7 @@ class MrpWorkstation {
     required this.name,
     required this.hourRate,
     this.productionCapacity = 1,
+    this.availableHoursPerDay,
     this.status = 'produccion',
     this.warehouseId,
   });
@@ -16,6 +17,7 @@ class MrpWorkstation {
   final String name;
   final MoneyValue hourRate;
   final int productionCapacity;
+  final double? availableHoursPerDay;
   final String status;
   final int? warehouseId;
   Map<String, Object?> toMap() => {
@@ -23,6 +25,7 @@ class MrpWorkstation {
     'name': name,
     'hour_rate': hourRate.toSql(),
     'production_capacity': productionCapacity,
+    'available_hours_per_day': availableHoursPerDay,
     'status': status,
     'warehouse_id': warehouseId,
   };
@@ -37,6 +40,8 @@ class MrpWorkstation {
           nullableAsZero: true,
         ),
         productionCapacity: (m['production_capacity'] as num?)?.toInt() ?? 1,
+        availableHoursPerDay: (m['available_hours_per_day'] as num?)
+            ?.toDouble(),
         status: m['status']?.toString() ?? 'produccion',
         warehouseId: (m['warehouse_id'] as num?)?.toInt(),
       );

@@ -6,6 +6,8 @@ import '../application/mrp_services.dart';
 import '../domain/mrp_bom.dart';
 import '../domain/mrp_bom_item.dart';
 import '../domain/mrp_work_order.dart';
+import '../domain/mrp_workstation.dart';
+import '../data/mrp_repositories.dart';
 import '../../ui/widgets/expandable_record_card.dart';
 
 class MrpPage extends StatefulWidget {
@@ -18,9 +20,11 @@ class MrpPage extends StatefulWidget {
 class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
   final _bomService = MrpBomService();
   final _orderService = MrpWorkOrderService();
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  final _workstationService = MrpWorkstationService();
+  late final TabController _tabs = TabController(length: 3, vsync: this);
   late Future<List<MrpBom>> _boms;
   late Future<List<MrpWorkOrder>> _orders;
+  late Future<List<MrpWorkstation>> _workstations;
   late final String _commandOwner;
 
   @override
@@ -33,6 +37,7 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
   void _reload() {
     _boms = _bomService.list();
     _orders = _orderService.list();
+    _workstations = _workstationService.list();
   }
 
   @override
@@ -51,12 +56,13 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
         tabs: const [
           Tab(text: 'Editor BOM'),
           Tab(text: 'Ordenes de produccion'),
+          Tab(text: 'Workstations'),
         ],
       ),
     ),
     body: TabBarView(
       controller: _tabs,
-      children: [_buildBoms(), _buildOrders()],
+      children: [_buildBoms(), _buildOrders(), _buildWorkstations()],
     ),
   );
 
@@ -125,6 +131,126 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
     },
   );
 
+  Widget _buildWorkstations() => FutureBuilder<List<MrpWorkstation>>(
+    future: _workstations,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (snapshot.hasError) {
+        return Center(
+          child: Text('No se pudieron cargar workstations: ${snapshot.error}'),
+        );
+      }
+      final workstations = snapshot.data ?? const <MrpWorkstation>[];
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              Text(
+                'Centros de trabajo',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: _showWorkstationEditor,
+                icon: const Icon(Icons.add),
+                label: const Text('Nueva workstation'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (workstations.isEmpty)
+            const Text('No hay workstations registradas.'),
+          ...workstations.map(
+            (workstation) => Card(
+              child: ListTile(
+                leading: const Icon(Icons.precision_manufacturing),
+                title: Text(workstation.name),
+                subtitle: Text(
+                  'Costo/hora: ${workstation.hourRate.format()} - '
+                  'Capacidad temporal: '
+                  '${workstation.availableHoursPerDay?.toStringAsFixed(2) ?? 'No configurada'} '
+                  'h/dia',
+                ),
+                trailing: Text(workstation.status),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  Future<void> _showWorkstationEditor() async {
+    final name = TextEditingController();
+    final rate = TextEditingController(text: '0');
+    final hours = TextEditingController();
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Nueva workstation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+            ),
+            TextField(
+              controller: rate,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Costo por hora'),
+            ),
+            TextField(
+              controller: hours,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Horas disponibles por dia',
+                hintText: 'Ej. 8',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final availableHours = double.tryParse(hours.text);
+              if (name.text.trim().isEmpty ||
+                  availableHours == null ||
+                  availableHours <= 0) {
+                return;
+              }
+              final currency = await MrpRepositoryContext().currency;
+              await _workstationService.create(
+                MrpWorkstation(
+                  companyId: await MrpRepositoryContext().companyId,
+                  name: name.text,
+                  hourRate: MoneyValue.fromMajorUnits(
+                    rate.text,
+                    currency: currency,
+                  ),
+                  availableHoursPerDay: availableHours,
+                ),
+              );
+              if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    name.dispose();
+    rate.dispose();
+    hours.dispose();
+    if (created == true && mounted) setState(_reload);
+  }
+
   Widget _buildOrders() => FutureBuilder<List<MrpWorkOrder>>(
     future: _orders,
     builder: (context, snapshot) {
@@ -186,10 +312,7 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
             icon: Icons.task_alt,
             onPressed: (_) async {
               _activateOrderContext(context, order);
-              await _orderService.transition(
-                order.id!,
-                MrpWorkOrderStatus.completada,
-              );
+              await _completeOrder(order);
               if (mounted) setState(_reload);
             },
           ),
@@ -235,22 +358,39 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
           ),
           RecordCardField(
             label: 'Estado',
-            value: blocked ? 'Bloqueada: stock insuficiente' : _statusLabel(order.status),
+            value: blocked
+                ? 'Bloqueada: stock insuficiente'
+                : _statusLabel(order.status),
             icon: blocked ? Icons.warning : Icons.flag,
             emphasized: true,
           ),
         ],
         secondaryFields: [
           RecordCardField(label: 'BOM', value: '#${order.bomId}'),
-          RecordCardField(label: 'Costo total', value: order.totalCost.toMajorUnitsString()),
-          RecordCardField(label: 'Materia prima', value: order.rawMaterialCost.toMajorUnitsString()),
+          RecordCardField(
+            label: 'Costo total',
+            value: order.totalCost.toMajorUnitsString(),
+          ),
+          RecordCardField(
+            label: 'Materia prima',
+            value: order.rawMaterialCost.toMajorUnitsString(),
+          ),
           RecordCardField(
             label: 'Operación',
             value: order.plannedOperatingCost.toMajorUnitsString(),
           ),
-          RecordCardField(label: 'Bodega WIP', value: '${order.wipWarehouseId}'),
-          RecordCardField(label: 'Bodega producto terminado', value: '${order.fgWarehouseId}'),
-          RecordCardField(label: 'Fecha límite', value: order.plannedEndDate?.toIso8601String() ?? 'Sin fecha'),
+          RecordCardField(
+            label: 'Bodega WIP',
+            value: '${order.wipWarehouseId}',
+          ),
+          RecordCardField(
+            label: 'Bodega producto terminado',
+            value: '${order.fgWarehouseId}',
+          ),
+          RecordCardField(
+            label: 'Fecha límite',
+            value: order.plannedEndDate?.toIso8601String() ?? 'Sin fecha',
+          ),
         ],
         actions: actions,
       );
@@ -293,6 +433,47 @@ class _MrpPageState extends State<MrpPage> with SingleTickerProviderStateMixin {
         ownerId: _commandOwner,
         actions: actions,
       ),
+    );
+  }
+
+  Future<void> _completeOrder(MrpWorkOrder order) async {
+    final quantity = TextEditingController(text: order.qtyPlanned.toString());
+    final produced = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Completar orden'),
+        content: TextField(
+          controller: quantity,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: 'Cantidad producida',
+            helperText: 'Planeada: ${order.qtyPlanned}',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = double.tryParse(quantity.text);
+              if (value == null || value <= 0 || value > order.qtyPlanned) {
+                return;
+              }
+              Navigator.pop(dialogContext, value);
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    quantity.dispose();
+    if (produced == null) return;
+    await _orderService.transition(
+      order.id!,
+      MrpWorkOrderStatus.completada,
+      producedQty: produced,
     );
   }
 

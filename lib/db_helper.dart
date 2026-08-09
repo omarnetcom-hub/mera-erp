@@ -74,7 +74,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 82;
+  static const int schemaVersion = 83;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -391,6 +391,20 @@ class DatabaseHelper {
     }
     if (oldVersion < 82) {
       await SchemaImpact.crearTablas(db);
+    }
+    if (oldVersion < 83) {
+      final mrpTables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        ['mrp_workstations'],
+      );
+      if (mrpTables.isNotEmpty) {
+        await _agregarColumnaSiNoExiste(
+          db,
+          'mrp_workstations',
+          'available_hours_per_day',
+          'REAL',
+        );
+      }
     }
 
     if (oldVersion < 49) {

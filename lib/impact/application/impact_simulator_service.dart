@@ -66,10 +66,31 @@ class ImpactSimulatorService {
     );
     final workstations = await db.query(
       'mrp_workstations',
-      columns: ['id', 'name', 'production_capacity'],
+      columns: [
+        'id',
+        'name',
+        'production_capacity',
+        'available_hours_per_day',
+        'status',
+      ],
       where: 'company_id = ?',
       whereArgs: [companyId],
     );
+    final productionWorkstations = workstations
+        .where((row) => row['status']?.toString() == 'produccion')
+        .toList();
+    final configuredWorkstations = productionWorkstations.where((row) {
+      final hours = (row['available_hours_per_day'] as num?)?.toDouble();
+      return hours != null && hours > 0;
+    }).toList();
+    final availableHoursPerDay = configuredWorkstations.fold<double>(
+      0,
+      (sum, row) =>
+          sum + ((row['available_hours_per_day'] as num?)?.toDouble() ?? 0),
+    );
+    final capacityConfigured =
+        productionWorkstations.isNotEmpty &&
+        configuredWorkstations.length == productionWorkstations.length;
     return ImpactSnapshot(
       companyId: companyId,
       currency: currency,
@@ -87,10 +108,16 @@ class ImpactSimulatorService {
         currency: currency,
       ),
       workstationCount: workstations.length,
-      capacityConfigured: false,
-      capacityNote:
-          'No existe horas_disponibles_por_turno ni calendario de capacidad '
-          'por workstation. production_capacity no se interpreta como horas.',
+      configuredWorkstationCount: configuredWorkstations.length,
+      availableHoursPerDay: availableHoursPerDay,
+      capacityConfigured: capacityConfigured,
+      capacityNote: capacityConfigured
+          ? 'Capacidad configurada: ${availableHoursPerDay.toStringAsFixed(2)} horas por dia '
+                'en ${configuredWorkstations.length} workstations de produccion.'
+          : configuredWorkstations.isEmpty
+          ? 'Capacidad temporal no configurada. production_capacity no representa horas disponibles.'
+          : 'Capacidad parcial: ${availableHoursPerDay.toStringAsFixed(2)} horas por dia '
+                'en ${configuredWorkstations.length} de ${productionWorkstations.length} workstations de produccion.',
     );
   }
 

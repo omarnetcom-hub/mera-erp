@@ -14,6 +14,8 @@ class ImpactSnapshot {
     required this.activeHeadcount,
     required this.activeBasePayroll,
     required this.workstationCount,
+    required this.configuredWorkstationCount,
+    required this.availableHoursPerDay,
     required this.capacityConfigured,
     required this.capacityNote,
   });
@@ -25,6 +27,8 @@ class ImpactSnapshot {
   final int activeHeadcount;
   final MoneyValue activeBasePayroll;
   final int workstationCount;
+  final int configuredWorkstationCount;
+  final double availableHoursPerDay;
   final bool capacityConfigured;
   final String capacityNote;
 
@@ -36,6 +40,8 @@ class ImpactSnapshot {
     'active_headcount': activeHeadcount,
     'active_base_payroll': activeBasePayroll.toWireMap(),
     'workstation_count': workstationCount,
+    'configured_workstation_count': configuredWorkstationCount,
+    'available_hours_per_day': availableHoursPerDay,
     'capacity_configured': capacityConfigured,
     'capacity_note': capacityNote,
   };
@@ -95,19 +101,24 @@ class ImpactCalculator {
       incrementalDemandProxy: projected - snapshot.closedWonValue,
       capacityStatus: snapshot.capacityConfigured
           ? 'configurada_sin_modelo_de_demanda_por_unidad'
+          : snapshot.configuredWorkstationCount > 0
+          ? 'parcialmente_configurada'
           : 'capacidad_no_configurada',
       formula:
           'valor_ganado_proyectado = valor_ganado_actual * '
           '(1 + uplift_percent / 100); demanda MRP = proxy monetaria; '
           'no se convierten ingresos a unidades sin producto/cantidad.',
-      warnings: snapshot.capacityConfigured
-          ? const [
-              'La capacidad horaria existe, pero la demanda por unidad aún no está vinculada a CRM.',
-            ]
-          : const [
-              'Capacidad no configurada: production_capacity no representa horas disponibles.',
-              'No existe vínculo oportunidad-producto/cantidad para calcular unidades MRP.',
-            ],
+      warnings: [
+        if (!snapshot.capacityConfigured &&
+            snapshot.configuredWorkstationCount > 0)
+          'Solo hay capacidad configurada para '
+              '${snapshot.configuredWorkstationCount} de '
+              '${snapshot.workstationCount} workstations.',
+        if (!snapshot.capacityConfigured &&
+            snapshot.configuredWorkstationCount == 0)
+          'Capacidad no configurada: production_capacity no representa horas disponibles.',
+        'No existe vinculo oportunidad-producto/cantidad para calcular unidades MRP.',
+      ],
     );
   }
 }
@@ -209,6 +220,10 @@ ImpactSnapshot _snapshotFromJson(
     currency: currency,
   ),
   workstationCount: (json['workstation_count'] as num).toInt(),
+  configuredWorkstationCount:
+      (json['configured_workstation_count'] as num?)?.toInt() ?? 0,
+  availableHoursPerDay:
+      (json['available_hours_per_day'] as num?)?.toDouble() ?? 0,
   capacityConfigured: json['capacity_configured'] == true,
   capacityNote: json['capacity_note'].toString(),
 );
