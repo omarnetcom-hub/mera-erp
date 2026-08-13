@@ -138,12 +138,37 @@ void main() {
         ingresosNoGravables: publicMoneyZero(),
         ingresosExentos: publicMoneyZero(),
       );
+      await icaService.registrarReteICA(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        nitRetenedor: '800777666-2',
+        nitRetenido: '900999888-1',
+        periodo: '2026-01',
+        valorRetenido: publicMoneyFromMajor('120000'),
+        numeroFactura: 'FE-ICA-001',
+        fechaFactura: DateTime(2026, 1, 15),
+      );
 
       final planoICA = await icaService.exportarDeclaracionICAAPlano(
         decICA['declaracion_id'] as String,
       );
       expect(planoICA, contains('ICA_DECLARATION_HEADER'));
       expect(planoICA, contains('2026-01'));
+
+      final xmlICA = await icaService.exportarDeclaracionICAXml(
+        decICA['declaracion_id'] as String,
+      );
+      expect(xmlICA, contains('<DeclaracionICA'));
+      expect(xmlICA, contains('<Nit>900999888-1</Nit>'));
+      expect(xmlICA, contains('<BaseGravable>100000000.00</BaseGravable>'));
+      expect(xmlICA, contains('<ImpuestoICA>800000.00</ImpuestoICA>'));
+      expect(xmlICA, contains('<ReteICA>120000.00</ReteICA>'));
+
+      final pdfBytes = await icaService.exportarDeclaracionICAPdfBytes(
+        decICA['declaracion_id'] as String,
+      );
+      expect(String.fromCharCodes(pdfBytes.take(4)), '%PDF');
+      expect(pdfBytes.length, greaterThan(1000));
     },
   );
 }

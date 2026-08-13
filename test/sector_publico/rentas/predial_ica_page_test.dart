@@ -65,9 +65,9 @@ void main() {
     await tester.tap(find.text('Industria y Comercio (ICA)'));
     await tester.pumpAndSettle();
 
-    // Verify ICA elements and TODO banner
+    // Verify ICA elements and active export banner
     expect(
-      find.textContaining('Pendiente: exportacion oficial de Declaracion ICA'),
+      find.textContaining('Exportacion ICA PDF/XML activa'),
       findsOneWidget,
     );
     expect(find.text('Censo de Contribuyentes ICA'), findsOneWidget);

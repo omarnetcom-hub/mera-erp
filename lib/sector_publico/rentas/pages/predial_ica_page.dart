@@ -3,6 +3,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:merka_erp/pdf_output_dialog.dart';
 import '../../../../db_helper.dart';
 import '../../security/auditoria_service.dart';
 import '../services/predial_service.dart';
@@ -503,7 +504,7 @@ class _PredialICAPageState extends State<PredialICAPage>
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
                                 tooltip: 'Exportar Declaración ICA Plano',
-                                onPressed: () => _exportarICAPlano(d),
+                                onPressed: () => _exportarICA(d),
                               ),
                             );
                           },
@@ -547,8 +548,8 @@ class _PredialICAPageState extends State<PredialICAPage>
     );
   }
 
-  /// Brecha documentada: falta exponer el formato oficial de exportacion ICA
-  /// y su servicio de generacion PDF/XML.
+  /// Exportacion local basada en Formulario Unico Nacional ICA; el cargue
+  /// final puede variar segun el portal tributario de cada municipio.
   Widget _buildExportDeclarationBanner() {
     return Container(
       color: Colors.amber.shade100,
@@ -559,8 +560,8 @@ class _PredialICAPageState extends State<PredialICAPage>
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Pendiente: exportacion oficial de Declaracion ICA en PDF/XML segun el formato externo aplicable. '
-              'El calculo, censo, reteICA y liquidacion tributaria estan operativos en SQLite.',
+              'Exportacion ICA PDF/XML activa. Formato local basado en Formulario Unico Nacional MinHacienda; '
+              'el cargue final puede variar segun el portal tributario municipal.',
               style: TextStyle(fontSize: 12, color: Colors.black87),
             ),
           ),
@@ -1566,6 +1567,7 @@ class _PredialICAPageState extends State<PredialICAPage>
     }
   }
 
+  // ignore: unused_element
   void _exportarICAPlano(Map<String, dynamic> declaracion) async {
     if (_icaService == null) return;
     try {
@@ -1586,6 +1588,69 @@ class _PredialICAPageState extends State<PredialICAPage>
           ),
         );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _exportarICA(Map<String, dynamic> declaracion) async {
+    if (_icaService == null) return;
+    final id = declaracion['id'] as String;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exportar Declaracion ICA'),
+        content: const Text(
+          'Genera PDF local o XML estructurado con datos del censo, ReteICA y liquidacion.',
+        ),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.code),
+            label: const Text('Ver XML'),
+            onPressed: () async {
+              Navigator.pop(context);
+              await _mostrarICAXml(id);
+            },
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('PDF'),
+            onPressed: () async {
+              Navigator.pop(context);
+              await PdfOutputDialog.mostrar(
+                context: this.context,
+                titulo: 'Declaracion ICA ${declaracion['periodo']}',
+                generarBytes: () =>
+                    _icaService!.exportarDeclaracionICAPdfBytes(id),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _mostrarICAXml(String declaracionId) async {
+    try {
+      final xml = await _icaService!.exportarDeclaracionICAXml(declaracionId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Declaracion ICA XML'),
+          content: SingleChildScrollView(child: SelectableText(xml)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

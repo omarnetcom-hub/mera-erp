@@ -3,6 +3,10 @@
 /// Ley 14/1983 y normas complementarias
 library;
 
+import 'dart:typed_data';
+
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/currency/money_value.dart';
@@ -507,4 +511,205 @@ class ICAService {
 
     return buffer.toString();
   }
+
+  /// XML local estructurado para interoperabilidad interna/municipal.
+  ///
+  /// MinHacienda publica Formulario Unico Nacional de ICA (Resolucion 4056 de
+  /// 2017), pero la recepcion electronica concreta depende del portal de cada
+  /// municipio. Este XML conserva los datos minimos de Ley 14/1983 y del
+  /// formulario nacional para que cada municipio pueda mapearlos.
+  Future<String> exportarDeclaracionICAXml(String declaracionId) async {
+    final data = await _declaracionConContribuyente(declaracionId);
+    final d = data.declaracion;
+    final c = data.contribuyente;
+    final reteica = await _totalReteica(
+      entidadId: d['entidad_id'].toString(),
+      nitRetenido: c['nit'].toString(),
+      periodo: d['periodo'].toString(),
+    );
+
+    return '''
+<?xml version="1.0" encoding="UTF-8"?>
+<DeclaracionICA version="1.0" fuente="MerkaERP" formatoBase="FormularioUnicoNacionalICA-Resolucion4056-2017">
+  <Entidad id="${_xml(d['entidad_id'])}" />
+  <Contribuyente id="${_xml(c['id'])}">
+    <Nit>${_xml(c['nit'])}</Nit>
+    <RazonSocial>${_xml(c['razon_social'])}</RazonSocial>
+    <Direccion>${_xml(c['direccion'])}</Direccion>
+    <Telefono>${_xml(c['telefono'])}</Telefono>
+    <Actividad tipo="${_xml(c['tipo_actividad'])}">${_xml(c['actividad_economica'])}</Actividad>
+  </Contribuyente>
+  <Periodo>${_xml(d['periodo'])}</Periodo>
+  <Periodicidad>${_xml(d['periodo_declaracion'])}</Periodicidad>
+  <Ingresos>
+    <Gravables>${_moneyXml(d['ingresos_gravables'])}</Gravables>
+    <NoGravables>${_moneyXml(d['ingresos_no_gravables'])}</NoGravables>
+    <Exentos>${_moneyXml(d['ingresos_exentos'])}</Exentos>
+    <BaseGravable>${_moneyXml(d['base_gravable'])}</BaseGravable>
+  </Ingresos>
+  <Liquidacion>
+    <Tarifa>${_xml(d['tarifa'])}</Tarifa>
+    <ImpuestoICA>${_moneyXml(d['impuesto_ica'])}</ImpuestoICA>
+    <ReteICA>${reteica.toMajorUnitsString()}</ReteICA>
+    <InteresesMora>${_moneyXml(d['intereses_mora'])}</InteresesMora>
+    <TotalPagar>${_moneyXml(d['total_pagar'])}</TotalPagar>
+    <Estado>${_xml(d['estado'])}</Estado>
+  </Liquidacion>
+</DeclaracionICA>
+''';
+  }
+
+  Future<Uint8List> exportarDeclaracionICAPdfBytes(String declaracionId) async {
+    final data = await _declaracionConContribuyente(declaracionId);
+    final d = data.declaracion;
+    final c = data.contribuyente;
+    final reteica = await _totalReteica(
+      entidadId: d['entidad_id'].toString(),
+      nitRetenido: c['nit'].toString(),
+      periodo: d['periodo'].toString(),
+    );
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (context) => [
+          pw.Header(
+            level: 0,
+            child: pw.Text(
+              'Declaracion de Industria y Comercio ICA',
+              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+            ),
+          ),
+          pw.Text(
+            'Formato local basado en el Formulario Unico Nacional de ICA '
+            '(MinHacienda, Resolucion 4056 de 2017). La presentacion final '
+            'puede requerir cargue en el portal tributario del municipio.',
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+          pw.SizedBox(height: 16),
+          _section('Datos de la entidad', [
+            ['Entidad ID', d['entidad_id'].toString()],
+            ['Declaracion ID', d['id'].toString()],
+            ['Fecha declaracion', d['fecha_declaracion'].toString()],
+          ]),
+          _section('Contribuyente', [
+            ['NIT', c['nit'].toString()],
+            ['Razon social', c['razon_social'].toString()],
+            ['Direccion', c['direccion'].toString()],
+            ['Telefono', c['telefono'].toString()],
+            ['Tipo actividad', c['tipo_actividad'].toString()],
+            ['Actividad economica', c['actividad_economica'].toString()],
+          ]),
+          _section('Periodo', [
+            ['Periodo', d['periodo'].toString()],
+            ['Periodicidad', d['periodo_declaracion'].toString()],
+          ]),
+          _section('Ingresos y base gravable', [
+            ['Ingresos gravables', _moneyText(d['ingresos_gravables'])],
+            ['Ingresos no gravables', _moneyText(d['ingresos_no_gravables'])],
+            ['Ingresos exentos', _moneyText(d['ingresos_exentos'])],
+            ['Base gravable', _moneyText(d['base_gravable'])],
+          ]),
+          _section('Liquidacion', [
+            ['Tarifa', d['tarifa'].toString()],
+            ['Impuesto ICA', _moneyText(d['impuesto_ica'])],
+            ['ReteICA acreditada', reteica.format()],
+            ['Intereses mora', _moneyText(d['intereses_mora'])],
+            ['Total a pagar', _moneyText(d['total_pagar'])],
+            ['Estado', d['estado'].toString()],
+          ]),
+          pw.SizedBox(height: 20),
+          pw.Text(
+            'Generado localmente por MerkaERP. No transmite a ningun portal municipal.',
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+        ],
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  Future<_DeclaracionICAData> _declaracionConContribuyente(
+    String declaracionId,
+  ) async {
+    final res = await db.query(
+      'declaraciones_ica',
+      where: 'id = ?',
+      whereArgs: [declaracionId],
+    );
+    if (res.isEmpty) throw Exception('Declaracion ICA no encontrada');
+    final dec = res.first;
+    final contrib = await db.query(
+      'censo_ica',
+      where: 'id = ?',
+      whereArgs: [dec['contribuyente_id']],
+    );
+    if (contrib.isEmpty) throw Exception('Contribuyente ICA no encontrado');
+    return _DeclaracionICAData(dec, contrib.first);
+  }
+
+  Future<MoneyValue> _totalReteica({
+    required String entidadId,
+    required String nitRetenido,
+    required String periodo,
+  }) async {
+    final rows = await db.query(
+      'reteica',
+      where: 'entidad_id = ? AND nit_retenido = ? AND periodo = ?',
+      whereArgs: [entidadId, nitRetenido, periodo],
+    );
+    return rows.fold<MoneyValue>(
+      publicMoneyZero(),
+      (sum, row) => sum + publicMoneyFromSql(row['valor_retenido']),
+    );
+  }
+
+  static pw.Widget _section(String title, List<List<String>> rows) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.SizedBox(height: 10),
+        pw.Text(
+          title,
+          style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.TableHelper.fromTextArray(
+          headers: const ['Campo', 'Valor'],
+          data: rows,
+          cellStyle: const pw.TextStyle(fontSize: 9),
+          headerStyle: pw.TextStyle(
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+          ),
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+        ),
+      ],
+    );
+  }
+
+  static String _moneyText(Object? value) => publicMoneyFromSql(value).format();
+
+  static String _moneyXml(Object? value) =>
+      publicMoneyFromSql(value).toMajorUnitsString();
+
+  static String _xml(Object? value) {
+    return (value ?? '')
+        .toString()
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
+  }
+}
+
+class _DeclaracionICAData {
+  const _DeclaracionICAData(this.declaracion, this.contribuyente);
+
+  final Map<String, Object?> declaracion;
+  final Map<String, Object?> contribuyente;
 }
