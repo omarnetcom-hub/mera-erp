@@ -399,46 +399,6 @@ class CreateSaleUseCase {
         costOfSale += currentCost.multiplyDecimal(item.quantity.toString());
         final newStock = currentStock - item.quantity;
 
-        // Verificar si el producto tiene lotes
-        final lotes = await txn.query(
-          'lotes',
-          where:
-              'producto_id = ? AND company_id = ? AND status = ? AND cantidad > 0',
-          whereArgs: [item.productId, companyId, 'active'],
-          orderBy: 'fecha_vencimiento ASC', // FEFO: First Expired, First Out
-        );
-
-        if (lotes.isNotEmpty) {
-          // Descontar de lotes usando FEFO
-          double cantidadRestante = item.quantity;
-          for (final lote in lotes) {
-            if (cantidadRestante <= 0) break;
-
-            final loteCantidad = (lote['cantidad'] as num).toDouble();
-            final loteId = lote['id'] as int;
-
-            if (loteCantidad >= cantidadRestante) {
-              // El lote tiene suficiente para cubrir todo lo restante
-              await txn.update(
-                'lotes',
-                {'cantidad': loteCantidad - cantidadRestante},
-                where: 'id = ?',
-                whereArgs: [loteId],
-              );
-              cantidadRestante = 0;
-            } else {
-              // Descontar todo del lote y continuar con el siguiente
-              await txn.update(
-                'lotes',
-                {'cantidad': 0},
-                where: 'id = ?',
-                whereArgs: [loteId],
-              );
-              cantidadRestante -= loteCantidad;
-            }
-          }
-        }
-
         await txn.update(
           'productos',
           {'stock': newStock},

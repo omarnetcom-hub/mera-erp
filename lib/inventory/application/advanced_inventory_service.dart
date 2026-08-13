@@ -1,6 +1,11 @@
 // ============================================================
 // advanced_inventory_service.dart
-// Servicio de inventario avanzado con lotes, FIFO y vencimientos
+// Servicio de inventario avanzado con lotes, FIFO y vencimientos.
+//
+// Compatibilidad: desde el Bloque D del cierre general, la escritura canonica
+// de movimientos vive en InventoryMovementService + kardex_inventario. Esta
+// fachada queda para consultas/reservas historicas sobre inventory_lots, no
+// como fuente primaria de stock operativo.
 // ============================================================
 
 import 'package:sqflite/sqflite.dart';

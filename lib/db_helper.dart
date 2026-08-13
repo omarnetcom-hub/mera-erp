@@ -10255,9 +10255,10 @@ class DatabaseHelper {
 
       // Generar OUT en bodega origen
       final nuevoStockOrigen = stockActualOrigen - cantidad;
+      final transferTimestamp = DateTime.now().toIso8601String();
       await txn.update(
         'stock_bodega',
-        {'cantidad': nuevoStockOrigen},
+        {'cantidad': nuevoStockOrigen, 'actualizado_en': transferTimestamp},
         where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
         whereArgs: [productoId, bodegaOrigenId, companyId],
       );
@@ -10296,6 +10297,8 @@ class DatabaseHelper {
           'producto_id': productoId,
           'bodega_id': bodegaDestinoId,
           'cantidad': cantidad,
+          'costo': costoActual.toSql(),
+          'actualizado_en': transferTimestamp,
         });
         await InventoryMovementService.record(
           db: txn,
@@ -10322,7 +10325,7 @@ class DatabaseHelper {
         final nuevoStockDestino = stockActualDestino + cantidad;
         await txn.update(
           'stock_bodega',
-          {'cantidad': nuevoStockDestino},
+          {'cantidad': nuevoStockDestino, 'actualizado_en': transferTimestamp},
           where: 'producto_id = ? AND bodega_id = ? AND company_id = ?',
           whereArgs: [productoId, bodegaDestinoId, companyId],
         );

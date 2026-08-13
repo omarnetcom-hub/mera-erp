@@ -8,6 +8,7 @@ import 'package:merka_erp/core/currency/money_value.dart';
 import 'package:merka_erp/db_helper.dart';
 import 'package:merka_erp/features/company_configuration_service.dart';
 import 'package:merka_erp/inventory/application/inventory_movement_service.dart';
+import 'package:merka_erp/inventory/application/inventory_reconciliation_service.dart';
 import 'package:merka_erp/inventory/domain/stock_ledger.dart';
 import 'package:merka_erp/sales/application/create_sale_use_case.dart';
 
@@ -189,6 +190,171 @@ void main() {
         'venta',
         'ajuste',
       ]);
+    },
+  );
+
+  test(
+    'compra, venta, ajuste y traslado reconcilian stock, Kardex y lotes',
+    () async {
+      final suffix = DateTime.now().microsecondsSinceEpoch;
+      final productName = 'Producto Reconciliado $suffix';
+      final productId = await db.insert('productos', {
+        'company_id': companyId,
+        'nombre': productName,
+        'unidad_base': 'unidad',
+        'stock': 0,
+        'costo': 0,
+        'precio': 200000,
+      });
+      final date = DateTime(2026, 8, 13, 9);
+      final purchaseId = await db.insert('compras', {
+        'company_id': companyId,
+        'proveedor': 'Proveedor reconciliacion',
+        'numero_factura': 'INV-$suffix',
+        'subtotal': 1000000,
+        'total': 1000000,
+        'fecha': date.toIso8601String(),
+        'estado': 'pagada',
+      });
+      await db.insert('compras_detalle', {
+        'company_id': companyId,
+        'compra_id': purchaseId,
+        'producto_id': productId,
+        'producto': productName,
+        'cantidad': 10,
+        'costo_unitario': 100000,
+        'subtotal': 1000000,
+      });
+      await db.update(
+        'productos',
+        {'stock': 10, 'costo': 100000},
+        where: 'id = ? AND company_id = ?',
+        whereArgs: [productId, companyId],
+      );
+      await db.transaction((txn) async {
+        await InventoryMovementService.record(
+          db: txn,
+          companyId: companyId,
+          productId: productId,
+          type: 'entrada',
+          quantity: 10,
+          stockBefore: 0,
+          stockAfter: 10,
+          costAfterMinor: 100000,
+          costTotalMinor: 1000000,
+          reason: 'COMPRA #$purchaseId',
+          date: date.toIso8601String(),
+          documentType: 'compra',
+          documentId: purchaseId,
+        );
+      });
+
+      await CreateSaleUseCase().execute(
+        CreateSaleRequest(
+          items: [
+            SaleItemInput(
+              productId: productId,
+              productName: productName,
+              quantity: 3,
+              unitPrice: MoneyValue.fromMajorUnits('2000', currency: cop),
+              unitCost: MoneyValue.fromMajorUnits('1000', currency: cop),
+              subtotal: MoneyValue.fromMajorUnits('6000', currency: cop),
+              taxRate: 0,
+              taxTotal: MoneyValue(minorUnits: 0, currency: cop),
+            ),
+          ],
+          paymentMethodId: 1,
+          paymentMethodName: 'CREDITO',
+          clientName: 'Cliente reconciliacion',
+          date: date,
+          efectivo: MoneyValue(minorUnits: 0, currency: cop),
+          transferencia: MoneyValue(minorUnits: 0, currency: cop),
+          credito: MoneyValue(minorUnits: 0, currency: cop),
+          retefuente: MoneyValue(minorUnits: 0, currency: cop),
+          reteiva: MoneyValue(minorUnits: 0, currency: cop),
+          reteica: MoneyValue(minorUnits: 0, currency: cop),
+        ),
+      );
+
+      await db.transaction((txn) async {
+        final product = (await txn.query(
+          'productos',
+          where: 'id = ? AND company_id = ?',
+          whereArgs: [productId, companyId],
+          limit: 1,
+        )).single;
+        final before = (product['stock'] as num).toDouble();
+        final cost = MoneyValue.fromSql(product['costo'], currency: cop);
+        await txn.update(
+          'productos',
+          {'stock': before + 2},
+          where: 'id = ? AND company_id = ?',
+          whereArgs: [productId, companyId],
+        );
+        await InventoryMovementService.record(
+          db: txn,
+          companyId: companyId,
+          productId: productId,
+          type: 'ajuste_entrada',
+          quantity: 2,
+          stockBefore: before,
+          stockAfter: before + 2,
+          costBeforeMinor: cost.toSql(),
+          costAfterMinor: cost.toSql(),
+          costTotalMinor: cost.multiplyDecimal('2').toSql(),
+          reason: 'AJUSTE RECONCILIACION',
+          date: date.toIso8601String(),
+          documentType: 'ajuste',
+        );
+      });
+
+      await db.insert('bodegas', {
+        'id': 1,
+        'company_id': companyId,
+        'codigo': 'BG-ORIGEN',
+        'nombre': 'Bodega origen',
+        'updated_at': date.toIso8601String(),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await db.insert('bodegas', {
+        'id': 2,
+        'company_id': companyId,
+        'codigo': 'BG-DESTINO',
+        'nombre': 'Bodega destino',
+        'updated_at': date.toIso8601String(),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await db.insert('stock_bodega', {
+        'company_id': companyId,
+        'producto_id': productId,
+        'bodega_id': 1,
+        'cantidad': 9,
+        'costo': MoneyValue.fromMajorUnits('1000', currency: cop).toSql(),
+        'actualizado_en': date.toIso8601String(),
+      });
+      final transferId = await db.insert('traslados_bodega', {
+        'company_id': companyId,
+        'producto_id': productId,
+        'bodega_origen_id': 1,
+        'bodega_destino_id': 2,
+        'cantidad': 2,
+        'estado': 'registrado',
+        'fecha': date.toIso8601String(),
+      });
+      await helper.procesarTrasladoBodega(
+        trasladoId: transferId,
+        usuario: 'tester',
+      );
+
+      final report = await const InventoryReconciliationService().forProduct(
+        db: db,
+        companyId: companyId,
+        productId: productId,
+      );
+
+      expect(report.productStock, 9);
+      expect(report.kardexStock, 9);
+      expect(report.legacyLotStock, 9);
+      expect(report.advancedLotStock, 9);
+      expect(report.isReconciled, isTrue);
     },
   );
 }
