@@ -130,25 +130,41 @@ class FinancialConsolidationService {
     ''',
       [...companyIds, startDate.toIso8601String(), endDate.toIso8601String()],
     );
+    final currency = await _currencyForQuery(db, companyIds);
+    final elimination = await _getApprovedEliminations(
+      db,
+      companyIds,
+      'sales_expenses',
+      currency,
+    );
+    final total = MoneyValue.fromSql(
+      result.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final subtotal = MoneyValue.fromSql(
+      result.first['subtotal'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final tax = MoneyValue.fromSql(
+      result.first['tax'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final averageTicket = MoneyValue.fromSql(
+      (result.first['average_ticket'] as num?)?.round(),
+      currency: currency,
+      nullableAsZero: true,
+    );
 
     return {
       'count': Sqflite.firstIntValue(result) ?? 0,
-      'total': _wire(
-        result.first['total'],
-        await _currencyForQuery(db, companyIds),
-      ),
-      'subtotal': _wire(
-        result.first['subtotal'],
-        await _currencyForQuery(db, companyIds),
-      ),
-      'tax': _wire(
-        result.first['tax'],
-        await _currencyForQuery(db, companyIds),
-      ),
-      'average_ticket': _wire(
-        (result.first['average_ticket'] as num?)?.round(),
-        await _currencyForQuery(db, companyIds),
-      ),
+      'total': (total - elimination).toWireMap(),
+      'subtotal': (subtotal - elimination).toWireMap(),
+      'tax': tax.toWireMap(),
+      'average_ticket': averageTicket.toWireMap(),
+      'eliminated_intercompany': elimination.toWireMap(),
     };
   }
 
@@ -159,6 +175,17 @@ class FinancialConsolidationService {
     DateTime startDate,
     DateTime endDate,
   ) async {
+    if (!await _tableExists(db, 'gastos')) {
+      final currency = await _currencyForQuery(db, companyIds);
+      return {
+        'count': 0,
+        'total': MoneyValue(minorUnits: 0, currency: currency).toWireMap(),
+        'eliminated_intercompany': MoneyValue(
+          minorUnits: 0,
+          currency: currency,
+        ).toWireMap(),
+      };
+    }
     final placeholders = List.filled(companyIds.length, '?').join(',');
 
     final result = await db.rawQuery(
@@ -173,13 +200,23 @@ class FinancialConsolidationService {
     ''',
       [...companyIds, startDate.toIso8601String(), endDate.toIso8601String()],
     );
+    final currency = await _currencyForQuery(db, companyIds);
+    final elimination = await _getApprovedEliminations(
+      db,
+      companyIds,
+      'sales_expenses',
+      currency,
+    );
+    final total = MoneyValue.fromSql(
+      result.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
 
     return {
       'count': Sqflite.firstIntValue(result) ?? 0,
-      'total': _wire(
-        result.first['total'],
-        await _currencyForQuery(db, companyIds),
-      ),
+      'total': (total - elimination).toWireMap(),
+      'eliminated_intercompany': elimination.toWireMap(),
     };
   }
 
@@ -214,22 +251,43 @@ class FinancialConsolidationService {
     Database db,
     List<int> companyIds,
   ) async {
+    if (!await _tableExists(db, 'cuentas_por_cobrar')) {
+      final currency = await _currencyForQuery(db, companyIds);
+      return {
+        'count': 0,
+        'total': MoneyValue(minorUnits: 0, currency: currency).toWireMap(),
+        'eliminated_intercompany': MoneyValue(
+          minorUnits: 0,
+          currency: currency,
+        ).toWireMap(),
+      };
+    }
     final placeholders = List.filled(companyIds.length, '?').join(',');
 
     final result = await db.rawQuery('''
       SELECT 
         COUNT(*) as count,
-        SUM(monto) as total
+        SUM(saldo) as total
       FROM cuentas_por_cobrar
       WHERE company_id IN ($placeholders) AND estado = 'pendiente'
     ''', companyIds);
 
+    final currency = await _currencyForQuery(db, companyIds);
+    final elimination = await _getApprovedEliminations(
+      db,
+      companyIds,
+      'receivable_payable',
+      currency,
+    );
+    final total = MoneyValue.fromSql(
+      result.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
     return {
       'count': Sqflite.firstIntValue(result) ?? 0,
-      'total': _wire(
-        result.first['total'],
-        await _currencyForQuery(db, companyIds),
-      ),
+      'total': (total - elimination).toWireMap(),
+      'eliminated_intercompany': elimination.toWireMap(),
     };
   }
 
@@ -238,22 +296,43 @@ class FinancialConsolidationService {
     Database db,
     List<int> companyIds,
   ) async {
+    if (!await _tableExists(db, 'cuentas_por_pagar')) {
+      final currency = await _currencyForQuery(db, companyIds);
+      return {
+        'count': 0,
+        'total': MoneyValue(minorUnits: 0, currency: currency).toWireMap(),
+        'eliminated_intercompany': MoneyValue(
+          minorUnits: 0,
+          currency: currency,
+        ).toWireMap(),
+      };
+    }
     final placeholders = List.filled(companyIds.length, '?').join(',');
 
     final result = await db.rawQuery('''
       SELECT 
         COUNT(*) as count,
-        SUM(monto) as total
+        SUM(saldo) as total
       FROM cuentas_por_pagar
       WHERE company_id IN ($placeholders) AND estado = 'pendiente'
     ''', companyIds);
 
+    final currency = await _currencyForQuery(db, companyIds);
+    final elimination = await _getApprovedEliminations(
+      db,
+      companyIds,
+      'receivable_payable',
+      currency,
+    );
+    final total = MoneyValue.fromSql(
+      result.first['total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
     return {
       'count': Sqflite.firstIntValue(result) ?? 0,
-      'total': _wire(
-        result.first['total'],
-        await _currencyForQuery(db, companyIds),
-      ),
+      'total': (total - elimination).toWireMap(),
+      'eliminated_intercompany': elimination.toWireMap(),
     };
   }
 
@@ -471,5 +550,38 @@ class FinancialConsolidationService {
       currency: currency,
       nullableAsZero: true,
     ).toWireMap();
+  }
+
+  Future<MoneyValue> _getApprovedEliminations(
+    Database db,
+    List<int> companyIds,
+    String metric,
+    Currency currency,
+  ) async {
+    if (!await _tableExists(db, 'intercompany_eliminations')) {
+      return MoneyValue(minorUnits: 0, currency: currency);
+    }
+    final placeholders = List.filled(companyIds.length, '?').join(',');
+    final result = await db.rawQuery(
+      '''
+      SELECT SUM(amount) AS total
+      FROM intercompany_eliminations
+      WHERE metric = ?
+        AND company_a_id IN ($placeholders)
+        AND company_b_id IN ($placeholders)
+    ''',
+      [metric, ...companyIds, ...companyIds],
+    );
+    final total = result.first['total'];
+    if (total == null) return MoneyValue(minorUnits: 0, currency: currency);
+    return MoneyValue(minorUnits: (total as num).round(), currency: currency);
+  }
+
+  Future<bool> _tableExists(Database db, String table) async {
+    final result = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [table],
+    );
+    return result.isNotEmpty;
   }
 }

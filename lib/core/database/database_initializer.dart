@@ -200,6 +200,7 @@ extension DatabaseInitializer on DatabaseHelper {
     await WebhookService.instance.createTables(db);
     await AdvancedInventoryService.instance.createTables(db);
     await PriceHistoryService.instance.createTables(db);
+    await CompanyTransferService.instance.createTables(db);
     await CommissionService.instance.createTables(db);
     await OrderService.instance.createTables(db);
     await QuoteService.instance.createTables(db);

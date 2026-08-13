@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'core/multi_company/company_transfer.dart';
+import 'core/multi_company/financial_consolidation.dart';
+import 'core/multi_company/transfer_service.dart';
 import 'db_helper.dart';
 
 class EmpresasPage extends StatefulWidget {
@@ -11,6 +14,8 @@ class EmpresasPage extends StatefulWidget {
 
 class _EmpresasPageState extends State<EmpresasPage> {
   List<Map<String, dynamic>> empresas = [];
+  List<Map<String, dynamic>> companies = [];
+  List<CompanyTransfer> transferencias = [];
   Map<String, dynamic> activa = const {};
 
   @override
@@ -26,18 +31,163 @@ class _EmpresasPageState extends State<EmpresasPage> {
   Future<void> _cargar() async {
     final data = await DatabaseHelper.instance.obtenerEmpresas();
     final empresaActiva = await DatabaseHelper.instance.obtenerEmpresaConfig();
+    final db = await DatabaseHelper.instance.database;
+    await CompanyTransferService.instance.createTables(db);
+    final modernCompanies = await db.query('companies', orderBy: 'name ASC');
+    final transfers = await CompanyTransferService.instance
+        .getTransfersByStatus(db, 'pending');
+    final approved = await CompanyTransferService.instance.getTransfersByStatus(
+      db,
+      'approved',
+    );
     if (!mounted) return;
     setState(() {
       empresas = data;
+      companies = modernCompanies;
+      transferencias = [...transfers, ...approved];
       activa = empresaActiva;
     });
   }
 
+  Future<void> _nuevaTransferenciaFondos() async {
+    if (companies.length < 2) return;
+    int fromId = companies.first['id'] as int;
+    int toId = companies.skip(1).first['id'] as int;
+    final amountCtrl = TextEditingController(text: '0');
+    final notesCtrl = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Transferencia intercompania'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<int>(
+              initialValue: fromId,
+              decoration: const InputDecoration(labelText: 'Empresa origen'),
+              items: companies
+                  .map(
+                    (company) => DropdownMenuItem<int>(
+                      value: company['id'] as int,
+                      child: Text(company['name']?.toString() ?? ''),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) fromId = value;
+              },
+            ),
+            DropdownButtonFormField<int>(
+              initialValue: toId,
+              decoration: const InputDecoration(labelText: 'Empresa destino'),
+              items: companies
+                  .map(
+                    (company) => DropdownMenuItem<int>(
+                      value: company['id'] as int,
+                      child: Text(company['name']?.toString() ?? ''),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) toId = value;
+              },
+            ),
+            TextField(
+              controller: amountCtrl,
+              decoration: const InputDecoration(labelText: 'Monto'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: notesCtrl,
+              decoration: const InputDecoration(labelText: 'Notas'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Crear'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final amount = double.tryParse(amountCtrl.text.replaceAll(',', '.')) ?? 0;
+    final db = await DatabaseHelper.instance.database;
+    final number = await CompanyTransferService.instance.generateTransferNumber(
+      db,
+    );
+    await CompanyTransferService.instance.createTransfer(
+      db,
+      CompanyTransfer(
+        fromCompanyId: fromId,
+        toCompanyId: toId,
+        transferNumber: number,
+        transferType: 'funds',
+        items: const {},
+        totalValue: amount,
+        notes: notesCtrl.text.trim(),
+        requestedBy: 'ui',
+        requestedAt: DateTime.now(),
+        createdAt: DateTime.now(),
+      ),
+    );
+    await _cargar();
+  }
+
+  Future<void> _aprobarYCompletar(CompanyTransfer transfer) async {
+    final db = await DatabaseHelper.instance.database;
+    if (transfer.isPending) {
+      await CompanyTransferService.instance.approveTransfer(
+        db,
+        transfer.id!,
+        'ui',
+      );
+    }
+    await CompanyTransferService.instance.completeTransfer(db, transfer.id!);
+    await _cargar();
+  }
+
+  Future<void> _mostrarConsolidado() async {
+    final db = await DatabaseHelper.instance.database;
+    final ids = companies.map((company) => company['id'] as int).toList();
+    final result = await FinancialConsolidationService.instance
+        .getConsolidatedFinancials(db, ids);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Consolidado multiempresa'),
+        content: SingleChildScrollView(child: Text(result.toString())),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _nueva({Map<String, dynamic>? empresa}) async {
-    final nombreCtrl = TextEditingController(text: empresa?['nombre']?.toString() ?? '');
-    final nitCtrl = TextEditingController(text: empresa?['nit']?.toString() ?? '');
-    final ciudadCtrl = TextEditingController(text: empresa?['ciudad']?.toString() ?? '');
-    final monedaCtrl = TextEditingController(text: empresa?['moneda']?.toString() ?? 'COP');
+    final nombreCtrl = TextEditingController(
+      text: empresa?['nombre']?.toString() ?? '',
+    );
+    final nitCtrl = TextEditingController(
+      text: empresa?['nit']?.toString() ?? '',
+    );
+    final ciudadCtrl = TextEditingController(
+      text: empresa?['ciudad']?.toString() ?? '',
+    );
+    final monedaCtrl = TextEditingController(
+      text: empresa?['moneda']?.toString() ?? 'COP',
+    );
 
     final ok = await showDialog<bool>(
       context: context,
@@ -84,17 +234,15 @@ class _EmpresasPageState extends State<EmpresasPage> {
                       : monedaCtrl.text.trim(),
                 });
               } else {
-                await DatabaseHelper.instance.actualizarEmpresa(
-                  empresa['id'] as int,
-                  {
-                    'nombre': nombreCtrl.text.trim(),
-                    'nit': nitCtrl.text.trim(),
-                    'ciudad': ciudadCtrl.text.trim(),
-                    'moneda': monedaCtrl.text.trim().isEmpty
-                        ? 'COP'
-                        : monedaCtrl.text.trim(),
-                  },
-                );
+                await DatabaseHelper.instance
+                    .actualizarEmpresa(empresa['id'] as int, {
+                      'nombre': nombreCtrl.text.trim(),
+                      'nit': nitCtrl.text.trim(),
+                      'ciudad': ciudadCtrl.text.trim(),
+                      'moneda': monedaCtrl.text.trim().isEmpty
+                          ? 'COP'
+                          : monedaCtrl.text.trim(),
+                    });
               }
               if (!ctx.mounted) return;
               Navigator.pop(ctx, true);
@@ -138,6 +286,61 @@ class _EmpresasPageState extends State<EmpresasPage> {
             ),
           ),
           const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Transferencias y consolidacion multiempresa',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: companies.length < 2
+                            ? null
+                            : _nuevaTransferenciaFondos,
+                        icon: const Icon(Icons.swap_horiz),
+                        label: const Text('Fondos'),
+                      ),
+                      TextButton.icon(
+                        onPressed: companies.isEmpty
+                            ? null
+                            : _mostrarConsolidado,
+                        icon: const Icon(Icons.account_tree),
+                        label: const Text('Consolidar'),
+                      ),
+                    ],
+                  ),
+                  if (transferencias.isEmpty)
+                    const Text('No hay transferencias pendientes o aprobadas.')
+                  else
+                    ...transferencias.map(
+                      (transfer) => ListTile(
+                        dense: true,
+                        title: Text(transfer.transferNumber),
+                        subtitle: Text(
+                          '${transfer.status} · ${transfer.fromCompanyId} → ${transfer.toCompanyId} · ${transfer.totalValue}',
+                        ),
+                        trailing: FilledButton.tonal(
+                          onPressed: () => _aprobarYCompletar(transfer),
+                          child: Text(
+                            transfer.isPending
+                                ? 'Aprobar y completar'
+                                : 'Completar',
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           if (empresas.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -154,7 +357,10 @@ class _EmpresasPageState extends State<EmpresasPage> {
                     backgroundColor: Colors.blue.shade100,
                     child: Text(
                       (empresa['nombre']?.toString() ?? 'E')[0].toUpperCase(),
-                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   title: Text(empresa['nombre']?.toString() ?? ''),
@@ -176,10 +382,13 @@ class _EmpresasPageState extends State<EmpresasPage> {
                             context: context,
                             builder: (_) => AlertDialog(
                               title: const Text('Eliminar empresa'),
-                              content: const Text('¿Está seguro de eliminar esta empresa?'),
+                              content: const Text(
+                                '¿Está seguro de eliminar esta empresa?',
+                              ),
                               actions: [
                                 TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
                                   child: const Text('Cancelar'),
                                 ),
                                 ElevatedButton(
@@ -190,7 +399,9 @@ class _EmpresasPageState extends State<EmpresasPage> {
                             ),
                           );
                           if (ok == true) {
-                            await DatabaseHelper.instance.eliminarEmpresa(empresa['id'] as int);
+                            await DatabaseHelper.instance.eliminarEmpresa(
+                              empresa['id'] as int,
+                            );
                             await _cargar();
                           }
                         },

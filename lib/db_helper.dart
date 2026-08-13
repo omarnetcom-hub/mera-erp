@@ -24,6 +24,7 @@ import 'core/currency/money_currency_resolver.dart';
 import 'core/currency/money_schema_migration.dart';
 import 'core/currency/money_value.dart';
 import 'core/invoicing/xml/generator.dart';
+import 'core/multi_company/transfer_service.dart';
 import 'core/payments/payment_service.dart';
 import 'core/webhooks/webhook_service.dart';
 import 'features/feature_registry.dart';
@@ -84,7 +85,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 97;
+  static const int schemaVersion = 98;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1217,6 +1218,9 @@ class DatabaseHelper {
           );
         }
       }
+    }
+    if (oldVersion < 98) {
+      await CompanyTransferService.instance.createTables(db);
     }
   }
 
