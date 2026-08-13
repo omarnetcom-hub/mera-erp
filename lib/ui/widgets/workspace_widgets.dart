@@ -2862,11 +2862,11 @@ ModuleDefinition? _findModule(
   return null;
 }
 
-ModuleDefinition _moduleById(List<ModuleDefinition> modules, String id) {
+ModuleDefinition? _moduleById(List<ModuleDefinition> modules, String id) {
   for (final module in modules) {
     if (module.id == id) return module;
   }
-  return modules.first;
+  return null;
 }
 
 List<_NotificationItem> _notificationItems(List<ModuleDefinition> modules) {
@@ -2947,10 +2947,25 @@ void _showCopilotDialog(
             modules: modules,
             onNavigateToModule: (moduleId) {
               final module = _moduleById(modules, moduleId);
+              if (module == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('El modulo solicitado no esta disponible.'),
+                  ),
+                );
+                return;
+              }
               Navigator.pop(dialogContext);
               state._openModule(context, module);
             },
             onLoadSaleProduct: (query) {
+              final module = _moduleById(modules, 'sales');
+              if (module == null || !AppSession.puedeAbrirModulo(module)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('No tienes acceso a Ventas.')),
+                );
+                return;
+              }
               Navigator.pop(dialogContext);
               state._updateState(() {
                 state._workspaceMode = _WorkspaceMode.sales;
@@ -2958,11 +2973,13 @@ void _showCopilotDialog(
             },
             onLoadClientPayment: () {
               final module = _moduleById(modules, 'receivables');
+              if (module == null) return;
               Navigator.pop(dialogContext);
               state._openModule(context, module);
             },
             onLoadPurchaseOrder: () {
               final module = _moduleById(modules, 'purchases');
+              if (module == null) return;
               Navigator.pop(dialogContext);
               state._openModule(context, module);
             },

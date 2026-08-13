@@ -83,7 +83,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 96;
+  static const int schemaVersion = 97;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1193,6 +1193,30 @@ class DatabaseHelper {
         await _agregarColumnaSiNoExiste(db, 'warranties', 'updated_at', 'TEXT');
       }
     }
+    if (oldVersion < 97) {
+      final copilotTable = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        ['conversaciones_copilot'],
+      );
+      if (copilotTable.isNotEmpty) {
+        const columns = <String, String>{
+          'usuario_id': 'TEXT',
+          'tool_id': 'TEXT',
+          'proveedor': "TEXT NOT NULL DEFAULT 'deterministic'",
+          'resultado': "TEXT NOT NULL DEFAULT 'exitoso'",
+          'detalle_error': 'TEXT',
+          'acciones': 'TEXT',
+        };
+        for (final entry in columns.entries) {
+          await _agregarColumnaSiNoExiste(
+            db,
+            'conversaciones_copilot',
+            entry.key,
+            entry.value,
+          );
+        }
+      }
+    }
   }
 
   Future<String> obtenerRutaBaseDatos() async {
@@ -1382,11 +1406,17 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id INTEGER,
         usuario TEXT NOT NULL,
+        usuario_id TEXT,
         modulo TEXT,
         rol TEXT,
         mensaje_usuario TEXT NOT NULL,
         respuesta TEXT NOT NULL,
         intent TEXT NOT NULL,
+        tool_id TEXT,
+        proveedor TEXT NOT NULL DEFAULT 'deterministic',
+        resultado TEXT NOT NULL DEFAULT 'exitoso',
+        detalle_error TEXT,
+        acciones TEXT,
         creada_en TEXT NOT NULL
       )
     ''');

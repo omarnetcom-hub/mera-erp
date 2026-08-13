@@ -160,10 +160,6 @@ class MerkaIntelligenceService {
   Future<List<Map<String, dynamic>>> crossSellSuggestions(int productId) async {
     final db = await _db.database;
     final companyId = await _db.obtenerEmpresaActivaId();
-    final currency = await MoneyCurrencyResolver.resolve(
-      db,
-      companyId: companyId,
-    );
     final rows = await db.rawQuery(
       '''
       SELECT p.*, COUNT(*) AS score
@@ -206,7 +202,7 @@ class MerkaIntelligenceService {
       SELECT l.id, l.producto_id, l.codigo_lote, l.fecha_vencimiento, l.cantidad, p.nombre
       FROM lotes l
       INNER JOIN productos p ON p.id = l.producto_id
-      WHERE COALESCE(l.company_id, ?) = ?
+      WHERE l.company_id = ?
         AND l.cantidad > 0
         AND l.fecha_vencimiento IS NOT NULL
         AND l.fecha_vencimiento != ''
@@ -214,7 +210,7 @@ class MerkaIntelligenceService {
       ORDER BY l.fecha_vencimiento ASC
       LIMIT 8
       ''',
-      [companyId, companyId, until],
+      [companyId, until],
     );
     final stockRows = await db.query(
       'productos',
@@ -361,6 +357,9 @@ class MerkaIntelligenceService {
     String text, {
     String module = 'workspace',
     String role = 'local',
+    String userName = 'local',
+    String? userId,
+    bool persistConversation = true,
   }) async {
     final normalized = _normalize(text);
     final db = await _db.database;
@@ -388,7 +387,7 @@ class MerkaIntelligenceService {
         intent: 'sales_today',
         moduleId: 'sales',
         response:
-            'Hoy vas en ${_money(total.toMajorUnitsDoubleForDisplay())} en ventas emitidas. Puedo abrir Ventas para revisar el detalle o generar el reporte.',
+            'Hoy vas en ${_money(total.toMajorUnitsDoubleForDisplay())} en ventas emitidas. Puedo abrir Ventas para revisar el detalle.',
       );
     } else if (_matches(normalized, [
       'ventas mes',
@@ -480,7 +479,7 @@ class MerkaIntelligenceService {
         intent: 'open_purchase',
         moduleId: 'purchases',
         response:
-            'Listo. Abre Compras para registrar orden, recepcion o factura de proveedor. Si quieres, dime el proveedor y lo preparo en el siguiente paso.',
+            'Puedo abrir Compras para que prepares una orden. No se guardara nada hasta que completes y confirmes el formulario.',
       );
     } else if (_matches(normalized, ['arqueo', 'cierre caja', 'cerrar caja'])) {
       reply = const CopilotReply(
@@ -506,7 +505,7 @@ class MerkaIntelligenceService {
         intent: 'electronic_invoice',
         moduleId: 'electronic_invoice',
         response:
-            'El centro de Facturacion Electronica permite emitir documentos validados ante la DIAN, consultar el CUFE, gestionar resoluciones oficiales y configurar el proveedor tecnologico.',
+            'El centro de Facturacion Electronica prepara documentos y configuracion local. La transmision real a DIAN depende de un proveedor y credenciales habilitados; con el cliente NoOp no existe validacion oficial.',
       );
     } else if (_matches(normalized, [
       'licencia',
@@ -566,7 +565,7 @@ class MerkaIntelligenceService {
         'ubl',
       ])) {
         manualResponse +=
-            '• **Facturación Electrónica DIAN**: El sistema genera el XML en formato oficial UBL 2.1 con firma digital y cálculo de CUFE (SHA-384 + PIN). Gestiona resoluciones vigentes, rangos autorizados y simula la transmisión (HTTP 200) ante el webservice de la DIAN. Al pagar en el POS, se previsualiza el ticket térmico de 80mm de forma realista.';
+            '• **Facturación Electrónica DIAN**: MerkaERP prepara datos y documentos locales. La validación y transmisión oficial solo están disponibles cuando existe un proveedor tecnológico y credenciales reales configurados; el cliente NoOp no transmite a DIAN.';
       } else if (_matches(normalized, [
         'licencia',
         'activar',
@@ -589,7 +588,7 @@ class MerkaIntelligenceService {
             'MerkaERP cuenta con manuales detallados de:\n'
             '1. **Caja y Arqueo Detallado (COP)**: calculadora física de denominaciones.\n'
             '2. **Inventario y Lotes**: control de fechas de vencimiento y lotes iniciales.\n'
-            '3. **Facturación Electrónica DIAN**: XML UBL 2.1, CUFE y firma digital.\n'
+            '3. **Facturación Electrónica DIAN**: preparación local; transmisión oficial sujeta a proveedor configurado.\n'
             '4. **Licenciamiento y HWID**: control de suscripciones offline por Hardware ID.\n'
             '5. **Plan Único de Cuentas (PUC)**: catálogo contable oficial de Colombia.\n\n'
             'Pregúntame sobre cualquiera de estos temas para darte una explicación detallada.';
@@ -603,16 +602,21 @@ class MerkaIntelligenceService {
       );
     }
 
-    await db.insert('conversaciones_copilot', {
-      'company_id': companyId,
-      'usuario': 'local',
-      'modulo': module,
-      'rol': role,
-      'mensaje_usuario': text,
-      'respuesta': reply.response,
-      'intent': reply.intent,
-      'creada_en': DateTime.now().toIso8601String(),
-    });
+    if (persistConversation) {
+      await db.insert('conversaciones_copilot', {
+        'company_id': companyId,
+        'usuario': userName,
+        'usuario_id': userId,
+        'modulo': module,
+        'rol': role,
+        'mensaje_usuario': text,
+        'respuesta': reply.response,
+        'intent': reply.intent,
+        'proveedor': 'deterministic',
+        'resultado': 'exitoso',
+        'creada_en': DateTime.now().toIso8601String(),
+      });
+    }
     return reply;
   }
 
