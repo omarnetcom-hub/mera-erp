@@ -27,6 +27,16 @@ class RetentionPolicy {
     if (normalized == 'servicios') {
       return currentUvt(currency: currency) * 2;
     }
+    if (normalized == 'arrendamientos_muebles') {
+      return currentUvt(currency: currency) * 2;
+    }
+    if (normalized == 'arrendamientos' ||
+        normalized == 'arrendamientos_inmuebles') {
+      return currentUvt(currency: currency) * 10;
+    }
+    if (normalized == 'rendimientos_financieros') {
+      return MoneyValue(minorUnits: 0, currency: currency);
+    }
     if (normalized == 'honorarios') {
       return MoneyValue(minorUnits: 0, currency: currency);
     }

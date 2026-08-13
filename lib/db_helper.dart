@@ -61,6 +61,7 @@ import 'sector_publico/siif/database/schema_siif.dart';
 import 'impact/database/schema_impact.dart';
 import 'taxes/retention_schema_migration.dart';
 import 'taxes/retention_policy.dart';
+import 'taxes/retention_rule_service.dart';
 import 'taxes/tax_report_schema_migration.dart';
 import 'taxes/payroll_schema_migration.dart';
 import 'taxes/payroll_withholding.dart';
@@ -85,7 +86,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 98;
+  static const int schemaVersion = 99;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1221,6 +1222,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 98) {
       await CompanyTransferService.instance.createTables(db);
+    }
+    if (oldVersion < 99) {
+      await RetentionSchemaMigration.migrateV99(db);
     }
   }
 
@@ -4242,36 +4246,34 @@ class DatabaseHelper {
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
 
-    final retentions = [
-      {
-        'codigo': 'RTFTE_COMPRAS_25',
-        'nombre': 'Retencion en compras 2.5%',
-        'tasa': 2.5,
-        'base_minima': RetentionPolicy.currentUvtMajorUnits * 10 * 100,
-        'cuenta_contable': '2365',
-      },
-      {
-        'codigo': 'RTEICA_COMPRAS',
-        'nombre': 'Retencion ICA compras',
-        'tasa': 0.966,
-        'base_minima': 0.0,
-        'cuenta_contable': '2367',
-      },
-    ];
-    for (final retention in retentions) {
-      await db.insert('reglas_retenciones_empresa', {
-        'company_id': companyId,
-        'codigo': retention['codigo'],
-        'nombre': retention['nombre'],
-        'tasa': retention['tasa'],
-        'base_minima': retention['base_minima'],
-        'cuenta_contable': retention['cuenta_contable'],
-        'aplica_ventas': 0,
-        'aplica_compras': 1,
-        'activo': 1,
-        'updated_at': now,
-      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    final currency = Currency(
+      code: 'COP',
+      name: 'Peso colombiano',
+      symbol: r'$',
+      decimalPlaces: 2,
+    );
+    for (final retention in RetentionRuleService.defaultRules(
+      companyId: companyId,
+      currency: currency,
+    )) {
+      await db.insert(
+        'reglas_retenciones_empresa',
+        retention.toRow(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
     }
+    await db.insert('reglas_retenciones_empresa', {
+      'company_id': companyId,
+      'codigo': 'RTEICA_COMPRAS',
+      'nombre': 'Retencion ICA compras',
+      'tasa': 0.966,
+      'base_minima': 0,
+      'cuenta_contable': '2367',
+      'aplica_ventas': 0,
+      'aplica_compras': 1,
+      'activo': 1,
+      'updated_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<void> _sembrarSecuencias(Database db) async {

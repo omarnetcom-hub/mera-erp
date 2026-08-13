@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../core/currency/currency.dart';
+import 'retention_rule_service.dart';
 import 'retention_policy.dart';
 
 class RetentionSchemaMigration {
@@ -58,6 +60,26 @@ class RetentionSchemaMigration {
         'AND (base_minima IS NULL OR base_minima = 0)',
         [purchasesBase],
       );
+    }
+  }
+
+  static Future<void> migrateV99(DatabaseExecutor db) async {
+    if (!await _tableExists(db, 'companies') ||
+        !await _tableExists(db, 'reglas_retenciones_empresa')) {
+      return;
+    }
+    final companies = await db.query('companies', columns: ['id']);
+    final cop = Currency(
+      code: 'COP',
+      name: 'Peso colombiano',
+      symbol: r'$',
+      decimalPlaces: 2,
+    );
+    const service = RetentionRuleService();
+    for (final company in companies) {
+      final companyId = (company['id'] as num?)?.toInt();
+      if (companyId == null) continue;
+      await service.seedDefaults(db: db, companyId: companyId, currency: cop);
     }
   }
 

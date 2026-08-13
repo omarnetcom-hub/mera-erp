@@ -8,6 +8,7 @@ import '../../db_helper.dart';
 import '../../features/feature_key.dart';
 import '../../inventory/application/inventory_movement_service.dart';
 import '../../taxes/retention_policy.dart';
+import '../../taxes/retention_rule_service.dart';
 
 class SaleItemInput {
   const SaleItemInput({
@@ -128,37 +129,12 @@ class CreateSaleUseCase {
     final zero = MoneyValue(minorUnits: 0, currency: currency);
 
     // Obtener parámetros de impuestos del año actual
-    final currentYear = saleDate.year;
-    final taxParams = await database.query(
-      'tax_parameters',
-      where: 'year = ? AND (company_id = ? OR company_id IS NULL)',
-      whereArgs: [currentYear, companyId],
-      limit: 1,
-    );
-
-    final retefuentePurchasesDeclaring = taxParams.isEmpty
-        ? '0.025'
-        : taxParams.first['retefuente_purchases_declaring'].toString();
-    final retefuentePurchasesNonDeclaring = taxParams.isEmpty
-        ? '0.035'
-        : taxParams.first['retefuente_purchases_non_declaring'].toString();
-    final retefuenteServicesDeclaring = taxParams.isEmpty
-        ? '0.04'
-        : taxParams.first['retefuente_services_1'].toString();
-    final retefuenteServicesNonDeclaring = taxParams.isEmpty
-        ? '0.06'
-        : taxParams.first['retefuente_services_2'].toString();
-    final retefuenteHonorariesDeclaring = taxParams.isEmpty
-        ? '0.10'
-        : taxParams.first['retefuente_honoraries_1'].toString();
-    final retefuenteHonorariesNonDeclaring = taxParams.isEmpty
-        ? '0.11'
-        : taxParams.first['retefuente_honoraries_2'].toString();
     final reteicaRules = await database.query(
       'reglas_retenciones_empresa',
       columns: ['tasa', 'base_minima'],
-      where: 'company_id = ? AND activo = 1 AND aplica_ventas = 1',
-      whereArgs: [companyId],
+      where:
+          'company_id = ? AND activo = 1 AND aplica_ventas = 1 AND codigo LIKE ?',
+      whereArgs: [companyId, 'RTEICA%'],
       orderBy: 'id ASC',
       limit: 1,
     );
@@ -198,35 +174,29 @@ class CreateSaleUseCase {
       (sum, item) => sum + item.subtotal,
     );
 
-    if (!isAutoretainer) {
+    if (!isAutoretainer && calculatedRetefuente.minorUnits == 0) {
       // Calcular retefuente basado en el subtotal y tipo de cliente
       // (Simplificado - debería usar tabla UVT completa)
       final concept = request.retefuenteConcepto.trim().toLowerCase();
-      final retentionThreshold = RetentionPolicy.baseForConcept(
-        concept: concept,
+      final configuredRule = await const RetentionRuleService().findApplicable(
+        db: database,
+        companyId: companyId,
         currency: currency,
+        concept: concept,
+        isDeclarante: isDeclarante,
+        saleFlow: true,
       );
+      final retentionThreshold =
+          configuredRule?.minimumBase ??
+          RetentionPolicy.baseForConcept(concept: concept, currency: currency);
       if (subtotal > retentionThreshold) {
-        final rate = switch (concept) {
-          'servicios' =>
-            isDeclarante
-                ? retefuenteServicesDeclaring
-                : retefuenteServicesNonDeclaring,
-          'honorarios' =>
-            isDeclarante
-                ? retefuenteHonorariesDeclaring
-                : retefuenteHonorariesNonDeclaring,
-          _ =>
-            isDeclarante
-                ? retefuentePurchasesDeclaring
-                : retefuentePurchasesNonDeclaring,
-        };
-        calculatedRetefuente = subtotal.multiplyDecimal(rate);
+        calculatedRetefuente =
+            configuredRule?.calculate(subtotal) ?? calculatedRetefuente;
       }
+    }
 
-      if (subtotal >= reteicaMinimumBase) {
-        calculatedReteica = subtotal.percent(reteicaRatePercent);
-      }
+    if (!isAutoretainer && subtotal >= reteicaMinimumBase) {
+      calculatedReteica = subtotal.percent(reteicaRatePercent);
     }
 
     final tax = request.items.fold<MoneyValue>(

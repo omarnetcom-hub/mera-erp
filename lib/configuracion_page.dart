@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 
 import 'db_helper.dart';
+import 'core/currency/money_currency_resolver.dart';
+import 'core/currency/money_value.dart';
 import 'features/company_configuration_service.dart';
 import 'features/feature_registry.dart';
+import 'taxes/retention_rule_service.dart';
 
 class ConfiguracionPage extends StatefulWidget {
   const ConfiguracionPage({super.key});
@@ -28,6 +31,8 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
   bool vatEnabled = true;
   bool withholdingEnabled = false;
   Map<String, bool> features = FeatureRegistry.defaultFeatures();
+  final _retentionService = const RetentionRuleService();
+  List<RetentionRule> retentionRules = const [];
 
   @override
   void initState() {
@@ -73,7 +78,113 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
     vatEnabled = companyConfig.settings['vat_enabled'] != '0';
     withholdingEnabled = companyConfig.settings['withholding_enabled'] == '1';
     defaultTaxCtrl.text = companyConfig.settings['default_tax'] ?? '19';
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    await _retentionService.seedDefaults(
+      db: db,
+      companyId: companyId,
+      currency: currency,
+    );
+    retentionRules = await _retentionService.listRules(
+      db: db,
+      companyId: companyId,
+      currency: currency,
+    );
     setState(() => cargando = false);
+  }
+
+  Future<void> _editarReglaRetencion(RetentionRule rule) async {
+    final tasaCtrl = TextEditingController(
+      text: rule.ratePercent.toStringAsFixed(2),
+    );
+    final baseCtrl = TextEditingController(
+      text: rule.minimumBase.toMajorUnitsString(),
+    );
+    var active = rule.active;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(rule.name),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: tasaCtrl,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Tarifa (%)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: baseCtrl,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Base minima',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: active,
+                title: const Text('Regla activa'),
+                onChanged: (value) => setDialogState(() => active = value),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved != true) return;
+    final db = await DatabaseHelper.instance.database;
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: rule.companyId,
+    );
+    await _retentionService.updateRule(
+      db: db,
+      rule: RetentionRule(
+        id: rule.id,
+        companyId: rule.companyId,
+        code: rule.code,
+        name: rule.name,
+        ratePercent: double.tryParse(tasaCtrl.text.replaceAll(',', '.')) ?? 0,
+        minimumBase: MoneyValue.fromMajorUnits(
+          baseCtrl.text.replaceAll(',', '.'),
+          currency: currency,
+        ),
+        appliesSales: rule.appliesSales,
+        appliesPurchases: rule.appliesPurchases,
+        active: active,
+      ),
+    );
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    retentionRules = await _retentionService.listRules(
+      db: db,
+      companyId: companyId,
+      currency: currency,
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _guardar() async {
@@ -206,6 +317,39 @@ class _ConfiguracionPageState extends State<ConfiguracionPage> {
                 prefixIcon: Icon(Icons.percent),
               ),
             ),
+            if (withholdingEnabled) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'ReteFuente por concepto',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              ...retentionRules.map(
+                (rule) => ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(rule.name),
+                  subtitle: Text(
+                    '${rule.ratePercent.toStringAsFixed(2)}% desde ${rule.minimumBase.format()}',
+                  ),
+                  trailing: Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Icon(
+                        rule.active ? Icons.check_circle : Icons.pause_circle,
+                        color: rule.active ? Colors.green : Colors.grey,
+                      ),
+                      IconButton(
+                        tooltip: 'Editar regla',
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _editarReglaRetencion(rule),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

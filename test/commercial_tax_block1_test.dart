@@ -9,6 +9,7 @@ import 'package:merka_erp/db_helper.dart';
 import 'package:merka_erp/features/company_configuration_service.dart';
 import 'package:merka_erp/sales/application/create_sale_use_case.dart';
 import 'package:merka_erp/taxes/retention_policy.dart';
+import 'package:merka_erp/taxes/retention_rule_service.dart';
 
 void main() {
   final cop = Currency(
@@ -62,6 +63,20 @@ void main() {
     expect(
       RetentionPolicy.baseForConcept(
         concept: 'honorarios',
+        currency: cop,
+      ).toMajorUnitsString(),
+      '0.00',
+    );
+    expect(
+      RetentionPolicy.baseForConcept(
+        concept: 'arrendamientos',
+        currency: cop,
+      ).toMajorUnitsString(),
+      '523740.00',
+    );
+    expect(
+      RetentionPolicy.baseForConcept(
+        concept: 'rendimientos_financieros',
         currency: cop,
       ).toMajorUnitsString(),
       '0.00',
@@ -200,4 +215,78 @@ void main() {
     expect(sale['retefuente_base'], 20000000);
     expect(sale['retefuente_tasa'], 4.0);
   });
+
+  test(
+    'usuario puede ajustar tarifa/base de ReteFuente por concepto',
+    () async {
+      const service = RetentionRuleService();
+      final rules = await service.listRules(
+        db: db,
+        companyId: companyId,
+        currency: cop,
+      );
+      final servicesRule = rules.singleWhere(
+        (rule) => rule.code == 'RTFTE_SERVICIOS_DECLARANTE',
+      );
+      await service.updateRule(
+        db: db,
+        rule: RetentionRule(
+          id: servicesRule.id,
+          companyId: companyId,
+          code: servicesRule.code,
+          name: servicesRule.name,
+          ratePercent: 5,
+          minimumBase: RetentionPolicy.currentUvt(currency: cop) * 2,
+          appliesSales: true,
+          appliesPurchases: true,
+          active: true,
+        ),
+      );
+
+      final suffix = DateTime.now().microsecondsSinceEpoch;
+      final productId = await db.insert('productos', {
+        'company_id': companyId,
+        'nombre': 'Servicio editable $suffix',
+        'unidad_base': 'servicio',
+        'stock': 1,
+        'costo': 1000000,
+        'precio': 20000000,
+      });
+      final result = await CreateSaleUseCase().execute(
+        CreateSaleRequest(
+          items: [
+            SaleItemInput(
+              productId: productId,
+              productName: 'Servicio editable $suffix',
+              quantity: 1,
+              unitPrice: MoneyValue.fromMajorUnits('200000', currency: cop),
+              unitCost: MoneyValue.fromMajorUnits('10000', currency: cop),
+              subtotal: MoneyValue.fromMajorUnits('200000', currency: cop),
+              taxRate: 0,
+              taxTotal: MoneyValue(minorUnits: 0, currency: cop),
+            ),
+          ],
+          paymentMethodId: 1,
+          paymentMethodName: 'EFECTIVO',
+          clientName: 'Cliente servicios editable',
+          efectivo: MoneyValue(minorUnits: 0, currency: cop),
+          transferencia: MoneyValue(minorUnits: 0, currency: cop),
+          credito: MoneyValue(minorUnits: 0, currency: cop),
+          retefuente: MoneyValue(minorUnits: 0, currency: cop),
+          reteiva: MoneyValue(minorUnits: 0, currency: cop),
+          reteica: MoneyValue(minorUnits: 0, currency: cop),
+          retefuenteConcepto: 'servicios',
+        ),
+      );
+      final sale = (await db.query(
+        'ventas',
+        columns: ['retefuente', 'retefuente_tasa'],
+        where: 'id = ?',
+        whereArgs: [result.saleId],
+      )).single;
+
+      expect(sale['retefuente'], 1000000);
+      expect(sale['retefuente_tasa'], 5.0);
+    },
+  );
 }
