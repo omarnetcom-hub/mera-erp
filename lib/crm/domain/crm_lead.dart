@@ -13,6 +13,8 @@ class CrmLead {
     this.converted = false,
     this.convertedAccountId,
     this.convertedOpportunityId,
+    this.campaignId,
+    this.territoryId,
     this.assignedUserId,
     this.entityType = 'comercial',
     this.createdAt,
@@ -29,6 +31,8 @@ class CrmLead {
   final bool converted;
   final int? convertedAccountId;
   final String? convertedOpportunityId;
+  final int? campaignId;
+  final int? territoryId;
   final int? assignedUserId;
   final String entityType;
   final DateTime? createdAt;
@@ -49,6 +53,8 @@ class CrmLead {
       'converted': (convertedOverride ?? converted) ? 1 : 0,
       'converted_account_id': convertedAccountId,
       'converted_opportunity_id': convertedOpportunityId,
+      'campaign_id': campaignId,
+      'territory_id': territoryId,
       'assigned_user_id': assignedUserId,
       'entity_type': entityType,
       'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
@@ -75,6 +81,8 @@ class CrmLead {
       converted: (map['converted'] as num?)?.toInt() == 1,
       convertedAccountId: (map['converted_account_id'] as num?)?.toInt(),
       convertedOpportunityId: map['converted_opportunity_id']?.toString(),
+      campaignId: (map['campaign_id'] as num?)?.toInt(),
+      territoryId: (map['territory_id'] as num?)?.toInt(),
       assignedUserId: (map['assigned_user_id'] as num?)?.toInt(),
       entityType: map['entity_type']?.toString() ?? 'comercial',
       createdAt: _leadDate(map['created_at']),

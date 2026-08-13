@@ -11,6 +11,7 @@ class CrmAccount {
     this.status = 'activo',
     this.entityType = 'comercial',
     this.assignedUserId,
+    this.territoryId,
     this.createdAt,
     this.modifiedAt,
   });
@@ -26,6 +27,7 @@ class CrmAccount {
   final String status;
   final String entityType;
   final int? assignedUserId;
+  final int? territoryId;
   final DateTime? createdAt;
   final DateTime? modifiedAt;
 
@@ -42,6 +44,7 @@ class CrmAccount {
       'estado': status,
       'parent_id': parentId,
       'assigned_user_id': assignedUserId,
+      'territory_id': territoryId,
       'entity_type': entityType,
       'created_at': (createdAt ?? DateTime.tryParse(now))?.toIso8601String(),
       'modified_at': modifiedAt?.toIso8601String(),
@@ -62,6 +65,7 @@ class CrmAccount {
       status: map['estado']?.toString() ?? 'activo',
       entityType: map['entity_type']?.toString() ?? 'comercial',
       assignedUserId: (map['assigned_user_id'] as num?)?.toInt(),
+      territoryId: (map['territory_id'] as num?)?.toInt(),
       createdAt: _date(map['created_at'] ?? map['fecha']),
       modifiedAt: _date(map['modified_at']),
     );

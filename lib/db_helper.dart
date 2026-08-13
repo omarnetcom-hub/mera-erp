@@ -86,7 +86,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 101;
+  static const int schemaVersion = 102;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1231,6 +1231,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 101) {
       await SchemaActivos.migrarFirmaActasResponsabilidad(db);
+    }
+    if (oldVersion < 102) {
+      await SchemaCrm.crearBacklogComercial(db);
     }
   }
 

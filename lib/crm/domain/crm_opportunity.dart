@@ -73,6 +73,8 @@ class CrmOpportunity {
     this.opportunityType,
     this.nextStep,
     this.dateClosed,
+    this.campaignId,
+    this.territoryId,
     this.assignedUserId,
     this.linkedSaleId,
     this.entityType = 'comercial',
@@ -93,6 +95,8 @@ class CrmOpportunity {
   final String? opportunityType;
   final String? nextStep;
   final DateTime? dateClosed;
+  final int? campaignId;
+  final int? territoryId;
   final int? assignedUserId;
   final int? linkedSaleId;
   final String entityType;
@@ -128,6 +132,8 @@ class CrmOpportunity {
       'opportunity_type': opportunityType,
       'next_step': nextStep,
       'date_closed': dateClosed?.toIso8601String(),
+      'campaign_id': campaignId,
+      'territory_id': territoryId,
       'assigned_user_id': assignedUserId,
       'linked_sale_id': linkedSaleId,
       'entity_type': entityType,
@@ -142,6 +148,8 @@ class CrmOpportunity {
     DateTime? dateClosed,
     int? linkedSaleId,
     DateTime? modifiedAt,
+    int? campaignId,
+    int? territoryId,
   }) {
     return CrmOpportunity(
       id: id,
@@ -157,6 +165,8 @@ class CrmOpportunity {
       opportunityType: opportunityType,
       nextStep: nextStep,
       dateClosed: dateClosed ?? this.dateClosed,
+      campaignId: campaignId ?? this.campaignId,
+      territoryId: territoryId ?? this.territoryId,
       assignedUserId: assignedUserId,
       linkedSaleId: linkedSaleId ?? this.linkedSaleId,
       entityType: entityType,
@@ -190,6 +200,8 @@ class CrmOpportunity {
       opportunityType: map['opportunity_type']?.toString(),
       nextStep: map['next_step']?.toString(),
       dateClosed: _opportunityDate(map['date_closed']),
+      campaignId: (map['campaign_id'] as num?)?.toInt(),
+      territoryId: (map['territory_id'] as num?)?.toInt(),
       assignedUserId: (map['assigned_user_id'] as num?)?.toInt(),
       linkedSaleId: (map['linked_sale_id'] as num?)?.toInt(),
       entityType: map['entity_type']?.toString() ?? 'comercial',

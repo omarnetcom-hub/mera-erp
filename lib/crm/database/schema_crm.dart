@@ -33,6 +33,7 @@ class SchemaCrm {
       'assigned_user_id',
       'INTEGER',
     );
+    await _agregarColumnaSiNoExiste(db, 'clientes', 'territory_id', 'INTEGER');
     await _agregarColumnaSiNoExiste(
       db,
       'clientes',
@@ -77,6 +78,8 @@ class SchemaCrm {
         converted INTEGER NOT NULL DEFAULT 0,
         converted_account_id INTEGER,
         converted_opportunity_id TEXT,
+        campaign_id INTEGER,
+        territory_id INTEGER,
         assigned_user_id INTEGER,
         entity_type TEXT NOT NULL DEFAULT 'comercial',
         created_at TEXT NOT NULL,
@@ -108,6 +111,8 @@ class SchemaCrm {
         opportunity_type TEXT,
         next_step TEXT,
         date_closed TEXT,
+        campaign_id INTEGER,
+        territory_id INTEGER,
         assigned_user_id INTEGER,
         linked_sale_id INTEGER,
         entity_type TEXT NOT NULL DEFAULT 'comercial',
@@ -127,6 +132,8 @@ class SchemaCrm {
       ('opportunity_type', 'TEXT'),
       ('next_step', 'TEXT'),
       ('date_closed', 'TEXT'),
+      ('campaign_id', 'INTEGER'),
+      ('territory_id', 'INTEGER'),
       ('assigned_user_id', 'INTEGER'),
       ('linked_sale_id', 'INTEGER'),
       ('entity_type', "TEXT NOT NULL DEFAULT 'comercial'"),
@@ -162,6 +169,8 @@ class SchemaCrm {
       )
     ''');
 
+    await crearBacklogComercial(db);
+
     await crearOpportunityItems(db);
 
     await db.execute(
@@ -175,6 +184,63 @@ class SchemaCrm {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_crm_interactions_customer ON crm_interactions(company_id, customer_id, interaction_date)',
+    );
+  }
+
+  static Future<void> crearBacklogComercial(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crm_campaigns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        campaign_type TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'planned',
+        start_date TEXT NOT NULL,
+        end_date TEXT,
+        budget INTEGER NOT NULL DEFAULT 0,
+        expected_revenue INTEGER NOT NULL DEFAULT 0,
+        assigned_user_id INTEGER,
+        entity_type TEXT NOT NULL DEFAULT 'comercial',
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crm_territories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        country TEXT,
+        department TEXT,
+        city TEXT,
+        sector TEXT,
+        assigned_user_id INTEGER,
+        active INTEGER NOT NULL DEFAULT 1,
+        entity_type TEXT NOT NULL DEFAULT 'comercial',
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_crm_campaigns_company_status ON crm_campaigns(company_id, status)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_crm_territories_company_user ON crm_territories(company_id, assigned_user_id)',
+    );
+    await _agregarColumnaSiNoExiste(db, 'crm_leads', 'campaign_id', 'INTEGER');
+    await _agregarColumnaSiNoExiste(db, 'crm_leads', 'territory_id', 'INTEGER');
+    await _agregarColumnaSiNoExiste(db, 'clientes', 'territory_id', 'INTEGER');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'crm_opportunities',
+      'campaign_id',
+      'INTEGER',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'crm_opportunities',
+      'territory_id',
+      'INTEGER',
     );
   }
 
