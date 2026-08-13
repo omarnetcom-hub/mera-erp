@@ -12,9 +12,7 @@ import '../services/fondo_unidad_tesoreria_service.dart';
 import '../services/acta_responsabilidad_service.dart';
 import '../models/activo_estado.dart';
 import '../models/fondo_unidad_tesoreria.dart';
-import '../models/acta_responsabilidad.dart';
 import '../../../core/currency/public_sector_money.dart';
-import '../../../core/utils/currency_formatter.dart';
 
 class ActivosEstadoPage extends StatefulWidget {
   final String entidadId;
@@ -158,8 +156,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
     );
   }
 
-  /// Brecha documentada: falta el servicio de actas de responsabilidad de
-  /// cuentadantes y su ciclo de firma/entrega.
+  /// Estado operativo de actas de responsabilidad de cuentadantes.
   Widget _buildResponsibilityBanner() {
     return Container(
       color: Colors.amber.shade100,
@@ -170,7 +167,7 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Pendiente: asignacion de Actas de Responsabilidad a cuentadantes y su ciclo de firma/entrega. '
+              'Actas de responsabilidad a cuentadantes activas con firma, entrega, traslado y devolucion auditables. '
               'Clasificacion, depreciacion lineal/unidades y revalorizaciones estan activas en SQLite.',
               style: TextStyle(fontSize: 12, color: Colors.black87),
             ),
@@ -859,7 +856,6 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
     }
 
     String? funcionarioIdSel;
-    final idCtrl = TextEditingController();
     final nombreCtrl = TextEditingController(text: activo.responsable ?? '');
     final cedulaCtrl = TextEditingController();
     final depCtrl = TextEditingController();
@@ -884,7 +880,6 @@ class _ActivosEstadoPageState extends State<ActivosEstadoPage> {
                       final id = emp['id'] as String;
                       final nombre = emp['nombre_completo'] as String;
                       final cc = emp['numero_identificacion'] as String;
-                      final dep = emp['dependencia'] as String;
                       return DropdownMenuItem(
                         value: id,
                         child: Text(

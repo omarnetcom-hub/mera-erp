@@ -136,6 +136,13 @@ class SchemaActivos {
         ubicacion_fisica TEXT NOT NULL,
         fecha_asignacion TEXT NOT NULL,
         fecha_devolucion TEXT,
+        fecha_entrega TEXT,
+        firmado_por_funcionario TEXT,
+        fecha_firma_funcionario TEXT,
+        firmado_por_almacen TEXT,
+        fecha_firma_almacen TEXT,
+        hash_acta TEXT,
+        version_formato TEXT NOT NULL DEFAULT 'CGN-GAD22-FOR02-local-v1',
         estado_acta TEXT NOT NULL DEFAULT 'activa',
         observaciones TEXT,
         FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
@@ -179,6 +186,57 @@ class SchemaActivos {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_actas_funcionario ON actas_responsabilidad(funcionario_id)',
+    );
+  }
+
+  static Future<void> migrarFirmaActasResponsabilidad(Database db) async {
+    await crearTablas(db);
+    Future<void> agregarColumnaSiNoExiste(
+      String tabla,
+      String columna,
+      String definicion,
+    ) async {
+      final columnas = await db.rawQuery('PRAGMA table_info($tabla)');
+      final existe = columnas.any((c) => c['name'] == columna);
+      if (!existe) {
+        await db.execute('ALTER TABLE $tabla ADD COLUMN $columna $definicion');
+      }
+    }
+
+    await agregarColumnaSiNoExiste(
+      'actas_responsabilidad',
+      'fecha_entrega',
+      'TEXT',
+    );
+    await agregarColumnaSiNoExiste(
+      'actas_responsabilidad',
+      'firmado_por_funcionario',
+      'TEXT',
+    );
+    await agregarColumnaSiNoExiste(
+      'actas_responsabilidad',
+      'fecha_firma_funcionario',
+      'TEXT',
+    );
+    await agregarColumnaSiNoExiste(
+      'actas_responsabilidad',
+      'firmado_por_almacen',
+      'TEXT',
+    );
+    await agregarColumnaSiNoExiste(
+      'actas_responsabilidad',
+      'fecha_firma_almacen',
+      'TEXT',
+    );
+    await agregarColumnaSiNoExiste(
+      'actas_responsabilidad',
+      'hash_acta',
+      'TEXT',
+    );
+    await agregarColumnaSiNoExiste(
+      'actas_responsabilidad',
+      'version_formato',
+      "TEXT NOT NULL DEFAULT 'CGN-GAD22-FOR02-local-v1'",
     );
   }
 }

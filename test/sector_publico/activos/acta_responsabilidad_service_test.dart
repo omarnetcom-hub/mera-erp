@@ -106,23 +106,90 @@ void main() {
     await db.close();
   });
 
-  test('Asignar Acta de Responsabilidad y Exportar a Plano', () async {
-    final acta = await service.asignarResponsabilidad(
-      entidadId: 'entidad-001',
-      usuarioId: 'usr-001',
-      activoId: 'activo-001',
-      funcionarioId: 'emp-001',
-      funcionarioNombre: 'Carlos Restrepo',
-      funcionarioIdentificacion: '79998877',
-      dependencia: 'Secretaría de Obras Públicas',
-      ubicacionFisica: 'Almacén Central - Bodega 2',
-    );
+  test(
+    'Generar, firmar, entregar y exportar acta de responsabilidad',
+    () async {
+      final pendiente = await service.generarActaPendiente(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        activoId: 'activo-001',
+        funcionarioId: 'emp-001',
+        funcionarioNombre: 'Carlos Restrepo',
+        funcionarioIdentificacion: '79998877',
+        dependencia: 'SecretarÃ­a de Obras PÃºblicas',
+        ubicacionFisica: 'AlmacÃ©n Central - Bodega 2',
+      );
 
-    expect(acta.numeroActa, contains('ACTA-'));
-    expect(acta.funcionarioNombre, equals('Carlos Restrepo'));
+      expect(pendiente.estadoActa.name, equals('pendienteFirma'));
 
-    final plano = await service.exportarActaAPlano(acta.id);
-    expect(plano, contains('ACTA_RESPONSABILIDAD_HEADER'));
-    expect(plano, contains('Carlos Restrepo'));
-  });
+      final firmada = await service.firmarYEntregarActa(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        actaId: pendiente.id,
+        firmadoPorFuncionario: 'Carlos Restrepo',
+        firmadoPorAlmacen: 'Almacen General',
+      );
+
+      expect(firmada.numeroActa, contains('ACTA-'));
+      expect(firmada.estadoActa.name, equals('activa'));
+      expect(firmada.fechaEntrega, isNotNull);
+      expect(firmada.hashActa, isNotNull);
+      expect(firmada.hashActa, hasLength(64));
+
+      final activo = await db.query(
+        'activos_estado',
+        where: 'id = ?',
+        whereArgs: ['activo-001'],
+      );
+      expect(activo.single['responsable'], equals('Carlos Restrepo'));
+      expect(activo.single['ubicacion'], equals('AlmacÃ©n Central - Bodega 2'));
+
+      final plano = await service.exportarActaAPlano(firmada.id);
+      expect(plano, contains('ACTA_RESPONSABILIDAD_HEADER'));
+      expect(plano, contains('Carlos Restrepo'));
+      expect(plano, contains('FIRMA_FUNCIONARIO|Carlos Restrepo'));
+      expect(plano, contains('FIRMA_ALMACEN|Almacen General'));
+      expect(plano, contains('HASH_ACTA|${firmada.hashActa}'));
+    },
+  );
+
+  test(
+    'Asignar Acta de Responsabilidad conserva API y permite devolver',
+    () async {
+      final acta = await service.asignarResponsabilidad(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        activoId: 'activo-001',
+        funcionarioId: 'emp-001',
+        funcionarioNombre: 'Carlos Restrepo',
+        funcionarioIdentificacion: '79998877',
+        dependencia: 'Secretaría de Obras Públicas',
+        ubicacionFisica: 'Almacén Central - Bodega 2',
+      );
+
+      expect(acta.numeroActa, contains('ACTA-'));
+      expect(acta.funcionarioNombre, equals('Carlos Restrepo'));
+      expect(acta.estadoActa.name, equals('activa'));
+
+      final plano = await service.exportarActaAPlano(acta.id);
+      expect(plano, contains('ACTA_RESPONSABILIDAD_HEADER'));
+      expect(plano, contains('Carlos Restrepo'));
+
+      final devuelta = await service.devolverResponsabilidad(
+        entidadId: 'entidad-001',
+        usuarioId: 'usr-001',
+        actaId: acta.id,
+        observaciones: 'Reintegro al almacen',
+      );
+
+      expect(devuelta.estadoActa.name, equals('devuelta'));
+      final activo = await db.query(
+        'activos_estado',
+        where: 'id = ?',
+        whereArgs: ['activo-001'],
+      );
+      expect(activo.single['responsable'], isNull);
+      expect(activo.single['ubicacion'], isNull);
+    },
+  );
 }
