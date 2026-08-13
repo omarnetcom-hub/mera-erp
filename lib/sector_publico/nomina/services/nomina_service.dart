@@ -67,10 +67,13 @@ class NominaService {
       from: periodBounds.$1,
       to: periodBounds.$2,
     );
-    final unpaidDays = absenceSummary.unpaidDays.clamp(0, 30).round();
-    final effectiveDays = unpaidDays == 0
-        ? diasTrabajados
-        : (diasTrabajados - unpaidDays).clamp(0, diasTrabajados).toInt();
+    final absenceImpact = absenceSummary.payrollImpact(
+      monthlySalary: empleado.salarioBasico,
+      periodDays: 30,
+    );
+    final effectiveDays = absenceImpact.employerPaidDays
+        .clamp(0, diasTrabajados)
+        .round();
 
     // Recuperar configuración de la entidad (SMMLV y Auxilio de Transporte) para evitar hardcoding
     final configResult = await db.query(
@@ -107,19 +110,17 @@ class NominaService {
       }
     }
 
-    final salarioDevengado = empleado.salarioBasico.multiplyRatio(
-      numerator: effectiveDays,
-      denominator: 30,
-    );
+    final salarioDevengado = absenceImpact.totalIncome;
     var auxilioTransporte = _calcularAuxilioTransporte(
       salarioBasico: empleado.salarioBasico,
       smmlv: smmlv,
       auxilioTransporte: auxilioTransporteConfig,
     );
-    if (unpaidDays > 0 && auxilioTransporte.minorUnits > 0) {
+    if (absenceImpact.transportEligibleDays < 30 &&
+        auxilioTransporte.minorUnits > 0) {
       auxilioTransporte = auxilioTransporte.multiplyRatio(
-        numerator: effectiveDays,
-        denominator: diasTrabajados.clamp(1, 30).toInt(),
+        numerator: (absenceImpact.transportEligibleDays * 1000).round(),
+        denominator: diasTrabajados.clamp(1, 30).toInt() * 1000,
       );
     }
     final auxilioAlimentacion =
@@ -184,6 +185,11 @@ class NominaService {
     warnings.add(_descripcionRegimen(empleado.regimenNomina));
     if (absenceSummary.warning != null) {
       warnings.add(absenceSummary.warning!);
+    }
+    if (absenceImpact.hasThirdPartyPayer) {
+      warnings.add(
+        'Ausencias HRM liquidadas con pagador EPS/ARL segun norma; ver detalle en auditoria/calculo.',
+      );
     }
     if (configPorDefecto) {
       warnings.add(

@@ -6684,6 +6684,10 @@ class DatabaseHelper {
       to: periodEnd,
       employeeId: empleadoId,
     );
+    final absenceImpact = absenceSummary.payrollImpact(
+      monthlySalary: salario,
+      periodDays: 30,
+    );
     final periodo = '$anio-${mes.toString().padLeft(2, '0')}';
     final noveltyRows = await db.query(
       'payroll_novelties',
@@ -6712,12 +6716,7 @@ class DatabaseHelper {
     });
     final horasExtraValue = (horasExtra ?? zero) + noveltyHours;
     final bonificacionesValue = (bonificaciones ?? zero) + noveltyBonuses;
-    final unpaidDays = absenceSummary.unpaidDays.clamp(0, 30).toDouble();
-    final paidDays = (30.0 - unpaidDays).clamp(0, 30).toDouble();
-    final salarioDevengado = salario.multiplyRatio(
-      numerator: (paidDays * 1000).round(),
-      denominator: 30000,
-    );
+    final salarioDevengado = absenceImpact.totalIncome;
     final auxilioFlag = (empleado['auxilio_transporte'] as int) == 1;
     final nivelArl = empleado['nivel_arl']?.toString() ?? 'I';
 
@@ -6728,9 +6727,9 @@ class DatabaseHelper {
             currency: currency,
           )
         : zero;
-    if (unpaidDays > 0 && auxilio.minorUnits > 0) {
+    if (absenceImpact.transportEligibleDays < 30 && auxilio.minorUnits > 0) {
       auxilio = auxilio.multiplyRatio(
-        numerator: (paidDays * 1000).round(),
+        numerator: (absenceImpact.transportEligibleDays * 1000).round(),
         denominator: 30000,
       );
     }
@@ -7054,6 +7053,7 @@ class DatabaseHelper {
         'vacaciones': vacaciones.toWireMap(),
         'retefuente': retefuenteValue.toWireMap(),
         'hrm_ausencias': absenceSummary.toMap(),
+        'hrm_impacto_nomina': absenceImpact.toMap(),
       };
 
       final liquidationId = await txn.insert('nomina_liquidaciones', {

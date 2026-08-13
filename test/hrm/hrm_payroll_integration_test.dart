@@ -94,7 +94,7 @@ void main() {
       expect(liquidacion.observaciones, isNot(contains('sin procesar')));
     });
 
-    test('incapacidad no altera la nomina y deja alerta visible', () async {
+    test('incapacidad EPS liquida pagador desde el dia 3', () async {
       await _insertPublicEmployee(db, hrmEmployeeId: 1);
       await db.insert('empleados', {
         'id': 1,
@@ -108,18 +108,15 @@ void main() {
         employeeId: 1,
         typeId: _typeId(types, 'incapacidad_eps'),
         day: 2,
-        days: 2,
+        days: 5,
       );
 
       final liquidacion = await _liquidarPublica(service, 'PUB-1');
 
-      expect(liquidacion.diasTrabajados, 30);
-      expect(liquidacion.salarioDevengado, publicMoneyFromMajor('3000000'));
-      expect(liquidacion.observaciones, contains('incapacidad EPS'));
-      expect(
-        liquidacion.observaciones,
-        contains('requiere revisi\u00f3n manual'),
-      );
+      expect(liquidacion.diasTrabajados, 27);
+      expect(liquidacion.salarioDevengado, publicMoneyFromMajor('2900000'));
+      expect(liquidacion.observaciones, contains('pagador EPS/ARL'));
+      expect(liquidacion.observaciones, isNot(contains('requiere')));
     });
 
     test('sin ausencias conserva el calculo anterior', () async {
@@ -175,6 +172,7 @@ void main() {
           'active': 1,
         });
       }
+      await _ensureLeaveType(db, companyId, 'licencia_maternidad');
       for (final account in const [
         ('510506', 'Sueldos', 'gasto', 'debito'),
         ('510527', 'Auxilio transporte', 'gasto', 'debito'),
@@ -207,6 +205,7 @@ void main() {
         nombre: 'Con permiso no remunerado',
         salarioBase: MoneyValue(minorUnits: 300000000, currency: currency),
       );
+      await _linkEmployeeToCompany(db, absentEmployee, companyId);
       final type = (await db.query(
         'hrm_leave_types',
         where: 'company_id = ? AND code = ?',
@@ -238,6 +237,78 @@ void main() {
       expect(rows.single['total_devengado'] as num, greaterThan(0));
       expect(rows.single['calculo_json'], contains('dias_no_remunerados'));
     });
+
+    test('licencia de maternidad queda registrada como pagador EPS', () async {
+      final currency = await MoneyCurrencyResolver.resolve(
+        db,
+        companyId: companyId,
+      );
+      final employeeId = await DatabaseHelper.instance.guardarEmpleado(
+        nombre: 'Con licencia maternidad',
+        salarioBase: MoneyValue(minorUnits: 300000000, currency: currency),
+      );
+      await _linkEmployeeToCompany(db, employeeId, companyId);
+      final type = (await db.query(
+        'hrm_leave_types',
+        where: 'company_id = ? AND code = ?',
+        whereArgs: [companyId, 'licencia_maternidad'],
+      )).single;
+      await _approvedLeave(
+        db,
+        employeeId: employeeId,
+        typeId: type['id'] as int,
+        day: 1,
+        days: 30,
+        companyId: companyId,
+        date: DateTime(2026, 8),
+      );
+
+      final liquidationId = await DatabaseHelper.instance.liquidarNomina(
+        empleadoId: employeeId,
+        anio: 2026,
+        mes: 8,
+      );
+      final rows = await db.query(
+        'nomina_liquidaciones',
+        columns: ['calculo_json', 'novedades_hrm'],
+        where: 'id = ?',
+        whereArgs: [liquidationId],
+      );
+
+      expect(rows.single['calculo_json'], contains('maternidad_dias: 30.0'));
+      expect(rows.single['calculo_json'], contains('valor_eps'));
+      expect(rows.single['novedades_hrm'], isNull);
+    });
+  });
+}
+
+Future<void> _linkEmployeeToCompany(
+  Database db,
+  int employeeId,
+  int companyId,
+) async {
+  await db.update(
+    'empleados',
+    {'company_id': companyId, 'documento': 'HRM-$employeeId'},
+    where: 'id = ?',
+    whereArgs: [employeeId],
+  );
+}
+
+Future<void> _ensureLeaveType(Database db, int companyId, String code) async {
+  final existing = await db.query(
+    'hrm_leave_types',
+    where: 'company_id = ? AND code = ?',
+    whereArgs: [companyId, code],
+    limit: 1,
+  );
+  if (existing.isNotEmpty) return;
+  await db.insert('hrm_leave_types', {
+    'company_id': companyId,
+    'code': code,
+    'name': code,
+    'requires_entitlement': 0,
+    'active': 1,
   });
 }
 
