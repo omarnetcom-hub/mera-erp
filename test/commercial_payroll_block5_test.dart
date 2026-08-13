@@ -150,6 +150,98 @@ void main() {
     },
   );
 
+  test(
+    'deducciones laborales aplican embargos prestamos y cuota sindical',
+    () async {
+      await db.update(
+        'payroll_parameters',
+        {'health_exonerated': 0},
+        where: 'company_id = ? AND year = ?',
+        whereArgs: [companyId, 2026],
+      );
+      final id = await employee('Deducciones legales block5', 500000000);
+      for (final novelty in [
+        ('embargo_alimentos', 100000000),
+        ('cuota_sindical', 8000000),
+        ('prestamo_empresa', 20000000),
+      ]) {
+        await db.insert('payroll_novelties', {
+          'company_id': companyId,
+          'empleado_id': id,
+          'periodo': '2026-10',
+          'tipo_novedad': novelty.$1,
+          'valor': novelty.$2,
+          'fecha': DateTime(2026, 10, 1).toIso8601String(),
+        });
+      }
+
+      final payrollId = await helper.liquidarNomina(
+        empleadoId: id,
+        anio: 2026,
+        mes: 10,
+      );
+      final row = await liquidation(payrollId);
+
+      expect(row['total_devengado'], 500000000);
+      expect(row['salud_empleado'], 20000000);
+      expect(row['pension_empleado'], 20000000);
+      expect(row['total_deducciones'], 168000000);
+      expect(row['neto_pagar'], 332000000);
+      final detalle = row['calculo_json'].toString();
+      expect(detalle, contains('childSupportGarnishment'));
+      expect(detalle, contains('unionFee'));
+      expect(detalle, contains('employerLoan'));
+    },
+  );
+
+  test(
+    'prelacion limita embargo ordinario libranza y prestamo si no alcanza',
+    () async {
+      await db.update(
+        'payroll_parameters',
+        {'health_exonerated': 0},
+        where: 'company_id = ? AND year = ?',
+        whereArgs: [companyId, 2026],
+      );
+      final id = await employee('Prelacion block5', 300000000);
+      for (final novelty in [
+        ('embargo_judicial', 100000000),
+        ('libranza', 150000000),
+        ('prestamo_empresa', 100000000),
+      ]) {
+        await db.insert('payroll_novelties', {
+          'company_id': companyId,
+          'empleado_id': id,
+          'periodo': '2026-11',
+          'tipo_novedad': novelty.$1,
+          'valor': novelty.$2,
+          'fecha': DateTime(2026, 11, 1).toIso8601String(),
+        });
+      }
+
+      final payrollId = await helper.liquidarNomina(
+        empleadoId: id,
+        anio: 2026,
+        mes: 11,
+      );
+      final row = await liquidation(payrollId);
+
+      expect(row['total_devengado'], 300000000);
+      expect(row['salud_empleado'], 12000000);
+      expect(row['pension_empleado'], 12000000);
+      expect(row['total_deducciones'], 162000000);
+      expect(row['neto_pagar'], 138000000);
+      expect(
+        row['novedades_hrm'].toString(),
+        contains('Deducciones laborales limitadas por topes legales'),
+      );
+      final detalle = row['calculo_json'].toString();
+      expect(detalle, contains('ordinaryGarnishment'));
+      expect(detalle, contains('payrollLoan'));
+      expect(detalle, contains('employerLoan'));
+    },
+  );
+
   test('fallo al registrar asiento revierte caja y liquidacion', () async {
     await helper.cerrarPeriodoContable(anio: 2026, mes: 9);
     final id = await employee('Rollback block5', 100000000);

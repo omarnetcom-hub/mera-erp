@@ -60,10 +60,10 @@ import 'sector_publico/transparencia/database/schema_transparencia.dart';
 import 'sector_publico/siif/database/schema_siif.dart';
 import 'impact/database/schema_impact.dart';
 import 'taxes/retention_schema_migration.dart';
-import 'taxes/retention_policy.dart';
 import 'taxes/retention_rule_service.dart';
 import 'taxes/tax_report_schema_migration.dart';
 import 'taxes/payroll_schema_migration.dart';
+import 'taxes/payroll_deduction_service.dart';
 import 'taxes/payroll_withholding.dart';
 
 part 'core/database/database_initializer.dart';
@@ -6832,13 +6832,25 @@ class DatabaseHelper {
       uvt: MoneyValue.fromSql(param['uvt'], currency: currency),
       zero: zero,
     );
-    final totalDeducciones =
-        saludEmpleado +
-        pensionEmpleado +
-        fsp +
-        retefuenteValue +
-        otrasDeduccionesValue;
+    final mandatoryDeductions =
+        saludEmpleado + pensionEmpleado + fsp + retefuenteValue;
+    final additionalDeductions = const PayrollDeductionService().apply(
+      noveltyRows: noveltyRows,
+      manualOtherDeductions: otrasDeduccionesValue,
+      grossIncome: totalDevengado,
+      mandatoryDeductions: mandatoryDeductions,
+      smmlv: smmlv,
+      zero: zero,
+    );
+    final totalDeducciones = mandatoryDeductions + additionalDeductions.total;
     final netoPagar = totalDevengado - totalDeducciones;
+    final payrollWarnings = [
+      if (absenceSummary.warning != null) absenceSummary.warning!,
+      if (additionalDeductions.warning != null) additionalDeductions.warning!,
+    ];
+    final payrollWarningText = payrollWarnings.isEmpty
+        ? null
+        : payrollWarnings.join(' | ');
 
     final metodoPago = empleado['metodo_pago']?.toString() ?? 'Efectivo';
 
@@ -6914,12 +6926,13 @@ class DatabaseHelper {
               'credito': fsp.toSql(),
               'descripcion': 'FSP: ${empleado['nombre']}',
             },
-          if (otrasDeduccionesValue.minorUnits > 0)
+          if (additionalDeductions.total.minorUnits > 0)
             {
               'codigo': '237095',
               'debito': 0,
-              'credito': otrasDeduccionesValue.toSql(),
-              'descripcion': 'Otras deducciones: ${empleado['nombre']}',
+              'credito': additionalDeductions.total.toSql(),
+              'descripcion':
+                  'Deducciones laborales adicionales: ${empleado['nombre']}',
             },
           if (saludEmpleador.minorUnits > 0)
             {
@@ -7039,7 +7052,8 @@ class DatabaseHelper {
         'auxilio_transporte': auxilio.toWireMap(),
         'horas_extra': horasExtraValue.toWireMap(),
         'bonificaciones': bonificacionesValue.toWireMap(),
-        'otras_deducciones': otrasDeduccionesValue.toWireMap(),
+        'otras_deducciones_solicitadas': otrasDeduccionesValue.toWireMap(),
+        'deducciones_laborales_adicionales': additionalDeductions.toMap(),
         'salud_empleado': saludEmpleado.toWireMap(),
         'salud_empleador': saludEmpleador.toWireMap(),
         'pension_empleado': pensionEmpleado.toWireMap(),
@@ -7086,7 +7100,7 @@ class DatabaseHelper {
         'asiento_id': asientoId,
         'estado': 'liquidada',
         'calculo_json': calculoJson.toString(),
-        'novedades_hrm': absenceSummary.warning,
+        'novedades_hrm': payrollWarningText,
         'fecha': DateTime.now().toIso8601String(),
       });
 
@@ -7099,7 +7113,7 @@ class DatabaseHelper {
       entidadId: id,
       detalle:
           '${empleado['nombre']} $periodo neto $netoPagar'
-          '${absenceSummary.warning == null ? '' : ' - ${absenceSummary.warning}'}',
+          '${payrollWarningText == null ? '' : ' - $payrollWarningText'}',
     );
     return id;
   }
