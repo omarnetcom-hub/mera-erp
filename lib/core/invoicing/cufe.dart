@@ -1,54 +1,76 @@
 import 'dart:convert';
 
-/// Computes the canonical CUFE used by MerkaERP for DIAN-related operations.
-///
-/// The function mirrors the algorithm that was canonicalized from
-/// `lib/facturacion_electronica_page.dart`:
-///   1. Build a raw string with the fields in the exact order:
-///      'Venta:{ventaId}|Total:{total}|Fecha:{fechaIso}|PIN:{pin}'
-///   2. UTF-8 encode the raw string and base64-encode the bytes.
-///   3. Remove any '=' padding characters from the base64 string and
-///      convert to lowercase.
-///   4. Append the suffix 'fe2026dian'.
-///
-/// Inputs:
-/// - ventaId: numeric id of the sale
-/// - total: canonical decimal amount produced by MoneyValue
-/// - fechaIso: ISO-8601 datetime string (full, e.g. DateTime.toIso8601String())
-/// - pin: the technical PIN (must be the persisted value from app_config)
-///
-/// Returns: the canonical CUFE string.
-String computeCufe({
-  required int ventaId,
-  required String total,
-  required String fechaIso,
-  required String pin,
-}) {
-  // Normalize the fechaIso to seconds precision (truncate milliseconds) so all call sites
-  // produce the same canonical CUFE regardless of how they serialized the DateTime.
-  String fechaCanonical;
-  try {
-    final dt = DateTime.parse(fechaIso);
-    final dtSec = DateTime(
-      dt.year,
-      dt.month,
-      dt.day,
-      dt.hour,
-      dt.minute,
-      dt.second,
-    );
-    fechaCanonical = dtSec.toIso8601String();
-  } catch (e) {
-    // If parsing fails, fall back to the input string (best-effort). This keeps behavior
-    // predictable rather than throwing during CUFE computation for malformed inputs.
-    fechaCanonical = fechaIso;
-  }
+import 'package:crypto/crypto.dart';
 
-  final totalCanonical = total;
-  final raw =
-      'Venta:$ventaId|Total:$totalCanonical|Fecha:$fechaCanonical|PIN:$pin';
-  final encoded = base64Encode(
-    utf8.encode(raw),
-  ).replaceAll('=', '').toLowerCase();
-  return '${encoded}fe2026dian';
+/// Datos canonicos exigidos por el Anexo Tecnico DIAN Factura Electronica
+/// de Venta v1.9, seccion 11.2.
+///
+/// Fuente normativa:
+/// DIAN, Resolucion 000165 de 2023, Anexo Tecnico FE v1.9, paginas 655-659:
+/// CUFE = SHA-384(NumFac + FecFac + HorFac + ValFac + CodImp1 + ValImp1
+/// + CodImp2 + ValImp2 + CodImp3 + ValImp3 + ValTot + NitOFE + NumAdq
+/// + ClTec + TipoAmbiente).
+class DianCufeInput {
+  const DianCufeInput({
+    required this.numeroFactura,
+    required this.fechaFactura,
+    required this.horaFactura,
+    required this.valorFacturaSinImpuestos,
+    required this.valorIva,
+    required this.valorImpuestoConsumo,
+    required this.valorIca,
+    required this.valorTotal,
+    required this.nitFacturador,
+    required this.numeroAdquiriente,
+    required this.claveTecnica,
+    required this.tipoAmbiente,
+  });
+
+  final String numeroFactura;
+  final String fechaFactura;
+  final String horaFactura;
+  final String valorFacturaSinImpuestos;
+  final String valorIva;
+  final String valorImpuestoConsumo;
+  final String valorIca;
+  final String valorTotal;
+  final String nitFacturador;
+  final String numeroAdquiriente;
+  final String claveTecnica;
+  final String tipoAmbiente;
+
+  String seed() {
+    return '${numeroFactura.trim()}'
+        '${fechaFactura.trim()}'
+        '${horaFactura.trim()}'
+        '${_money(valorFacturaSinImpuestos)}'
+        '01'
+        '${_money(valorIva)}'
+        '04'
+        '${_money(valorImpuestoConsumo)}'
+        '03'
+        '${_money(valorIca)}'
+        '${_money(valorTotal)}'
+        '${_digits(nitFacturador)}'
+        '${_digits(numeroAdquiriente)}'
+        '${claveTecnica.trim()}'
+        '${tipoAmbiente.trim()}';
+  }
+}
+
+String computeDianCufe(DianCufeInput input) {
+  return sha384.convert(utf8.encode(input.seed())).toString();
+}
+
+String _digits(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
+
+String _money(String value) {
+  final trimmed = value.trim().replaceAll(',', '.');
+  if (trimmed.isEmpty) return '0.00';
+  final parts = trimmed.split('.');
+  final whole = parts.first.replaceAll(RegExp(r'[^0-9-]'), '');
+  final decimals = parts.length > 1
+      ? parts[1].replaceAll(RegExp(r'[^0-9]'), '')
+      : '';
+  return '${whole.isEmpty ? '0' : whole}.${decimals.padRight(2, '0').substring(0, 2)}';
 }

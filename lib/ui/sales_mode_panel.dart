@@ -5,7 +5,6 @@ import '../db_helper.dart';
 import '../control_center_agent.dart';
 import '../sales/application/create_sale_use_case.dart';
 import '../services/merka_intelligence_service.dart';
-import '../core/invoicing/cufe.dart';
 import '../core/currency/currency.dart';
 import '../core/currency/money_currency_resolver.dart';
 import '../core/currency/money_value.dart';
@@ -326,16 +325,9 @@ class _SalesModePanelState extends State<SalesModePanel> {
     final now = DateTime.now();
     final fechaIso = now.toIso8601String();
 
-    // Obtain persisted PIN; if absent, show a pending message instead of generating CUFE.
-    final pin = await DatabaseHelper.instance.obtenerDianPin();
-    final String? cufeFull = pin == null
-        ? null
-        : computeCufe(
-            ventaId: saleId,
-            total: total.toMajorUnitsString(),
-            fechaIso: fechaIso,
-            pin: pin,
-          );
+    // El ticket POS no siempre tiene identificacion fiscal del adquirente.
+    // El CUFE oficial se genera desde Facturacion Electronica con datos completos.
+    final String? cufeFull = null;
 
     if (!mounted) return;
     showDialog(

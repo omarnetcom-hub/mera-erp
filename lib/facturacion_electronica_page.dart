@@ -91,9 +91,9 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
     final fecha =
         venta['fecha']?.toString() ?? DateTime.now().toIso8601String();
 
-    // Use the persisted PIN as the single source of truth. Do not fall back to _pinCtrl.text.
-    final pin = await DatabaseHelper.instance.obtenerDianPin();
-    if (pin == null) {
+    // CUFE oficial: no se calcula si falta clave tecnica, NIT emisor o adquirente.
+    final cufe = await _calcularCufeOficial(venta, total, fecha);
+    if (cufe == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -106,13 +106,6 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
       }
       return;
     }
-
-    final cufe = computeCufe(
-      ventaId: ventaId,
-      total: total.toMajorUnitsString(),
-      fechaIso: fecha,
-      pin: pin,
-    );
     final consecutivo = '${_prefixCtrl.text}-${1000 + ventaId}';
 
     setState(() => _loading = true);
@@ -171,6 +164,74 @@ class _FacturacionElectronicaPageState extends State<FacturacionElectronicaPage>
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<String?> _calcularCufeOficial(
+    Map<String, dynamic> venta,
+    MoneyValue total,
+    String fechaIso,
+  ) async {
+    final config = await DatabaseHelper.instance.obtenerDianConfig();
+    final claveTecnica = config['dian_tech_key'];
+    if (claveTecnica == null || claveTecnica.trim().isEmpty) return null;
+
+    final empresa = await DatabaseHelper.instance.obtenerEmpresaConfig();
+    final nitEmisor = empresa['nit']?.toString();
+    if (nitEmisor == null || nitEmisor.trim().isEmpty) return null;
+
+    final adquirente = await _identificacionAdquirente(venta);
+    if (adquirente == null || adquirente.trim().isEmpty) return null;
+
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final currency = await MoneyCurrencyResolver.resolve(
+      db,
+      companyId: companyId,
+    );
+    final iva = MoneyValue.fromSql(
+      venta['impuesto_total'],
+      currency: currency,
+      nullableAsZero: true,
+    );
+    final base = total - iva;
+    final dt = DateTime.tryParse(fechaIso) ?? DateTime.now();
+    final ambiente = _environment.toLowerCase().contains('pruebas') ? '2' : '1';
+    final ventaId = (venta['id'] as num).toInt();
+
+    return computeDianCufe(
+      DianCufeInput(
+        numeroFactura: '${_prefixCtrl.text}-${1000 + ventaId}',
+        fechaFactura:
+            '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}',
+        horaFactura:
+            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}-05:00',
+        valorFacturaSinImpuestos: base.toMajorUnitsString(),
+        valorIva: iva.toMajorUnitsString(),
+        valorImpuestoConsumo: '0.00',
+        valorIca: '0.00',
+        valorTotal: total.toMajorUnitsString(),
+        nitFacturador: nitEmisor,
+        numeroAdquiriente: adquirente,
+        claveTecnica: claveTecnica,
+        tipoAmbiente: ambiente,
+      ),
+    );
+  }
+
+  Future<String?> _identificacionAdquirente(Map<String, dynamic> venta) async {
+    final clienteId = venta['cliente_id'];
+    if (clienteId is num) {
+      final db = await DatabaseHelper.instance.database;
+      final rows = await db.query(
+        'clientes',
+        columns: ['documento'],
+        where: 'id = ?',
+        whereArgs: [clienteId.toInt()],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) return rows.first['documento']?.toString();
+    }
+    return venta['cliente_documento']?.toString();
   }
 
   void _verDetalleXml(Map<String, dynamic> factura) {

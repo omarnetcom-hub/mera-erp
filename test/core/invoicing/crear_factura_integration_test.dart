@@ -122,8 +122,8 @@ void main() {
         currency: currency,
       ).toMajorUnitsString();
 
-      // Debe contener la etiqueta ID
-      expect(xml.contains('<ID>'), isTrue);
+      // Debe contener la etiqueta ID UBL con namespace cbc.
+      expect(xml.contains('<cbc:ID>'), isTrue);
 
       // Debe contener el total real de la venta
       expect(

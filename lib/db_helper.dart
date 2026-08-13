@@ -23,6 +23,7 @@ import 'core/currency/currency_service.dart';
 import 'core/currency/money_currency_resolver.dart';
 import 'core/currency/money_schema_migration.dart';
 import 'core/currency/money_value.dart';
+import 'core/invoicing/xml/generator.dart';
 import 'core/payments/payment_service.dart';
 import 'core/webhooks/webhook_service.dart';
 import 'features/feature_registry.dart';
@@ -6454,16 +6455,48 @@ class DatabaseHelper {
       nullableAsZero: true,
     );
     final cliente = venta['cliente']?.toString() ?? 'Cliente general';
-    return '''
-<Invoice>
-  <ID>$consecutivo</ID>
-  <IssueDate>${DateTime.now().toIso8601String()}</IssueDate>
-  <AccountingCustomerParty>$cliente</AccountingCustomerParty>
-  <TaxTotal>${impuesto.toMajorUnitsString()}</TaxTotal>
-  <PayableAmount>${total.toMajorUnitsString()}</PayableAmount>
-  <Note>Borrador interno. Requiere validacion previa DIAN/proveedor tecnologico.</Note>
-</Invoice>
-''';
+    final subtotal = total - impuesto;
+    return XmlInvoiceGenerator.generateInvoiceXml(
+      invoiceData: {
+        'invoice_number': consecutivo,
+        'issue_date': DateTime.now().toIso8601String(),
+        'profile_execution_id': '2',
+        'currency': currency.code,
+        'supplier': {'nit': '', 'name': 'Empresa local'},
+        'customer': {'nit': '', 'name': cliente},
+        'subtotal': subtotal.toMajorUnitsString(),
+        'tax_exclusive': subtotal.toMajorUnitsString(),
+        'total': total.toMajorUnitsString(),
+        'tax_totals': [
+          {
+            'code': '01',
+            'name': 'IVA',
+            'taxable_amount': subtotal.toMajorUnitsString(),
+            'amount': impuesto.toMajorUnitsString(),
+            'percent': '0.00',
+          },
+        ],
+        'lines': [
+          {
+            'id': 1,
+            'quantity': venta['cantidad']?.toString() ?? '1',
+            'unit_code': 'NIU',
+            'unit_price': total.toMajorUnitsString(),
+            'total': subtotal.toMajorUnitsString(),
+            'description': venta['producto']?.toString() ?? 'Venta POS',
+            'taxes': [
+              {
+                'code': '01',
+                'name': 'IVA',
+                'taxable_amount': subtotal.toMajorUnitsString(),
+                'amount': impuesto.toMajorUnitsString(),
+                'percent': venta['impuesto_pct']?.toString() ?? '0.00',
+              },
+            ],
+          },
+        ],
+      },
+    );
   }
 
   Future<int> actualizarEstadoFacturaElectronica({
