@@ -86,7 +86,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 99;
+  static const int schemaVersion = 100;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1225,6 +1225,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 99) {
       await RetentionSchemaMigration.migrateV99(db);
+    }
+    if (oldVersion < 100) {
+      await SchemaPlaneacion.migrarTrazabilidadPlanPresupuesto(db);
     }
   }
 

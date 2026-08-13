@@ -15,6 +15,7 @@ import '../models/pago.dart';
 import 'pac_service.dart';
 import 'vigencias_futuras_service.dart';
 import '../../contabilidad/services/contabilidad_nicsp_service.dart';
+import '../../planeacion/services/trazabilidad_plan_presupuesto_service.dart';
 import '../../security/auditoria_service.dart';
 import '../../security/roles_permisos_service.dart';
 import '../../models/registro_auditoria.dart';
@@ -24,10 +25,7 @@ class PresupuestoService {
   final AuditoriaService? auditoriaService;
   final Uuid _uuid = const Uuid();
 
-  PresupuestoService({
-    required this.db,
-    this.auditoriaService,
-  });
+  PresupuestoService({required this.db, this.auditoriaService});
 
   // ==================== APROPIACIÓN ====================
 
@@ -95,7 +93,10 @@ class PresupuestoService {
   }
 
   /// Obtiene una apropiación por ID
-  Future<Apropiacion?> obtenerApropiacion(String id, {DatabaseExecutor? executor}) async {
+  Future<Apropiacion?> obtenerApropiacion(
+    String id, {
+    DatabaseExecutor? executor,
+  }) async {
     final resultado = await (executor ?? db).query(
       'apropiaciones',
       where: 'id = ?',
@@ -122,11 +123,15 @@ class PresupuestoService {
 
     // Fail-Closed: si no hay un funcionario activo con rol resuelto, bloquear inmediatamente.
     if (rol == null) {
-      throw Exception('Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId');
+      throw Exception(
+        'Acceso denegado: El usuario $usuarioId no tiene un rol asignado en la entidad $entidadId',
+      );
     }
 
     if (!RolesPermisosService.tienePermiso(rol, permiso)) {
-      throw Exception('Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}');
+      throw Exception(
+        'Acceso denegado: El rol ${rol.name} no tiene permiso para ${permiso.name}',
+      );
     }
 
     if (rolQuienCrea != null) {
@@ -136,7 +141,9 @@ class PresupuestoService {
         accion: permiso,
       );
       if (!esValido) {
-        throw Exception('Segregación de funciones violada: Un ${rol.name} no puede ejecutar la acción ${permiso.name} sobre un registro creado por ${rolQuienCrea.name}');
+        throw Exception(
+          'Segregación de funciones violada: Un ${rol.name} no puede ejecutar la acción ${permiso.name} sobre un registro creado por ${rolQuienCrea.name}',
+        );
       }
     }
 
@@ -156,6 +163,8 @@ class PresupuestoService {
     required String funcionarioSolicitante,
     required String objetoGasto,
     required String? contratoNumero,
+    String? proyectoId,
+    String? metaCodigo,
   }) async {
     await _validarPermisoYSegregacion(
       entidadId: entidadId,
@@ -173,14 +182,35 @@ class PresupuestoService {
       throw Exception(
         'Saldo insuficiente en la apropiación. '
         'Disponible: ${apropiacion.calcularSaldoDisponibleCDP()}, '
-        'Solicitado: $valorCDP'
+        'Solicitado: $valorCDP',
       );
     }
 
     // Generar número de CDP
-    final numeroCDP = 'CDP-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final requiereTrazabilidadPlan = proyectoId != null || metaCodigo != null;
+    if (requiereTrazabilidadPlan) {
+      if (proyectoId == null ||
+          proyectoId.trim().isEmpty ||
+          metaCodigo == null ||
+          metaCodigo.trim().isEmpty) {
+        throw ArgumentError(
+          'La trazabilidad PDT/MGA del CDP exige proyectoId y metaCodigo.',
+        );
+      }
+      await TrazabilidadPlanPresupuestoService(db).validarMetaParaApropiacion(
+        entidadId: entidadId,
+        apropiacionId: apropiacionId,
+        proyectoId: proyectoId,
+        metaCodigo: metaCodigo,
+      );
+    }
+
+    final numeroCDP =
+        'CDP-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaExpedicion = DateTime.now();
-    final fechaVigencia = fechaExpedicion.add(const Duration(days: 180)); // 6 meses
+    final fechaVigencia = fechaExpedicion.add(
+      const Duration(days: 180),
+    ); // 6 meses
 
     final cdp = CDP(
       id: _uuid.v4(),
@@ -208,7 +238,8 @@ class PresupuestoService {
       'apropiaciones',
       {
         'valor_cdp': (apropiacion.valorCDP + valorCDP).toSql(),
-        'saldo_disponible': (apropiacion.calcularSaldoDisponibleCDP() - valorCDP).toSql(),
+        'saldo_disponible':
+            (apropiacion.calcularSaldoDisponibleCDP() - valorCDP).toSql(),
       },
       where: 'id = ?',
       whereArgs: [apropiacionId],
@@ -220,10 +251,29 @@ class PresupuestoService {
       tipoEvento: TipoEventoAuditoria.expedicionCDP,
       modulo: 'presupuesto',
       accion: 'expedicion_cdp',
-      valorAnterior: {'apropiacion_id': apropiacionId, 'saldo_anterior': apropiacion.saldoDisponible.toSql()},
-      valorNuevo: {'cdp_id': cdp.id, 'numero_cdp': numeroCDP, 'valor': valorCDP.toSql()},
+      valorAnterior: {
+        'apropiacion_id': apropiacionId,
+        'saldo_anterior': apropiacion.saldoDisponible.toSql(),
+      },
+      valorNuevo: {
+        'cdp_id': cdp.id,
+        'numero_cdp': numeroCDP,
+        'valor': valorCDP.toSql(),
+      },
       referenciaId: cdp.id,
     );
+
+    if (requiereTrazabilidadPlan) {
+      await TrazabilidadPlanPresupuestoService(db).registrarTrazabilidadCDP(
+        id: _uuid.v4(),
+        entidadId: entidadId,
+        cdpId: cdp.id,
+        apropiacionId: apropiacionId,
+        proyectoId: proyectoId!,
+        metaCodigo: metaCodigo!,
+        fechaVinculacion: fechaExpedicion,
+      );
+    }
 
     return cdp;
   }
@@ -301,7 +351,9 @@ class PresupuestoService {
 
     // VALIDACIÓN NORMATIVA: Verificar que el CDP esté vigente
     if (!cdp.estaVigente()) {
-      throw Exception('CDP no vigente. Estado: ${cdp.estado}, Vence: ${cdp.fechaVigencia}');
+      throw Exception(
+        'CDP no vigente. Estado: ${cdp.estado}, Vence: ${cdp.fechaVigencia}',
+      );
     }
 
     // VALIDACIÓN NORMATIVA: Verificar saldo disponible en CDP
@@ -309,13 +361,15 @@ class PresupuestoService {
       throw Exception(
         'Saldo insuficiente en el CDP. '
         'Disponible: ${cdp.saldoDisponible}, '
-        'Solicitado: $valorRP'
+        'Solicitado: $valorRP',
       );
     }
 
     // VALIDACIÓN NORMATIVA DURA: Requerir contrato (Ley 80/1993 Art. 41)
     if (contratoId.isEmpty || contratoNumero.isEmpty) {
-      throw Exception('El RP requiere un contrato firmado previo (Ley 80/1993 Art. 41)');
+      throw Exception(
+        'El RP requiere un contrato firmado previo (Ley 80/1993 Art. 41)',
+      );
     }
     final contratoResult = await database.query(
       'contratos',
@@ -327,13 +381,17 @@ class PresupuestoService {
         contratoResult.first['estado'] != 'firmado' ||
         contratoResult.first['cdp_id'] != cdpId ||
         contratoResult.first['rp_id'] != null) {
-      throw Exception('El RP requiere un contrato firmado, sin RP asociado y vinculado al CDP indicado');
+      throw Exception(
+        'El RP requiere un contrato firmado, sin RP asociado y vinculado al CDP indicado',
+      );
     }
 
     // Generar número de RP
     final numeroRP = 'RP-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaExpedicion = DateTime.now();
-    final fechaVigencia = fechaExpedicion.add(const Duration(days: 365)); // 1 año
+    final fechaVigencia = fechaExpedicion.add(
+      const Duration(days: 365),
+    ); // 1 año
 
     final rp = RP(
       id: _uuid.v4(),
@@ -370,13 +428,17 @@ class PresupuestoService {
     );
 
     // Actualizar apropiación
-    final apropiacion = await obtenerApropiacion(cdp.apropiacionId, executor: database);
+    final apropiacion = await obtenerApropiacion(
+      cdp.apropiacionId,
+      executor: database,
+    );
     if (apropiacion != null) {
       await database.update(
         'apropiaciones',
         {
           'valor_rp': (apropiacion.valorRP + valorRP).toSql(),
-          'saldo_disponible': (apropiacion.calcularSaldoDisponibleCDP() - valorRP).toSql(),
+          'saldo_disponible':
+              (apropiacion.calcularSaldoDisponibleCDP() - valorRP).toSql(),
         },
         where: 'id = ?',
         whereArgs: [apropiacion.id],
@@ -395,16 +457,36 @@ class PresupuestoService {
       );
     }
 
-    final auditoria = executor == null ? auditoriaService : AuditoriaService(database);
+    final auditoria = executor == null
+        ? auditoriaService
+        : AuditoriaService(database);
     await auditoria?.registrarEvento(
       entidadId: entidadId,
       usuarioId: usuarioId,
       tipoEvento: TipoEventoAuditoria.expedicionRP,
       modulo: 'presupuesto',
       accion: 'expedicion_rp',
-      valorAnterior: {'cdp_id': cdpId, 'saldo_anterior': cdp.saldoDisponible.toSql()},
-      valorNuevo: {'rp_id': rp.id, 'numero_rp': numeroRP, 'valor': valorRP.toSql(), 'contrato': contratoNumero},
+      valorAnterior: {
+        'cdp_id': cdpId,
+        'saldo_anterior': cdp.saldoDisponible.toSql(),
+      },
+      valorNuevo: {
+        'rp_id': rp.id,
+        'numero_rp': numeroRP,
+        'valor': valorRP.toSql(),
+        'contrato': contratoNumero,
+      },
       referenciaId: rp.id,
+    );
+
+    await TrazabilidadPlanPresupuestoService(
+      database,
+    ).registrarTrazabilidadRPDesdeCDP(
+      id: _uuid.v4(),
+      entidadId: entidadId,
+      rpId: rp.id,
+      cdpId: cdpId,
+      fechaVinculacion: fechaExpedicion,
     );
 
     return rp;
@@ -487,7 +569,7 @@ class PresupuestoService {
       throw Exception(
         'Saldo insuficiente en el RP. '
         'Disponible: ${rp.saldoDisponible}, '
-        'Solicitado: $valorObligacion'
+        'Solicitado: $valorObligacion',
       );
     }
 
@@ -495,12 +577,13 @@ class PresupuestoService {
     if ((actaReciboNumero == null || actaReciboNumero.isEmpty) &&
         (facturaNumero == null || facturaNumero.isEmpty)) {
       throw Exception(
-        'La obligación requiere acta de recibo a satisfacción o factura válida'
+        'La obligación requiere acta de recibo a satisfacción o factura válida',
       );
     }
 
     // Generar número de obligación
-    final numeroObligacion = 'OBL-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroObligacion =
+        'OBL-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaReconocimiento = DateTime.now();
 
     final obligacion = Obligacion(
@@ -592,7 +675,10 @@ class PresupuestoService {
       tipoEvento: TipoEventoAuditoria.registroObligacion,
       modulo: 'presupuesto',
       accion: 'registro_obligacion',
-      valorAnterior: {'rp_id': rpId, 'saldo_anterior': rp.saldoDisponible.toSql()},
+      valorAnterior: {
+        'rp_id': rpId,
+        'saldo_anterior': rp.saldoDisponible.toSql(),
+      },
       valorNuevo: {
         'obligacion_id': obligacion.id,
         'numero_obligacion': numeroObligacion,
@@ -647,7 +733,7 @@ class PresupuestoService {
         'La obligación no se puede pagar. '
         'Estado: ${obligacion.estado}, '
         'Tiene acta: ${obligacion.tieneActaRecibo()}, '
-        'Tiene factura: ${obligacion.tieneFacturaValida()}'
+        'Tiene factura: ${obligacion.tieneFacturaValida()}',
       );
     }
 
@@ -656,7 +742,7 @@ class PresupuestoService {
       throw Exception(
         'Saldo pendiente insuficiente. '
         'Pendiente: ${obligacion.saldoPendiente}, '
-        'Solicitado: $valorPago'
+        'Solicitado: $valorPago',
       );
     }
 
@@ -668,7 +754,8 @@ class PresupuestoService {
     }
 
     // Generar número de pago
-    final numeroPago = 'PAG-${DateTime.now().year}-${_generarNumeroSecuencial()}';
+    final numeroPago =
+        'PAG-${DateTime.now().year}-${_generarNumeroSecuencial()}';
     final fechaProgramacion = DateTime.now();
 
     final pago = Pago(
@@ -738,8 +825,7 @@ class PresupuestoService {
     );
     if (recepciones.isEmpty) throw StateError('Recepcion no encontrada.');
     final recepcion = recepciones.single;
-    if (recepcion['bloquea_pago'] == 1 ||
-        recepcion['obligacion_id'] == null) {
+    if (recepcion['bloquea_pago'] == 1 || recepcion['obligacion_id'] == null) {
       throw StateError(
         'Pago bloqueado: el recibido no tiene obligacion presupuestal regularizada.',
       );
@@ -781,11 +867,7 @@ class PresupuestoService {
 
   /// Obtiene un pago por ID
   Future<Pago?> obtenerPago(String id) async {
-    final resultado = await db.query(
-      'pagos',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final resultado = await db.query('pagos', where: 'id = ?', whereArgs: [id]);
 
     if (resultado.isEmpty) return null;
     return Pago.fromJson(resultado.first);
@@ -872,7 +954,11 @@ class PresupuestoService {
     );
 
     return db.transaction((txn) async {
-      final res = await txn.query('pagos', where: 'id = ?', whereArgs: [pagoId]);
+      final res = await txn.query(
+        'pagos',
+        where: 'id = ?',
+        whereArgs: [pagoId],
+      );
       if (res.isEmpty) throw Exception('Pago no encontrado');
       final pago = Pago.fromJson(res.first);
 
@@ -949,8 +1035,9 @@ class PresupuestoService {
         final vinculo = vinculosVigenciaFutura.single;
         final nuevoPagadoVigencia =
             publicMoneyFromSql(vinculo['monto_pagado']) + pago.valorPago;
-        final montoObligadoVigencia =
-            publicMoneyFromSql(vinculo['monto_obligado']);
+        final montoObligadoVigencia = publicMoneyFromSql(
+          vinculo['monto_obligado'],
+        );
         if (nuevoPagadoVigencia > montoObligadoVigencia) {
           throw StateError(
             'El pago excede la obligacion vinculada a la vigencia futura.',

@@ -83,6 +83,43 @@ class SchemaPlaneacion {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS cdp_meta_trazabilidad (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        cdp_id TEXT NOT NULL UNIQUE,
+        proyecto_id TEXT NOT NULL,
+        apropiacion_id TEXT NOT NULL,
+        meta_codigo TEXT NOT NULL,
+        meta_descripcion TEXT NOT NULL,
+        codigo_bpin TEXT NOT NULL,
+        codigo_rubro TEXT NOT NULL,
+        fecha_vinculacion TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (cdp_id) REFERENCES cdps(id),
+        FOREIGN KEY (proyecto_id) REFERENCES proyectos_mga(id),
+        FOREIGN KEY (apropiacion_id) REFERENCES apropiaciones(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS rp_meta_trazabilidad (
+        id TEXT PRIMARY KEY,
+        entidad_id TEXT NOT NULL,
+        rp_id TEXT NOT NULL UNIQUE,
+        cdp_id TEXT NOT NULL,
+        proyecto_id TEXT NOT NULL,
+        meta_codigo TEXT NOT NULL,
+        meta_descripcion TEXT NOT NULL,
+        codigo_bpin TEXT NOT NULL,
+        fecha_vinculacion TEXT NOT NULL,
+        FOREIGN KEY (entidad_id) REFERENCES entidades_territoriales(id),
+        FOREIGN KEY (rp_id) REFERENCES rps(id),
+        FOREIGN KEY (cdp_id) REFERENCES cdps(id),
+        FOREIGN KEY (proyecto_id) REFERENCES proyectos_mga(id)
+      )
+    ''');
+
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_proyectos_entidad ON proyectos_mga(entidad_id)',
     );
@@ -106,6 +143,15 @@ class SchemaPlaneacion {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_proyecto_rubros_meta_apropiacion ON proyecto_rubros_metas(apropiacion_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_cdp_meta_trazabilidad_proyecto ON cdp_meta_trazabilidad(proyecto_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_cdp_meta_trazabilidad_apropiacion ON cdp_meta_trazabilidad(apropiacion_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_rp_meta_trazabilidad_cdp ON rp_meta_trazabilidad(cdp_id)',
     );
   }
 
