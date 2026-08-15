@@ -128,6 +128,17 @@ class _LicensingPageState extends State<LicensingPage>
         );
         if (dt != null) _expiresAt = dt;
       }
+
+      final licencia = await LicenciaService.instance.obtenerLicencia();
+      if (licencia != null) {
+        _planName = 'Plan ${licencia.plan.name.toUpperCase()}';
+        _status = (licencia.estado == EstadoLicencia.activa || licencia.estado == EstadoLicencia.trial)
+            ? LicenseStatus.active
+            : (licencia.estado == EstadoLicencia.expirada
+                ? LicenseStatus.expired
+                : LicenseStatus.suspended);
+        _expiresAt = licencia.fechaExpiracion;
+      }
     } catch (e) {
       debugPrint('Error loading license data: $e');
     } finally {
@@ -263,6 +274,39 @@ class _LicensingPageState extends State<LicensingPage>
           await db.execute(
             "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('client_name', '${userData['client_name']}')",
           );
+
+          // Sincronizar LicenciaService y LicenseSecureStore
+          TipoPlan planEnum = TipoPlan.profesional;
+          final planStr = (licenseData['type'] ?? licenseData['plan'])?.toString().toLowerCase() ?? '';
+          if (planStr.contains('enterprise')) {
+            planEnum = TipoPlan.enterprise;
+          } else if (planStr.contains('profesional') || planStr.contains('professional')) {
+            planEnum = TipoPlan.profesional;
+          } else if (planStr.contains('basico') || planStr.contains('basic')) {
+            planEnum = TipoPlan.basico;
+          }
+
+          final modulesList = (licenseData['modules']?.toString() ?? 'sales,purchases,inventory,cash,accounting,reports').split(',');
+          final expiryDate = DateTime.tryParse(licenseData['expires_at']?.toString() ?? '') ?? DateTime.now().add(const Duration(days: 365));
+
+          final nuevaLicencia = LicenciaInfo(
+            uuid: fingerprint,
+            plan: planEnum,
+            estado: EstadoLicencia.activa,
+            fechaExpiracion: expiryDate,
+            modulosHabilitados: modulesList,
+            tipoLicencia: (licenseData['license_type']?.toString().toUpperCase() == 'PERPETUA') ? TipoLicencia.perpetua : TipoLicencia.suscripcion,
+            hardwareFingerprint: fingerprint,
+            offlineToken: token,
+            clientId: userData['client_id']?.toString(),
+            clientName: userData['client_name']?.toString(),
+            maxUsers: int.tryParse(licenseData['max_users']?.toString() ?? '8') ?? 8,
+            maxDevices: int.tryParse(licenseData['max_devices']?.toString() ?? '12') ?? 12,
+            maxBranches: int.tryParse(licenseData['max_branches']?.toString() ?? '2') ?? 2,
+            lastSuccessfulValidationAt: DateTime.now().toUtc(),
+          );
+
+          await LicenciaService.instance.guardarLicencia(nuevaLicencia);
 
           await ControlCenterAgent.reportEvent(
             event: 'license.activated',

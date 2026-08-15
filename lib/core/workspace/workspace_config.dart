@@ -349,15 +349,6 @@ List<ModuleDefinition> gestion() => [
     requiresAdmin: true,
   ),
   ModuleDefinition(
-    id: 'license_activation',
-    title: 'Activar Licencia',
-    icon: Icons.key,
-    builder: (_) => const LicenseActivationPage(),
-    color: const Color(0xFF10B981),
-    category: ModuleCategory.management,
-    featureKey: FeatureKey.settings,
-  ),
-  ModuleDefinition(
     id: 'settings',
     title: 'Configuracion',
     icon: Icons.settings,

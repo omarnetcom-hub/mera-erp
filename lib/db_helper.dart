@@ -1370,6 +1370,12 @@ class DatabaseHelper {
     await _agregarColumnaSiNoExiste(
       db,
       'productos',
+      'tipo_item',
+      "TEXT DEFAULT 'producto'",
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'productos',
       'descripcion',
       "TEXT DEFAULT ''",
     );

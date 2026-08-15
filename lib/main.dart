@@ -21,6 +21,7 @@ import 'public_api_server.dart';
 import 'services/merka_intelligence_service.dart';
 import 'services/task_scheduler_service.dart';
 import 'services/licencia_service.dart';
+import 'licensing_page.dart';
 import 'ui/enterprise_design_system.dart';
 import 'ui/merka_theme_tokens.dart';
 import 'ui/sales_mode_panel.dart';
@@ -232,7 +233,7 @@ class _LicenseCheckWrapperState extends State<LicenseCheckWrapper> {
           case StartupRoute.needsOnboarding:
             return OnboardingPage(onFinished: _reload);
           case StartupRoute.needsLicense:
-            return LicenseActivationPage(onActivated: _reload);
+            return const LicensingPage();
           case StartupRoute.login:
             return const LoginPage();
         }

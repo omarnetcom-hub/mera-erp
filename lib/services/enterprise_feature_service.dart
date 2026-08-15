@@ -682,6 +682,11 @@ class EnterpriseFeatureService {
       limit: 1,
     );
     if (productos.isEmpty) throw StateError('El producto no existe.');
+    final tipoItem = productos.first['tipo_item']?.toString() ?? 'producto';
+    if (tipoItem == 'servicio') {
+      // Los servicios son intangibles y no inventariables: no descuentan stock ni registran Kardex
+      return;
+    }
     final stockActual = (productos.first['stock'] as num?)?.toDouble() ?? 0;
     if (stockActual < cantidad) {
       throw StateError('Stock insuficiente para el producto #$productoId.');
@@ -735,6 +740,10 @@ class EnterpriseFeatureService {
       limit: 1,
     );
     if (productos.isEmpty) throw StateError('El producto no existe.');
+    final tipoItem = productos.first['tipo_item']?.toString() ?? 'producto';
+    if (tipoItem == 'servicio') {
+      return;
+    }
     final stockActual = (productos.first['stock'] as num?)?.toDouble() ?? 0;
     await txn.update(
       'productos',

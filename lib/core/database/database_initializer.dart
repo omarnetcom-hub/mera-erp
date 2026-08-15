@@ -16,7 +16,8 @@ extension DatabaseInitializer on DatabaseHelper {
         impuesto_pct        REAL    DEFAULT 0,
         codigo_barras       TEXT    DEFAULT '',
         conversion_nombre   TEXT    DEFAULT '',
-        conversion_cantidad REAL    DEFAULT 0
+        conversion_cantidad REAL    DEFAULT 0,
+        tipo_item           TEXT    DEFAULT 'producto'
       )
     ''');
 

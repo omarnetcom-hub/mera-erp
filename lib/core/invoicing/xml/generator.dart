@@ -176,11 +176,14 @@ class XmlInvoiceGenerator {
     Map<dynamic, dynamic> line,
     String currency,
   ) {
+    final itemType = line['tipo_item']?.toString() ?? (line['unit_code'] == 'E48' || line['unit_code'] == 'SERV' ? 'servicio' : 'producto');
+    final defaultUnitCode = itemType == 'servicio' ? 'E48' : 'NIU';
+    final unitCode = line['unit_code']?.toString() ?? defaultUnitCode;
     sb
       ..writeln('  <cac:InvoiceLine>')
       ..writeln('    <cbc:ID>${_x(line['id']?.toString() ?? '')}</cbc:ID>')
       ..writeln(
-        '    <cbc:InvoicedQuantity unitCode="${_x(line['unit_code']?.toString() ?? 'NIU')}">${line['quantity'] ?? 0}</cbc:InvoicedQuantity>',
+        '    <cbc:InvoicedQuantity unitCode="${_x(unitCode)}">${line['quantity'] ?? 0}</cbc:InvoicedQuantity>',
       );
     _moneyTag(sb, 'LineExtensionAmount', line['total'], currency, 4);
     final taxes = (line['taxes'] as List<dynamic>? ?? const [])

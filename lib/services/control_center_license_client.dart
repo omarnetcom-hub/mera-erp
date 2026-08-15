@@ -117,8 +117,8 @@ abstract class ControlCenterHttpTransport {
 
 class DartIoControlCenterTransport implements ControlCenterHttpTransport {
   const DartIoControlCenterTransport({
-    this.connectionTimeout = const Duration(seconds: 5),
-    this.responseTimeout = const Duration(seconds: 15),
+    this.connectionTimeout = const Duration(seconds: 10),
+    this.responseTimeout = const Duration(seconds: 25),
   });
 
   final Duration connectionTimeout;
@@ -135,13 +135,18 @@ class DartIoControlCenterTransport implements ControlCenterHttpTransport {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(payload));
       final response = await request.close().timeout(responseTimeout);
-      return _decodeResponse(response, url);
+      final result = await _decodeResponse(response, url);
+      client.close();
+      return result;
     } on SocketException catch (error) {
+      client.close(force: true);
       throw ControlCenterNetworkException(error.message);
     } on TimeoutException catch (_) {
-      throw const ControlCenterNetworkException('Tiempo de espera agotado');
-    } finally {
       client.close(force: true);
+      throw const ControlCenterNetworkException('Tiempo de espera agotado');
+    } catch (error) {
+      client.close(force: true);
+      rethrow;
     }
   }
 
@@ -151,14 +156,22 @@ class DartIoControlCenterTransport implements ControlCenterHttpTransport {
     try {
       final request = await client.getUrl(Uri.parse(url));
       final response = await request.close().timeout(responseTimeout);
-      if (response.statusCode == 404) return {'commands': <Object?>[]};
-      return _decodeResponse(response, url);
+      if (response.statusCode == 404) {
+        client.close();
+        return {'commands': <Object?>[]};
+      }
+      final result = await _decodeResponse(response, url);
+      client.close();
+      return result;
     } on SocketException catch (error) {
+      client.close(force: true);
       throw ControlCenterNetworkException(error.message);
     } on TimeoutException catch (_) {
-      throw const ControlCenterNetworkException('Tiempo de espera agotado');
-    } finally {
       client.close(force: true);
+      throw const ControlCenterNetworkException('Tiempo de espera agotado');
+    } catch (error) {
+      client.close(force: true);
+      rethrow;
     }
   }
 

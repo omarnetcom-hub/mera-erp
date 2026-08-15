@@ -14,6 +14,7 @@ class Product {
     this.barcode = '',
     this.conversionName = '',
     this.conversionQuantity = 0,
+    this.itemType = 'producto',
   });
 
   final int? id;
@@ -27,12 +28,16 @@ class Product {
   final String barcode;
   final String conversionName;
   final double conversionQuantity;
+  final String itemType;
 
-  bool get lowStock => stock <= 5;
+  bool get isService => itemType == 'servicio';
+  bool get isProduct => itemType != 'servicio';
 
-  MoneyValue get stockCostValue => cost.multiplyDecimal(stock.toString());
+  bool get lowStock => isService ? false : stock <= 5;
 
-  MoneyValue get stockSaleValue => price.multiplyDecimal(stock.toString());
+  MoneyValue get stockCostValue => isService ? MoneyValue.fromMajorUnits('0', currency: cost.currency) : cost.multiplyDecimal(stock.toString());
+
+  MoneyValue get stockSaleValue => isService ? MoneyValue.fromMajorUnits('0', currency: price.currency) : price.multiplyDecimal(stock.toString());
 
   Product copyWith({
     int? id,
@@ -46,6 +51,7 @@ class Product {
     String? barcode,
     String? conversionName,
     double? conversionQuantity,
+    String? itemType,
   }) {
     return Product(
       id: id ?? this.id,
@@ -59,6 +65,7 @@ class Product {
       barcode: barcode ?? this.barcode,
       conversionName: conversionName ?? this.conversionName,
       conversionQuantity: conversionQuantity ?? this.conversionQuantity,
+      itemType: itemType ?? this.itemType,
     );
   }
 
@@ -86,6 +93,7 @@ class Product {
       barcode: map['codigo_barras']?.toString() ?? '',
       conversionName: map['conversion_nombre']?.toString() ?? '',
       conversionQuantity: (map['conversion_cantidad'] as num?)?.toDouble() ?? 0,
+      itemType: map['tipo_item']?.toString() ?? 'producto',
     );
   }
 
@@ -101,6 +109,7 @@ class Product {
     'codigo_barras': barcode,
     'conversion_nombre': conversionName,
     'conversion_cantidad': conversionQuantity,
+    'tipo_item': itemType,
   };
 
   Map<String, Object?> toPersistenceMap() {
