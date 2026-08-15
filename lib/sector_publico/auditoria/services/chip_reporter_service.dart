@@ -46,12 +46,11 @@ class CHIPReporterService {
     return rol;
   }
 
-  /// Genera solamente los formularios cuyo origen esta persistido en MerkaERP.
+  /// Genera los formularios cuyo origen esta persistido en MerkaERP.
   ///
-  /// CGN 2015_004 no se genera hasta que presupuesto registre de forma
-  /// diferenciada adiciones, reducciones, creditos y contracreditos. CGN
-  /// 2015_005 y CGN 2016C01 tampoco tienen fuentes/modelo oficiales locales.
-  /// Se omiten de forma fail-closed para no guardar ceros como datos oficiales.
+  /// La nomenclatura 004/005 es el modelo local historico: 004 se alimenta de
+  /// ejecucion presupuestal, 005 de saldos CGC de deuda publica y 2016C01 de
+  /// variaciones significativas entre vigencias. No transmite al CHIP remoto.
   Future<Map<String, ReporteCHIP>> generarReportesDesdeDatosSistema({
     required String entidadId,
     required String usuarioId,
@@ -66,6 +65,9 @@ class CHIPReporterService {
     final datos001 = await _datosCGN2015_001DesdeSistema(entidadId);
     final datos002 = await _datosCGN2015_002DesdeSistema(entidadId, vigencia);
     final datos003 = await _datosCGN2015_003DesdeSistema(entidadId, vigencia);
+    final datos004 = await _datosCGN2015_004DesdeSistema(entidadId, vigencia);
+    final datos005 = await _datosCGN2015_005DesdeSistema(entidadId, vigencia);
+    final datos2016 = await _datosCGN2016C01DesdeSistema(entidadId, vigencia);
 
     final reporte001 = await generarCGN2015_001(
       entidadId: entidadId,
@@ -85,11 +87,32 @@ class CHIPReporterService {
       vigencia: vigencia,
       datos: datos003,
     );
+    final reporte004 = await generarCGN2015_004(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      vigencia: vigencia,
+      datos: datos004,
+    );
+    final reporte005 = await generarCGN2015_005(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      vigencia: vigencia,
+      datos: datos005,
+    );
+    final reporte2016 = await generarCGN2016C01(
+      entidadId: entidadId,
+      usuarioId: usuarioId,
+      vigencia: vigencia,
+      datosConsolidados: datos2016,
+    );
 
     return {
       'cgn2015_001': reporte001,
       'cgn2015_002': reporte002,
       'cgn2015_003': reporte003,
+      'cgn2015_004': reporte004,
+      'cgn2015_005': reporte005,
+      'cgn2016C01': reporte2016,
     };
   }
 
@@ -288,6 +311,190 @@ class CHIPReporterService {
       patrimonio: estado.totalPatrimonio,
       totalPasivoPatrimonio: estado.totalPasivoPatrimonio,
     );
+  }
+
+  Future<DatosCGN2015_004> _datosCGN2015_004DesdeSistema(
+    String entidadId,
+    String vigencia,
+  ) async {
+    final apropiacionInicial = await _sumarSql(
+      'apropiaciones',
+      'valor_inicial',
+      entidadId,
+      vigencia,
+    );
+    final apropiacionDefinitiva = await _sumarSql(
+      'apropiaciones',
+      'valor_apropiado',
+      entidadId,
+      vigencia,
+    );
+    final compromisos = await _sumarSql('rps', 'valor_rp', entidadId, vigencia);
+    final obligaciones = await _sumarSql(
+      'obligaciones',
+      'valor_obligacion',
+      entidadId,
+      vigencia,
+    );
+    final pagos = await _sumarSql('pagos', 'valor_pago', entidadId, vigencia);
+    final modificacionNeta = apropiacionDefinitiva - apropiacionInicial;
+
+    return DatosCGN2015_004(
+      apropiacionInicial: apropiacionInicial,
+      adiciones: modificacionNeta > publicMoneyZero()
+          ? modificacionNeta
+          : publicMoneyZero(),
+      reducciones: modificacionNeta < publicMoneyZero()
+          ? -modificacionNeta
+          : publicMoneyZero(),
+      // El esquema local conserva apropiacion inicial y definitiva, pero no
+      // separa creditos y contracreditos. Se dejan en cero para no duplicar la
+      // modificacion neta como detalle oficial no persistido.
+      credito: publicMoneyZero(),
+      contraCredito: publicMoneyZero(),
+      apropiacionDefinitiva: apropiacionDefinitiva,
+      compromisos: compromisos,
+      obligaciones: obligaciones,
+      pagos: pagos,
+      saldoPorComprometer: apropiacionDefinitiva - compromisos,
+    );
+  }
+
+  Future<DatosCGN2015_005> _datosCGN2015_005DesdeSistema(
+    String entidadId,
+    String vigencia,
+  ) async {
+    final deudaInterna = await _sumarSaldosPorPrefijos(
+      entidadId,
+      vigencia,
+      const ['2313'],
+      acreedora: true,
+    );
+    final deudaExterna = await _sumarSaldosPorPrefijos(
+      entidadId,
+      vigencia,
+      const ['2314'],
+      acreedora: true,
+    );
+    final cuotaAmortizacion = await _sumarSaldosPorPrefijos(
+      entidadId,
+      vigencia,
+      const ['5320'],
+      acreedora: false,
+    );
+    final intereses = await _sumarSaldosPorPrefijos(entidadId, vigencia, const [
+      '5802',
+    ], acreedora: false);
+
+    return DatosCGN2015_005(
+      deudaInterna: deudaInterna,
+      deudaExterna: deudaExterna,
+      deudaTotal: deudaInterna + deudaExterna,
+      servicioDeuda: cuotaAmortizacion + intereses,
+      cuotaAmortizacion: cuotaAmortizacion,
+      intereses: intereses,
+      deudaVencida: publicMoneyZero(),
+    );
+  }
+
+  Future<Map<String, dynamic>> _datosCGN2016C01DesdeSistema(
+    String entidadId,
+    String vigencia,
+  ) async {
+    final anio = int.parse(vigencia);
+    final anterior = (anio - 1).toString();
+    final saldos = await db.rawQuery(
+      '''
+      SELECT
+        COALESCE(a.cuenta_codigo, p.cuenta_codigo) AS cuenta_codigo,
+        COALESCE(a.cuenta_nombre, p.cuenta_nombre) AS cuenta_nombre,
+        COALESCE(a.saldo_neto, 0) AS saldo_actual,
+        COALESCE(p.saldo_neto, 0) AS saldo_anterior
+      FROM saldos_cuentas a
+      LEFT JOIN saldos_cuentas p
+        ON p.entidad_id = a.entidad_id
+       AND p.cuenta_codigo = a.cuenta_codigo
+       AND p.vigencia = ?
+      WHERE a.entidad_id = ? AND a.vigencia = ?
+      UNION
+      SELECT
+        p.cuenta_codigo,
+        p.cuenta_nombre,
+        0 AS saldo_actual,
+        p.saldo_neto AS saldo_anterior
+      FROM saldos_cuentas p
+      LEFT JOIN saldos_cuentas a
+        ON a.entidad_id = p.entidad_id
+       AND a.cuenta_codigo = p.cuenta_codigo
+       AND a.vigencia = ?
+      WHERE p.entidad_id = ? AND p.vigencia = ? AND a.id IS NULL
+      ORDER BY cuenta_codigo
+      ''',
+      [anterior, entidadId, vigencia, vigencia, entidadId, anterior],
+    );
+    final variaciones = <Map<String, dynamic>>[];
+    for (final saldo in saldos) {
+      final actual = publicMoneyFromSql(saldo['saldo_actual']);
+      final previo = publicMoneyFromSql(saldo['saldo_anterior']);
+      final variacion = actual - previo;
+      if (variacion == publicMoneyZero()) continue;
+      final porcentaje = previo == publicMoneyZero()
+          ? null
+          : (variacion.minorUnits * 100) / previo.minorUnits.abs();
+      variaciones.add({
+        'cuenta_codigo': saldo['cuenta_codigo'],
+        'cuenta_nombre': saldo['cuenta_nombre'],
+        'saldo_anterior': publicMoneyForDisplay(previo),
+        'saldo_actual': publicMoneyForDisplay(actual),
+        'variacion': publicMoneyForDisplay(variacion),
+        'porcentaje_variacion': porcentaje,
+        'significativa': porcentaje == null || porcentaje.abs() >= 20,
+      });
+    }
+
+    return {
+      'formulario': 'CGN_2016_01_VARIACIONES_TRIMESTRALES_SIGNIFICATIVAS',
+      'vigencia_actual': vigencia,
+      'vigencia_anterior': anterior,
+      'criterio_significatividad':
+          'Variacion distinta de cero; significativa si no hay base previa o si abs(variacion/base) >= 20%',
+      'variaciones': variaciones,
+    };
+  }
+
+  Future<MoneyValue> _sumarSql(
+    String tabla,
+    String columna,
+    String entidadId,
+    String vigencia,
+  ) async {
+    final resultado = await db.rawQuery(
+      'SELECT COALESCE(SUM($columna), 0) AS total FROM $tabla WHERE entidad_id = ? AND vigencia = ?',
+      [entidadId, vigencia],
+    );
+    return publicMoneyFromSql(resultado.single['total']);
+  }
+
+  Future<MoneyValue> _sumarSaldosPorPrefijos(
+    String entidadId,
+    String vigencia,
+    List<String> prefijos, {
+    required bool acreedora,
+  }) async {
+    final saldos = await db.query(
+      'saldos_cuentas',
+      where:
+          'entidad_id = ? AND vigencia = ? AND (${prefijos.map((_) => 'cuenta_codigo LIKE ?').join(' OR ')})',
+      whereArgs: [
+        entidadId,
+        vigencia,
+        ...prefijos.map((prefijo) => '$prefijo%'),
+      ],
+    );
+    return saldos.fold<MoneyValue>(publicMoneyZero(), (total, saldo) {
+      final neto = publicMoneyFromSql(saldo['saldo_neto']);
+      return total + (acreedora ? -neto : neto);
+    });
   }
 
   /// Genera formulario CGN 2015_001 - Información de la Entidad
@@ -778,20 +985,26 @@ class CHIPReporterService {
   List<String> _validarCGN2015_004(List<String> lineas) {
     final errores = <String>[];
 
-    double ingresos = 0;
-    double gastos = 0;
+    double apropiacionDefinitiva = 0;
+    double compromisos = 0;
+    double saldo = 0;
 
     for (final linea in lineas) {
-      if (linea.startsWith('TOTAL_INGRESOS;')) {
-        ingresos = double.tryParse(linea.split(';')[1]) ?? 0;
+      if (linea.startsWith('apropiacion_definitiva;')) {
+        apropiacionDefinitiva = double.tryParse(linea.split(';')[1]) ?? 0;
       }
-      if (linea.startsWith('TOTAL_GASTOS;')) {
-        gastos = double.tryParse(linea.split(';')[1]) ?? 0;
+      if (linea.startsWith('compromisos;')) {
+        compromisos = double.tryParse(linea.split(';')[1]) ?? 0;
+      }
+      if (linea.startsWith('saldo_por_comprometer;')) {
+        saldo = double.tryParse(linea.split(';')[1]) ?? 0;
       }
     }
 
-    if ((ingresos - gastos).abs() > 0.01) {
-      errores.add('Los ingresos no cuadran con los gastos');
+    if ((apropiacionDefinitiva - compromisos - saldo).abs() > 0.01) {
+      errores.add(
+        'La apropiacion definitiva no cuadra con compromisos + saldo',
+      );
     }
 
     return errores;
@@ -829,11 +1042,10 @@ class CHIPReporterService {
     final errores = <String>[];
 
     final formulariosComponentes = [
-      'CGN2015_001',
-      'CGN2015_002',
-      'CGN2015_003',
-      'CGN2015_004',
-      'CGN2015_005',
+      'formulario',
+      'vigencia_actual',
+      'vigencia_anterior',
+      'variaciones',
     ];
 
     for (final formulario in formulariosComponentes) {
