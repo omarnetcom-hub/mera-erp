@@ -8,6 +8,7 @@ import '../domain/mrp_routing.dart';
 import '../domain/mrp_work_order.dart';
 import '../domain/mrp_work_order_item.dart';
 import '../domain/mrp_workstation.dart';
+import '../domain/mrp_workstation_shift.dart';
 
 class MrpWorkstationService {
   MrpWorkstationService({MrpWorkstationRepository? repository})
@@ -37,10 +38,38 @@ class MrpRoutingService {
     if (value.name.trim().isEmpty) {
       throw ArgumentError('La ruta de fabricación requiere un nombre.');
     }
-    return _repository.save(value);
+    if (value.itemId != null && value.itemId! <= 0) {
+      throw ArgumentError('La ruta alternativa requiere producto válido.');
+    }
+    if (value.priority <= 0) {
+      throw ArgumentError('La prioridad de ruta debe ser positiva.');
+    }
+    return _saveAndNormalizeDefault(value);
   }
 
   Future<List<MrpRouting>> list() => _repository.list();
+
+  Future<List<MrpRouting>> listForProduct(int itemId) {
+    if (itemId <= 0) {
+      throw ArgumentError('El producto de ruta debe ser válido.');
+    }
+    return _repository.listForProduct(itemId);
+  }
+
+  Future<MrpRouting?> defaultForProduct(int itemId) {
+    if (itemId <= 0) {
+      throw ArgumentError('El producto de ruta debe ser válido.');
+    }
+    return _repository.defaultForProduct(itemId);
+  }
+
+  Future<int> _saveAndNormalizeDefault(MrpRouting value) async {
+    final id = await _repository.save(value);
+    if (value.itemId != null && value.isDefault) {
+      await _repository.clearDefaultForProduct(value.itemId!, id);
+    }
+    return id;
+  }
 }
 
 class MrpOperationService {
@@ -54,6 +83,18 @@ class MrpOperationService {
     if (value.operationName.trim().isEmpty || value.timeMinutes < 0) {
       throw ArgumentError('La operación requiere nombre y tiempo válidos.');
     }
+    if (value.isSubcontracted) {
+      if (value.supplierId == null || value.supplierId! <= 0) {
+        throw ArgumentError('La operación subcontratada requiere proveedor.');
+      }
+      if (value.subcontractCost == null ||
+          value.subcontractCost!.minorUnits < 0 ||
+          value.leadTimeDays < 0) {
+        throw ArgumentError(
+          'La operación subcontratada requiere costo y plazo válidos.',
+        );
+      }
+    }
     return _repository.save(value);
   }
 
@@ -61,23 +102,76 @@ class MrpOperationService {
       _repository.listForRouting(routingId);
 }
 
+class MrpWorkstationShiftService {
+  MrpWorkstationShiftService({
+    MrpWorkstationShiftRepository? repository,
+    MrpWorkstationRepository? workstations,
+  }) : _repository = repository ?? MrpWorkstationShiftRepository(),
+       _workstations = workstations ?? MrpWorkstationRepository();
+
+  final MrpWorkstationShiftRepository _repository;
+  final MrpWorkstationRepository _workstations;
+
+  Future<int> create(MrpWorkstationShift value) async {
+    if (value.workstationId <= 0 ||
+        value.weekday < DateTime.monday ||
+        value.weekday > DateTime.sunday ||
+        value.shiftName.trim().isEmpty ||
+        value.availableHours <= 0) {
+      throw ArgumentError('El turno MRP requiere estación, día y horas.');
+    }
+    return _repository.save(value);
+  }
+
+  Future<List<MrpWorkstationShift>> listForWorkstation(int workstationId) {
+    if (workstationId <= 0) {
+      throw ArgumentError('La estación de trabajo debe ser válida.');
+    }
+    return _repository.listForWorkstation(workstationId);
+  }
+
+  Future<double?> availableHoursForDate({
+    required int workstationId,
+    required DateTime date,
+  }) async {
+    final shifts = await _repository.listForWorkstationAndWeekday(
+      workstationId,
+      date.weekday,
+    );
+    if (shifts.isNotEmpty) {
+      return shifts.fold<double>(
+        0,
+        (total, shift) => total + shift.availableHours,
+      );
+    }
+    final workstations = await _workstations.list();
+    return workstations
+        .where((workstation) => workstation.id == workstationId)
+        .firstOrNull
+        ?.availableHoursPerDay;
+  }
+}
+
 class MrpBomService {
   MrpBomService({
     MrpBomRepository? boms,
     MrpBomItemRepository? items,
     MrpOperationRepository? operations,
+    MrpRoutingRepository? routings,
     MrpWorkstationRepository? workstations,
     MrpRepositoryContext? context,
   }) : _context = context ?? MrpRepositoryContext(),
        _boms = boms ?? MrpBomRepository(context: context),
        _items = items ?? MrpBomItemRepository(context: context),
        _operations = operations ?? MrpOperationRepository(context: context),
+       _routings = routings ?? MrpRoutingRepository(context: context),
        _workstations =
            workstations ?? MrpWorkstationRepository(context: context);
   final MrpRepositoryContext _context;
   final MrpBomRepository _boms;
   final MrpBomItemRepository _items;
   final MrpOperationRepository _operations;
+  final MrpRoutingRepository _routings;
   final MrpWorkstationRepository _workstations;
   Future<int> create(MrpBom value) async {
     _validateBom(value);
@@ -90,11 +184,13 @@ class MrpBomService {
     required double quantity,
   }) async {
     final currency = await _context.currency;
+    final defaultRouting = await _routings.defaultForProduct(itemId);
     return create(
       MrpBom(
         companyId: await _context.companyId,
         itemId: itemId,
         quantity: quantity,
+        routingId: defaultRouting?.id,
         rawMaterialCost: MoneyValue(minorUnits: 0, currency: currency),
         operatingCost: MoneyValue(minorUnits: 0, currency: currency),
         totalCost: MoneyValue(minorUnits: 0, currency: currency),
@@ -213,7 +309,11 @@ class MrpBomService {
         bom.routingId!,
       )) {
         final workstation = workstations[operation.workstationId];
-        if (workstation != null) {
+        if (operation.isSubcontracted) {
+          operating +=
+              operation.subcontractCost ??
+              MoneyValue(minorUnits: 0, currency: operating.currency);
+        } else if (workstation != null) {
           operating += workstation.hourRate.multiplyDecimal(
             (operation.timeMinutes / 60).toString(),
           );
@@ -236,16 +336,25 @@ class MrpWorkOrderService {
     MrpWorkOrderItemRepository? items,
     MrpBomRepository? boms,
     MrpBomItemRepository? bomItems,
+    MrpOperationRepository? operations,
+    MrpWorkstationShiftRepository? shifts,
+    MrpWorkstationRepository? workstations,
     WarehouseStockService? stock,
   }) : _orders = orders ?? MrpWorkOrderRepository(),
        _items = items ?? MrpWorkOrderItemRepository(),
        _boms = boms ?? MrpBomRepository(),
        _bomItems = bomItems ?? MrpBomItemRepository(),
+       _operations = operations ?? MrpOperationRepository(),
+       _shifts = shifts ?? MrpWorkstationShiftRepository(),
+       _workstations = workstations ?? MrpWorkstationRepository(),
        _stock = stock ?? WarehouseStockService();
   final MrpWorkOrderRepository _orders;
   final MrpWorkOrderItemRepository _items;
   final MrpBomRepository _boms;
   final MrpBomItemRepository _bomItems;
+  final MrpOperationRepository _operations;
+  final MrpWorkstationShiftRepository _shifts;
+  final MrpWorkstationRepository _workstations;
   final WarehouseStockService _stock;
 
   Future<int> create({required MrpWorkOrder draft}) async {
@@ -255,10 +364,18 @@ class MrpWorkOrderService {
       throw ArgumentError('La orden requiere cantidad y bodegas válidas.');
     }
     final bom = await _boms.findById(draft.bomId);
-    if (bom == null || bom.itemId != draft.productionItemId)
+    if (bom == null || bom.itemId != draft.productionItemId) {
       throw StateError(
         'La BOM no existe o no corresponde al producto terminado.',
       );
+    }
+    if (draft.plannedStartDate != null && bom.routingId != null) {
+      await _ensureCapacityForPlannedStart(
+        routingId: bom.routingId!,
+        qtyPlanned: draft.qtyPlanned,
+        plannedStartDate: draft.plannedStartDate!,
+      );
+    }
     final exploded = await _explode(draft.bomId, draft.qtyPlanned, <int>{});
     final id = await _orders.save(draft);
     for (final item in exploded) {
@@ -296,10 +413,11 @@ class MrpWorkOrderService {
   }) async {
     final order = await _orders.findById(orderId);
     if (order == null) throw StateError('Orden de produccion no encontrada.');
-    if (!_allowed(order.status, target))
+    if (!_allowed(order.status, target)) {
       throw StateError(
         'Transicion ${order.status.name} -> ${target.name} no permitida.',
       );
+    }
     final now = DateTime.now();
     if (target == MrpWorkOrderStatus.enProceso) {
       final orderItems = await _items.listForOrder(orderId);
@@ -448,8 +566,9 @@ class MrpWorkOrderService {
     double multiplier,
     Set<int> visited,
   ) async {
-    if (!visited.add(bomId))
+    if (!visited.add(bomId)) {
       throw StateError('La BOM contiene un ciclo multinivel.');
+    }
     final result = <MrpWorkOrderItem>[];
     for (final item in await _bomItems.listForBom(bomId)) {
       final required = item.qty * multiplier;
@@ -500,6 +619,47 @@ class MrpWorkOrderService {
         throw StateError(
           'Stock insuficiente para producto #${source.productId}: '
           'requiere ${entry.value} y hay $available en la bodega ${source.warehouseId}.',
+        );
+      }
+    }
+  }
+
+  Future<void> _ensureCapacityForPlannedStart({
+    required int routingId,
+    required double qtyPlanned,
+    required DateTime plannedStartDate,
+  }) async {
+    final requiredByWorkstation = <int, double>{};
+    for (final operation in await _operations.listForRouting(routingId)) {
+      if (operation.isSubcontracted) continue;
+      requiredByWorkstation[operation.workstationId] =
+          (requiredByWorkstation[operation.workstationId] ?? 0) +
+          (operation.timeMinutes / 60 * qtyPlanned);
+    }
+    if (requiredByWorkstation.isEmpty) return;
+    final workstations = {
+      for (final workstation in await _workstations.list())
+        workstation.id: workstation,
+    };
+    for (final entry in requiredByWorkstation.entries) {
+      final workstation = workstations[entry.key];
+      final shifts = await _shifts.listForWorkstationAndWeekday(
+        entry.key,
+        plannedStartDate.weekday,
+      );
+      final capacity = shifts.isNotEmpty
+          ? shifts.fold<double>(
+              0,
+              (total, shift) => total + shift.availableHours,
+            )
+          : workstation?.availableHoursPerDay;
+      if (capacity == null) continue;
+      if (entry.value > capacity) {
+        throw StateError(
+          'Capacidad insuficiente en '
+          '${workstation?.name ?? 'estacion #${entry.key}'} para '
+          '${plannedStartDate.toIso8601String().split('T').first}: '
+          'requiere ${entry.value}h y hay ${capacity}h configuradas.',
         );
       }
     }

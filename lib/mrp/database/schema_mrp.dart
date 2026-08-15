@@ -20,8 +20,13 @@ class SchemaMrp {
       CREATE TABLE IF NOT EXISTS mrp_routings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id INTEGER NOT NULL,
+        item_id INTEGER,
         name TEXT NOT NULL,
-        description TEXT
+        description TEXT,
+        priority INTEGER NOT NULL DEFAULT 1,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        selection_criteria TEXT
       )
     ''');
     await db.execute('''
@@ -33,7 +38,24 @@ class SchemaMrp {
         operation_name TEXT NOT NULL,
         sequence_order INTEGER NOT NULL DEFAULT 1,
         time_minutes REAL NOT NULL DEFAULT 0,
+        is_subcontracted INTEGER NOT NULL DEFAULT 0,
+        supplier_id INTEGER,
+        subcontract_cost INTEGER NOT NULL DEFAULT 0,
+        lead_time_days INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY(routing_id) REFERENCES mrp_routings(id),
+        FOREIGN KEY(workstation_id) REFERENCES mrp_workstations(id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS mrp_workstation_shifts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL,
+        workstation_id INTEGER NOT NULL,
+        weekday INTEGER NOT NULL,
+        shift_name TEXT NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        available_hours REAL NOT NULL,
         FOREIGN KEY(workstation_id) REFERENCES mrp_workstations(id)
       )
     ''');
@@ -114,5 +136,101 @@ class SchemaMrp {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_mrp_work_order_status ON mrp_work_orders(company_id, status)',
     );
+    await migrarBacklogK(db);
+  }
+
+  static Future<void> migrarBacklogK(DatabaseExecutor db) async {
+    await _agregarColumnaSiNoExiste(db, 'mrp_routings', 'item_id', 'INTEGER');
+    await _agregarColumnaSiNoExiste(
+      db,
+      'mrp_routings',
+      'priority',
+      'INTEGER NOT NULL DEFAULT 1',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'mrp_routings',
+      'is_active',
+      'INTEGER NOT NULL DEFAULT 1',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'mrp_routings',
+      'is_default',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'mrp_routings',
+      'selection_criteria',
+      'TEXT',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'mrp_operations',
+      'is_subcontracted',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'mrp_operations',
+      'supplier_id',
+      'INTEGER',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'mrp_operations',
+      'subcontract_cost',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'mrp_operations',
+      'lead_time_days',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS mrp_workstation_shifts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL,
+        workstation_id INTEGER NOT NULL,
+        weekday INTEGER NOT NULL,
+        shift_name TEXT NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        available_hours REAL NOT NULL,
+        FOREIGN KEY(workstation_id) REFERENCES mrp_workstations(id)
+      )
+    ''');
+    if (await _tablaExiste(db, 'mrp_routings')) {
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_mrp_routings_item '
+        'ON mrp_routings(company_id, item_id, is_active, is_default, priority)',
+      );
+    }
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_mrp_workstation_shifts '
+      'ON mrp_workstation_shifts(company_id, workstation_id, weekday)',
+    );
+  }
+
+  static Future<void> _agregarColumnaSiNoExiste(
+    DatabaseExecutor db,
+    String table,
+    String column,
+    String definition,
+  ) async {
+    if (!await _tablaExiste(db, table)) return;
+    final columns = await db.rawQuery('PRAGMA table_info($table)');
+    if (columns.any((row) => row['name'] == column)) return;
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+  }
+
+  static Future<bool> _tablaExiste(DatabaseExecutor db, String table) async {
+    final exists = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [table],
+    );
+    return exists.isNotEmpty;
   }
 }

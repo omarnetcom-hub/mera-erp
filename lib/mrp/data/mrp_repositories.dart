@@ -9,6 +9,7 @@ import '../domain/mrp_routing.dart';
 import '../domain/mrp_work_order.dart';
 import '../domain/mrp_work_order_item.dart';
 import '../domain/mrp_workstation.dart';
+import '../domain/mrp_workstation_shift.dart';
 
 class MrpRepositoryContext {
   MrpRepositoryContext({DatabaseHelper? database})
@@ -27,11 +28,12 @@ class MrpWorkstationRepository {
   Future<int> save(MrpWorkstation value) async {
     final db = await _context.db;
     final data = value.toMap()..remove('company_id');
-    if (value.id == null)
+    if (value.id == null) {
       return db.insert('mrp_workstations', {
         'company_id': await _context.companyId,
         ...data,
       });
+    }
     data.remove('id');
     return db.update(
       'mrp_workstations',
@@ -60,11 +62,12 @@ class MrpRoutingRepository {
   Future<int> save(MrpRouting value) async {
     final db = await _context.db;
     final data = value.toMap()..remove('company_id');
-    if (value.id == null)
+    if (value.id == null) {
       return db.insert('mrp_routings', {
         'company_id': await _context.companyId,
         ...data,
       });
+    }
     data.remove('id');
     return db.update(
       'mrp_routings',
@@ -83,6 +86,31 @@ class MrpRoutingRepository {
       orderBy: 'name',
     )).map(MrpRouting.fromMap).toList();
   }
+
+  Future<List<MrpRouting>> listForProduct(int itemId) async {
+    final db = await _context.db;
+    return (await db.query(
+      'mrp_routings',
+      where: 'company_id = ? AND item_id = ? AND is_active = 1',
+      whereArgs: [await _context.companyId, itemId],
+      orderBy: 'is_default DESC, priority ASC, name ASC',
+    )).map(MrpRouting.fromMap).toList();
+  }
+
+  Future<MrpRouting?> defaultForProduct(int itemId) async {
+    final rows = await listForProduct(itemId);
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<void> clearDefaultForProduct(int itemId, int exceptId) async {
+    final db = await _context.db;
+    await db.update(
+      'mrp_routings',
+      {'is_default': 0},
+      where: 'company_id = ? AND item_id = ? AND id <> ?',
+      whereArgs: [await _context.companyId, itemId, exceptId],
+    );
+  }
 }
 
 class MrpOperationRepository {
@@ -92,11 +120,12 @@ class MrpOperationRepository {
   Future<int> save(MrpOperation value) async {
     final db = await _context.db;
     final data = value.toMap()..remove('company_id');
-    if (value.id == null)
+    if (value.id == null) {
       return db.insert('mrp_operations', {
         'company_id': await _context.companyId,
         ...data,
       });
+    }
     data.remove('id');
     return db.update(
       'mrp_operations',
@@ -108,12 +137,62 @@ class MrpOperationRepository {
 
   Future<List<MrpOperation>> listForRouting(int routingId) async {
     final db = await _context.db;
+    final c = await _context.currency;
     return (await db.query(
       'mrp_operations',
       where: 'company_id = ? AND routing_id = ?',
       whereArgs: [await _context.companyId, routingId],
       orderBy: 'sequence_order',
-    )).map(MrpOperation.fromMap).toList();
+    )).map((r) => MrpOperation.fromMap(r, c)).toList();
+  }
+}
+
+class MrpWorkstationShiftRepository {
+  MrpWorkstationShiftRepository({MrpRepositoryContext? context})
+    : _context = context ?? MrpRepositoryContext();
+  final MrpRepositoryContext _context;
+
+  Future<int> save(MrpWorkstationShift value) async {
+    final db = await _context.db;
+    final data = value.toMap()..remove('company_id');
+    if (value.id == null) {
+      return db.insert('mrp_workstation_shifts', {
+        'company_id': await _context.companyId,
+        ...data,
+      });
+    }
+    data.remove('id');
+    return db.update(
+      'mrp_workstation_shifts',
+      data,
+      where: 'id = ? AND company_id = ?',
+      whereArgs: [value.id, await _context.companyId],
+    );
+  }
+
+  Future<List<MrpWorkstationShift>> listForWorkstation(
+    int workstationId,
+  ) async {
+    final db = await _context.db;
+    return (await db.query(
+      'mrp_workstation_shifts',
+      where: 'company_id = ? AND workstation_id = ?',
+      whereArgs: [await _context.companyId, workstationId],
+      orderBy: 'weekday ASC, start_time ASC',
+    )).map(MrpWorkstationShift.fromMap).toList();
+  }
+
+  Future<List<MrpWorkstationShift>> listForWorkstationAndWeekday(
+    int workstationId,
+    int weekday,
+  ) async {
+    final db = await _context.db;
+    return (await db.query(
+      'mrp_workstation_shifts',
+      where: 'company_id = ? AND workstation_id = ? AND weekday = ?',
+      whereArgs: [await _context.companyId, workstationId, weekday],
+      orderBy: 'start_time ASC',
+    )).map(MrpWorkstationShift.fromMap).toList();
   }
 }
 
@@ -124,11 +203,12 @@ class MrpBomRepository {
   Future<int> save(MrpBom value) async {
     final db = await _context.db;
     final data = value.toMap()..remove('company_id');
-    if (value.id == null)
+    if (value.id == null) {
       return db.insert('mrp_boms', {
         'company_id': await _context.companyId,
         ...data,
       });
+    }
     data.remove('id');
     return db.update(
       'mrp_boms',
@@ -170,11 +250,12 @@ class MrpBomItemRepository {
   Future<int> save(MrpBomItem value) async {
     final db = await _context.db;
     final data = value.toMap()..remove('company_id');
-    if (value.id == null)
+    if (value.id == null) {
       return db.insert('mrp_bom_items', {
         'company_id': await _context.companyId,
         ...data,
       });
+    }
     data.remove('id');
     return db.update(
       'mrp_bom_items',
@@ -203,11 +284,12 @@ class MrpWorkOrderRepository {
   Future<int> save(MrpWorkOrder value) async {
     final db = await _context.db;
     final data = value.toMap()..remove('company_id');
-    if (value.id == null)
+    if (value.id == null) {
       return db.insert('mrp_work_orders', {
         'company_id': await _context.companyId,
         ...data,
       });
+    }
     data.remove('id');
     return db.update(
       'mrp_work_orders',
@@ -249,11 +331,12 @@ class MrpWorkOrderItemRepository {
   Future<int> save(MrpWorkOrderItem value) async {
     final db = await _context.db;
     final data = value.toMap()..remove('company_id');
-    if (value.id == null)
+    if (value.id == null) {
       return db.insert('mrp_work_order_items', {
         'company_id': await _context.companyId,
         ...data,
       });
+    }
     data.remove('id');
     return db.update(
       'mrp_work_order_items',

@@ -86,7 +86,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 103;
+  static const int schemaVersion = 104;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1260,6 +1260,9 @@ class DatabaseHelper {
         'TEXT',
       );
     }
+    if (oldVersion < 104) {
+      await SchemaMrp.migrarBacklogK(db);
+    }
   }
 
   Future<String> obtenerRutaBaseDatos() async {
@@ -1898,6 +1901,11 @@ class DatabaseHelper {
     String columna,
     String definicion,
   ) async {
+    final tablaExiste = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [tabla],
+    );
+    if (tablaExiste.isEmpty) return;
     final columnas = await db.rawQuery('PRAGMA table_info($tabla)');
     final existe = columnas.any((c) => c['name'] == columna);
     if (!existe) {

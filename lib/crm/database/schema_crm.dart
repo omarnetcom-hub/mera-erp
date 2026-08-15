@@ -275,6 +275,11 @@ class SchemaCrm {
     String column,
     String definition,
   ) async {
+    final exists = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [table],
+    );
+    if (exists.isEmpty) return;
     final columns = await db.rawQuery('PRAGMA table_info($table)');
     if (columns.any((row) => row['name'] == column)) return;
     await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');

@@ -43,12 +43,11 @@ que las planeadas pasando la cantidad producida explicita. El simulador UI-6
 ahora lee horas diarias configuradas, pero no convierte pipeline monetario a
 unidades porque CRM aun no relaciona oportunidad con producto y cantidad.
 
-La especificacion original no menciona subcontratacion, rutas alternativas,
-calendarios de turnos, feriados, mantenimientos ni capacidad por periodo. La
-recomendacion conservadora es dejarlos como decisiones de producto separadas:
-primero definir si el mercado objetivo necesita proveedores/subcontratistas y
-si una BOM debe admitir varias rutas con reglas de seleccion. No se inventaron
-tablas ni reglas para esos casos en esta ronda.
+Actualizacion 2026-08-14: el backlog posterior de MRP ya implemento
+subcontratacion por operacion, rutas alternativas por producto y calendarios
+de turnos por Workstation (`docs/CIERRE_GENERAL_PARTE2_BLOQUE_K_MRP_BACKLOG.md`).
+Siguen fuera del alcance feriados, mantenimientos y programacion fina multi-dia
+con job cards; requieren una ronda de planificacion de capacidad mas detallada.
 
 ## Cambios de esta ronda
 
