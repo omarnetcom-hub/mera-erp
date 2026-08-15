@@ -10,7 +10,11 @@ class HardwareFingerprintService {
 
   String? _cachedFingerprint;
 
-  /// Genera el fingerprint del hardware actual
+  /// Genera el fingerprint del hardware actual.
+  ///
+  /// El material crudo incluye hostname, SO, MAC y seriales/UUID locales cuando
+  /// la plataforma los expone. Solo se retorna SHA-256; Control Center nunca
+  /// recibe esos identificadores en claro.
   Future<String> generateFingerprint() async {
     if (_cachedFingerprint != null) return _cachedFingerprint!;
 
@@ -20,7 +24,7 @@ class HardwareFingerprintService {
 
       if (Platform.isWindows) {
         final windowsInfo = await deviceInfo.windowsInfo;
-        fingerprintData = _generateWindowsFingerprint(windowsInfo);
+        fingerprintData = await _generateWindowsFingerprint(windowsInfo);
       } else if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
         fingerprintData = _generateAndroidFingerprint(androidInfo);
@@ -42,48 +46,59 @@ class HardwareFingerprintService {
   }
 
   /// Genera fingerprint específico para Windows
-  String _generateWindowsFingerprint(WindowsDeviceInfo windowsInfo) {
-    // Combinar múltiples identificadores de hardware
+  Future<String> _generateWindowsFingerprint(
+    WindowsDeviceInfo windowsInfo,
+  ) async {
+    final windowsHardware = await _windowsHardwareIdentifiers();
+    final macs = await _macAddresses();
     final components = [
+      'os:${Platform.operatingSystem}',
+      'version:${Platform.operatingSystemVersion}',
+      'hostname:${Platform.localHostname}',
       windowsInfo.computerName,
       windowsInfo.numberOfCores.toString(),
       windowsInfo.systemMemoryInMegabytes.toString(),
-      // En producción, agregar más identificadores específicos de hardware
-      // como MAC address, serial del disco, etc.
+      ...windowsHardware,
+      ...macs,
     ];
 
-    return components.join('|');
+    return _normalizeComponents(components).join('|');
   }
 
   /// Genera fingerprint específico para Android
   String _generateAndroidFingerprint(AndroidDeviceInfo androidInfo) {
     final components = [
+      Platform.operatingSystem,
+      Platform.operatingSystemVersion,
+      Platform.localHostname,
       androidInfo.id,
       androidInfo.brand,
       androidInfo.model,
       androidInfo.board,
     ];
 
-    return components.join('|');
+    return _normalizeComponents(components).join('|');
   }
 
   /// Genera fingerprint genérico para otras plataformas
   String _generateGenericFingerprint() {
     final components = [
+      Platform.operatingSystem,
+      Platform.operatingSystemVersion,
       Platform.localHostname,
       Platform.numberOfProcessors.toString(),
-      DateTime.now().millisecondsSinceEpoch.toString(),
     ];
 
-    return components.join('|');
+    return _normalizeComponents(components).join('|');
   }
 
   /// Genera fingerprint de fallback en caso de error
   String _generateFallbackFingerprint() {
     final components = [
       Platform.localHostname,
+      Platform.operatingSystem,
+      Platform.operatingSystemVersion,
       Platform.numberOfProcessors.toString(),
-      DateTime.now().toIso8601String(),
     ];
 
     final bytes = utf8.encode(components.join('|'));
@@ -135,5 +150,44 @@ class HardwareFingerprintService {
         'numberOfProcessors': Platform.numberOfProcessors,
       };
     }
+  }
+
+  Future<List<String>> _windowsHardwareIdentifiers() async {
+    if (!Platform.isWindows) return const [];
+    const script = r'''
+$ErrorActionPreference = "SilentlyContinue"
+$bios = (Get-CimInstance Win32_BIOS).SerialNumber
+$board = (Get-CimInstance Win32_BaseBoard).SerialNumber
+$computer = (Get-CimInstance Win32_ComputerSystemProduct).UUID
+$disk = (Get-CimInstance Win32_DiskDrive | Select-Object -First 1).SerialNumber
+$macs = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object { $_.MACAddress } | Select-Object -ExpandProperty MACAddress
+@($bios, $board, $computer, $disk) + $macs | ForEach-Object { if ($_ -and $_.Trim()) { $_.Trim() } }
+''';
+    try {
+      final result = await Process.run('powershell', [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        script,
+      ]).timeout(const Duration(seconds: 3));
+      if (result.exitCode != 0) return const [];
+      return LineSplitter.split(result.stdout.toString())
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .map((line) => 'hw:$line')
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<String>> _macAddresses() async => const [];
+
+  List<String> _normalizeComponents(Iterable<String> components) {
+    return components
+        .map((component) => component.trim().toLowerCase())
+        .where((component) => component.isNotEmpty)
+        .toList();
   }
 }

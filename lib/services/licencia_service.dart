@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
-import 'package:sqflite/sqflite.dart';
 import '../db_helper.dart';
+import 'control_center_license_client.dart';
 import 'hardware_fingerprint_service.dart';
+import 'license_secure_store.dart';
 import 'license_validation_service.dart';
 
 enum TipoPlan { basico, profesional, enterprise, trial }
@@ -24,6 +27,14 @@ class LicenciaInfo {
     this.tipoLicencia = TipoLicencia.suscripcion,
     this.hardwareFingerprint,
     this.offlineToken,
+    this.clientId,
+    this.clientName,
+    this.maxUsers,
+    this.maxDevices,
+    this.maxBranches,
+    this.installationId,
+    this.postgresCredentials,
+    this.lastSuccessfulValidationAt,
   });
 
   final String uuid;
@@ -36,6 +47,14 @@ class LicenciaInfo {
   final TipoLicencia tipoLicencia;
   final String? hardwareFingerprint;
   final String? offlineToken;
+  final String? clientId;
+  final String? clientName;
+  final int? maxUsers;
+  final int? maxDevices;
+  final int? maxBranches;
+  final String? installationId;
+  final Map<String, dynamic>? postgresCredentials;
+  final DateTime? lastSuccessfulValidationAt;
 
   bool get esValida =>
       estado == EstadoLicencia.activa || estado == EstadoLicencia.trial;
@@ -70,6 +89,15 @@ class LicenciaInfo {
       'tipo_licencia': tipoLicencia.name,
       'hardware_fingerprint': hardwareFingerprint,
       'offline_token': offlineToken,
+      'client_id': clientId,
+      'client_name': clientName,
+      'max_users': maxUsers,
+      'max_devices': maxDevices,
+      'max_branches': maxBranches,
+      'installation_id': installationId,
+      'postgres_credentials': postgresCredentials,
+      'last_successful_validation_at': lastSuccessfulValidationAt
+          ?.toIso8601String(),
     };
   }
 
@@ -97,7 +125,65 @@ class LicenciaInfo {
       ),
       hardwareFingerprint: map['hardware_fingerprint'] as String?,
       offlineToken: map['offline_token'] as String?,
+      clientId: map['client_id'] as String?,
+      clientName: map['client_name'] as String?,
+      maxUsers: _toInt(map['max_users']),
+      maxDevices: _toInt(map['max_devices']),
+      maxBranches: _toInt(map['max_branches']),
+      installationId: map['installation_id'] as String?,
+      postgresCredentials: map['postgres_credentials'] is Map
+          ? (map['postgres_credentials'] as Map).cast<String, dynamic>()
+          : null,
+      lastSuccessfulValidationAt:
+          map['last_successful_validation_at'] is String
+          ? DateTime.tryParse(map['last_successful_validation_at'] as String)
+          : null,
     );
+  }
+
+  LicenciaInfo copyWith({
+    EstadoLicencia? estado,
+    DateTime? fechaExpiracion,
+    List<String>? modulosHabilitados,
+    int? limiteDbMb,
+    String? offlineToken,
+    String? clientId,
+    String? clientName,
+    int? maxUsers,
+    int? maxDevices,
+    int? maxBranches,
+    String? installationId,
+    Map<String, dynamic>? postgresCredentials,
+    DateTime? lastSuccessfulValidationAt,
+  }) {
+    return LicenciaInfo(
+      uuid: uuid,
+      plan: plan,
+      estado: estado ?? this.estado,
+      fechaExpiracion: fechaExpiracion ?? this.fechaExpiracion,
+      modulosHabilitados: modulosHabilitados ?? this.modulosHabilitados,
+      limiteDbMb: limiteDbMb ?? this.limiteDbMb,
+      alertaVencimientoDias: alertaVencimientoDias,
+      tipoLicencia: tipoLicencia,
+      hardwareFingerprint: hardwareFingerprint,
+      offlineToken: offlineToken ?? this.offlineToken,
+      clientId: clientId ?? this.clientId,
+      clientName: clientName ?? this.clientName,
+      maxUsers: maxUsers ?? this.maxUsers,
+      maxDevices: maxDevices ?? this.maxDevices,
+      maxBranches: maxBranches ?? this.maxBranches,
+      installationId: installationId ?? this.installationId,
+      postgresCredentials: postgresCredentials ?? this.postgresCredentials,
+      lastSuccessfulValidationAt:
+          lastSuccessfulValidationAt ?? this.lastSuccessfulValidationAt,
+    );
+  }
+
+  static int? _toInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
   }
 }
 
@@ -107,24 +193,20 @@ class LicenciaService {
   static final LicenciaService instance = LicenciaService._();
 
   LicenciaInfo? _licenciaCache;
-  static const String _claveConfig = 'licencia_info';
+  static const Duration gracePeriod = Duration(days: 7);
+  LicenseSecureStore _secureStore = LicenseSecureStore();
+
+  void configureSecureStoreForTests(LicenseSecureStore store) {
+    _secureStore = store;
+    _licenciaCache = null;
+  }
 
   Future<LicenciaInfo?> obtenerLicencia() async {
     if (_licenciaCache != null) return _licenciaCache;
 
-    final db = await DatabaseHelper.instance.database;
-    final rows = await db.query(
-      'app_config',
-      where: 'clave = ?',
-      whereArgs: [_claveConfig],
-      limit: 1,
-    );
-
-    if (rows.isEmpty) return null;
-
     try {
-      final valString = rows.first['valor'] as String;
-      final map = jsonDecode(valString) as Map<String, dynamic>;
+      final map = await _secureStore.read();
+      if (map == null) return null;
       _licenciaCache = LicenciaInfo.fromMap(map);
       return _licenciaCache;
     } catch (e) {
@@ -134,11 +216,7 @@ class LicenciaService {
   }
 
   Future<void> guardarLicencia(LicenciaInfo licencia) async {
-    final db = await DatabaseHelper.instance.database;
-    await db.insert('app_config', {
-      'clave': _claveConfig,
-      'valor': jsonEncode(licencia.toMap()),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await _secureStore.write(licencia.toMap());
     _licenciaCache = licencia;
 
     await DatabaseHelper.instance.registrarEventoAuditoria(
@@ -152,13 +230,17 @@ class LicenciaService {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query(
       'app_config',
-      where: 'clave = ?',
-      whereArgs: ['licencia_info'],
+      where: 'clave IN (?, ?)',
+      whereArgs: [
+        LicenseSecureStore.legacyConfigKey,
+        LicenseSecureStore.encryptedConfigKey,
+      ],
       limit: 1,
     );
     if (rows.isEmpty) return;
 
-    final licencia = LicenciaInfo.fromMap(rows.first);
+    final licencia = await obtenerLicencia();
+    if (licencia == null) return;
     if (licencia.estado == EstadoLicencia.activa ||
         licencia.estado == EstadoLicencia.trial) {
       return;
@@ -166,8 +248,11 @@ class LicenciaService {
 
     await db.delete(
       'app_config',
-      where: 'clave = ?',
-      whereArgs: ['licencia_info'],
+      where: 'clave IN (?, ?)',
+      whereArgs: [
+        LicenseSecureStore.legacyConfigKey,
+        LicenseSecureStore.encryptedConfigKey,
+      ],
     );
     _licenciaCache = null;
   }
@@ -240,9 +325,143 @@ class LicenciaService {
       tipoLicencia: licenciaActual.tipoLicencia,
       hardwareFingerprint: licenciaActual.hardwareFingerprint,
       offlineToken: licenciaActual.offlineToken,
+      clientId: licenciaActual.clientId,
+      clientName: licenciaActual.clientName,
+      maxUsers: licenciaActual.maxUsers,
+      maxDevices: licenciaActual.maxDevices,
+      maxBranches: licenciaActual.maxBranches,
+      installationId: licenciaActual.installationId,
+      postgresCredentials: licenciaActual.postgresCredentials,
+      lastSuccessfulValidationAt: DateTime.now().toUtc(),
     );
 
     await guardarLicencia(licenciaActualizada);
+  }
+
+  Future<bool> activarDesdeControlCenter({
+    required String email,
+    required String password,
+    ControlCenterLicenseClient? client,
+    LicenseValidationService? validationService,
+    HardwareFingerprintService? fingerprintService,
+    String? currentHardwareFingerprint,
+  }) async {
+    final hardwareService = fingerprintService ?? HardwareFingerprintService();
+    final fingerprint =
+        currentHardwareFingerprint ?? await hardwareService.generateFingerprint();
+    final ccClient = client ?? const ControlCenterLicenseClient();
+    final response = await ccClient.activate(
+      email: email,
+      password: password,
+      hardwareFingerprint: fingerprint,
+    );
+    final token = _extractString(response, const [
+      'license_token',
+      'token',
+      'jwt',
+    ]);
+    if (token == null || token.trim().isEmpty) return false;
+
+    final validator = validationService ?? LicenseValidationService();
+    final tokenData = await validator.validateOfflineTokenForDevice(
+      token,
+      fingerprint,
+    );
+    if (tokenData == null) return false;
+
+    final licenseData = _extractMap(response, const ['license', 'data']);
+    final metadata = licenseData ?? response;
+    final modules = _extractModules(metadata, tokenData);
+    final expiry = _extractDate(metadata, const ['expires_at', 'expiresAt']) ??
+        DateTime.parse(tokenData['ed'] as String);
+    final licenseType = _extractString(metadata, const [
+          'license_type',
+          'licenseType',
+          'type',
+        ]) ??
+        tokenData['lt'] as String;
+    final status = _extractString(metadata, const ['status', 'estado']) ??
+        tokenData['st'] as String;
+
+    final licencia = LicenciaInfo(
+      uuid: await hardwareService.generateUUID(),
+      plan: _determinarPlanDesdeModulos(modules),
+      estado: _estadoDesdeControlCenter(status),
+      fechaExpiracion: expiry,
+      modulosHabilitados: modules,
+      tipoLicencia: licenseType.toUpperCase() == 'PERPETUA'
+          ? TipoLicencia.perpetua
+          : TipoLicencia.suscripcion,
+      hardwareFingerprint: fingerprint,
+      offlineToken: token,
+      clientId: _extractString(metadata, const ['client_id', 'clientId']),
+      clientName: _extractString(metadata, const ['client_name', 'clientName']),
+      maxUsers: _extractInt(metadata, const ['max_users', 'maxUsers']),
+      maxDevices: _extractInt(metadata, const ['max_devices', 'maxDevices']),
+      maxBranches: _extractInt(metadata, const ['max_branches', 'maxBranches']),
+      installationId:
+          _extractString(metadata, const ['installation_id', 'installationId']),
+      postgresCredentials: _extractMap(metadata, const [
+        'postgres_credentials',
+        'postgresCredentials',
+      ]),
+      lastSuccessfulValidationAt: DateTime.now().toUtc(),
+    );
+
+    await guardarLicencia(licencia);
+    return true;
+  }
+
+  Future<bool> validarConControlCenterOGracia({
+    ControlCenterLicenseClient? client,
+    LicenseValidationService? validationService,
+    HardwareFingerprintService? fingerprintService,
+    String? currentHardwareFingerprint,
+    DateTime? now,
+  }) async {
+    final licencia = await obtenerLicencia();
+    final token = licencia?.offlineToken;
+    if (licencia == null || token == null || token.trim().isEmpty) {
+      return false;
+    }
+
+    final effectiveNow = now ?? DateTime.now().toUtc();
+    final hardwareService = fingerprintService ?? HardwareFingerprintService();
+    final fingerprint =
+        currentHardwareFingerprint ?? await hardwareService.generateFingerprint();
+    final validator = validationService ?? LicenseValidationService();
+    final tokenData = await validator.validateOfflineTokenForDevice(
+      token,
+      fingerprint,
+    );
+    if (tokenData == null) return false;
+
+    final tokenExpiry = DateTime.parse(tokenData['ed'] as String).toUtc();
+    if (licencia.tipoLicencia != TipoLicencia.perpetua &&
+        effectiveNow.isAfter(tokenExpiry)) {
+      return false;
+    }
+
+    try {
+      final ccClient = client ?? const ControlCenterLicenseClient();
+      final response = await ccClient.validate(
+        licenseToken: token,
+        hardwareFingerprint: fingerprint,
+        installationId: licencia.installationId ?? licencia.uuid,
+      );
+      final valid = response['valid'] == true || response['success'] == true;
+      if (!valid) return false;
+      await guardarLicencia(
+        licencia.copyWith(lastSuccessfulValidationAt: effectiveNow),
+      );
+      return true;
+    } on ControlCenterNetworkException {
+      return _validarModoGracia(licencia, tokenExpiry, effectiveNow);
+    } on SocketException {
+      return _validarModoGracia(licencia, tokenExpiry, effectiveNow);
+    } on TimeoutException {
+      return _validarModoGracia(licencia, tokenExpiry, effectiveNow);
+    }
   }
 
   /// Activar licencia desde token offline
@@ -360,8 +579,26 @@ class LicenciaService {
 
   /// Obtener días de gracia restantes para suscripciones
   int getDiasGraciaRestantes() {
-    // Implementar lógica de gracia si es necesario
-    return 0;
+    final licencia = _licenciaCache;
+    final last = licencia?.lastSuccessfulValidationAt;
+    if (last == null) return 0;
+    final deadline = last.toUtc().add(gracePeriod);
+    final remaining = deadline.difference(DateTime.now().toUtc()).inDays;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  bool _validarModoGracia(
+    LicenciaInfo licencia,
+    DateTime tokenExpiry,
+    DateTime now,
+  ) {
+    final last = licencia.lastSuccessfulValidationAt;
+    if (last == null) return false;
+    final graceDeadline = last.toUtc().add(gracePeriod);
+    final effectiveDeadline = tokenExpiry.isBefore(graceDeadline)
+        ? tokenExpiry
+        : graceDeadline;
+    return !now.isAfter(effectiveDeadline);
   }
 
   TipoPlan _determinarPlanDesdeModulos(List<dynamic> modulos) {
@@ -434,5 +671,79 @@ class LicenciaService {
   Future<void> limpiarCache() {
     _licenciaCache = null;
     return Future.value();
+  }
+
+  String? _extractString(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    return null;
+  }
+
+  int? _extractInt(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value != null) {
+        final parsed = int.tryParse(value.toString());
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  DateTime? _extractDate(Map<String, dynamic> data, List<String> keys) {
+    final value = _extractString(data, keys);
+    return value == null ? null : DateTime.tryParse(value);
+  }
+
+  Map<String, dynamic>? _extractMap(
+    Map<String, dynamic> data,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is Map<String, dynamic>) return value;
+      if (value is Map) return value.cast<String, dynamic>();
+    }
+    return null;
+  }
+
+  List<String> _extractModules(
+    Map<String, dynamic> metadata,
+    Map<String, dynamic> tokenData,
+  ) {
+    final raw = metadata['modules'] ?? metadata['modulos'] ?? tokenData['md'];
+    if (raw is List) return raw.map((e) => e.toString()).toList();
+    if (raw is String) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) return decoded.map((e) => e.toString()).toList();
+      } catch (_) {
+        return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      }
+    }
+    return const [];
+  }
+
+  EstadoLicencia _estadoDesdeControlCenter(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACTIVO':
+      case 'ACTIVE':
+        return EstadoLicencia.activa;
+      case 'SUSPENDIDO':
+      case 'SUSPENDED':
+        return EstadoLicencia.suspendida;
+      case 'EXPIRADO':
+      case 'EXPIRED':
+        return EstadoLicencia.expirada;
+      case 'TRIAL':
+      default:
+        return EstadoLicencia.trial;
+    }
   }
 }

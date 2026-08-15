@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'db_helper.dart';
@@ -12,11 +12,15 @@ import 'services/health_reporter.dart';
 import 'services/cc_commands_processor.dart';
 import 'services/hardware_fingerprint_service.dart';
 import 'services/control_center_endpoint.dart';
+import 'services/control_center_license_client.dart';
 
 class ControlCenterAgent {
   const ControlCenterAgent._();
 
-  static const defaultEndpoint = 'https://merkaerp-control-center-backend.onrender.com';
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
+  static const defaultEndpoint = ControlCenterEndpoint.defaultEndpoint;
   static Timer? _telemetryTimer;
   static Timer? _commandTimer;
 
@@ -86,10 +90,7 @@ class ControlCenterAgent {
       final payload = await _heartbeatPayload();
       debugPrint('Control Center: Enviando heartbeat a $endpoint');
       debugPrint('Control Center: Payload: $payload');
-      await _postJson(
-        Uri.parse('$endpoint/api/v1/installations/heartbeat'),
-        payload,
-      );
+      await ControlCenterLicenseClient(endpoint: endpoint).heartbeat(payload);
       debugPrint('Control Center: Heartbeat enviado exitosamente');
       await DatabaseHelper.instance.registrarEventoAuditoria(
         accion: 'CONTROL_CENTER_HEARTBEAT',
@@ -132,22 +133,32 @@ class ControlCenterAgent {
 
       final endpoint = await _endpoint();
       final installationId = await _installationId();
-      final commands = await _getJsonList(
-        Uri.parse('$endpoint/api/v1/installations/$installationId/commands'),
-      );
+      final client = ControlCenterLicenseClient(endpoint: endpoint);
+      final commands = await client.commands(installationId);
       for (final command in commands) {
-        await _executeRemoteCommand(command);
-        final id = command['id']?.toString();
+        final id = command['id']?.toString() ?? command['commandId']?.toString();
+        final result = await _executeRemoteCommand(command);
         if (id != null && id.isNotEmpty) {
-          await _postJson(Uri.parse('$endpoint/api/v1/commands/$id/ack'), {
-            'installationId': installationId,
-            'status': 'done',
-          });
+          final ackStatus = result.datos?['ack_status']?.toString() ??
+              (result.exito ? 'done' : 'failed');
+          await client.ackCommand(
+            commandId: id,
+            installationId: installationId,
+            status: ackStatus,
+            message: result.mensaje,
+          );
         }
       }
     } catch (error) {
       debugPrint('Control Center command polling skipped: $error');
     }
+  }
+
+  @visibleForTesting
+  static Future<ResultadoComando> processCommandForTests(
+    Map<String, Object?> command,
+  ) {
+    return _executeRemoteCommand(command);
   }
 
   static Future<String> _endpoint() async {
@@ -311,7 +322,7 @@ class ControlCenterAgent {
     }
   }
 
-  static Future<void> _executeRemoteCommand(
+  static Future<ResultadoComando> _executeRemoteCommand(
     Map<String, Object?> command,
   ) async {
     final action = command['action']?.toString() ?? '';
@@ -334,7 +345,7 @@ class ControlCenterAgent {
           entidad: 'control_center',
           detalle: resultado.mensaje,
         );
-        return;
+        return resultado;
       }
     } catch (e) {
       debugPrint('Error procesando comando con CCCommandsProcessor: $e');
@@ -356,8 +367,12 @@ class ControlCenterAgent {
           'leida': 0,
           'creada_en': DateTime.now().toIso8601String(),
         });
-        break;
+        return const ResultadoComando(
+          exito: true,
+          mensaje: 'Notificacion local registrada',
+        );
       case 'bloquear_cliente':
+      case 'bloquear':
         await db.execute(
           "INSERT OR REPLACE INTO app_config (clave, valor) VALUES ('cliente_bloqueado', '1')",
         );
@@ -366,22 +381,150 @@ class ControlCenterAgent {
           entidad: 'control_center',
           detalle: jsonEncode(command),
         );
-        break;
+        return const ResultadoComando(
+          exito: true,
+          mensaje: 'Cliente bloqueado localmente',
+        );
+      case 'backup':
+      case 'forzar_respaldo':
+        final file = await DatabaseHelper.instance.crearRespaldo();
+        return ResultadoComando(
+          exito: true,
+          mensaje: 'Backup generado',
+          datos: {'path': file.path},
+        );
+      case 'actualizar':
       case 'forzar_actualizacion':
+        final update = await UpdateService.instance.buscarActualizacion();
+        await DatabaseHelper.instance.registrarEventoAuditoria(
+          accion: 'CONTROL_CENTER_COMMAND_$action',
+          entidad: 'control_center',
+          detalle: update == null
+              ? 'No hay actualizacion disponible'
+              : 'Actualizacion disponible: ${update.version}',
+        );
+        return ResultadoComando(
+          exito: true,
+          mensaje: update == null
+              ? 'No hay actualizacion disponible'
+              : 'Actualizacion disponible: ${update.version}',
+        );
       case 'reiniciar_modulo':
         await DatabaseHelper.instance.registrarEventoAuditoria(
           accion: 'CONTROL_CENTER_COMMAND_$action',
           entidad: 'control_center',
           detalle: jsonEncode(command),
         );
-        break;
+        return ResultadoComando(
+          exito: true,
+          mensaje: 'Comando $action registrado para ejecucion local',
+        );
+      case 'solicitar_acceso_remoto':
+      case 'solicitar_asistencia_remota':
+      case 'remote_access':
+      case 'remote_access_request':
+      case 'acceso_remoto':
+        return await handleRemoteAccessConsent(command);
       default:
         await DatabaseHelper.instance.registrarEventoAuditoria(
           accion: 'CONTROL_CENTER_COMMAND_UNKNOWN',
           entidad: 'control_center',
           detalle: jsonEncode(command),
         );
+        return ResultadoComando(
+          exito: false,
+          mensaje: 'Comando no soportado: $action',
+        );
     }
+  }
+
+  static Future<ResultadoComando> handleRemoteAccessConsent(
+    Map<String, Object?> command,
+  ) async {
+    final context = navigatorKey.currentContext;
+    bool approved = false;
+
+    if (context != null && context.mounted) {
+      approved = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.display_settings, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text('MERKA solicita acceso remoto'),
+                ],
+              ),
+              content: const Text(
+                'El equipo de soporte de Control Center solicita acceso remoto a este equipo para asistencia técnica.\n\n'
+                'Nota: Aprobar esta solicitud registrará su consentimiento. No se iniciará captura de pantalla ni transmisión en vivo (Stub pendiente de la Fase RA).',
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Rechazar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Aprobar'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    } else {
+      await _registrarSolicitudAccesoRemotoStub(command);
+      return const ResultadoComando(
+        exito: true,
+        mensaje:
+            'Solicitud de acceso remoto registrada como stub sin UI activa (Fase RA pendiente).',
+        datos: {'ack_status': 'done'},
+      );
+    }
+
+    await _registrarSolicitudAccesoRemotoStub(
+      command,
+      consentimientoOtorgado: approved,
+    );
+
+    return ResultadoComando(
+      exito: true,
+      mensaje: approved
+          ? 'Consentimiento otorgado por el usuario. Stub de acceso remoto (Fase RA pendiente, sin streaming real).'
+          : 'Consentimiento denegado por el usuario.',
+      datos: {'ack_status': approved ? 'approved' : 'rejected'},
+    );
+  }
+
+  static Future<void> _registrarSolicitudAccesoRemotoStub(
+    Map<String, Object?> command, {
+    bool? consentimientoOtorgado,
+  }) async {
+    final db = await DatabaseHelper.instance.database;
+    final companyId = await DatabaseHelper.instance.obtenerEmpresaActivaId();
+    final detalleConsent = consentimientoOtorgado == null
+        ? 'Stub pendiente Fase RA: no inicia captura ni streaming de pantalla.'
+        : (consentimientoOtorgado
+            ? 'Consentimiento OTORGADO por el usuario. Stub pendiente Fase RA: no inicia captura ni streaming.'
+            : 'Consentimiento DENEGADO por el usuario.');
+
+    await db.insert('notificaciones', {
+      'company_id': companyId,
+      'tipo': 'control_center',
+      'prioridad': 'warning',
+      'titulo': 'MERKA solicita acceso remoto',
+      'detalle': detalleConsent,
+      'entidad': 'remote_access_stub',
+      'entidad_id': command['id']?.toString(),
+      'leida': 0,
+      'creada_en': DateTime.now().toIso8601String(),
+    });
+    await DatabaseHelper.instance.registrarEventoAuditoria(
+      accion: 'CONTROL_CENTER_REMOTE_ACCESS_STUB',
+      entidad: 'control_center',
+      detalle: '$detalleConsent | Command: ${jsonEncode(command)}',
+    );
   }
 
   static TipoComando _mapearTipoComando(String action) {
@@ -410,6 +553,12 @@ class ControlCenterAgent {
         return TipoComando.forzar_sincronizacion;
       case 'actualizar_licencia':
         return TipoComando.actualizar_licencia;
+      case 'solicitar_acceso_remoto':
+      case 'solicitar_asistencia_remota':
+      case 'remote_access':
+      case 'remote_access_request':
+      case 'acceso_remoto':
+        return TipoComando.solicitar_acceso_remoto;
       default:
         return TipoComando.mensaje_admin;
     }

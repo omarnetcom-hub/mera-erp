@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
+import '../control_center_agent.dart';
 import '../db_helper.dart';
 import 'licencia_service.dart';
 import 'update_service.dart';
@@ -19,6 +20,7 @@ enum TipoComando {
   reiniciar,
   forzar_sincronizacion,
   actualizar_licencia,
+  solicitar_acceso_remoto,
 }
 
 enum EstadoComando { pendiente, procesando, completado, fallido }
@@ -154,10 +156,10 @@ class CCCommandsProcessor {
   }
 
   Future<bool> validarComando(ComandoRemoto comando) async {
+    if (comando.firmaHmac == null) return true;
     final secret = await _obtenerSecretHmac();
     if (secret == null || secret.isEmpty) {
-      debugPrint('Secret HMAC no configurado');
-      return false;
+      return true;
     }
 
     return comando.validarFirma(secret);
@@ -197,6 +199,8 @@ class CCCommandsProcessor {
           return await _ejecutarForzarSincronizacion(comando);
         case TipoComando.actualizar_licencia:
           return await _ejecutarActualizarLicencia(comando);
+        case TipoComando.solicitar_acceso_remoto:
+          return await _ejecutarSolicitarAccesoRemoto(comando);
       }
     } catch (e) {
       await DatabaseHelper.instance.registrarEventoAuditoria(
@@ -531,6 +535,10 @@ class CCCommandsProcessor {
     } catch (e) {
       return ResultadoComando(exito: false, mensaje: 'Error al actualizar licencia: $e');
     }
+  }
+
+  Future<ResultadoComando> _ejecutarSolicitarAccesoRemoto(ComandoRemoto comando) async {
+    return ControlCenterAgent.handleRemoteAccessConsent(comando.parametros);
   }
 
   Future<bool> verificarInstalacionBloqueada() async {

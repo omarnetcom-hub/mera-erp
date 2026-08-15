@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:dio/dio.dart';
 import '../services/hardware_fingerprint_service.dart';
 import '../services/licencia_service.dart';
-import '../services/control_center_endpoint.dart';
 import '../login_page.dart';
 
 class LicenseActivationPage extends StatefulWidget {
@@ -20,7 +18,6 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
   final HardwareFingerprintService _fingerprintService =
       HardwareFingerprintService();
   final LicenciaService _licenciaService = LicenciaService.instance;
-  final Dio _dio = Dio();
 
   final _formKey = GlobalKey<FormState>();
 
@@ -37,10 +34,6 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
   String? _uuid;
   String? _errorMessage;
   bool _activationSuccess = false;
-
-  // Control Center endpoint
-  static const String _defaultControlCenterEndpoint =
-      'https://merkaerp-control-center-backend.onrender.com';
 
   @override
   void initState() {
@@ -88,36 +81,13 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
     });
 
     try {
-      final endpoint = ControlCenterEndpoint.normalize(
-        _defaultControlCenterEndpoint,
-      );
-      final response = await _dio.post(
-        ControlCenterEndpoint.activationUrl(endpoint),
-        data: {
-          'email': _emailController.text.trim(),
-          'password': _passwordController.text.trim(),
-          'hardware_fingerprint': _hardwareFingerprint,
-          'license_type': 'SUSCRIPCION',
-        },
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-          sendTimeout: const Duration(seconds: 30),
-        ),
+      final activated = await _licenciaService.activarDesdeControlCenter(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        currentHardwareFingerprint: _hardwareFingerprint,
       );
 
-      if (response.data['success'] == true) {
-        final token = response.data['token'];
-        final activated = token is String &&
-            await _licenciaService.activarDesdeTokenOffline(token);
-        if (!activated) {
-          if (!mounted) return;
-          setState(() {
-            _errorMessage =
-                'Control Center devolvió un token sin firma RS256 válida';
-          });
-          return;
-        }
-
+      if (activated) {
         if (!mounted) return;
         setState(() {
           _activationSuccess = true;
@@ -128,7 +98,8 @@ class _LicenseActivationPageState extends State<LicenseActivationPage> {
         );
       } else {
         setState(() {
-          _errorMessage = response.data['error'] ?? 'Error en activación';
+          _errorMessage =
+              'Control Center no devolvió una licencia RS256 válida para este equipo';
         });
       }
     } catch (e) {

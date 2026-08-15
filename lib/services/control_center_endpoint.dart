@@ -2,11 +2,13 @@ class ControlCenterEndpoint {
   const ControlCenterEndpoint._();
 
   static const String apiVersion = 'api/v1';
+  static const String defaultEndpoint =
+      'https://merkaerp-control-center-backend-3a5r.onrender.com';
 
   static String normalize(String? value) {
     var endpoint = (value ?? '').trim();
     if (endpoint.isEmpty) {
-      return 'https://merkaerp-control-center-backend.onrender.com';
+      return defaultEndpoint;
     }
 
     endpoint = endpoint.replaceAll(RegExp(r'\s+'), '');

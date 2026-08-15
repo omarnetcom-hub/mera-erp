@@ -173,6 +173,7 @@ class MiApp extends StatelessWidget {
       valueListenable: merkaThemeMode,
       builder: (context, mode, _) {
         return MaterialApp(
+          navigatorKey: ControlCenterAgent.navigatorKey,
           debugShowCheckedModeBanner: false,
           title: AppBrand.name,
           theme: _merkaTheme(),
