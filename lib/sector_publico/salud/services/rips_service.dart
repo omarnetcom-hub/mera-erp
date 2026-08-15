@@ -244,12 +244,24 @@ class RIPSService {
             where: 'codigo = ?',
             whereArgs: [codigo],
           );
-          if (encontrado.isEmpty) {
+          if (encontrado.isEmpty && !await _existeCategoriaCie10(codigo)) {
             errores.add('CIE-10 $codigo no existe en el catalogo local');
           }
         }
       }
     }
+  }
+
+  Future<bool> _existeCategoriaCie10(Object codigo) async {
+    final texto = codigo.toString().trim();
+    if (texto.length != 3) return false;
+    final encontrados = await db.query(
+      'catalogo_cie10',
+      where: 'codigo LIKE ?',
+      whereArgs: ['$texto%'],
+      limit: 1,
+    );
+    return encontrados.isNotEmpty;
   }
 
   Future<List<RIPS>> consultarRIPS({

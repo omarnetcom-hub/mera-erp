@@ -77,7 +77,7 @@ void main() {
         numDocumentoIdObligado: '900123456',
         numFactura: 'FEV-001',
         cucon: 'CUCON-2026-01',
-        usuarios: [_usuarioConConsulta('890201', 'J00')],
+        usuarios: [_usuarioConConsulta('890201', 'J00X')],
       ),
     );
 
@@ -88,7 +88,7 @@ void main() {
     expect(usuario['servicios']['consultas'][0]['codConsulta'], '890201');
     expect(
       usuario['servicios']['consultas'][0]['codDiagnosticoPrincipal'],
-      'J00',
+      'J00X',
     );
     final persistido = await db.query('rips_fev_documentos');
     expect(persistido.single['cucon'], 'CUCON-2026-01');
@@ -98,7 +98,7 @@ void main() {
     final documento = RipsFevDocumento(
       numDocumentoIdObligado: '900123456',
       numFactura: 'FEV-002',
-      usuarios: [_usuarioConConsulta('999999', 'J00')],
+      usuarios: [_usuarioConConsulta('999999', 'J00X')],
     );
     expect(
       () => rips.generarRipsJson(
@@ -213,6 +213,14 @@ void main() {
         ),
         hasLength(1),
       );
+      final totalCups = await legacy.rawQuery(
+        'SELECT COUNT(*) AS total FROM catalogo_cups',
+      );
+      expect(totalCups.single['total'], 13629);
+      final totalCie10 = await legacy.rawQuery(
+        'SELECT COUNT(*) AS total FROM catalogo_cie10',
+      );
+      expect(totalCie10.single['total'], 12545);
     },
   );
 }

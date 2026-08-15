@@ -4,6 +4,8 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 
+import 'catalogos_salud_seed.dart';
+
 class SchemaSalud {
   static Future<void> crearTablas(Database db) async {
     await db.execute('''
@@ -178,42 +180,29 @@ class SchemaSalud {
       )
     ''');
 
-    // Subconjunto de referencia, no catalogo exhaustivo. Fuente: Resolucion
-    // 2706/2025 (CUPS) y referencias CIE-10 publicadas por SISPRO/MinSalud.
-    const cups = [
-      {
-        'codigo': '890201',
-        'nombre': 'Consulta de primera vez por medicina general',
-        'tipo_servicio': 'consulta',
-      },
-      {
-        'codigo': '890301',
-        'nombre': 'Consulta de control o seguimiento por medicina general',
-        'tipo_servicio': 'consulta',
-      },
-    ];
-    for (final item in cups) {
-      await db.insert('catalogo_cups', {
-        ...item,
-        'fuente': 'Resolucion 2706 de 2025',
-        'version_fuente': '2025',
-      }, conflictAlgorithm: ConflictAlgorithm.ignore);
-    }
+    await _sembrarCatalogosNormativos(db);
+  }
 
-    const cie10 = [
-      {
-        'codigo': 'A09',
-        'nombre': 'Diarrea y gastroenteritis de presunto origen infeccioso',
-      },
-      {'codigo': 'J00', 'nombre': 'Rinofaringitis aguda [resfriado comun]'},
-    ];
-    for (final item in cie10) {
-      await db.insert('catalogo_cie10', {
-        ...item,
-        'fuente': 'Referencia CIE-10 SISPRO/MinSalud',
-        'version_fuente': 'CIE-10 vigente',
+  static Future<void> _sembrarCatalogosNormativos(Database db) async {
+    final batch = db.batch();
+    for (final item in catalogoCupsSeedRows()) {
+      batch.insert('catalogo_cups', {
+        'codigo': item.codigo,
+        'nombre': item.nombre,
+        'tipo_servicio': item.tipoServicio,
+        'fuente': catalogoCupsVersion,
+        'version_fuente': catalogoCupsVersion,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
+    for (final item in catalogoCie10SeedRows()) {
+      batch.insert('catalogo_cie10', {
+        'codigo': item.codigo,
+        'nombre': item.nombre,
+        'fuente': 'Codigos MIPRES - Ministerio de Salud y Proteccion Social',
+        'version_fuente': catalogoCie10Version,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    await batch.commit(noResult: true);
   }
 
   static Future<void> _agregarColumnaSiNoExiste(
