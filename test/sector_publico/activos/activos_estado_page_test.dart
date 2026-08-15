@@ -13,7 +13,7 @@ void main() {
   });
 
   testWidgets(
-    'ActivosEstadoPage renders Activos and FUT tabs and TODO banner',
+    'ActivosEstadoPage renders Activos and FUT tabs and responsibility banner',
     (WidgetTester tester) async {
       await tester.runAsync(() async {
         final db = await openDatabase(
@@ -61,10 +61,10 @@ void main() {
       expect(find.text('Activos NICSP 17'), findsWidgets);
       expect(find.text('FUT'), findsWidgets);
 
-      // Verify TODO Banner
+      // Verify responsibility banner
       expect(
         find.textContaining(
-          'Pendiente: asignacion de Actas de Responsabilidad',
+          'Actas de responsabilidad a cuentadantes activas',
         ),
         findsOneWidget,
       );

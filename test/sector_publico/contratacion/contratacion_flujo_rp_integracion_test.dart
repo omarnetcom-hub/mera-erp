@@ -5,6 +5,7 @@ import 'package:merka_erp/sector_publico/contratacion/models/contrato.dart';
 import 'package:merka_erp/sector_publico/contratacion/models/poliza.dart';
 import 'package:merka_erp/sector_publico/contratacion/services/contratacion_service.dart';
 import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
+import 'package:merka_erp/sector_publico/planeacion/database/schema_planeacion.dart';
 import 'package:merka_erp/sector_publico/presupuesto/database/schema_presupuesto.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
 import 'package:merka_erp/sector_publico/security/auditoria_service.dart';
@@ -27,6 +28,7 @@ void main() {
     db = await databaseFactory.openDatabase(inMemoryDatabasePath);
     await SchemaMultiTenant.crearTablas(db);
     await SchemaPresupuesto.crearTablas(db);
+    await SchemaPlaneacion.crearTablas(db);
     await SchemaContratacion.crearTablas(db);
 
     final auditoria = AuditoriaService(db);

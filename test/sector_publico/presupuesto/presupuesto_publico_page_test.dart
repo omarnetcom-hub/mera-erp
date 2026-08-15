@@ -18,6 +18,7 @@ import 'package:merka_erp/sector_publico/presupuesto/models/rp.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/presupuesto_service.dart';
 import 'package:merka_erp/sector_publico/contratacion/database/schema_contratacion.dart';
 import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
+import 'package:merka_erp/sector_publico/planeacion/database/schema_planeacion.dart';
 import 'package:merka_erp/sector_publico/presupuesto/database/schema_presupuesto.dart';
 
 Future<void>? _pageReady;
@@ -122,6 +123,7 @@ void main() {
       // quedan como compatibilidad histórica, pero no pueden ocultar columnas
       // obligatorias del contrato de producción.
       await SchemaPresupuesto.crearTablas(db);
+      await SchemaPlaneacion.crearTablas(db);
 
       // Crear tablas necesarias para las pruebas
       await db.execute('''

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merka_erp/sector_publico/contabilidad/database/schema_contabilidad.dart';
 import 'package:merka_erp/sector_publico/database/schema_multi_tenant.dart';
+import 'package:merka_erp/sector_publico/planeacion/database/schema_planeacion.dart';
 import 'package:merka_erp/sector_publico/presupuesto/database/schema_presupuesto.dart';
 import 'package:merka_erp/sector_publico/presupuesto/models/pago.dart';
 import 'package:merka_erp/sector_publico/presupuesto/services/pac_service.dart';
@@ -34,6 +35,7 @@ void main() {
     await SchemaMultiTenant.crearTablas(db);
     await SchemaContratacion.crearTablas(db);
     await SchemaPresupuesto.crearTablas(db);
+    await SchemaPlaneacion.crearTablas(db);
     await SchemaContabilidad.crearTablas(db);
 
     final auditoriaService = AuditoriaService(db);
