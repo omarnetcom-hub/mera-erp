@@ -86,7 +86,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 102;
+  static const int schemaVersion = 103;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1234,6 +1234,31 @@ class DatabaseHelper {
     }
     if (oldVersion < 102) {
       await SchemaCrm.crearBacklogComercial(db);
+    }
+    if (oldVersion < 103) {
+      // Fix: cuentas_por_pagar creada antes de v35 no tenía proveedor_id,
+      // compra_id ni numero_factura. La migración v35 en database_initializer
+      // los agrega para upgrades, pero _crearDB no los incluía en la
+      // definición inicial. Esta migración los garantiza en todas las
+      // instalaciones existentes de forma idempotente.
+      await _agregarColumnaSiNoExiste(
+        db,
+        'cuentas_por_pagar',
+        'proveedor_id',
+        'INTEGER',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'cuentas_por_pagar',
+        'compra_id',
+        'INTEGER',
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'cuentas_por_pagar',
+        'numero_factura',
+        'TEXT',
+      );
     }
   }
 

@@ -128,11 +128,15 @@ extension DatabaseInitializer on DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id INTEGER,
         proveedor TEXT,
+        proveedor_id INTEGER,
+        compra_id INTEGER,
+        numero_factura TEXT,
         total REAL NOT NULL,
         saldo REAL NOT NULL,
         estado TEXT NOT NULL, -- pendiente / pagada / parcial
         fecha TEXT NOT NULL,
-        descripcion TEXT
+        descripcion TEXT,
+        FOREIGN KEY (proveedor_id) REFERENCES proveedores(id)
       )
       ''');
     // Tabla de métodos de pago
