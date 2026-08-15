@@ -79,6 +79,7 @@ class _InventarioPageState extends State<InventarioPage> {
     required double convCantidad,
     String codigoLote = '',
     String fechaVencimiento = '',
+    bool precioIncluyeIva = false,
   }) async {
     final currency = _currency;
     if (currency == null) {
@@ -100,6 +101,7 @@ class _InventarioPageState extends State<InventarioPage> {
         barcode: codigoBarras,
         conversionName: convNombre,
         conversionQuantity: convCantidad,
+        precioIncluyeIva: precioIncluyeIva,
       ),
     );
 
@@ -231,149 +233,161 @@ class _InventarioPageState extends State<InventarioPage> {
     // Clave del formulario para validaciones
     final formKey = GlobalKey<FormState>();
 
+    bool precioIncluyeIva = producto?.precioIncluyeIva ?? false;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(producto == null ? 'Nuevo producto' : 'Editar producto'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _campo(nombreCtrl, 'Nombre del producto', validar: true),
-                _campo(unidadCtrl, 'Unidad (kg, lb, und…)', validar: true),
-                _campo(
-                  stockCtrl,
-                  'Stock inicial',
-                  numerico: true,
-                  validar: true,
-                ),
-                _campo(
-                  costoCtrl,
-                  'Costo unitario',
-                  numerico: true,
-                  validar: true,
-                ),
-                _campo(
-                  precioCtrl,
-                  'Precio de venta',
-                  numerico: true,
-                  validar: true,
-                ),
-                DropdownButtonFormField<double>(
-                  initialValue: _parseImpuestoInicial(impuestoCtrl.text),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    labelText: 'Impuesto sugerido',
-                    isDense: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          title: Text(producto == null ? 'Nuevo producto' : 'Editar producto'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _campo(nombreCtrl, 'Nombre del producto', validar: true),
+                  _campo(unidadCtrl, 'Unidad (kg, lb, und…)', validar: true),
+                  _campo(
+                    stockCtrl,
+                    'Stock inicial',
+                    numerico: true,
+                    validar: true,
                   ),
-                  items: _impuestosDisponibles
-                      .map(
-                        (imp) => DropdownMenuItem<double>(
-                          value: imp.rate,
-                          child: Text(imp.label),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) impuestoCtrl.text = _fmtNum(value);
-                  },
-                ),
-                const SizedBox(height: 10),
-                _campo(codigoBarrasCtrl, 'Codigo de barras'),
-                if (producto == null) ...[
+                  _campo(
+                    costoCtrl,
+                    'Costo unitario',
+                    numerico: true,
+                    validar: true,
+                  ),
+                  _campo(
+                    precioCtrl,
+                    'Precio de venta',
+                    numerico: true,
+                    validar: true,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Este precio incluye IVA', style: TextStyle(fontSize: 14)),
+                    subtitle: const Text('El IVA se desglosará internamente del precio cargado', style: TextStyle(fontSize: 12)),
+                    value: precioIncluyeIva,
+                    onChanged: (val) => setDlgState(() => precioIncluyeIva = val),
+                  ),
+                  DropdownButtonFormField<double>(
+                    initialValue: _parseImpuestoInicial(impuestoCtrl.text),
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Impuesto sugerido',
+                      isDense: true,
+                    ),
+                    items: _impuestosDisponibles
+                        .map(
+                          (imp) => DropdownMenuItem<double>(
+                            value: imp.rate,
+                            child: Text(imp.label),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) impuestoCtrl.text = _fmtNum(value);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _campo(codigoBarrasCtrl, 'Codigo de barras'),
+                  if (producto == null) ...[
+                    const Divider(),
+                    const Text(
+                      'Información de Lote inicial (Opcional)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    _campo(codigoLoteCtrl, 'Código de lote (opcional)'),
+                    TextFormField(
+                      controller: fechaVencimientoCtrl,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Fecha de vencimiento (AAAA-MM-DD)',
+                        isDense: true,
+                        suffixIcon: Icon(Icons.calendar_today),
+                      ),
+                      readOnly: true,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 3650),
+                          ),
+                        );
+                        if (picked != null) {
+                          fechaVencimientoCtrl.text = picked
+                              .toIso8601String()
+                              .split('T')
+                              .first;
+                        }
+                      },
+                    ),
+                  ],
                   const Divider(),
                   const Text(
-                    'Información de Lote inicial (Opcional)',
+                    'Conversión (opcional)',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   const SizedBox(height: 8),
-                  _campo(codigoLoteCtrl, 'Código de lote (opcional)'),
-                  TextFormField(
-                    controller: fechaVencimientoCtrl,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'Fecha de vencimiento (AAAA-MM-DD)',
-                      isDense: true,
-                      suffixIcon: Icon(Icons.calendar_today),
-                    ),
-                    readOnly: true,
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now().add(
-                          const Duration(days: 365),
-                        ),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(
-                          const Duration(days: 3650),
-                        ),
-                      );
-                      if (picked != null) {
-                        fechaVencimientoCtrl.text = picked
-                            .toIso8601String()
-                            .split('T')
-                            .first;
-                      }
-                    },
+                  _campo(convNombreCtrl, 'Nombre de conversión'),
+                  _campo(
+                    convCantidadCtrl,
+                    'Cantidad equivalente',
+                    numerico: true,
                   ),
                 ],
-                const Divider(),
-                const Text(
-                  'Conversión (opcional)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                _campo(convNombreCtrl, 'Nombre de conversión'),
-                _campo(
-                  convCantidadCtrl,
-                  'Cantidad equivalente',
-                  numerico: true,
-                ),
-              ],
+              ),
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+
+                Navigator.pop(ctx);
+
+                await _guardarProducto(
+                  id: producto?.id,
+                  nombre: nombreCtrl.text.trim(),
+                  unidad: unidadCtrl.text.trim(),
+                  stock: double.parse(stockCtrl.text.trim().replaceAll(',', '.')),
+                  costo: double.parse(costoCtrl.text.trim().replaceAll(',', '.')),
+                  precio: double.parse(
+                    precioCtrl.text.trim().replaceAll(',', '.'),
+                  ),
+                  impuestoPct:
+                      double.tryParse(
+                        impuestoCtrl.text.trim().replaceAll(',', '.'),
+                      ) ??
+                      0,
+                  codigoBarras: codigoBarrasCtrl.text.trim(),
+                  convNombre: convNombreCtrl.text.trim(),
+                  convCantidad:
+                      double.tryParse(
+                        convCantidadCtrl.text.trim().replaceAll(',', '.'),
+                      ) ??
+                      0,
+                  codigoLote: codigoLoteCtrl.text.trim(),
+                  fechaVencimiento: fechaVencimientoCtrl.text.trim(),
+                  precioIncluyeIva: precioIncluyeIva,
+                );
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-
-              Navigator.pop(ctx);
-
-              await _guardarProducto(
-                id: producto?.id,
-                nombre: nombreCtrl.text.trim(),
-                unidad: unidadCtrl.text.trim(),
-                stock: double.parse(stockCtrl.text.trim().replaceAll(',', '.')),
-                costo: double.parse(costoCtrl.text.trim().replaceAll(',', '.')),
-                precio: double.parse(
-                  precioCtrl.text.trim().replaceAll(',', '.'),
-                ),
-                impuestoPct:
-                    double.tryParse(
-                      impuestoCtrl.text.trim().replaceAll(',', '.'),
-                    ) ??
-                    0,
-                codigoBarras: codigoBarrasCtrl.text.trim(),
-                convNombre: convNombreCtrl.text.trim(),
-                convCantidad:
-                    double.tryParse(
-                      convCantidadCtrl.text.trim().replaceAll(',', '.'),
-                    ) ??
-                    0,
-                codigoLote: codigoLoteCtrl.text.trim(),
-                fechaVencimiento: fechaVencimientoCtrl.text.trim(),
-              );
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
   }

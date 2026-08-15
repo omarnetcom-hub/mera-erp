@@ -15,6 +15,7 @@ class Product {
     this.conversionName = '',
     this.conversionQuantity = 0,
     this.itemType = 'producto',
+    this.precioIncluyeIva = false,
   });
 
   final int? id;
@@ -29,6 +30,7 @@ class Product {
   final String conversionName;
   final double conversionQuantity;
   final String itemType;
+  final bool precioIncluyeIva;
 
   bool get isService => itemType == 'servicio';
   bool get isProduct => itemType != 'servicio';
@@ -52,6 +54,7 @@ class Product {
     String? conversionName,
     double? conversionQuantity,
     String? itemType,
+    bool? precioIncluyeIva,
   }) {
     return Product(
       id: id ?? this.id,
@@ -66,6 +69,7 @@ class Product {
       conversionName: conversionName ?? this.conversionName,
       conversionQuantity: conversionQuantity ?? this.conversionQuantity,
       itemType: itemType ?? this.itemType,
+      precioIncluyeIva: precioIncluyeIva ?? this.precioIncluyeIva,
     );
   }
 
@@ -94,6 +98,7 @@ class Product {
       conversionName: map['conversion_nombre']?.toString() ?? '',
       conversionQuantity: (map['conversion_cantidad'] as num?)?.toDouble() ?? 0,
       itemType: map['tipo_item']?.toString() ?? 'producto',
+      precioIncluyeIva: (map['precio_incluye_iva'] as num?)?.toInt() == 1 || map['precio_incluye_iva'] == true,
     );
   }
 
@@ -110,6 +115,7 @@ class Product {
     'conversion_nombre': conversionName,
     'conversion_cantidad': conversionQuantity,
     'tipo_item': itemType,
+    'precio_incluye_iva': precioIncluyeIva ? 1 : 0,
   };
 
   Map<String, Object?> toPersistenceMap() {

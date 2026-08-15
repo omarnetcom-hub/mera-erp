@@ -1376,6 +1376,12 @@ class DatabaseHelper {
     await _agregarColumnaSiNoExiste(
       db,
       'productos',
+      'precio_incluye_iva',
+      'INTEGER DEFAULT 0',
+    );
+    await _agregarColumnaSiNoExiste(
+      db,
+      'productos',
       'descripcion',
       "TEXT DEFAULT ''",
     );

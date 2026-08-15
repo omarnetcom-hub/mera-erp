@@ -244,6 +244,29 @@ class _VentasPageState extends State<VentasPage> {
     double impuestoPct =
         (disponibles.first['impuesto_pct'] as num?)?.toDouble() ?? 0;
     final carrito = <Map<String, dynamic>>[];
+    ({MoneyValue subtotal, MoneyValue impuestoTotal}) _calcularValoresItem({
+      required MoneyValue precio,
+      required double cantidad,
+      required double impuestoPct,
+      required bool precioIncluyeIva,
+      required Currency currency,
+    }) {
+      if (precioIncluyeIva && impuestoPct > 0) {
+        final totalCobrado = precio.multiplyDecimal(cantidad.toString());
+        final factor = 1.0 + (impuestoPct / 100.0);
+        final baseMajor = totalCobrado.toMajorUnitsDoubleForDisplay() / factor;
+        final subtotal = MoneyValue.fromMajorUnits(
+          baseMajor.toStringAsFixed(currency.decimalPlaces),
+          currency: currency,
+        );
+        final impuestoTotal = totalCobrado - subtotal;
+        return (subtotal: subtotal, impuestoTotal: impuestoTotal);
+      } else {
+        final subtotal = precio.multiplyDecimal(cantidad.toString());
+        final impuestoTotal = subtotal.percent(impuestoPct.toString());
+        return (subtotal: subtotal, impuestoTotal: impuestoTotal);
+      }
+    }
 
     Map<String, dynamic>? productoPorId(int id) {
       for (final producto in disponibles) {
@@ -297,19 +320,35 @@ class _VentasPageState extends State<VentasPage> {
         currency: currency,
         nullableAsZero: true,
       );
-      final subtotalItem = precio.multiplyDecimal(cantidad.toString());
-      final impuestoItem = subtotalItem.percent(impuestoPct.toString());
+      final bool precioIncluyeIva =
+          (producto['precio_incluye_iva'] as num?)?.toInt() == 1 ||
+          producto['precio_incluye_iva'] == true;
+
+      final calcInicial = _calcularValoresItem(
+        precio: precio,
+        cantidad: cantidad,
+        impuestoPct: impuestoPct,
+        precioIncluyeIva: precioIncluyeIva,
+        currency: currency,
+      );
+
       final existente = carrito.where((i) => i['producto_id'] == productoId);
       setDlg(() {
         if (existente.isNotEmpty) {
           final item = existente.first;
           final nuevaCantidad = (item['cantidad'] as num).toDouble() + cantidad;
           item['cantidad'] = nuevaCantidad;
-          item['subtotal'] = precio.multiplyDecimal(nuevaCantidad.toString());
           item['impuesto_pct'] = impuestoPct;
-          item['impuesto_total'] = (item['subtotal'] as MoneyValue).percent(
-            impuestoPct.toString(),
+
+          final calcEdit = _calcularValoresItem(
+            precio: item['precio'] as MoneyValue,
+            cantidad: nuevaCantidad,
+            impuestoPct: impuestoPct,
+            precioIncluyeIva: precioIncluyeIva,
+            currency: currency,
           );
+          item['subtotal'] = calcEdit.subtotal;
+          item['impuesto_total'] = calcEdit.impuestoTotal;
         } else {
           carrito.add({
             'producto_id': productoId,
@@ -319,9 +358,10 @@ class _VentasPageState extends State<VentasPage> {
             'cantidad': cantidad,
             'precio': precio,
             'costo': costo,
-            'subtotal': subtotalItem,
+            'subtotal': calcInicial.subtotal,
             'impuesto_pct': impuestoPct,
-            'impuesto_total': impuestoItem,
+            'impuesto_total': calcInicial.impuestoTotal,
+            'precio_incluye_iva': precioIncluyeIva,
             'ubicacion_codigo': producto['ubicacion_codigo'] ?? '',
             'ubicacion_pasillo': producto['ubicacion_pasillo'] ?? '',
             'ubicacion_estante': producto['ubicacion_estante'] ?? '',
