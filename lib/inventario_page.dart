@@ -189,8 +189,20 @@ class _InventarioPageState extends State<InventarioPage> {
     );
 
     if (confirmar == true) {
-      await _productosRepo.delete(id);
-      await _cargarProductos();
+      try {
+        await _productosRepo.delete(id);
+        await _cargarProductos();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al eliminar producto: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -358,31 +370,43 @@ class _InventarioPageState extends State<InventarioPage> {
 
                 Navigator.pop(ctx);
 
-                await _guardarProducto(
-                  id: producto?.id,
-                  nombre: nombreCtrl.text.trim(),
-                  unidad: unidadCtrl.text.trim(),
-                  stock: double.parse(stockCtrl.text.trim().replaceAll(',', '.')),
-                  costo: double.parse(costoCtrl.text.trim().replaceAll(',', '.')),
-                  precio: double.parse(
-                    precioCtrl.text.trim().replaceAll(',', '.'),
-                  ),
-                  impuestoPct:
-                      double.tryParse(
-                        impuestoCtrl.text.trim().replaceAll(',', '.'),
-                      ) ??
-                      0,
-                  codigoBarras: codigoBarrasCtrl.text.trim(),
-                  convNombre: convNombreCtrl.text.trim(),
-                  convCantidad:
-                      double.tryParse(
-                        convCantidadCtrl.text.trim().replaceAll(',', '.'),
-                      ) ??
-                      0,
-                  codigoLote: codigoLoteCtrl.text.trim(),
-                  fechaVencimiento: fechaVencimientoCtrl.text.trim(),
-                  precioIncluyeIva: precioIncluyeIva,
-                );
+                try {
+                  await _guardarProducto(
+                    id: producto?.id,
+                    nombre: nombreCtrl.text.trim(),
+                    unidad: unidadCtrl.text.trim(),
+                    stock: double.parse(stockCtrl.text.trim().replaceAll(',', '.')),
+                    costo: double.parse(costoCtrl.text.trim().replaceAll(',', '.')),
+                    precio: double.parse(
+                      precioCtrl.text.trim().replaceAll(',', '.'),
+                    ),
+                    impuestoPct:
+                        double.tryParse(
+                          impuestoCtrl.text.trim().replaceAll(',', '.'),
+                        ) ??
+                        0,
+                    codigoBarras: codigoBarrasCtrl.text.trim(),
+                    convNombre: convNombreCtrl.text.trim(),
+                    convCantidad:
+                        double.tryParse(
+                          convCantidadCtrl.text.trim().replaceAll(',', '.'),
+                        ) ??
+                        0,
+                    codigoLote: codigoLoteCtrl.text.trim(),
+                    fechaVencimiento: fechaVencimientoCtrl.text.trim(),
+                    precioIncluyeIva: precioIncluyeIva,
+                  );
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error al guardar producto: $e'),
+                        backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 6),
+                      ),
+                    );
+                  }
+                }
               },
               child: const Text('Guardar'),
             ),

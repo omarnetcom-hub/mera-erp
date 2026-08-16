@@ -299,7 +299,15 @@ class _VentasPageState extends State<VentasPage> {
       Map<String, dynamic> producto,
       double cantidad,
     ) {
-      if (cantidad <= 0) return;
+      if (cantidad <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ingresa una cantidad mayor a cero.'),
+            backgroundColor: MerkaThemeTokens.warning,
+          ),
+        );
+        return;
+      }
       final productoId = (producto['id'] as num).toInt();
       final stock = (producto['stock'] as num).toDouble();
       final yaAgregado = carrito
@@ -569,12 +577,28 @@ class _VentasPageState extends State<VentasPage> {
                           final producto = productoPorId(productoSelId);
                           if (producto == null) return;
 
-                          final customPrecio = double.tryParse(
-                            precioUnitarioCtrl.text.trim().replaceAll(',', '.'),
-                          );
-                          final prodParaAgregar = customPrecio != null
-                              ? (Map<String, dynamic>.from(producto)..['precio'] = customPrecio)
-                              : producto;
+                          final customPrecioStr =
+                              precioUnitarioCtrl.text.trim().replaceAll(',', '.');
+                          final customPrecio =
+                              double.tryParse(customPrecioStr);
+                          // El mapa de producto almacena 'precio' como un
+                          // MoneyValue (ya hidratado desde la BD). Si el cajero
+                          // ingresó un precio personalizado hay que convertirlo
+                          // también a MoneyValue con fromMajorUnits — de lo
+                          // contrario MoneyValue.fromSql() lanza StateError
+                          // porque espera int (minor units), no double.
+                          final Map<String, dynamic> prodParaAgregar;
+                          if (customPrecio != null) {
+                            final precioMoney = MoneyValue.fromMajorUnits(
+                              customPrecioStr,
+                              currency: currency,
+                            );
+                            prodParaAgregar =
+                                Map<String, dynamic>.from(producto)
+                                  ..['precio'] = precioMoney;
+                          } else {
+                            prodParaAgregar = producto;
+                          }
 
                           agregarProducto(setDlg, prodParaAgregar, cantidad);
                         },

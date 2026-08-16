@@ -86,7 +86,7 @@ class ActiveCompanyConfiguration {
 
 /// Singleton que gestiona la base de datos SQLite de la aplicación.
 class DatabaseHelper {
-  static const int schemaVersion = 104;
+  static const int schemaVersion = 105;
 
   static final DatabaseHelper instance = DatabaseHelper._init();
 
@@ -1262,6 +1262,24 @@ class DatabaseHelper {
     }
     if (oldVersion < 104) {
       await SchemaMrp.migrarBacklogK(db);
+    }
+    if (oldVersion < 105) {
+      // Columnas agregadas en feat(services) / feat(tax) sin migración numerada.
+      // tipo_item permite distinguir 'producto' vs 'servicio' (no descuenta stock).
+      // precio_incluye_iva indica que el precio publicado ya contiene el IVA.
+      // _agregarColumnaSiNoExiste es idempotente: no falla si ya existen.
+      await _agregarColumnaSiNoExiste(
+        db,
+        'productos',
+        'tipo_item',
+        "TEXT DEFAULT 'producto'",
+      );
+      await _agregarColumnaSiNoExiste(
+        db,
+        'productos',
+        'precio_incluye_iva',
+        'INTEGER DEFAULT 0',
+      );
     }
   }
 
