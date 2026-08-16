@@ -14,6 +14,11 @@ import 'package:pointycastle/export.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  // WidgetsBinding es requerido por ControlCenterAgent.handleRemoteAccessConsent
+  // que usa GlobalKey.currentContext. Sin esto el test falla con
+  // "Binding has not yet been initialized" al correr aislado.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late AsymmetricKeyPair<RSAPublicKey, RSAPrivateKey> keys;
   late LicenseValidationService validator;
   late Database db;

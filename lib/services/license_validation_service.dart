@@ -47,49 +47,67 @@ hjkWm8BQxAfKF7CIy+3PTrOwuEnrgPSiIoX7WohsP+JbAgMBAAE=
   }
 
   /// Verifica primero cabecera y firma RS256. Solo despues procesa claims.
+  ///
+  /// FAIL-CLOSED: cualquier error de firma, clave ausente o claim inválido
+  /// retorna null. Nunca retorna un payload sin firma verificada.
   Map<String, dynamic>? validateOfflineToken(String token) {
     try {
       final parts = token.split('.');
-      if (parts.length != 3) return null;
+      // Fail-closed: sin clave pública configurada, rechazar todo.
+      if (parts.length != 3 || !hasConfiguredPublicKey) return null;
 
       final header = _decodeJsonObject(parts[0]);
-      if (header == null || header['typ'] != 'JWT') {
+      // Requerir alg=RS256 y typ=JWT explícitamente.
+      if (header == null ||
+          header['alg'] != 'RS256' ||
+          header['typ'] != 'JWT') {
         return null;
       }
 
+      // Verificar firma antes de leer el payload — fail-closed en cualquier error.
+      final RSAPublicKey publicKey;
+      try {
+        publicKey = CryptoUtils.rsaPublicKeyFromPem(_publicKeyPem);
+      } catch (_) {
+        return null;
+      }
+
+      final verifier = Signer('SHA-256/RSA')
+        ..init(false, PublicKeyParameter<RSAPublicKey>(publicKey));
+
+      final RSASignature signature;
+      try {
+        signature = RSASignature(_base64UrlDecodeBytes(parts[2]));
+      } catch (_) {
+        return null;
+      }
+
+      final signingInput = Uint8List.fromList(
+        ascii.encode('${parts[0]}.${parts[1]}'),
+      );
+
+      bool valid;
+      try {
+        valid = verifier.verifySignature(signingInput, signature);
+      } catch (_) {
+        valid = false;
+      }
+      // Fail-closed: firma inválida → null, sin excepción.
+      if (!valid) return null;
+
+      // Solo tras verificar la firma se procesa el payload.
       final payload = _decodeJsonObject(parts[1]);
       if (payload == null) return null;
 
-      // Normalizar campos del payload
+      // Normalizar campos alternativos (compatibilidad con tokens del servidor
+      // que pueden usar nombres largos en lugar de abreviaciones).
       payload['hfp'] ??= payload['hardware_fingerprint'];
       payload['lt'] ??= payload['license_type'];
       payload['st'] ??= payload['status'] ?? payload['estado'];
       payload['ed'] ??= payload['expiry_date'] ?? payload['expires_at'];
       payload['md'] ??= payload['modules'];
-      payload['iss'] ??= _expectedIssuer;
-
-      if (!hasConfiguredPublicKey) {
-        if (!_validateTokenStructure(payload)) return null;
-        return payload;
-      }
-
-      try {
-        final publicKey = CryptoUtils.rsaPublicKeyFromPem(_publicKeyPem);
-        final verifier = Signer('SHA-256/RSA')
-          ..init(false, PublicKeyParameter<RSAPublicKey>(publicKey));
-        final signature = RSASignature(_base64UrlDecodeBytes(parts[2]));
-        final signingInput = Uint8List.fromList(
-          ascii.encode('${parts[0]}.${parts[1]}'),
-        );
-
-        if (!verifier.verifySignature(signingInput, signature)) {
-          if (!_validateTokenStructure(payload)) return null;
-          return payload;
-        }
-      } catch (_) {
-        if (!_validateTokenStructure(payload)) return null;
-        return payload;
-      }
+      // iss nunca se rellenará con el esperado si no viene en el token;
+      // _validateTokenStructure lo rechazará si falta o es incorrecto.
 
       if (!_validateTokenStructure(payload)) return null;
       return payload;
@@ -98,7 +116,8 @@ hjkWm8BQxAfKF7CIy+3PTrOwuEnrgPSiIoX7WohsP+JbAgMBAAE=
     }
   }
 
-  /// Aplica las validaciones de negocio requeridas para usar el token.
+  /// Aplica las validaciones de negocio requeridas para usar el token
+  /// en el dispositivo actual (expiración, estado, fingerprint).
   Future<Map<String, dynamic>?> validateOfflineTokenForDevice(
     String token,
     String currentFingerprint,
@@ -107,41 +126,63 @@ hjkWm8BQxAfKF7CIy+3PTrOwuEnrgPSiIoX7WohsP+JbAgMBAAE=
     if (payload == null || isTokenExpired(payload) || !isTokenActive(payload)) {
       return null;
     }
+    // Fail-closed: fingerprint obligatorio y debe coincidir.
     final tokenFingerprint = payload['hfp'] as String?;
-    if (tokenFingerprint != null &&
-        !await verifyHardwareFingerprint(
-          tokenFingerprint,
-          currentFingerprint,
-        )) {
-      // Ignorar estricto mismatch si viene de servidor en la nube
+    if (tokenFingerprint == null ||
+        !await verifyHardwareFingerprint(tokenFingerprint, currentFingerprint)) {
+      return null;
     }
     return payload;
   }
 
   Map<String, dynamic>? _decodeJsonObject(String encoded) {
-    final decoded = utf8.decode(_base64UrlDecodeBytes(encoded));
-    final value = jsonDecode(decoded);
-    if (value is! Map<String, dynamic>) return null;
-    return value;
+    try {
+      final decoded = utf8.decode(_base64UrlDecodeBytes(encoded));
+      final value = jsonDecode(decoded);
+      if (value is! Map<String, dynamic>) return null;
+      return value;
+    } catch (_) {
+      return null;
+    }
   }
 
+  /// Valida la estructura y semántica del payload de un token ya firmado.
   bool _validateTokenStructure(Map<String, dynamic> payload) {
-    final fingerprint = payload['hfp'] ?? payload['hardware_fingerprint'];
-    if (fingerprint == null || fingerprint.toString().trim().isEmpty) return false;
+    // Todos los campos requeridos deben existir.
+    const requiredFields = ['hfp', 'lt', 'st', 'ed', 'md', 'iat', 'iss'];
+    if (requiredFields.any((field) => !payload.containsKey(field))) {
+      return false;
+    }
 
-    final licenseType = payload['lt'] ?? payload['license_type'];
-    if (licenseType == null || licenseType.toString().trim().isEmpty) return false;
+    // Issuer estricto.
+    if (payload['iss'] != _expectedIssuer) return false;
 
-    final status = payload['st'] ?? payload['status'] ?? payload['estado'];
-    if (status == null || status.toString().trim().isEmpty) return false;
+    final fingerprint = payload['hfp'];
+    if (fingerprint is! String || fingerprint.trim().isEmpty) return false;
 
-    final expiry = payload['ed'] ?? payload['expiry_date'] ?? payload['expires_at'];
+    final licenseType = payload['lt'];
+    if (licenseType != 'SUSCRIPCION' && licenseType != 'PERPETUA') {
+      return false;
+    }
+
+    final status = payload['st'];
+    if (status != 'ACTIVO' && status != 'TRIAL' && status != 'SUSPENDIDO') {
+      return false;
+    }
+
+    final expiry = payload['ed'];
     if (expiry is! String || DateTime.tryParse(expiry) == null) return false;
 
-    final modules = payload['md'] ?? payload['modules'];
-    if (modules is! List) return false;
+    final modules = payload['md'];
+    if (modules is! List || modules.any((module) => module is! String)) {
+      return false;
+    }
 
-    return true;
+    final issuedAt = payload['iat'];
+    final validIssuedAt =
+        (issuedAt is int && issuedAt > 0) ||
+        (issuedAt is String && DateTime.tryParse(issuedAt) != null);
+    return validIssuedAt;
   }
 
   Future<bool> verifyHardwareFingerprint(
