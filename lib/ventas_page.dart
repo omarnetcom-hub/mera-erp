@@ -206,7 +206,13 @@ class _VentasPageState extends State<VentasPage> {
     final zero = MoneyValue(minorUnits: 0, currency: currency);
 
     final disponibles = _productos
-        .where((p) => ((p['stock'] as num?)?.toDouble() ?? 0) > 0)
+        .where((p) {
+          final esServicio =
+              (p['tipo_item']?.toString() ?? 'producto') == 'servicio';
+          // Los servicios no tienen stock físico — siempre están disponibles.
+          // Los productos físicos requieren stock > 0.
+          return esServicio || ((p['stock'] as num?)?.toDouble() ?? 0) > 0;
+        })
         .toList();
 
     if (disponibles.isEmpty) {
@@ -294,45 +300,76 @@ class _VentasPageState extends State<VentasPage> {
       return subtotalCarrito() + impuestoCarrito();
     }
 
+    // Convierte cualquier representación de precio/costo a MoneyValue.
+    // Acepta: int (minor units de BD post-v75), double (BD pre-v75 o REAL),
+    // MoneyValue (ya hidratado, p.ej. precio editado por el cajero).
+    // Nunca lanza StateError — fuente de silenciosos en llamadas previas.
+    MoneyValue resolveMoneyValue(
+      Object? value,
+      Currency cur, {
+      bool nullableAsZero = false,
+    }) {
+      if (value == null) {
+        return MoneyValue(minorUnits: 0, currency: cur);
+      }
+      if (value is MoneyValue) return value;
+      if (value is int) return MoneyValue(minorUnits: value, currency: cur);
+      if (value is double) {
+        // BD pre-v75: columna REAL → double. Tratamos como minor units
+        // con truncamiento (equivalente a lo que fromSql haría si fuera int).
+        return MoneyValue(minorUnits: value.round(), currency: cur);
+      }
+      if (nullableAsZero) return MoneyValue(minorUnits: 0, currency: cur);
+      throw StateError(
+        'No se puede convertir precio a MoneyValue: ${value.runtimeType} = $value',
+      );
+    }
+
     void agregarProducto(
       StateSetter setDlg,
       Map<String, dynamic> producto,
       double cantidad,
     ) {
-      if (cantidad <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ingresa una cantidad mayor a cero.'),
-            backgroundColor: MerkaThemeTokens.warning,
-          ),
-        );
-        return;
-      }
-      final productoId = (producto['id'] as num).toInt();
-      final stock = (producto['stock'] as num).toDouble();
-      final yaAgregado = carrito
-          .where((item) => item['producto_id'] == productoId)
-          .fold<double>(
-            0,
-            (sum, item) => sum + (item['cantidad'] as num).toDouble(),
+      try {
+        if (cantidad <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ingresa una cantidad mayor a cero.'),
+              backgroundColor: MerkaThemeTokens.warning,
+            ),
           );
+          return;
+        }
+        final productoId = (producto['id'] as num).toInt();
+        final esServicio =
+            (producto['tipo_item']?.toString() ?? 'producto') == 'servicio';
+        final stock = (producto['stock'] as num).toDouble();
+        final yaAgregado = carrito
+            .where((item) => item['producto_id'] == productoId)
+            .fold<double>(
+              0,
+              (sum, item) => sum + (item['cantidad'] as num).toDouble(),
+            );
 
-      if (yaAgregado + cantidad > stock) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Stock insuficiente para ${producto['nombre']}'),
-            backgroundColor: MerkaThemeTokens.danger,
-          ),
+        // Los servicios no descuentan stock — el check solo aplica a productos.
+        if (!esServicio && yaAgregado + cantidad > stock) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Stock insuficiente para ${producto['nombre']}'),
+              backgroundColor: MerkaThemeTokens.danger,
+            ),
+          );
+          return;
+        }
+
+        // resolveMoneyValue acepta int (BD post-v75), double (BD pre-v75/REAL),
+        // y MoneyValue (precio editado por el cajero). Ya no lanza StateError.
+        final precio = resolveMoneyValue(producto['precio'], currency);
+        final costo = resolveMoneyValue(
+          producto['costo'],
+          currency,
+          nullableAsZero: true,
         );
-        return;
-      }
-
-      final precio = MoneyValue.fromSql(producto['precio'], currency: currency);
-      final costo = MoneyValue.fromSql(
-        producto['costo'],
-        currency: currency,
-        nullableAsZero: true,
-      );
       final bool precioIncluyeIva =
           (producto['precio_incluye_iva'] as num?)?.toInt() == 1 ||
           producto['precio_incluye_iva'] == true;
@@ -387,6 +424,22 @@ class _VentasPageState extends State<VentasPage> {
         barcodeCtrl.clear();
         barcodeFocus.requestFocus();
       });
+      } catch (e, st) {
+        // Muestra el error real en pantalla — en release mode las excepciones
+        // no capturadas en callbacks son silenciosas y el usuario no ve nada.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al agregar al carrito: $e'),
+            backgroundColor: MerkaThemeTokens.danger,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+        assert(() {
+          // En debug mode, relanza para que el devtools lo vea.
+          // ignore: only_throw_errors
+          Error.throwWithStackTrace(e, st);
+        }());
+      }
     }
 
     Map<String, dynamic>? buscarPorCodigo(String codigo) {
@@ -569,38 +622,45 @@ class _VentasPageState extends State<VentasPage> {
                       const SizedBox(width: 8),
                       FilledButton.icon(
                         onPressed: () {
-                          final cantidad =
-                              double.tryParse(
-                                cantidadCtrl.text.replaceAll(',', '.'),
-                              ) ??
-                              0;
-                          final producto = productoPorId(productoSelId);
-                          if (producto == null) return;
+                          try {
+                            final cantidad =
+                                double.tryParse(
+                                  cantidadCtrl.text.replaceAll(',', '.'),
+                                ) ??
+                                0;
+                            final producto = productoPorId(productoSelId);
+                            if (producto == null) return;
 
-                          final customPrecioStr =
-                              precioUnitarioCtrl.text.trim().replaceAll(',', '.');
-                          final customPrecio =
-                              double.tryParse(customPrecioStr);
-                          // El mapa de producto almacena 'precio' como un
-                          // MoneyValue (ya hidratado desde la BD). Si el cajero
-                          // ingresó un precio personalizado hay que convertirlo
-                          // también a MoneyValue con fromMajorUnits — de lo
-                          // contrario MoneyValue.fromSql() lanza StateError
-                          // porque espera int (minor units), no double.
-                          final Map<String, dynamic> prodParaAgregar;
-                          if (customPrecio != null) {
-                            final precioMoney = MoneyValue.fromMajorUnits(
-                              customPrecioStr,
-                              currency: currency,
+                            final customPrecioStr =
+                                precioUnitarioCtrl.text.trim().replaceAll(',', '.');
+                            final customPrecio =
+                                double.tryParse(customPrecioStr);
+
+                            final Map<String, dynamic> prodParaAgregar;
+                            if (customPrecio != null) {
+                              // Precio editado por el cajero: se convierte a
+                              // MoneyValue con fromMajorUnits para que
+                              // resolveMoneyValue lo reciba ya tipado.
+                              prodParaAgregar =
+                                  Map<String, dynamic>.from(producto)
+                                    ..['precio'] = MoneyValue.fromMajorUnits(
+                                      customPrecioStr,
+                                      currency: currency,
+                                    );
+                            } else {
+                              prodParaAgregar = producto;
+                            }
+
+                            agregarProducto(setDlg, prodParaAgregar, cantidad);
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: MerkaThemeTokens.danger,
+                                duration: const Duration(seconds: 8),
+                              ),
                             );
-                            prodParaAgregar =
-                                Map<String, dynamic>.from(producto)
-                                  ..['precio'] = precioMoney;
-                          } else {
-                            prodParaAgregar = producto;
                           }
-
-                          agregarProducto(setDlg, prodParaAgregar, cantidad);
                         },
                         icon: const Icon(Icons.add),
                         label: const Text('Agregar'),

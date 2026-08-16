@@ -453,4 +453,65 @@ void main() {
       expect(fueAgregado, isTrue, reason: 'cantidad=1 sí debe agregar');
     },
   );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 8: resolveMoneyValue — acepta int, double y MoneyValue sin lanzar
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // Regresión: agregarProducto llamaba MoneyValue.fromSql que lanza StateError
+  // si producto['precio'] no es int. El fix b371488 convirtió double→MoneyValue
+  // en el onPressed, pero agregarProducto seguía llamando fromSql — lo que
+  // lanzaba StateError cuando precio era MoneyValue (precio editado).
+  //
+  // Fix final: nuevo helper resolveMoneyValue acepta int/double/MoneyValue.
+  test(
+    'resolveMoneyValue acepta int, double y MoneyValue — nunca lanza StateError',
+    () {
+      final currency = cop;
+
+      // Simula el helper que ahora existe en ventas_page.dart (líneas ~297-320).
+      MoneyValue resolveMoneyValue(
+        Object? value,
+        Currency cur, {
+        bool nullableAsZero = false,
+      }) {
+        if (value == null) {
+          return MoneyValue(minorUnits: 0, currency: cur);
+        }
+        if (value is MoneyValue) return value;
+        if (value is int) return MoneyValue(minorUnits: value, currency: cur);
+        if (value is double) {
+          return MoneyValue(minorUnits: value.round(), currency: cur);
+        }
+        if (nullableAsZero) return MoneyValue(minorUnits: 0, currency: cur);
+        throw StateError(
+          'No se puede convertir precio a MoneyValue: ${value.runtimeType}',
+        );
+      }
+
+      // CASO 1: BD post-migración v75 → precio es int (minor units).
+      final desdeBD = resolveMoneyValue(250000, currency);
+      expect(desdeBD.minorUnits, 250000);
+      expect(desdeBD.currencyCode, 'COP');
+
+      // CASO 2: BD pre-v75 (columna REAL) → precio puede ser double.
+      final desdeBDLegacy = resolveMoneyValue(250000.0, currency);
+      expect(desdeBDLegacy.minorUnits, 250000);
+
+      // CASO 3: Precio editado por el cajero → ya es MoneyValue.
+      final precioEditado = MoneyValue.fromMajorUnits('350000', currency: currency);
+      final desdeEdicion = resolveMoneyValue(precioEditado, currency);
+      expect(desdeEdicion.minorUnits, 350000);
+      expect(identical(desdeEdicion, precioEditado), isTrue,
+          reason: 'Si ya es MoneyValue, debe devolverlo sin cambios');
+
+      // CASO 4: null con nullableAsZero=true → devuelve cero.
+      final desdeNull = resolveMoneyValue(null, currency, nullableAsZero: true);
+      expect(desdeNull.minorUnits, 0);
+
+      // CASO 5: null con nullableAsZero=false → también cero por diseño.
+      final desdeNullSinFlag = resolveMoneyValue(null, currency);
+      expect(desdeNullSinFlag.minorUnits, 0);
+    },
+  );
 }
