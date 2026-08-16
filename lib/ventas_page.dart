@@ -235,10 +235,15 @@ class _VentasPageState extends State<VentasPage> {
     final pagoCajaCtrl = TextEditingController();
     final pagoBancoCtrl = TextEditingController();
     final pagoCreditoCtrl = TextEditingController();
-    final montoRecibidoCtrl = TextEditingController();
+    final precioUnitarioCtrl = TextEditingController(
+      text: (disponibles.first['precio'] is MoneyValue)
+          ? (disponibles.first['precio'] as MoneyValue).toMajorUnitsString()
+          : (disponibles.first['precio'] ?? '0').toString(),
+    );
     final retefuenteCtrl = TextEditingController(text: '0');
     final reteivaCtrl = TextEditingController(text: '0');
     final reteicaCtrl = TextEditingController(text: '0');
+    final montoRecibidoCtrl = TextEditingController();
     int? clienteId;
     String clienteNombre = 'Cliente general';
     double impuestoPct =
@@ -512,6 +517,12 @@ class _VentasPageState extends State<VentasPage> {
                         impuestoPct =
                             (producto?['impuesto_pct'] as num?)?.toDouble() ??
                             0;
+                        if (producto != null && producto['precio'] != null) {
+                          final pVal = producto['precio'];
+                          precioUnitarioCtrl.text = pVal is MoneyValue
+                              ? pVal.toMajorUnitsString()
+                              : pVal.toString();
+                        }
                       });
                     },
                   ),
@@ -533,6 +544,21 @@ class _VentasPageState extends State<VentasPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: precioUnitarioCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [NumericInput.decimal],
+                          decoration: const InputDecoration(
+                            labelText: 'Precio Unitario',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       FilledButton.icon(
                         onPressed: () {
                           final cantidad =
@@ -542,7 +568,15 @@ class _VentasPageState extends State<VentasPage> {
                               0;
                           final producto = productoPorId(productoSelId);
                           if (producto == null) return;
-                          agregarProducto(setDlg, producto, cantidad);
+
+                          final customPrecio = double.tryParse(
+                            precioUnitarioCtrl.text.trim().replaceAll(',', '.'),
+                          );
+                          final prodParaAgregar = customPrecio != null
+                              ? (Map<String, dynamic>.from(producto)..['precio'] = customPrecio)
+                              : producto;
+
+                          agregarProducto(setDlg, prodParaAgregar, cantidad);
                         },
                         icon: const Icon(Icons.add),
                         label: const Text('Agregar'),
@@ -884,6 +918,8 @@ class _VentasPageState extends State<VentasPage> {
     barcodeFocus.dispose();
     barcodeCtrl.dispose();
     cantidadCtrl.dispose();
+    precioUnitarioCtrl.dispose();
+    montoRecibidoCtrl.dispose();
   }
 
   Future<void> _guardarVenta({
@@ -1275,8 +1311,12 @@ class _VentasPageState extends State<VentasPage> {
                                   itemBuilder: (ctx, index) {
                                     final venta = ventasVisibles[index];
                                     final id = (venta['id'] as num).toInt();
-                                    final total = (venta['total'] as num)
-                                        .toDouble();
+                                    final totalRaw = venta['total'];
+                                    final totalStr = totalRaw is MoneyValue
+                                        ? totalRaw.format()
+                                        : (totalRaw is num
+                                            ? _moneda(totalRaw.toDouble())
+                                            : totalRaw?.toString() ?? '$zero');
                                     final anulada =
                                         (venta['estado']?.toString() ??
                                             'emitida') ==
@@ -1292,7 +1332,7 @@ class _VentasPageState extends State<VentasPage> {
                                       ),
                                       resumen: _resumenProductos(id),
                                       metodoPago: _metodoPago(venta),
-                                      total: _moneda(total),
+                                      total: totalStr,
                                       anulada: anulada,
                                       onTap: () => _mostrarDetalle(venta),
                                       onCancel: anulada
@@ -1656,7 +1696,13 @@ class _VentaTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final accent = anulada ? AppBrand.error : AppBrand.warning;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // En tema oscuro (navy) los tokens fijos de éxito/error son demasiado oscuros
+    // y generan bajo contraste. Se usan versiones más brillantes adaptadas al tema.
+    final successColor = isDark ? const Color(0xFF4CAF50) : AppBrand.success;
+    final errorColor = isDark ? const Color(0xFFEF5350) : AppBrand.error;
+    final warningColor = isDark ? const Color(0xFFFFB74D) : AppBrand.warning;
+    final accent = anulada ? errorColor : warningColor;
     return Material(
       color: colors.surface,
       shape: RoundedRectangleBorder(
@@ -1698,7 +1744,7 @@ class _VentaTile extends StatelessWidget {
                         EnterpriseStatusPill(
                           icon: anulada ? Icons.block : Icons.check,
                           label: anulada ? 'Anulada' : 'Emitida',
-                          color: anulada ? AppBrand.error : AppBrand.success,
+                          color: anulada ? errorColor : successColor,
                         ),
                       ],
                     ),
@@ -1726,13 +1772,13 @@ class _VentaTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: anulada ? AppBrand.error : AppBrand.success,
+                    color: anulada ? errorColor : successColor,
                   ),
                 ),
               ),
               IconButton(
                 icon: const Icon(Icons.undo),
-                color: AppBrand.error,
+                color: errorColor,
                 tooltip: 'Anular factura',
                 onPressed: onCancel,
               ),

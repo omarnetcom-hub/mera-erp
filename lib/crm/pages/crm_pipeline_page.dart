@@ -159,7 +159,7 @@ class _CrmPipelinePageState extends State<CrmPipelinePage> {
   }
 }
 
-class _PipelineBoard extends StatelessWidget {
+class _PipelineBoard extends StatefulWidget {
   const _PipelineBoard({
     required this.opportunities,
     required this.onMove,
@@ -173,6 +173,19 @@ class _PipelineBoard extends StatelessWidget {
   final ValueChanged<CrmOpportunity> onSelectOpportunity;
   final ValueChanged<CrmOpportunity> onOpenOpportunity;
   final ValueChanged<int> onOpenAccount;
+
+  @override
+  State<_PipelineBoard> createState() => _PipelineBoardState();
+}
+
+class _PipelineBoardState extends State<_PipelineBoard> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   String _stageTitle(CrmSalesStage stage) {
     switch (stage) {
@@ -198,32 +211,38 @@ class _PipelineBoard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth > 1500 ? 220.0 : 260.0;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: CrmSalesStage.values.map((stage) {
-              final items = opportunities
-                  .where((opportunity) => opportunity.salesStage == stage)
-                  .toList();
-              return SizedBox(
-                width: width,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _StageColumn(
-                    title: _stageTitle(stage),
-                    probability: stage.probability,
-                    stage: stage,
-                    opportunities: items,
-                    onMove: onMove,
-                    onSelectOpportunity: onSelectOpportunity,
-                    onOpenOpportunity: onOpenOpportunity,
-                    onOpenAccount: onOpenAccount,
+        return Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: CrmSalesStage.values.map((stage) {
+                final items = widget.opportunities
+                    .where((opportunity) => opportunity.salesStage == stage)
+                    .toList();
+                return SizedBox(
+                  width: width,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: _StageColumn(
+                      title: _stageTitle(stage),
+                      probability: stage.probability,
+                      stage: stage,
+                      opportunities: items,
+                      onMove: widget.onMove,
+                      onSelectOpportunity: widget.onSelectOpportunity,
+                      onOpenOpportunity: widget.onOpenOpportunity,
+                      onOpenAccount: widget.onOpenAccount,
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
         );
       },
