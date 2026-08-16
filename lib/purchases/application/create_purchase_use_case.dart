@@ -15,6 +15,7 @@ class PurchaseItemInput {
     required this.quantity,
     required this.unitCost,
     required this.subtotal,
+    required this.taxAmount,
   });
 
   final int productId;
@@ -22,6 +23,7 @@ class PurchaseItemInput {
   final double quantity;
   final MoneyValue unitCost;
   final MoneyValue subtotal;
+  final MoneyValue taxAmount;
 
   factory PurchaseItemInput.fromCart(
     Map<String, dynamic> item, {
@@ -33,6 +35,7 @@ class PurchaseItemInput {
       quantity: (item['cantidad'] as num).toDouble(),
       unitCost: _moneyFromInput(item['costo'], currency),
       subtotal: _moneyFromInput(item['subtotal'], currency),
+      taxAmount: _moneyFromInput(item['impuesto_linea'], currency),
     );
   }
 }
@@ -127,7 +130,10 @@ class CreatePurchaseUseCase {
       zero,
       (sum, item) => sum + item.subtotal,
     );
-    final tax = subtotal.percent(request.taxRate.toString());
+    final tax = request.items.fold<MoneyValue>(
+      zero,
+      (sum, item) => sum + item.taxAmount,
+    );
     final total = subtotal + tax;
     final retefuenteBase =
         request.retefuenteBase ??
@@ -223,9 +229,7 @@ class CreatePurchaseUseCase {
           'costo_unitario': item.unitCost.toSql(),
           'subtotal': item.subtotal.toSql(),
           'impuesto_pct': request.taxRate,
-          'impuesto_total': item.subtotal
-              .percent(request.taxRate.toString())
-              .toSql(),
+          'impuesto_total': item.taxAmount.toSql(),
         });
         await txn.update(
           'productos',

@@ -226,15 +226,47 @@ class _ComprasPageState extends State<ComprasPage> {
     final reteivaCtrl = TextEditingController(text: '0');
     final reteicaCtrl = TextEditingController(text: '0');
     final carrito = <Map<String, dynamic>>[];
+    bool precioIncluyeIva = false;
 
     double impuestoPct() => _parse(impuestoCtrl.text);
     final zero = MoneyValue(minorUnits: 0, currency: _currency);
+
+    // Calcula subtotal (base) e IVA de una línea de compra.
+    // Si precioIncluyeIva=true: desgrega el IVA del precio total.
+    // Si precioIncluyeIva=false: precio es la base, IVA se suma aparte.
+    ({MoneyValue subtotal, MoneyValue impuesto}) _calcularValoresLineaCompra({
+      required MoneyValue costo,
+      required double cantidad,
+      required double impuestoPct,
+      required bool precioIncluyeIva,
+    }) {
+      if (precioIncluyeIva && impuestoPct > 0) {
+        // Precio ingresado = total con IVA incluido (como viene en factura)
+        final totalConIva = costo.multiplyDecimal(cantidad.toString());
+        final factor = 1.0 + (impuestoPct / 100.0);
+        final baseMajor = totalConIva.toMajorUnitsDoubleForDisplay() / factor;
+        final subtotal = MoneyValue.fromMajorUnits(
+          baseMajor.toStringAsFixed(_currency!.decimalPlaces),
+          currency: _currency,
+        );
+        final impuesto = totalConIva - subtotal;
+        return (subtotal: subtotal, impuesto: impuesto);
+      } else {
+        // Comportamiento tradicional: precio = base, IVA se suma aparte
+        final subtotal = costo.multiplyDecimal(cantidad.toString());
+        final impuesto = subtotal.percent(impuestoPct.toString());
+        return (subtotal: subtotal, impuesto: impuesto);
+      }
+    }
+
     MoneyValue subtotalCarrito() => carrito.fold<MoneyValue>(
       zero,
       (sum, item) => sum + (item['subtotal'] as MoneyValue),
     );
-    MoneyValue impuestoCarrito() =>
-        subtotalCarrito().percent(impuestoPct().toString());
+    MoneyValue impuestoCarrito() => carrito.fold<MoneyValue>(
+      zero,
+      (sum, item) => sum + (item['impuesto_linea'] as MoneyValue),
+    );
     MoneyValue totalCarrito() => subtotalCarrito() + impuestoCarrito();
 
     void agregarProducto(StateSetter setDlg) {
@@ -260,6 +292,14 @@ class _ComprasPageState extends State<ComprasPage> {
         );
         return;
       }
+
+      final calc = _calcularValoresLineaCompra(
+        costo: costo,
+        cantidad: cantidad,
+        impuestoPct: impuestoPct(),
+        precioIncluyeIva: precioIncluyeIva,
+      );
+
       final productoId = productoSelId;
       final existente = carrito.where(
         (item) => item['producto_id'] == productoId,
@@ -268,9 +308,17 @@ class _ComprasPageState extends State<ComprasPage> {
         if (existente.isNotEmpty) {
           final item = existente.first;
           final nuevaCantidad = (item['cantidad'] as num).toDouble() + cantidad;
+          final calcActualizado = _calcularValoresLineaCompra(
+            costo: costo,
+            cantidad: nuevaCantidad,
+            impuestoPct: impuestoPct(),
+            precioIncluyeIva: precioIncluyeIva,
+          );
           item['cantidad'] = nuevaCantidad;
           item['costo'] = costo;
-          item['subtotal'] = costo.multiplyDecimal(nuevaCantidad.toString());
+          item['subtotal'] = calcActualizado.subtotal;
+          item['impuesto_linea'] = calcActualizado.impuesto;
+          item['precio_incluye_iva'] = precioIncluyeIva;
         } else {
           carrito.add({
             'producto_id': productoId,
@@ -278,7 +326,9 @@ class _ComprasPageState extends State<ComprasPage> {
             'unidad': productoSel['unidad_base'] ?? 'unid.',
             'cantidad': cantidad,
             'costo': costo,
-            'subtotal': costo.multiplyDecimal(cantidad.toString()),
+            'subtotal': calc.subtotal,
+            'impuesto_linea': calc.impuesto,
+            'precio_incluye_iva': precioIncluyeIva,
           });
         }
         cantidadCtrl.text = '1';
@@ -491,6 +541,26 @@ class _ComprasPageState extends State<ComprasPage> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text(
+                        'Precio incluye IVA (total factura proveedor)',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Activa si el costo ingresado ya tiene IVA incluido',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: precioIncluyeIva,
+                      onChanged: (value) {
+                        setDlg(() {
+                          precioIncluyeIva = value ?? false;
+                        });
+                      },
                     ),
                     if (esPagoMixto) ...[
                       const SizedBox(height: 10),
